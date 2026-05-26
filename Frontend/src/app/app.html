@@ -1,35 +1,34 @@
 <div class="app-shell">
 
-  <!-- SIDEBAR -->
+  <!-- NARROW ICON SIDEBAR -->
   <aside class="sidebar">
-    <div class="brand">
+    <div class="sidebar-brand">
       <div class="brand-icon">VP</div>
-      <div class="brand-text">
-        <h2>VPMS</h2>
-        <p>Vehicle Pass System</p>
-      </div>
     </div>
-
-    <nav class="menu">
-      <a routerLink="/" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">🏠</span>
-        <span class="nav-label">Dashboard</span>
+    <nav class="sidebar-nav">
+      <a routerLink="/" routerLinkActive="active" title="Home">
+        <span class="sicon">🏠</span>
+        <span class="slabel">Home</span>
       </a>
-      <a routerLink="/pass-registry" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">🪪</span>
-        <span class="nav-label">Pass Registry</span>
+      <a routerLink="/pass-registry" routerLinkActive="active" title="Passes">
+        <span class="sicon">🪪</span>
+        <span class="slabel">Passes</span>
       </a>
-      <a routerLink="/documents" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">📄</span>
-        <span class="nav-label">Documents</span>
+      <a routerLink="/documents" routerLinkActive="active" title="Documents">
+        <span class="sicon">📄</span>
+        <span class="slabel">Docs</span>
       </a>
-      <a routerLink="/history" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">📋</span>
-        <span class="nav-label">History</span>
+      <a routerLink="/history" routerLinkActive="active" title="History">
+        <span class="sicon">📋</span>
+        <span class="slabel">History</span>
       </a>
-      <a routerLink="/authority" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">🔐</span>
-        <span class="nav-label">Authority</span>
+      <a routerLink="/authority" routerLinkActive="active" title="Authority">
+        <span class="sicon">🔐</span>
+        <span class="slabel">Authority</span>
+      </a>
+      <a routerLink="/dashboard" routerLinkActive="active" title="Dashboard">
+        <span class="sicon">📊</span>
+        <span class="slabel">Dashboard</span>
       </a>
     </nav>
   </aside>
@@ -37,126 +36,247 @@
   <!-- MAIN AREA -->
   <div class="main-area">
 
-    <!-- TOPBAR -->
-    <header class="topbar">
-      <div class="title-block">
-        <span class="page-label">HOME</span>
-        <span class="dev-tag">*TESTING PURPOSE – STILL IN DEVELOPMENT</span>
+    <!-- TOP RED DEV BAR -->
+    <div class="dev-bar">
+      <span>*(TESTING PURPOSE – STILL IN DEVELOPMENT)</span>
+      <div class="dev-actions">
+        <button class="dev-btn">GATE LOG</button>
+        <button class="dev-btn">UPLOAD DOCUMENT</button>
+        <button class="dev-btn">FORM UPLOAD</button>
       </div>
-      <div class="top-actions">
-        <button class="outline-btn">📋 Gate Log</button>
-        <button class="outline-btn">⬆ Upload Document</button>
-        <button class="primary-btn">+ Create Pass</button>
-      </div>
-    </header>
+    </div>
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <span class="page-title">HOME</span>
+      <span class="page-sub">*NOT ACTUAL DATA AND LAYOUT</span>
+    </div>
 
     <!-- CONTENT -->
     <main class="content">
       <router-outlet></router-outlet>
 
-      <!-- STAT CARDS -->
-      <div class="stat-cards">
+      <!-- STAT CARDS ROW -->
+      <div class="stat-row">
         <div class="stat-card">
-          <div class="stat-label">ACTIVE PASSES 🪪</div>
-          <div class="stat-number">248</div>
-          <div class="stat-sub">(PENDING RENEWAL) 12</div>
-          <a class="check-link" href="#">CHECK DETAILS »</a>
-        </div>
-        <div class="stat-card highlight">
-          <div class="stat-label">EXPIRING SOON ⚠</div>
-          <div class="stat-number">36</div>
-          <div class="stat-sub">(WITHIN 30 DAYS)</div>
+          <div class="stat-title">ACTIVE PASSES 🪪</div>
+          <div class="stat-pending">(PENDING FOR RENEWAL) <strong>12</strong></div>
+          <div class="stat-num">248</div>
           <a class="check-link" href="#">CHECK DETAILS »</a>
         </div>
         <div class="stat-card">
-          <div class="stat-label">DOCUMENTS DUE 📄</div>
-          <div class="stat-number">18</div>
-          <div class="stat-sub">(PENDING FOR ACTION) 18</div>
+          <div class="stat-title">EXPIRING PASSES ⚠</div>
+          <div class="stat-pending">(PENDING FOR ACTION) <strong>36</strong></div>
+          <div class="stat-num">36</div>
+          <a class="check-link" href="#">CHECK DETAILS »</a>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">DOCUMENTS DUE 📄</div>
+          <div class="stat-pending">(PENDING FOR ACTION) <strong>18</strong></div>
+          <div class="stat-num">18</div>
           <a class="check-link" href="#">CHECK DETAILS »</a>
         </div>
         <div class="stat-card open-card">
-          <div class="stat-label">GATE ENTRIES TODAY 🚗</div>
-          <div class="stat-number-big">84<span>/120</span></div>
-          <div class="stat-sub">TOTAL MOVEMENTS</div>
+          <div class="stat-title">GATE ENTRIES TODAY 🚗</div>
+          <div class="stat-pending">(COUNT / MOVEMENTS)</div>
+          <div class="stat-num-big">84<span>/120</span></div>
           <a class="check-link" href="#">CHECK DETAILS »</a>
         </div>
       </div>
 
-      <!-- SOURCE WISE SUMMARY TABLE -->
-      <div class="section">
-        <div class="section-header">≡ Pass Type Summary</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>VEHICLE TYPE</th>
-              <th>ACTIVE</th>
-              <th>EXPIRED</th>
-              <th>SURRENDERED</th>
-              <th>EXPIRING SOON</th>
-              <th>BLACKLISTED</th>
-              <th>TOTAL PASSES</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Two Wheeler</td><td>120</td><td>14</td><td>5</td><td>12</td><td>0</td><td>151</td></tr>
-            <tr><td>Four Wheeler</td><td>85</td><td>8</td><td>3</td><td>10</td><td>0</td><td>106</td></tr>
-            <tr><td>Heavy Vehicle</td><td>30</td><td>6</td><td>2</td><td>8</td><td>1</td><td>47</td></tr>
-            <tr><td>Machinery</td><td>13</td><td>2</td><td>1</td><td>6</td><td>0</td><td>22</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- TABLES + LIVE DISPLAY ROW -->
+      <div class="tables-row">
+        <div class="tables-left">
 
-      <!-- PRIORITY PASSES TABLE -->
-      <div class="section">
-        <div class="section-header">⭐ Recent Pass Activity</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>EMPLOYEE / CONTRACTOR</th>
-              <th>USER CATEGORY</th>
-              <th>VEHICLE NO</th>
-              <th>MOBILE</th>
-              <th>VALID UNTIL</th>
-              <th>STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Ramesh Kumar</td>
-              <td>Company Employee</td>
-              <td>MP09 AB 1234</td>
-              <td><span class="phone-badge">9826XXXXXX</span></td>
-              <td>31-Dec-2025</td>
-              <td><span class="badge active">ACTIVE</span></td>
-            </tr>
-            <tr>
-              <td>Suresh Contractor</td>
-              <td>Contractor</td>
-              <td>MP04 ZZ 9876</td>
-              <td><span class="phone-badge">9300XXXXXX</span></td>
-              <td>15-Jun-2025</td>
-              <td><span class="badge expiring">EXPIRING SOON</span></td>
-            </tr>
-            <tr>
-              <td>Mohan Singh</td>
-              <td>Company Employee</td>
-              <td>MP09 XY 5555</td>
-              <td><span class="phone-badge">9754XXXXXX</span></td>
-              <td>01-Jan-2026</td>
-              <td><span class="badge active">ACTIVE</span></td>
-            </tr>
-            <tr>
-              <td>Vikas Patel</td>
-              <td>Contractor</td>
-              <td>MP09 GH 3322</td>
-              <td><span class="phone-badge">8103XXXXXX</span></td>
-              <td>10-May-2025</td>
-              <td><span class="badge expired">EXPIRED</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          <!-- PASS TYPE SUMMARY TABLE -->
+          <div class="section">
+            <div class="section-hdr">≡ Pass Type Summary</div>
+            <div class="table-scroll">
+              <table class="dtable">
+                <thead>
+                  <tr>
+                    <th>VEHICLE TYPE</th>
+                    <th>NEW</th>
+                    <th>ACTIVE</th>
+                    <th>EXPIRING</th>
+                    <th>EXPIRED</th>
+                    <th>BLACKLISTED</th>
+                    <th>TOTAL PASSES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Two Wheeler</td><td>4</td><td>120</td><td>12</td><td>14</td><td>0</td><td>150</td></tr>
+                  <tr><td>Four Wheeler</td><td>2</td><td>85</td><td>10</td><td>8</td><td>0</td><td>105</td></tr>
+                  <tr><td>Heavy Vehicle</td><td>1</td><td>30</td><td>8</td><td>6</td><td>1</td><td>46</td></tr>
+                  <tr><td>Machinery</td><td>0</td><td>13</td><td>6</td><td>2</td><td>0</td><td>21</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
+          <!-- RECENT PASS ACTIVITY TABLE -->
+          <div class="section">
+            <div class="section-hdr">⭐ Recent Pass Activity</div>
+            <table class="dtable">
+              <thead>
+                <tr>
+                  <th>EMPLOYEE / CONTRACTOR</th>
+                  <th>CATEGORY</th>
+                  <th>VEHICLE NO</th>
+                  <th>MOBILE</th>
+                  <th>VALID UNTIL</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Ramesh Kumar</td>
+                  <td>Company Employee</td>
+                  <td>MP09 AB 1234</td>
+                  <td><span class="phone-tag">9826XXXXXX</span></td>
+                  <td>31-Dec-2025</td>
+                  <td><span class="badge green">ACTIVE</span></td>
+                </tr>
+                <tr>
+                  <td>Suresh Contractor</td>
+                  <td>Contractor</td>
+                  <td>MP04 ZZ 9876</td>
+                  <td><span class="phone-tag">9300XXXXXX</span></td>
+                  <td>15-Jun-2025</td>
+                  <td><span class="badge yellow">EXPIRING</span></td>
+                </tr>
+                <tr>
+                  <td>Mohan Singh</td>
+                  <td>Company Employee</td>
+                  <td>MP09 XY 5555</td>
+                  <td><span class="phone-tag">9754XXXXXX</span></td>
+                  <td>01-Jan-2026</td>
+                  <td><span class="badge green">ACTIVE</span></td>
+                </tr>
+                <tr>
+                  <td>Vikas Patel</td>
+                  <td>Contractor</td>
+                  <td>MP09 GH 3322</td>
+                  <td><span class="phone-tag">8103XXXXXX</span></td>
+                  <td>10-May-2025</td>
+                  <td><span class="badge red">EXPIRED</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ══════════════════════════════
+             PROFESSIONAL LIVE DISPLAY
+             ══════════════════════════════ -->
+        <div class="vt-panel">
+
+          <!-- HEADER LABEL -->
+          <div class="vt-header">
+            <span class="vt-dot"></span>
+            <span class="vt-header-txt">LIVE PASS STATUS</span>
+            <span class="vt-dot pulse-dot"></span>
+          </div>
+
+          <!-- VERTICAL TANK CONTAINER -->
+          <div class="vt-tank-outer">
+
+            <!-- Left % scale ruler -->
+            <div class="vt-ruler">
+              <span>100</span>
+              <span>80</span>
+              <span>60</span>
+              <span>40</span>
+              <span>20</span>
+              <span>0</span>
+            </div>
+
+            <!-- The tank -->
+            <div class="vt-tank">
+
+              <!-- Horizontal ruler ticks inside tank -->
+              <div class="vt-tick vt-t80"></div>
+              <div class="vt-tick vt-t60"></div>
+              <div class="vt-tick vt-t40"></div>
+              <div class="vt-tick vt-t20"></div>
+
+              <!-- LIQUID FILL AREA -->
+              <div class="vt-liquid">
+
+                <!-- 3 animated SVG wave layers -->
+                <div class="vt-ww vt-ww1">
+                  <svg viewBox="0 0 600 60" preserveAspectRatio="none">
+                    <path d="M0,30 C75,5 150,55 225,30 C300,5 375,55 450,30 C525,5 600,55 675,30 L675,60 L0,60 Z"/>
+                  </svg>
+                </div>
+                <div class="vt-ww vt-ww2">
+                  <svg viewBox="0 0 600 60" preserveAspectRatio="none">
+                    <path d="M0,35 C60,8 140,58 220,35 C300,8 380,58 460,35 C540,8 620,58 700,35 L700,60 L0,60 Z"/>
+                  </svg>
+                </div>
+                <div class="vt-ww vt-ww3">
+                  <svg viewBox="0 0 600 60" preserveAspectRatio="none">
+                    <path d="M0,28 C90,3 170,53 250,28 C330,3 410,53 490,28 C570,3 650,53 730,28 L730,60 L0,60 Z"/>
+                  </svg>
+                </div>
+
+                <!-- Rising bubbles -->
+                <i class="vt-b vb1"></i>
+                <i class="vt-b vb2"></i>
+                <i class="vt-b vb3"></i>
+                <i class="vt-b vb4"></i>
+                <i class="vt-b vb5"></i>
+
+                <!-- Glare on liquid surface -->
+                <div class="vt-glare"></div>
+
+                <!-- BIG ROTATED % TEXT inside liquid -->
+                <div class="vt-pct-text">70%</div>
+
+              </div>
+
+              <!-- Glowing fill-level line -->
+              <div class="vt-level-line"></div>
+
+            </div>
+
+            <!-- Right side cap marks -->
+            <div class="vt-cap">
+              <div class="vt-cap-top"></div>
+              <div class="vt-cap-fill"></div>
+              <div class="vt-cap-bot"></div>
+            </div>
+
+          </div>
+
+          <!-- BOTTOM DATA STRIP -->
+          <div class="vt-data-strip">
+            <div class="vt-ds-block">
+              <div class="vt-ds-num green-num">248</div>
+              <div class="vt-ds-lbl">ACTIVE</div>
+            </div>
+            <div class="vt-ds-sep"></div>
+            <div class="vt-ds-block">
+              <div class="vt-ds-num">350</div>
+              <div class="vt-ds-lbl">TOTAL</div>
+            </div>
+            <div class="vt-ds-sep"></div>
+            <div class="vt-ds-block">
+              <div class="vt-ds-num red-num">102</div>
+              <div class="vt-ds-lbl">INACTIVE</div>
+            </div>
+          </div>
+
+          <!-- MINI PROGRESS BAR -->
+          <div class="vt-bar-wrap">
+            <div class="vt-bar-fill"></div>
+          </div>
+          <div class="vt-bar-caption">248 / 350 PASSES ACTIVE · 70%</div>
+
+        </div>
+
+      </div>
     </main>
   </div>
 </div>
