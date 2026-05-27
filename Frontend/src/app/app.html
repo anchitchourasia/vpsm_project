@@ -1,39 +1,201 @@
-<div class="app-shell">
+<div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
 
-  <!-- NARROW ICON SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon">VP</div>
+  <!-- ════════════════════════════════════════
+       SIDEBAR
+       ════════════════════════════════════════ -->
+  <aside class="sidebar"
+         [class.collapsed]="sidebarCollapsed()"
+         (click)="sidebarCollapsed() && expandSidebar()">
+
+    <!-- BRAND ROW -->
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <i class="bi bi-shield-fill-check"></i>
+      </div>
+      <span class="sb-company">HEG Limited</span>
+      <button class="sb-toggle"
+              (click)="$event.stopPropagation(); toggleSidebar()"
+              [title]="sidebarCollapsed() ? 'Expand' : 'Collapse'">
+        <span class="toggle-arrow" [class.rotated]="sidebarCollapsed()">
+          <i class="bi bi-chevron-left"></i>
+        </span>
+      </button>
     </div>
-    <nav class="sidebar-nav">
-      <a routerLink="/" routerLinkActive="active" title="Home">
-        <span class="sicon">🏠</span>
-        <span class="slabel">Home</span>
+
+    <!-- NAV MENU -->
+    <nav class="sb-nav">
+
+      <!-- ── SECTION: MAIN ── -->
+      <div class="sb-section-label">MAIN</div>
+
+      <!-- Home -->
+      <a routerLink="/" routerLinkActive="sb-active" class="sb-item"
+         (click)="$event.stopPropagation()">
+        <i class="bi bi-house-door-fill sb-icon"></i>
+        <span class="sb-label">Home</span>
       </a>
-      <a routerLink="/pass-registry" routerLinkActive="active" title="Passes">
-        <span class="sicon">🪪</span>
-        <span class="slabel">Passes</span>
+
+      <!-- Vehicles Master -->
+      <div class="sb-group" [class.open]="isMenuOpen('vehicles')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('vehicles', $event)">
+          <i class="bi bi-truck-front-fill sb-icon"></i>
+          <span class="sb-label">Vehicles Master</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/vehicles/all" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> All Vehicles
+          </a>
+          <a routerLink="/vehicles/active" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Active Vehicles
+          </a>
+          <a routerLink="/vehicles/blacklisted" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Blacklisted
+          </a>
+        </div>
+      </div>
+
+      <!-- Pass Registry -->
+      <div class="sb-group" [class.open]="isMenuOpen('passes')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('passes', $event)">
+          <i class="bi bi-person-vcard-fill sb-icon"></i>
+          <span class="sb-label">Pass Registry</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/passes/active" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Active Passes
+          </a>
+          <a routerLink="/passes/expiring" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Expiring Passes
+          </a>
+          <a routerLink="/passes/expired" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Expired Passes
+          </a>
+          <a routerLink="/passes/surrendered" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Surrendered
+          </a>
+        </div>
+      </div>
+
+      <!-- ── SECTION: COMPLIANCE ── -->
+      <div class="sb-section-label">COMPLIANCE</div>
+
+      <!-- Documents -->
+      <div class="sb-group" [class.open]="isMenuOpen('docs')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('docs', $event)">
+          <i class="bi bi-file-earmark-text-fill sb-icon"></i>
+          <span class="sb-label">Documents</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/docs/puc" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> PUC Certificate
+          </a>
+          <a routerLink="/docs/insurance" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Insurance
+          </a>
+          <a routerLink="/docs/fitness" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Fitness Certificate
+          </a>
+          <a routerLink="/docs/loadtest" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Load Test
+          </a>
+        </div>
+      </div>
+
+      <!-- ── SECTION: AUDIT ── -->
+      <div class="sb-section-label">AUDIT</div>
+
+      <!-- History -->
+      <div class="sb-group" [class.open]="isMenuOpen('history')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('history', $event)">
+          <i class="bi bi-clock-history sb-icon"></i>
+          <span class="sb-label">History</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/history/create" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Pass Created
+          </a>
+          <a routerLink="/history/approve" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Approved
+          </a>
+          <a routerLink="/history/surrender" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Surrendered
+          </a>
+          <a routerLink="/history/expiry" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Expiry Events
+          </a>
+        </div>
+      </div>
+
+      <!-- ── SECTION: ADMIN ── -->
+      <div class="sb-section-label">ADMIN</div>
+
+      <!-- Authority -->
+      <div class="sb-group" [class.open]="isMenuOpen('authority')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('authority', $event)">
+          <i class="bi bi-lock-fill sb-icon"></i>
+          <span class="sb-label">Authority</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/authority/company" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Company Policies
+          </a>
+          <a routerLink="/authority/gate" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Gate Authority
+          </a>
+          <a routerLink="/authority/approval" class="sb-child"
+             (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Approval Config
+          </a>
+        </div>
+      </div>
+
+      <!-- Dashboard -->
+      <a routerLink="/dashboard" routerLinkActive="sb-active" class="sb-item"
+         (click)="$event.stopPropagation()">
+        <i class="bi bi-bar-chart-line-fill sb-icon"></i>
+        <span class="sb-label">Dashboard</span>
       </a>
-      <a routerLink="/documents" routerLinkActive="active" title="Documents">
-        <span class="sicon">📄</span>
-        <span class="slabel">Docs</span>
-      </a>
-      <a routerLink="/history" routerLinkActive="active" title="History">
-        <span class="sicon">📋</span>
-        <span class="slabel">History</span>
-      </a>
-      <a routerLink="/authority" routerLinkActive="active" title="Authority">
-        <span class="sicon">🔐</span>
-        <span class="slabel">Authority</span>
-      </a>
-      <a routerLink="/dashboard" routerLinkActive="active" title="Dashboard">
-        <span class="sicon">📊</span>
-        <span class="slabel">Dashboard</span>
-      </a>
+
     </nav>
+
+    <!-- FOOTER USER STRIP -->
+    <div class="sb-footer">
+      <div class="sb-footer-avatar">
+        <i class="bi bi-person-fill"></i>
+      </div>
+      <div class="sb-footer-info">
+        <div class="sb-footer-name">Admin User</div>
+        <div class="sb-footer-role">Security · Gate Admin</div>
+      </div>
+    </div>
+
   </aside>
 
-  <!-- MAIN AREA -->
+  <!-- ════════════════════════════════════════
+       MAIN AREA
+       ════════════════════════════════════════ -->
   <div class="main-area">
 
     <!-- TOP RED DEV BAR -->
@@ -56,7 +218,7 @@
     <main class="content">
       <router-outlet></router-outlet>
 
-      <!-- STAT CARDS ROW -->
+      <!-- STAT CARDS -->
       <div class="stat-row">
         <div class="stat-card">
           <div class="stat-title">ACTIVE PASSES 🪪</div>
@@ -84,173 +246,215 @@
         </div>
       </div>
 
-      <!-- TABLES + LIVE DISPLAY ROW -->
+      <!-- TABLES + LIVE PANEL -->
       <div class="tables-row">
         <div class="tables-left">
 
-          <!-- PASS TYPE SUMMARY TABLE -->
+          <!-- VEHICLES MASTER -->
           <div class="section">
-            <div class="section-hdr">≡ Pass Type Summary</div>
+            <div class="section-hdr">
+              <i class="bi bi-truck-front-fill hdr-icon"></i> Vehicles Master
+            </div>
             <div class="table-scroll">
               <table class="dtable">
                 <thead>
                   <tr>
-                    <th>VEHICLE TYPE</th>
-                    <th>NEW</th>
-                    <th>ACTIVE</th>
-                    <th>EXPIRING</th>
-                    <th>EXPIRED</th>
-                    <th>BLACKLISTED</th>
-                    <th>TOTAL PASSES</th>
+                    <th>VEHICLE NO</th><th>CLASS</th>
+                    <th>TYPE</th><th>OPERATIONAL STATUS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><td>Two Wheeler</td><td>4</td><td>120</td><td>12</td><td>14</td><td>0</td><td>150</td></tr>
-                  <tr><td>Four Wheeler</td><td>2</td><td>85</td><td>10</td><td>8</td><td>0</td><td>105</td></tr>
-                  <tr><td>Heavy Vehicle</td><td>1</td><td>30</td><td>8</td><td>6</td><td>1</td><td>46</td></tr>
-                  <tr><td>Machinery</td><td>0</td><td>13</td><td>6</td><td>2</td><td>0</td><td>21</td></tr>
+                  <tr><td>MP09 AB 1234</td><td>LMV</td><td>Two Wheeler</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                  <tr><td>MP04 ZZ 9876</td><td>HMV</td><td>Heavy Vehicle</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                  <tr><td>MP09 XY 5555</td><td>LMV</td><td>Four Wheeler</td>
+                      <td><span class="badge yellow">UNDER REVIEW</span></td></tr>
+                  <tr><td>MP09 GH 3322</td><td>HMV</td><td>Machinery</td>
+                      <td><span class="badge red">INACTIVE</span></td></tr>
+                  <tr><td>MP07 KL 7701</td><td>LMV</td><td>Two Wheeler</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- RECENT PASS ACTIVITY TABLE -->
+          <!-- PASS REGISTRY -->
           <div class="section">
-            <div class="section-hdr">⭐ Recent Pass Activity</div>
-            <table class="dtable">
-              <thead>
-                <tr>
-                  <th>EMPLOYEE / CONTRACTOR</th>
-                  <th>CATEGORY</th>
-                  <th>VEHICLE NO</th>
-                  <th>MOBILE</th>
-                  <th>VALID UNTIL</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Ramesh Kumar</td>
-                  <td>Company Employee</td>
-                  <td>MP09 AB 1234</td>
-                  <td><span class="phone-tag">9826XXXXXX</span></td>
-                  <td>31-Dec-2025</td>
-                  <td><span class="badge green">ACTIVE</span></td>
-                </tr>
-                <tr>
-                  <td>Suresh Contractor</td>
-                  <td>Contractor</td>
-                  <td>MP04 ZZ 9876</td>
-                  <td><span class="phone-tag">9300XXXXXX</span></td>
-                  <td>15-Jun-2025</td>
-                  <td><span class="badge yellow">EXPIRING</span></td>
-                </tr>
-                <tr>
-                  <td>Mohan Singh</td>
-                  <td>Company Employee</td>
-                  <td>MP09 XY 5555</td>
-                  <td><span class="phone-tag">9754XXXXXX</span></td>
-                  <td>01-Jan-2026</td>
-                  <td><span class="badge green">ACTIVE</span></td>
-                </tr>
-                <tr>
-                  <td>Vikas Patel</td>
-                  <td>Contractor</td>
-                  <td>MP09 GH 3322</td>
-                  <td><span class="phone-tag">8103XXXXXX</span></td>
-                  <td>10-May-2025</td>
-                  <td><span class="badge red">EXPIRED</span></td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="section-hdr">
+              <i class="bi bi-person-vcard-fill hdr-icon"></i> Pass Registry
+            </div>
+            <div class="table-scroll">
+              <table class="dtable">
+                <thead>
+                  <tr>
+                    <th>PASS ID</th><th>VEHICLE NO</th><th>ISSUE DATE</th>
+                    <th>VALIDITY DATE</th><th>DEPARTMENT</th><th>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>PSS-001</td><td>MP09 AB 1234</td><td>01-Jan-2025</td>
+                      <td>31-Dec-2025</td><td>Operations</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                  <tr><td>PSS-002</td><td>MP04 ZZ 9876</td><td>01-Mar-2025</td>
+                      <td>15-Jun-2025</td><td>Logistics</td>
+                      <td><span class="badge yellow">EXPIRING</span></td></tr>
+                  <tr><td>PSS-003</td><td>MP09 XY 5555</td><td>15-Jan-2025</td>
+                      <td>01-Jan-2026</td><td>HR</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                  <tr><td>PSS-004</td><td>MP09 GH 3322</td><td>01-Jan-2025</td>
+                      <td>10-May-2025</td><td>Maintenance</td>
+                      <td><span class="badge red">EXPIRED</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- DOCUMENTS -->
+          <div class="section">
+            <div class="section-hdr">
+              <i class="bi bi-file-earmark-text-fill hdr-icon"></i>
+              Documents (Compliance)
+            </div>
+            <div class="table-scroll">
+              <table class="dtable">
+                <thead>
+                  <tr>
+                    <th>DOC ID</th><th>VEHICLE NO</th><th>DOCUMENT TYPE</th>
+                    <th>START DATE</th><th>EXPIRY DATE</th><th>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>DOC-001</td><td>MP09 AB 1234</td><td>PUC</td>
+                      <td>01-Jan-2025</td><td>31-Dec-2025</td>
+                      <td><span class="badge green">VALID</span></td></tr>
+                  <tr><td>DOC-002</td><td>MP04 ZZ 9876</td><td>Insurance</td>
+                      <td>01-Mar-2025</td><td>28-Feb-2026</td>
+                      <td><span class="badge green">VALID</span></td></tr>
+                  <tr><td>DOC-003</td><td>MP09 XY 5555</td><td>Fitness</td>
+                      <td>01-Jun-2024</td><td>31-May-2025</td>
+                      <td><span class="badge red">EXPIRED</span></td></tr>
+                  <tr><td>DOC-004</td><td>MP09 GH 3322</td><td>Load Test</td>
+                      <td>01-Apr-2025</td><td>15-Jun-2025</td>
+                      <td><span class="badge yellow">EXPIRING</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- HISTORY -->
+          <div class="section">
+            <div class="section-hdr">
+              <i class="bi bi-clock-history hdr-icon"></i> History (Audit Trail)
+            </div>
+            <div class="table-scroll">
+              <table class="dtable">
+                <thead>
+                  <tr>
+                    <th>HISTORY ID</th><th>PASS ID</th><th>ACTION</th>
+                    <th>ACTION DATE</th><th>PERFORMED BY</th><th>REMARKS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>HIS-001</td><td>PSS-001</td>
+                      <td><span class="act-tag blue">CREATE</span></td>
+                      <td>01-Jan-2025</td><td>Admin</td><td>New pass issued</td></tr>
+                  <tr><td>HIS-002</td><td>PSS-002</td>
+                      <td><span class="act-tag orange">APPROVE</span></td>
+                      <td>01-Mar-2025</td><td>Manager</td><td>Approved for logistics</td></tr>
+                  <tr><td>HIS-003</td><td>PSS-004</td>
+                      <td><span class="act-tag red">SURRENDER</span></td>
+                      <td>10-May-2025</td><td>Security</td><td>Pass surrendered at gate</td></tr>
+                  <tr><td>HIS-004</td><td>PSS-003</td>
+                      <td><span class="act-tag blue">CREATE</span></td>
+                      <td>15-Jan-2025</td><td>Admin</td><td>HR vehicle pass issued</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- AUTHORITY -->
+          <div class="section">
+            <div class="section-hdr">
+              <i class="bi bi-lock-fill hdr-icon"></i> Authority (Approval Config)
+            </div>
+            <div class="table-scroll">
+              <table class="dtable">
+                <thead>
+                  <tr>
+                    <th>AUTH ID</th><th>DEPARTMENT</th><th>AUTHORITY LEVEL</th>
+                    <th>APPROVER NAME</th><th>MAX VALIDITY (DAYS)</th><th>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>AUTH-001</td><td>Operations</td><td>L1</td>
+                      <td>Rajesh Sharma</td><td>365</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                  <tr><td>AUTH-002</td><td>Logistics</td><td>L2</td>
+                      <td>Priya Mehta</td><td>180</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                  <tr><td>AUTH-003</td><td>Maintenance</td><td>L1</td>
+                      <td>Suresh Tiwari</td><td>90</td>
+                      <td><span class="badge yellow">REVIEW</span></td></tr>
+                  <tr><td>AUTH-004</td><td>HR</td><td>L3</td>
+                      <td>Anita Joshi</td><td>365</td>
+                      <td><span class="badge green">ACTIVE</span></td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
         </div>
 
-        <!-- ══════════════════════════════
-             PROFESSIONAL LIVE DISPLAY
-             ══════════════════════════════ -->
+        <!-- LIVE VERTICAL TANK PANEL -->
         <div class="vt-panel">
-
-          <!-- HEADER LABEL -->
           <div class="vt-header">
             <span class="vt-dot"></span>
             <span class="vt-header-txt">LIVE PASS STATUS</span>
             <span class="vt-dot pulse-dot"></span>
           </div>
-
-          <!-- VERTICAL TANK CONTAINER -->
           <div class="vt-tank-outer">
-
-            <!-- Left % scale ruler -->
             <div class="vt-ruler">
-              <span>100</span>
-              <span>80</span>
-              <span>60</span>
-              <span>40</span>
-              <span>20</span>
-              <span>0</span>
+              <span>100</span><span>80</span><span>60</span>
+              <span>40</span><span>20</span><span>0</span>
             </div>
-
-            <!-- The tank -->
             <div class="vt-tank">
-
-              <!-- Horizontal ruler ticks inside tank -->
               <div class="vt-tick vt-t80"></div>
               <div class="vt-tick vt-t60"></div>
               <div class="vt-tick vt-t40"></div>
               <div class="vt-tick vt-t20"></div>
-
-              <!-- LIQUID FILL AREA -->
               <div class="vt-liquid">
-
-                <!-- 3 animated SVG wave layers -->
                 <div class="vt-ww vt-ww1">
                   <svg viewBox="0 0 600 60" preserveAspectRatio="none">
-                    <path d="M0,30 C75,5 150,55 225,30 C300,5 375,55 450,30 C525,5 600,55 675,30 L675,60 L0,60 Z"/>
+                    <path d="M0,30 C75,5 150,55 225,30 C300,5 375,55 450,30
+                             C525,5 600,55 675,30 L675,60 L0,60 Z"/>
                   </svg>
                 </div>
                 <div class="vt-ww vt-ww2">
                   <svg viewBox="0 0 600 60" preserveAspectRatio="none">
-                    <path d="M0,35 C60,8 140,58 220,35 C300,8 380,58 460,35 C540,8 620,58 700,35 L700,60 L0,60 Z"/>
+                    <path d="M0,35 C60,8 140,58 220,35 C300,8 380,58 460,35
+                             C540,8 620,58 700,35 L700,60 L0,60 Z"/>
                   </svg>
                 </div>
                 <div class="vt-ww vt-ww3">
                   <svg viewBox="0 0 600 60" preserveAspectRatio="none">
-                    <path d="M0,28 C90,3 170,53 250,28 C330,3 410,53 490,28 C570,3 650,53 730,28 L730,60 L0,60 Z"/>
+                    <path d="M0,28 C90,3 170,53 250,28 C330,3 410,53 490,28
+                             C570,3 650,53 730,28 L730,60 L0,60 Z"/>
                   </svg>
                 </div>
-
-                <!-- Rising bubbles -->
-                <i class="vt-b vb1"></i>
-                <i class="vt-b vb2"></i>
-                <i class="vt-b vb3"></i>
-                <i class="vt-b vb4"></i>
+                <i class="vt-b vb1"></i><i class="vt-b vb2"></i>
+                <i class="vt-b vb3"></i><i class="vt-b vb4"></i>
                 <i class="vt-b vb5"></i>
-
-                <!-- Glare on liquid surface -->
                 <div class="vt-glare"></div>
-
-                <!-- BIG ROTATED % TEXT inside liquid -->
                 <div class="vt-pct-text">70%</div>
-
               </div>
-
-              <!-- Glowing fill-level line -->
               <div class="vt-level-line"></div>
-
             </div>
-
-            <!-- Right side cap marks -->
             <div class="vt-cap">
               <div class="vt-cap-top"></div>
               <div class="vt-cap-fill"></div>
-              <div class="vt-cap-bot"></div>
             </div>
-
           </div>
-
-          <!-- BOTTOM DATA STRIP -->
           <div class="vt-data-strip">
             <div class="vt-ds-block">
               <div class="vt-ds-num green-num">248</div>
@@ -267,13 +471,37 @@
               <div class="vt-ds-lbl">INACTIVE</div>
             </div>
           </div>
-
-          <!-- MINI PROGRESS BAR -->
+          <div class="vt-table-count">
+            <div class="vtc-row">
+              <i class="bi bi-truck-front-fill vtc-icon"></i>
+              <span class="vtc-name">Vehicles Master</span>
+              <span class="vtc-val">5</span>
+            </div>
+            <div class="vtc-row">
+              <i class="bi bi-person-vcard-fill vtc-icon"></i>
+              <span class="vtc-name">Pass Registry</span>
+              <span class="vtc-val">248</span>
+            </div>
+            <div class="vtc-row">
+              <i class="bi bi-file-earmark-text-fill vtc-icon"></i>
+              <span class="vtc-name">Documents</span>
+              <span class="vtc-val">312</span>
+            </div>
+            <div class="vtc-row">
+              <i class="bi bi-clock-history vtc-icon"></i>
+              <span class="vtc-name">History</span>
+              <span class="vtc-val">890</span>
+            </div>
+            <div class="vtc-row">
+              <i class="bi bi-lock-fill vtc-icon"></i>
+              <span class="vtc-name">Authority</span>
+              <span class="vtc-val">4</span>
+            </div>
+          </div>
           <div class="vt-bar-wrap">
             <div class="vt-bar-fill"></div>
           </div>
           <div class="vt-bar-caption">248 / 350 PASSES ACTIVE · 70%</div>
-
         </div>
 
       </div>
