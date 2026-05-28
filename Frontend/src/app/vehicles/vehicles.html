@@ -1,74 +1,133 @@
 <div class="page-wrapper">
 
-  <!-- PAGE TITLE -->
+  <!-- PAGE HEADER -->
   <div class="page-top">
     <div class="page-title-row">
       <i class="bi bi-truck-front-fill page-icon"></i>
       <h2 class="page-heading">Vehicles Master</h2>
+      <span class="record-pill">{{ filteredVehicles.length }} Records</span>
     </div>
     <button class="btn-add">
       <i class="bi bi-plus-circle-fill"></i> Add Vehicle
     </button>
   </div>
 
-  <!-- LOADING STATE -->
+  <!-- LOADING -->
   <div *ngIf="isLoading()" class="state-box">
     <i class="bi bi-arrow-repeat spin-icon"></i>
     <p>Loading vehicles...</p>
   </div>
 
-  <!-- ERROR STATE -->
+  <!-- ERROR -->
   <div *ngIf="hasError() && !isLoading()" class="state-box error-box">
     <i class="bi bi-exclamation-triangle-fill"></i>
     <p>Failed to load data. Check if backend is running.</p>
-    <button class="btn-retry" (click)="loadVehicles()">Retry</button>
+    <button class="btn-retry" (click)="loadVehicles()">
+      <i class="bi bi-arrow-clockwise"></i> Retry
+    </button>
   </div>
 
-  <!-- DATA TABLE -->
-  <div *ngIf="!isLoading() && !hasError()" class="table-card">
+  <!-- CONTENT -->
+  <div *ngIf="!isLoading() && !hasError()">
 
-    <!-- SUMMARY BAR -->
-    <div class="summary-bar">
-      <span>Total Records: <strong>{{ vehicles().length }}</strong></span>
+    <!-- SEARCH & FILTER BAR -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <i class="bi bi-search search-icon"></i>
+        <input
+          type="text"
+          placeholder="Search vehicle no, type, brand..."
+          [value]="searchText()"
+          (input)="onSearch($any($event.target).value)"
+          class="search-input"
+        />
+      </div>
+      <div class="filter-group">
+        <select (change)="onFilterClass($any($event.target).value)" class="filter-select">
+          <option value="ALL">All Classes</option>
+          <option value="TWO_WHEELER">Two Wheeler</option>
+          <option value="FOUR_WHEELER">Four Wheeler</option>
+          <option value="HEAVY_MACHINERY">Heavy Machinery</option>
+        </select>
+        <select (change)="onFilterStatus($any($event.target).value)" class="filter-select">
+          <option value="ALL">All Status</option>
+          <option value="Y">Active</option>
+          <option value="N">Inactive</option>
+        </select>
+        <select (change)="onPageSize($any($event.target).value)" class="filter-select">
+          <option value="10">10 / page</option>
+          <option value="20">20 / page</option>
+          <option value="50">50 / page</option>
+          <option value="100">100 / page</option>
+        </select>
+      </div>
     </div>
 
-    <div class="table-scroll">
-      <table class="dtable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>VEHICLE ID</th>
-            <th>VEHICLE NO</th>
-            <th>VEHICLE TYPE</th>
-            <th>VEHICLE CLASS</th>
-            <th>BRAND / MODEL</th>
-            <th>STATUS</th>
-            <th>BLACKLISTED</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let v of vehicles(); let i = index">
-            <td>{{ i + 1 }}</td>
-            <td>{{ v.vehicleId }}</td>
-            <td><strong>{{ v.vehicleNo }}</strong></td>
-            <td>{{ v.vehicleType }}</td>
-            <td>{{ v.vehicleClass }}</td>
-            <td>{{ v.brandModel || '—' }}</td>
-            <td><span [class]="getStatusClass(v.isActive)">
-              {{ getStatusText(v.isActive) }}
-            </span></td>
-            <td><span [class]="getBlacklistClass(v.isBlacklisted)">
-              {{ v.isBlacklisted === 'Y' ? 'YES' : 'NO' }}
-            </span></td>
-          </tr>
+    <!-- TABLE -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>VEHICLE ID</th>
+              <th>VEHICLE NO</th>
+              <th>TYPE</th>
+              <th>CLASS</th>
+              <th>BRAND / MODEL</th>
+              <th>STATUS</th>
+              <th>BLACKLISTED</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let v of pagedVehicles; let i = index">
+              <td>{{ (currentPage()-1)*pageSize() + i + 1 }}</td>
+              <td>{{ v.vehicleId }}</td>
+              <td><strong>{{ v.vehicleNo }}</strong></td>
+              <td>{{ v.vehicleType }}</td>
+              <td>{{ v.vehicleClass }}</td>
+              <td>{{ v.brandModel || '—' }}</td>
+              <td>
+                <span [class]="getStatusClass(v.isActive)">
+                  {{ getStatusText(v.isActive) }}
+                </span>
+              </td>
+              <td>
+                <span [class]="getBlackClass(v.isBlacklisted)">
+                  {{ v.isBlacklisted === 'Y' ? 'YES' : 'NO' }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="pagedVehicles.length === 0">
+              <td colspan="8" class="no-data">No vehicles found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-          <!-- No data row -->
-          <tr *ngIf="vehicles().length === 0">
-            <td colspan="8" class="no-data">No vehicles found.</td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- PAGINATION -->
+      <div class="pagination-bar">
+        <span class="page-info">
+          Showing {{ (currentPage()-1)*pageSize()+1 }}-{{ currentPage()*pageSize() < filteredVehicles.length ? currentPage()*pageSize() : filteredVehicles.length }}
+          of {{ filteredVehicles.length }}
+        </span>
+        <div class="page-btns">
+          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <button
+            *ngFor="let p of totalPagesArr"
+            class="pg-btn"
+            [class.active]="p === currentPage()"
+            (click)="goToPage(p)">
+            {{ p }}
+          </button>
+          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
-
 </div>
