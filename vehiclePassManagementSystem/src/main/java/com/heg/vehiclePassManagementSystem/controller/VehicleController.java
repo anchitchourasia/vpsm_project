@@ -1,7 +1,9 @@
 package com.heg.vehiclePassManagementSystem.controller;
 
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,16 +17,20 @@ import com.heg.vehiclePassManagementSystem.repository.VehicleRepository;
 @RequestMapping("/api/vehicles")
 public class VehicleController {
 
-    @Autowired
-    private VehicleRepository vehicleRepository;
+    private final VehicleRepository vehicleRepository;
+
+    public VehicleController(VehicleRepository vehicleRepository) {
+        this.vehicleRepository = vehicleRepository;
+    }
 
     @GetMapping("/list")
-    public List<Vehicle> getAllVehicles() {
-        return vehicleRepository.findAll();
+    public ResponseEntity<List<Vehicle>> getAllVehicles() {
+        return ResponseEntity.ok(vehicleRepository.findAll());
     }
 
     @PostMapping("/register")
-    public Vehicle registerVehicle(@RequestBody Vehicle vehicle) {
-        return vehicleRepository.save(vehicle);
+    public ResponseEntity<Vehicle> registerVehicle(@RequestBody Vehicle vehicle) {
+        Vehicle savedVehicle = vehicleRepository.save(vehicle);
+        return new ResponseEntity<>(savedVehicle, HttpStatus.CREATED);
     }
 }
