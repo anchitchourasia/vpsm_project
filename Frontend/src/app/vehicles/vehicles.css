@@ -1,0 +1,133 @@
+.page-wrapper {
+  padding: 24px;
+}
+
+.page-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-icon {
+  font-size: 1.5rem;
+  color: #e65c00;
+}
+
+.page-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.btn-add {
+  background: #e65c00;
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-add:hover { background: #cc5200; }
+
+.table-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.summary-bar {
+  padding: 10px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.table-scroll { overflow-x: auto; }
+
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.dtable thead tr {
+  background: #1a1a2e;
+  color: white;
+}
+
+.dtable th {
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+}
+
+.dtable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.dtable tbody tr:hover { background: #fdf3ed; }
+
+.badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.green { background: #e6f4ea; color: #1e7e34; }
+.red   { background: #fdecea; color: #c0392b; }
+
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 30px;
+  font-style: italic;
+}
+
+.state-box {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.error-box { color: #c0392b; }
+
+.spin-icon {
+  font-size: 2rem;
+  animation: spin 1s linear infinite;
+}
+
+.btn-retry {
+  margin-top: 10px;
+  padding: 6px 16px;
+  background: #e65c00;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
