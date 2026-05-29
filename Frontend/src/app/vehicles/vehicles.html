@@ -44,12 +44,12 @@
         />
       </div>
       <div class="filter-group">
-        <select (change)="onFilterClass($any($event.target).value)" class="filter-select">
-          <option value="ALL">All Classes</option>
-          <option value="TWO_WHEELER">Two Wheeler</option>
-          <option value="FOUR_WHEELER">Four Wheeler</option>
-          <option value="HEAVY_MACHINERY">Heavy Machinery</option>
-        </select>
+            <select (change)="onFilterClass($any($event.target).value)" class="filter-select">
+              <option value="ALL">All Classes</option>
+              <option value="Two_Wheeler">Two Wheeler</option>
+              <option value="Four_Wheeler">Four Wheeler</option>
+              <option value="Heavy_Machinery">Heavy Machinery</option>
+            </select>
         <select (change)="onFilterStatus($any($event.target).value)" class="filter-select">
           <option value="ALL">All Status</option>
           <option value="Y">Active</option>
