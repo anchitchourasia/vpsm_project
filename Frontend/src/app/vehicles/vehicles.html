@@ -3,6 +3,7 @@
   <!-- PAGE HEADER -->
   <div class="page-top">
     <div class="page-title-row">
+      <span class="dummy-mode-pill" *ngIf="isDummy">● DUMMY DATA</span>
       <i class="bi bi-truck-front-fill page-icon"></i>
       <h2 class="page-heading">Vehicles Master</h2>
       <span class="record-pill">{{ filteredVehicles.length }} Records</span>
