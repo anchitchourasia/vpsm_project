@@ -11,7 +11,7 @@ import { API_CONFIG }  from '../core/api.config';
 // ══════════════════════════════════════════════════════════════
 const USE_DUMMY_DATA = false;
 
-const DUMMY_VEHICLES = [
+const DUMMY_VEHICLES: any[] = [
   { vehicleId: 1,  vehicleNo: 'MP04HEG1111', vehicleType: 'Car',          vehicleClass: 'Four_Wheeler',    brandModel: 'Honda City',               isActive: 'Y', isBlacklisted: 'N' },
   { vehicleId: 2,  vehicleNo: 'MP04HEG2222', vehicleType: 'Bike',         vehicleClass: 'Two_Wheeler',     brandModel: 'Royal Enfield Classic 350', isActive: 'Y', isBlacklisted: 'N' },
   { vehicleId: 3,  vehicleNo: 'MP04HEG3333', vehicleType: 'Dumper Truck', vehicleClass: 'Heavy_Machinery', brandModel: 'Tata Prima',                isActive: 'Y', isBlacklisted: 'N' },
@@ -25,6 +25,21 @@ const DUMMY_VEHICLES = [
   { vehicleId: 11, vehicleNo: 'MP04XX4194',  vehicleType: 'SUV',          vehicleClass: 'Four_Wheeler',    brandModel: 'Tata Manza',                isActive: 'N', isBlacklisted: 'N' },
   { vehicleId: 12, vehicleNo: 'MH12KL1234',  vehicleType: 'Car',          vehicleClass: 'Four_Wheeler',    brandModel: 'Honda City',                isActive: 'Y', isBlacklisted: 'N' },
 ];
+
+// ── Form model ──
+interface VehicleForm {
+  vehicleNo    : string;
+  vehicleType  : string;
+  vehicleClass : string;
+  brandModel   : string;
+  isActive     : string;
+  isBlacklisted: string;
+}
+
+const EMPTY_FORM = (): VehicleForm => ({
+  vehicleNo: '', vehicleType: '', vehicleClass: '',
+  brandModel: '', isActive: 'Y', isBlacklisted: 'N'
+});
 
 @Component({
   selector  : 'app-vehicles',
@@ -41,21 +56,41 @@ export class Vehicles implements OnInit {
     'Content-Type': 'application/json'
   });
 
+  // ── List state ──
   allVehicles  = signal<any[]>([]);
   isLoading    = signal(true);
   hasError     = signal(false);
   isDummy      = USE_DUMMY_DATA;   // exposed to HTML for showing badge
 
+  // ── Search / Filter / Pagination (all original) ──
   searchText   = signal('');
   filterClass  = signal('ALL');
   filterStatus = signal('ALL');
   currentPage  = signal(1);
   pageSize     = signal(10);
 
+  // ── Add/Edit Modal state ──
+  showModal   = signal(false);
+  isEditMode  = signal(false);
+  isSaving    = signal(false);
+  saveError   = signal('');
+  saveSuccess = signal('');
+  editId      = signal<number | null>(null);
+  form        : VehicleForm = EMPTY_FORM();
+
+  // ── Delete Confirm Modal state ──
+  showDeleteModal = signal(false);
+  isDeleting      = signal(false);
+  deleteError     = signal('');
+  deleteTarget    = signal<any>(null);
+
   constructor(private http: HttpClient) {}
 
   ngOnInit() { this.loadVehicles(); }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  LOAD  (original — untouched)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   loadVehicles() {
     this.isLoading.set(true);
     this.hasError.set(false);
@@ -63,7 +98,7 @@ export class Vehicles implements OnInit {
     if (USE_DUMMY_DATA) {
       // ── DUMMY MODE: load instantly, no API call ──
       setTimeout(() => {
-        this.allVehicles.set(DUMMY_VEHICLES);
+        this.allVehicles.set([...DUMMY_VEHICLES]);
         this.isLoading.set(false);
       }, 400);
       return;
@@ -76,6 +111,173 @@ export class Vehicles implements OnInit {
     });
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  ADD / EDIT MODAL
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  openAddModal() {
+    this.form = EMPTY_FORM();
+    this.isEditMode.set(false);
+    this.editId.set(null);
+    this.saveError.set('');
+    this.saveSuccess.set('');
+    this.showModal.set(true);
+  }
+
+  openEditModal(v: any) {
+    this.form = {
+      vehicleNo    : v.vehicleNo,
+      vehicleType  : v.vehicleType,
+      vehicleClass : v.vehicleClass,
+      brandModel   : v.brandModel   || '',
+      isActive     : v.isActive,
+      isBlacklisted: v.isBlacklisted
+    };
+    this.isEditMode.set(true);
+    this.editId.set(v.vehicleId);
+    this.saveError.set('');
+    this.saveSuccess.set('');
+    this.showModal.set(true);
+  }
+
+  closeModal() { this.showModal.set(false); }
+
+ saveVehicle() {
+  // ── Validation ──
+  if (!this.form.vehicleNo.trim())   { this.saveError.set('Vehicle number is required.');  return; }
+  if (!this.form.vehicleType.trim()) { this.saveError.set('Vehicle type is required.');    return; }
+  if (!this.form.vehicleClass)       { this.saveError.set('Vehicle class is required.');   return; }
+
+  // ── Normalize ──
+  this.form.vehicleNo = this.form.vehicleNo.toUpperCase().replace(/\s+/g, '');
+  this.isSaving.set(true);
+  this.saveError.set('');
+  this.saveSuccess.set('');
+
+  // ── DUMMY MODE ──
+  if (USE_DUMMY_DATA) {
+    setTimeout(() => {
+      if (this.isEditMode()) {
+        const idx = DUMMY_VEHICLES.findIndex(v => v.vehicleId === this.editId());
+        if (idx > -1) DUMMY_VEHICLES[idx] = { ...DUMMY_VEHICLES[idx], ...this.form };
+      } else {
+        const newId = Math.max(...DUMMY_VEHICLES.map(v => v.vehicleId)) + 1;
+        DUMMY_VEHICLES.push({ vehicleId: newId, ...this.form });
+      }
+      this.allVehicles.set([...DUMMY_VEHICLES]);
+      this.isSaving.set(false);
+      this.saveSuccess.set(this.isEditMode() ? 'Vehicle updated!' : 'Vehicle added!');
+      setTimeout(() => this.closeModal(), 1200);
+    }, 600);
+    return;
+  }
+
+  // ── LIVE API ──
+  if (this.isEditMode()) {
+
+    // ✅ PUT → /api/vehicles/update/{vehicleId}
+    // Body → only updatable fields (vehicleNo is excluded, it never changes)
+    const updatePayload = {
+      vehicleType  : this.form.vehicleType,
+      vehicleClass : this.form.vehicleClass,
+      brandModel   : this.form.brandModel,
+      isActive     : this.form.isActive,
+      isBlacklisted: this.form.isBlacklisted
+    };
+
+    this.http.put(
+      `${API_CONFIG.BASE_URL}/api/vehicles/update/${this.editId()}`,
+      updatePayload,
+      { headers: this.HEADERS }
+    ).subscribe({
+      next: () => {
+        this.isSaving.set(false);
+        this.saveSuccess.set('Vehicle updated successfully!');
+        this.loadVehicles();
+        setTimeout(() => this.closeModal(), 1200);
+      },
+      error: (err) => {
+        this.isSaving.set(false);
+        this.saveError.set(err?.error?.message || 'Failed to save. Please try again.');
+      }
+    });
+
+  } else {
+
+    // ✅ POST → Add new vehicle (confirm URL with backend partner)
+    this.http.post(
+      API_CONFIG.VEHICLES_REGISTER,
+      this.form,
+      { headers: this.HEADERS }
+    ).subscribe({
+      next: (res) => {
+        this.isSaving.set(false);
+        this.saveSuccess.set('Vehicle added successfully!');
+        this.loadVehicles();
+        setTimeout(() => this.closeModal(), 1200);
+      },
+      error: (err) => {
+        this.isSaving.set(false);
+        const serverMsg = err?.error?.message || err?.error || err?.message;
+        this.saveError.set(serverMsg || 'Failed to save. Please try again.');
+      }
+    });
+
+  }
+}
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  DELETE MODAL
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  openDeleteModal(v: any) {
+    this.deleteTarget.set(v);
+    this.deleteError.set('');
+    this.showDeleteModal.set(true);
+  }
+
+  closeDeleteModal() { this.showDeleteModal.set(false); }
+
+  confirmDelete() {
+  const v = this.deleteTarget();
+  if (!v) return;
+
+  this.isDeleting.set(true);
+  this.deleteError.set('');
+
+  // ── DUMMY MODE ──
+  if (USE_DUMMY_DATA) {
+    setTimeout(() => {
+      const idx = DUMMY_VEHICLES.findIndex(x => x.vehicleId === v.vehicleId);
+      if (idx > -1) DUMMY_VEHICLES.splice(idx, 1);
+      this.allVehicles.set([...DUMMY_VEHICLES]);
+      this.isDeleting.set(false);
+      this.closeDeleteModal();
+    }, 500);
+    return;
+  }
+
+  // ── LIVE API ── ✅ responseType: 'text' added (backend returns plain string)
+  this.http.delete(
+    `${API_CONFIG.BASE_URL}/api/vehicles/delete/${v.vehicleId}`,
+    {
+      headers     : this.HEADERS,
+      responseType: 'text'
+    }
+  ).subscribe({
+    next: () => {
+      this.isDeleting.set(false);
+      this.loadVehicles();
+      this.closeDeleteModal();
+    },
+    error: (err) => {
+      this.isDeleting.set(false);
+      this.deleteError.set(err?.error?.message || 'Delete failed. Please try again.');
+    }
+  });
+}
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  FILTER & PAGINATION  (original — untouched)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   get filteredVehicles() {
     let list = this.allVehicles();
     const s  = this.searchText().toLowerCase();
