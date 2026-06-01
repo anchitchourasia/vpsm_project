@@ -137,7 +137,7 @@
 }
 
 /* ACTION BUTTONS IN TABLE ROWS */
-.action-btns { display: flex; gap: 6px; align-items: center; }
+.action-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
 .btn-icon-edit {
   background: #eff6ff; border: 1px solid #bfdbfe;
@@ -156,6 +156,29 @@
   transition: all 0.2s;
 }
 .btn-icon-delete:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+
+/* ✅ NEW — Issue Pass row button */
+/* Issue Pass row button — updated for better visibility */
+.btn-icon-issue {
+  background: #16a34a;
+  border: 1px solid #15803d;
+  color: #fff;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-icon-issue:hover {
+  background: #15803d;
+  border-color: #166534;
+  box-shadow: 0 2px 6px rgba(21,128,61,0.35);
+}
 
 /* PAGINATION */
 .pagination-bar {
@@ -222,7 +245,8 @@
   box-shadow: 0 20px 60px rgba(0,0,0,0.25);
   z-index: 1000; overflow: hidden;
 }
-.modal-sm { width: 420px; }
+.modal-sm  { width: 420px; }
+.modal-lg  { width: 720px; }
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -230,6 +254,15 @@
   background: #0f172a; color: #fff;
 }
 .modal-header-danger { background: #7f1d1d !important; }
+
+/* ✅ NEW — Issue Pass modal header (green theme) */
+.modal-header-issue {
+  background: linear-gradient(135deg, #15803d, #16a34a) !important;
+  color: #fff;
+}
+.modal-header-issue .modal-close { color: rgba(255,255,255,0.75); }
+.modal-header-issue .modal-close:hover { color: #fff; }
+
 .modal-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .modal-close {
   background: transparent; border: none;
@@ -262,6 +295,55 @@
 .form-input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
 .form-hint { font-size: 11px; color: #94a3b8; }
 .req { color: #ef4444; }
+
+/* ✅ NEW — Section titles inside modal */
+.form-section-title {
+  font-size: 12px; font-weight: 700;
+  color: #475569; text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 6px;
+  margin: 18px 0 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.form-section-title:first-of-type { margin-top: 0; }
+
+/* ✅ NEW — Auto-filled badge in section title */
+.prefill-badge {
+  font-size: 0.68rem;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+/* ✅ NEW — Read-only pre-filled fields */
+.input-readonly {
+  background-color: #f0fdf4 !important;
+  color: #166534 !important;
+  font-weight: 600;
+  cursor: not-allowed;
+  border-color: #bbf7d0 !important;
+}
+
+/* ✅ NEW — Radio group styling */
+.radio-group {
+  display: flex; gap: 20px;
+  align-items: center;
+  padding: 8px 0;
+}
+.radio-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #334155;
+  cursor: pointer; font-weight: 500;
+  text-transform: none; letter-spacing: 0;
+}
+.radio-label input[type="radio"] { cursor: pointer; accent-color: #e65c00; }
 
 /* ══ ALERTS ══ */
 .alert-success {

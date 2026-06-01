@@ -241,3 +241,31 @@ textarea.form-input { resize: vertical; }
 .detail-row:last-child { border-bottom: none; }
 .detail-row > span:first-child { color: #64748b; }
 .detail-row strong { color: #1e293b; text-align: right; max-width: 60%; }
+/* Vehicle lookup feedback */
+.lookup-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #dc3545;
+}
+.lookup-success {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #198754;
+}
+.input-with-loader {
+  position: relative;
+}
+.lookup-spinner {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+}
+.input-readonly {
+  background-color: #f5f5f5 !important;
+  cursor: not-allowed;
+  color: #555;
+}

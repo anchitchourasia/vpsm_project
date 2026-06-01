@@ -223,15 +223,41 @@
     <!-- SECTION 2: Vehicle -->
     <div class="form-section-title">Vehicle Details</div>
     <div class="form-grid">
+
       <div class="form-group">
         <label>Vehicle ID (FK) <span class="req">*</span></label>
-        <input type="number" [(ngModel)]="form.vehicleId" placeholder="From Vehicles Master" class="form-input" min="1" />
+        <div class="input-with-loader">
+          <input
+            type="number"
+            [(ngModel)]="form.vehicleId"
+            (blur)="onVehicleIdBlur()"
+            placeholder="e.g. 101"
+            class="form-input"
+            min="1"
+          />
+          <i class="bi bi-arrow-repeat spin-icon-sm lookup-spinner" *ngIf="isLookingUp()"></i>
+        </div>
         <small class="form-hint">Enter Vehicle ID from Vehicles Master table</small>
+        <small class="lookup-error" *ngIf="vehicleLookupError()">
+          <i class="bi bi-exclamation-triangle-fill"></i> {{ vehicleLookupError() }}
+        </small>
+        <small class="lookup-success" *ngIf="vehicleLookupSuccess()">
+          <i class="bi bi-check-circle-fill"></i> {{ vehicleLookupSuccess() }}
+        </small>
       </div>
+
       <div class="form-group">
         <label>Type of Vehicle <span class="req">*</span></label>
-        <input type="text" [(ngModel)]="form.typeOfVehicle" placeholder="e.g. Car, Bike, Dumper Truck" class="form-input" />
+        <input
+          type="text"
+          [(ngModel)]="form.typeOfVehicle"
+          placeholder="Auto-filled from Vehicle ID"
+          class="form-input input-readonly"
+          readonly
+        />
+        <small class="form-hint">Auto-filled when Vehicle ID is entered</small>
       </div>
+
     </div>
 
     <!-- SECTION 3: Pass Details -->

@@ -4,11 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { API_CONFIG } from '../core/api.config';
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  DUMMY DATA SWITCH
-//  true  = use local dummy data (no API call)
-//  false = call live backend API
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const USE_DUMMY_DATA = false;
 
 const DUMMY_PASSES: any[] = [
@@ -68,6 +63,21 @@ const DUMMY_PASSES: any[] = [
     status: 'Expiring', empType: 'Contractor',
     isActive: 'Y', enterBy: 'ADMIN', enterDate: '2025-02-10', remarks: ''
   },
+];
+
+// ── Dummy vehicle lookup (mirrors Vehicles Master) ──
+const DUMMY_VEHICLES: any[] = [
+  { vehicleId: 1,   typeOfVehicle: 'Car'          },
+  { vehicleId: 2,   typeOfVehicle: 'Bike'         },
+  { vehicleId: 3,   typeOfVehicle: 'Dumper Truck' },
+  { vehicleId: 4,   typeOfVehicle: 'Scooter'      },
+  { vehicleId: 5,   typeOfVehicle: 'SUV'          },
+  { vehicleId: 6,   typeOfVehicle: 'Sedan'        },
+  { vehicleId: 7,   typeOfVehicle: 'Scooter'      },
+  { vehicleId: 8,   typeOfVehicle: 'Truck'        },
+  { vehicleId: 9,   typeOfVehicle: 'SUV'          },
+  { vehicleId: 10,  typeOfVehicle: 'SUV'          },
+  { vehicleId: 101, typeOfVehicle: 'Bike'         },
 ];
 
 interface PassForm {
@@ -163,6 +173,11 @@ export class Passes implements OnInit {
   editId      = signal<number | null>(null);
   form: PassForm = EMPTY_FORM();
 
+  // ── Vehicle Lookup Feedback ──   ← NEW
+  vehicleLookupError   = signal('');
+  vehicleLookupSuccess = signal('');
+  isLookingUp          = signal(false);
+
   // ── View Modal ──
   showViewModal = signal(false);
   viewPass      = signal<any>(null);
@@ -170,9 +185,6 @@ export class Passes implements OnInit {
   constructor(private http: HttpClient) {}
   ngOnInit() { this.loadPasses(); }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  LOAD → GET /api/passes/list
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   loadPasses() {
     this.isLoading.set(true);
     this.hasError.set(false);
@@ -191,14 +203,12 @@ export class Passes implements OnInit {
     });
   }
 
-  // ── Filter event handlers ──
   onSearch       (v: string) { this.searchText.set(v);    this.currentPage.set(1); }
   onFilterStatus (v: string) { this.filterStatus.set(v);  this.currentPage.set(1); }
   onFilterEmpType(v: string) { this.filterEmpType.set(v); this.currentPage.set(1); }
   onPageSize     (v: string) { this.pageSize.set(+v);     this.currentPage.set(1); }
   goToPage       (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
 
-  // ── Date formatter ──
   formatDate(d: string): string {
     if (!d) return '—';
     const dt = new Date(d);
@@ -206,7 +216,6 @@ export class Passes implements OnInit {
     return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  // ── Badge class helpers ──
   getStatusClass(status: string): string {
     switch ((status || '').toLowerCase()) {
       case 'active'     : return 'badge badge-active';
@@ -222,14 +231,58 @@ export class Passes implements OnInit {
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  MODAL CONTROL
+  //  VEHICLE ID LOOKUP ← NEW METHOD
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  onVehicleIdBlur() {
+    const id = this.form.vehicleId?.toString().trim();
+
+    // Reset feedback & clear type field
+    this.vehicleLookupError.set('');
+    this.vehicleLookupSuccess.set('');
+    this.form.typeOfVehicle = '';
+
+    if (!id || id === '0') return;
+
+    this.isLookingUp.set(true);
+
+    if (USE_DUMMY_DATA) {
+      setTimeout(() => {
+        const found = DUMMY_VEHICLES.find(v => v.vehicleId === +id);
+        if (found) {
+          this.form.typeOfVehicle = found.typeOfVehicle;
+          this.vehicleLookupSuccess.set('Vehicle found: ' + found.typeOfVehicle);
+        } else {
+          this.vehicleLookupError.set('Vehicle ID ' + id + ' not found in Vehicles Master.');
+        }
+        this.isLookingUp.set(false);
+      }, 300);
+      return;
+    }
+
+    // Live API call
+    this.http.get<any>(`${API_CONFIG.BASE_URL}/vehicles/${id}`, { headers: this.HEADERS }).subscribe({
+      next: (vehicle) => {
+        this.form.typeOfVehicle = vehicle.vehicleType || vehicle.typeOfVehicle || vehicle.type || '';
+        this.vehicleLookupSuccess.set('Vehicle found: ' + this.form.typeOfVehicle);
+        this.isLookingUp.set(false);
+      },
+      error: () => {
+        this.vehicleLookupError.set('Vehicle ID ' + id + ' not found in Vehicles Master.');
+        this.form.typeOfVehicle = '';
+        this.isLookingUp.set(false);
+      },
+    });
+  }
+
   openAddModal() {
     this.form = EMPTY_FORM();
     this.isEditMode.set(false);
     this.editId.set(null);
     this.saveError.set('');
     this.saveSuccess.set('');
+    this.vehicleLookupError.set('');    // ← NEW
+    this.vehicleLookupSuccess.set(''); // ← NEW
+    this.isLookingUp.set(false);        // ← NEW
     this.showModal.set(true);
   }
 
@@ -255,21 +308,22 @@ export class Passes implements OnInit {
     this.editId.set(p.passId);
     this.saveError.set('');
     this.saveSuccess.set('');
+    this.vehicleLookupError.set('');
+    // Pre-fill success since vehicle type is already known in edit mode
+    this.vehicleLookupSuccess.set(p.typeOfVehicle ? 'Vehicle found: ' + p.typeOfVehicle : '');
+    this.isLookingUp.set(false);
     this.showViewModal.set(false);
     this.showModal.set(true);
   }
 
-  closeModal()     { this.showModal.set(false); }
+  closeModal()          { this.showModal.set(false); }
   openViewModal(p: any) { this.viewPass.set(p); this.showViewModal.set(true); }
   closeViewModal()      { this.showViewModal.set(false); }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  SAVE → POST /api/passes/issue
-  //          PUT  /api/passes/update/{id}
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   savePass() {
     if (!String(this.form.vehicleId).trim())  { this.saveError.set('Vehicle ID is required.');      return; }
-    if (!this.form.typeOfVehicle.trim())       { this.saveError.set('Type of Vehicle is required.'); return; }
+    if (this.vehicleLookupError())            { this.saveError.set('Please enter a valid Vehicle ID from Vehicles Master.'); return; }
+    if (!this.form.typeOfVehicle.trim())       { this.saveError.set('Type of Vehicle is required — enter a valid Vehicle ID first.'); return; }
     if (!this.form.issueDate)                 { this.saveError.set('Issue Date is required.');       return; }
     if (!this.form.validityDate)              { this.saveError.set('Validity Date is required.');    return; }
     if (!this.form.gateNo.trim())             { this.saveError.set('Gate No is required.');          return; }
@@ -283,7 +337,6 @@ export class Passes implements OnInit {
     this.isSaving.set(true);
     this.saveError.set('');
 
-    // Only Pass_Registry columns in payload
     const payload = {
       issueDate        : this.form.issueDate,
       validityDate     : this.form.validityDate,
@@ -302,7 +355,6 @@ export class Passes implements OnInit {
       isActive         : this.form.isActive,
     };
 
-    // Dummy mode: update local signal directly
     if (USE_DUMMY_DATA) {
       setTimeout(() => {
         if (this.isEditMode()) {
@@ -327,7 +379,6 @@ export class Passes implements OnInit {
       return;
     }
 
-    // Live API
     const req$ = this.isEditMode()
       ? this.http.put(`${API_CONFIG.PASSES_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
       : this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS });

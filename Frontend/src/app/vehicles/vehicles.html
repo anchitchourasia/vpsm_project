@@ -107,6 +107,10 @@
                   <button class="btn-icon-delete" title="Delete Vehicle" (click)="openDeleteModal(v)">
                     <i class="bi bi-trash3"></i> Delete
                   </button>
+                  <!-- ✅ NEW: Issue Pass Button -->
+                  <button class="btn-icon-issue" title="Issue Pass for this vehicle" (click)="openIssuePassModal(v)">
+                    <i class="bi bi-card-checklist"></i> Issue Pass
+                  </button>
                 </div>
               </td>
             </tr>
@@ -142,6 +146,7 @@
     </div>
   </div>
 </div>
+
 
 <!-- ══════════════════════════════════════════════════════ -->
 <!--  ADD / EDIT VEHICLE MODAL                             -->
@@ -228,6 +233,7 @@
   </div>
 </div>
 
+
 <!-- ══════════════════════════════════════════════════════ -->
 <!--  DELETE CONFIRM MODAL                                 -->
 <!-- ══════════════════════════════════════════════════════ -->
@@ -258,4 +264,163 @@
       {{ isDeleting() ? 'Deleting...' : 'Yes, Delete' }}
     </button>
   </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!--  ISSUE PASS MODAL  ✅ NEW                             -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="showIssuePassModal()" (click)="closeIssuePassModal()"></div>
+<div class="modal-box modal-lg" *ngIf="showIssuePassModal()">
+
+  <div class="modal-header modal-header-issue">
+    <h3><i class="bi bi-card-checklist"></i> Issue Pass — {{ issuePassForm.vehicleNo }}</h3>
+    <button class="modal-close" (click)="closeIssuePassModal()">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <div class="modal-body">
+
+    <!-- Feedback Alerts -->
+    <div class="alert-success" *ngIf="issuePassSuccess()">
+      <i class="bi bi-check-circle-fill"></i> {{ issuePassSuccess() }}
+    </div>
+    <div class="alert-error" *ngIf="issuePassError()">
+      <i class="bi bi-exclamation-triangle-fill"></i> {{ issuePassError() }}
+    </div>
+
+    <!-- SECTION 1: Vehicle Info — READ ONLY, pre-filled from row -->
+    <div class="form-section-title">
+      <i class="bi bi-truck"></i> Vehicle Details
+      <span class="prefill-badge">Auto-filled</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Vehicle ID</label>
+        <input type="text" [value]="issuePassForm.vehicleId"
+          class="form-input input-readonly" readonly />
+      </div>
+      <div class="form-group">
+        <label>Vehicle No</label>
+        <input type="text" [value]="issuePassForm.vehicleNo"
+          class="form-input input-readonly" readonly />
+      </div>
+      <div class="form-group">
+        <label>Type of Vehicle</label>
+        <input type="text" [value]="issuePassForm.typeOfVehicle"
+          class="form-input input-readonly" readonly />
+      </div>
+      <div class="form-group">
+        <label>Vehicle Class</label>
+        <input type="text" [value]="issuePassForm.vehicleClass"
+          class="form-input input-readonly" readonly />
+      </div>
+    </div>
+
+    <!-- SECTION 2: Person Details -->
+    <div class="form-section-title">
+      <i class="bi bi-person-badge"></i> Person Details
+    </div>
+    <div class="form-grid">
+
+      <div class="form-group full-width">
+        <label>Employee Type <span class="req">*</span></label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" [(ngModel)]="issuePassForm.empType" value="Company_Employee" />
+            Company Employee
+          </label>
+          <label class="radio-label">
+            <input type="radio" [(ngModel)]="issuePassForm.empType" value="Contractor" />
+            Contractor
+          </label>
+        </div>
+      </div>
+
+      <ng-container *ngIf="issuePassForm.empType === 'Company_Employee'">
+        <div class="form-group">
+          <label>Employee No <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="issuePassForm.employeeNo"
+            placeholder="e.g. EMP001" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>EC No (Company No)</label>
+          <input type="text" [(ngModel)]="issuePassForm.employeeCompanyNo"
+            placeholder="e.g. HEG001" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <input type="text" [(ngModel)]="issuePassForm.dept"
+            placeholder="e.g. Mechanical" class="form-input" />
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="issuePassForm.empType === 'Contractor'">
+        <div class="form-group">
+          <label>Contractor Code <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="issuePassForm.contractorCode"
+            placeholder="e.g. CON001" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Work Area / Department</label>
+          <input type="text" [(ngModel)]="issuePassForm.dept"
+            placeholder="e.g. Civil Works" class="form-input" />
+        </div>
+      </ng-container>
+
+      <div class="form-group">
+        <label>Mobile No</label>
+        <input type="text" [(ngModel)]="issuePassForm.mobileNo"
+          placeholder="e.g. 9876543210" class="form-input" maxlength="10" />
+      </div>
+
+    </div>
+
+    <!-- SECTION 3: Pass Details -->
+    <div class="form-section-title">
+      <i class="bi bi-calendar-check"></i> Pass Details
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Issue Date <span class="req">*</span></label>
+        <input type="date" [(ngModel)]="issuePassForm.issueDate" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label>Validity Date <span class="req">*</span></label>
+        <input type="date" [(ngModel)]="issuePassForm.validityDate" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label>Gate No <span class="req">*</span></label>
+        <select [(ngModel)]="issuePassForm.gateNo" class="form-input">
+          <option value="">-- Select Gate --</option>
+          <option value="GATE_01">Gate 01</option>
+          <option value="GATE_02">Gate 02</option>
+          <option value="GATE_03">Gate 03</option>
+          <option value="GATE_04">Gate 04</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Parking To Be Used</label>
+        <input type="text" [(ngModel)]="issuePassForm.parkingToBeUsed"
+          placeholder="e.g. A-Block, Heavy Yard" class="form-input" />
+      </div>
+      <div class="form-group full-width">
+        <label>Remarks</label>
+        <textarea [(ngModel)]="issuePassForm.remarks" rows="2"
+          placeholder="Any remarks..." class="form-input"></textarea>
+      </div>
+    </div>
+
+  </div><!-- /modal-body -->
+
+  <div class="modal-footer">
+    <button class="btn-cancel" (click)="closeIssuePassModal()" [disabled]="isSavingPass()">Cancel</button>
+    <button class="btn-save" (click)="submitIssuePass()" [disabled]="isSavingPass()">
+      <i class="bi bi-arrow-repeat spin-icon-sm" *ngIf="isSavingPass()"></i>
+      <i class="bi bi-send-fill" *ngIf="!isSavingPass()"></i>
+      {{ isSavingPass() ? 'Issuing...' : 'Issue Pass' }}
+    </button>
+  </div>
+
 </div>
