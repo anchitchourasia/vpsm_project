@@ -279,62 +279,87 @@ export class Vehicles implements OnInit {
 
   closeIssuePassModal() { this.showIssuePassModal.set(false); }
 
-  submitIssuePass() {
-    // ── Validation ──
-    if (!this.issuePassForm.issueDate)    { this.issuePassError.set('Issue Date is required.');    return; }
-    if (!this.issuePassForm.validityDate) { this.issuePassError.set('Validity Date is required.'); return; }
-    if (!this.issuePassForm.gateNo)       { this.issuePassError.set('Gate No is required.');       return; }
-    if (this.issuePassForm.empType === 'Company_Employee' && !this.issuePassForm.employeeNo.trim()) {
-      this.issuePassError.set('Employee No is required.'); return;
-    }
-    if (this.issuePassForm.empType === 'Contractor' && !this.issuePassForm.contractorCode.trim()) {
-      this.issuePassError.set('Contractor Code is required.'); return;
-    }
-
-    this.isSavingPass.set(true);
-    this.issuePassError.set('');
-
-    const payload = {
-      vehicleId        : this.issuePassForm.vehicleId,
-      typeOfVehicle    : this.issuePassForm.typeOfVehicle,
-      empType          : this.issuePassForm.empType,
-      employeeNo       : this.issuePassForm.empType === 'Company_Employee' ? this.issuePassForm.employeeNo        : null,
-      employeeCompanyNo: this.issuePassForm.empType === 'Company_Employee' ? this.issuePassForm.employeeCompanyNo : null,
-      contractorCode   : this.issuePassForm.empType === 'Contractor'       ? this.issuePassForm.contractorCode    : null,
-      dept             : this.issuePassForm.dept            || null,
-      mobileNo         : this.issuePassForm.mobileNo        || null,
-      issueDate        : this.issuePassForm.issueDate,
-      validityDate     : this.issuePassForm.validityDate,
-      gateNo           : this.issuePassForm.gateNo,
-      parkingToBeUsed  : this.issuePassForm.parkingToBeUsed || null,
-      status           : 'Active',
-      isActive         : 'Y',
-      remarks          : this.issuePassForm.remarks         || null,
-    };
-
-    // ── DUMMY MODE ──
-    if (USE_DUMMY_DATA) {
-      setTimeout(() => {
-        this.issuePassSuccess.set(`✅ Pass issued successfully for ${this.issuePassForm.vehicleNo}!`);
-        this.isSavingPass.set(false);
-        setTimeout(() => this.closeIssuePassModal(), 1400);
-      }, 600);
-      return;
-    }
-
-    // ── LIVE API → POST to Pass Registry ──
-    this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS }).subscribe({
-      next: () => {
-        this.issuePassSuccess.set(`✅ Pass issued successfully for ${this.issuePassForm.vehicleNo}!`);
-        this.isSavingPass.set(false);
-        setTimeout(() => this.closeIssuePassModal(), 1400);
-      },
-      error: (err: any) => {
-        this.issuePassError.set(err?.error?.message || 'Failed to issue pass. Please try again.');
-        this.isSavingPass.set(false);
-      },
-    });
+ submitIssuePass() {
+  // ── Validation ──
+  if (!this.issuePassForm.issueDate)    { this.issuePassError.set('Issue Date is required.');    return; }
+  if (!this.issuePassForm.validityDate) { this.issuePassError.set('Validity Date is required.'); return; }
+  if (!this.issuePassForm.gateNo)       { this.issuePassError.set('Gate No is required.');       return; }
+  if (this.issuePassForm.empType === 'Company_Employee' && !this.issuePassForm.employeeNo.trim()) {
+    this.issuePassError.set('Employee No is required.'); return;
   }
+  if (this.issuePassForm.empType === 'Contractor' && !this.issuePassForm.contractorCode.trim()) {
+    this.issuePassError.set('Contractor Code is required.'); return;
+  }
+
+  this.isSavingPass.set(true);
+  this.issuePassError.set('');
+
+  // ── Payload — matches Pass Registry / Vehicle_Pass_Registry table columns ──
+  const payload: any = {
+    vehicleId        : this.issuePassForm.vehicleId,
+    typeOfVehicle    : this.issuePassForm.typeOfVehicle,
+    empType          : this.issuePassForm.empType,
+    issueDate        : this.issuePassForm.issueDate,
+    validityDate     : this.issuePassForm.validityDate,
+    gateNo           : this.issuePassForm.gateNo,
+    parkingToBeUsed  : this.issuePassForm.parkingToBeUsed  || null,
+    passStatus       : 'Active',
+    isActive         : 'Y',
+    remarks          : this.issuePassForm.remarks          || null,
+  };
+
+  // Conditionally add person fields based on type
+  if (this.issuePassForm.empType === 'Company_Employee') {
+    payload.employeeNo        = this.issuePassForm.employeeNo        || null;
+    payload.employeeCompanyNo = this.issuePassForm.employeeCompanyNo || null;
+    payload.dept              = this.issuePassForm.dept              || null;
+    payload.mobileNo          = this.issuePassForm.mobileNo          || null;
+    payload.contractorCode    = null;
+  } else {
+    payload.contractorCode    = this.issuePassForm.contractorCode    || null;
+    payload.dept              = this.issuePassForm.dept              || null;
+    payload.mobileNo          = this.issuePassForm.mobileNo          || null;
+    payload.employeeNo        = null;
+    payload.employeeCompanyNo = null;
+  }
+
+  // ── DUMMY MODE ──
+  if (USE_DUMMY_DATA) {
+    setTimeout(() => {
+      this.issuePassSuccess.set(`✅ Pass issued successfully for ${this.issuePassForm.vehicleNo}!`);
+      this.isSavingPass.set(false);
+      setTimeout(() => this.closeIssuePassModal(), 1400);
+    }, 600);
+    return;
+  }
+
+  // ── LIVE API → POST to Pass Registry ──
+  console.log('📤 Submitting Issue Pass payload:', payload);  // ← helps debug
+
+  this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS }).subscribe({
+    next: (res: any) => {
+      console.log('✅ Pass issued response:', res);
+      this.issuePassSuccess.set(`✅ Pass issued successfully for ${this.issuePassForm.vehicleNo}!`);
+      this.isSavingPass.set(false);
+      setTimeout(() => this.closeIssuePassModal(), 1400);
+    },
+    error: (err: any) => {
+      // ── Log exact backend error for debugging ──
+      console.error('❌ Issue Pass API Error:', err);
+      console.error('❌ Error body:', err?.error);
+      console.error('❌ Status:', err?.status);
+
+      // Show specific backend message if available
+      const msg = err?.error?.message
+        || err?.error?.error
+        || err?.error
+        || `Server error ${err?.status || ''}. Check console for details.`;
+
+      this.issuePassError.set(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      this.isSavingPass.set(false);
+    },
+  });
+}
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  FILTER & PAGINATION
