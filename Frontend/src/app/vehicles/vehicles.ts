@@ -9,7 +9,7 @@ import { API_CONFIG } from '../core/api.config';
 //  true  = shows dummy data (no API needed, backend can be off)
 //  false = fetches live data from real API
 // ══════════════════════════════════════════════════════════════
-const USE_DUMMY_DATA = true;
+const USE_DUMMY_DATA = false;
 
 const DUMMY_VEHICLES: any[] = [
   {
