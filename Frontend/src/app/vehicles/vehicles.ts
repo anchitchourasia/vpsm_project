@@ -77,7 +77,7 @@ const EMPTY_ISSUE_PASS_FORM = (): IssuePassForm => ({
 export class Vehicles implements OnInit {
   private readonly API_URL = API_CONFIG.VEHICLES;
   private readonly HEADERS = new HttpHeaders({
-    'X-API-KEY'   : API_CONFIG.API_KEY,
+    'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
 
