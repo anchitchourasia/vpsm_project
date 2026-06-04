@@ -16,15 +16,16 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   'Insurance' : 'Insurance',
   'Fitness'   : 'Fitness Certificate',
   'Load_Test' : 'Load Test',
+  'Load Test' : 'Load Test',   // ← DB stores with space
 };
 
 // Route data → DB documentType value
 const ROUTE_TO_DOCTYPE: Record<string, string> = {
-  'RC'        : 'RC',
+  'RC'        : 'RC', 
   'PUC'       : 'PUC',
   'Insurance' : 'Insurance',
   'Fitness'   : 'Fitness',
-  'Load_Test' : 'Load_Test',
+  'Load_Test' : 'Load Test',
   'ALL'       : 'ALL',
 };
 
@@ -442,7 +443,8 @@ export class Documents implements OnInit, OnDestroy {
     const st = this.filterStatus();
     const dt = this.activeDocType();
     return this.allDocsRaw().filter(d => {
-      const matchType   = dt === 'ALL' || (d.documentType || '') === dt;
+      const normalize = (s: string) => (s || '').toLowerCase().replace(/[\s\-]/g, '_');
+      const matchType = dt === 'ALL' || normalize(d.documentType) === normalize(dt);     
       const matchStatus = st === 'ALL' || (d.documentStatus || '') === st;
       const matchSearch =
         !q ||
