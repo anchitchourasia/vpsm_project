@@ -5,15 +5,12 @@ import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
-// ══════════════════════════════════════════════════════════════
-//  🔧 DUMMY DATA SWITCH
-//  true  = dummy data (backend off)
-//  false = live API
-// ══════════════════════════════════════════════════════════════
 const USE_DUMMY_DATA = false;
-
-// Oracle 10g can be slow — abort if no response in 12 seconds
 const HTTP_TIMEOUT_MS = 12000;
+
+// Employee lookup array index positions (from Postman)
+// [empNo, name, salary, managerId, email, deptId, deptName]
+const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
 
 const DUMMY_VEHICLES: any[] = [
   { vehicleId: 1,  vehicleNo: 'MP04HEG1111', vehicleType: 'Car',          vehicleClass: 'Four_Wheeler',    brandModel: 'Honda City',               isActive: 'Y', isBlacklisted: 'N' },
@@ -26,11 +23,8 @@ const DUMMY_VEHICLES: any[] = [
   { vehicleId: 8,  vehicleNo: 'MP04HEG8888', vehicleType: 'Truck',        vehicleClass: 'Heavy_Machinery', brandModel: 'BharatBenz 2823C',          isActive: 'Y', isBlacklisted: 'N' },
   { vehicleId: 9,  vehicleNo: 'MP04XX3548',  vehicleType: 'SUV',          vehicleClass: 'Four_Wheeler',    brandModel: 'Tata Harrier',              isActive: 'Y', isBlacklisted: 'N' },
   { vehicleId: 10, vehicleNo: 'MP04XX4174',  vehicleType: 'SUV',          vehicleClass: 'Four_Wheeler',    brandModel: 'Tata Curvv',                isActive: 'Y', isBlacklisted: 'N' },
-  { vehicleId: 11, vehicleNo: 'MP04XX4194',  vehicleType: 'SUV',          vehicleClass: 'Four_Wheeler',    brandModel: 'Tata Manza',                isActive: 'N', isBlacklisted: 'N' },
-  { vehicleId: 12, vehicleNo: 'MH12KL1234',  vehicleType: 'Car',          vehicleClass: 'Four_Wheeler',    brandModel: 'Honda City',                isActive: 'Y', isBlacklisted: 'N' },
 ];
 
-// ── Interfaces ──
 interface VehicleForm {
   vehicleNo    : string;
   vehicleType  : string;
@@ -40,35 +34,36 @@ interface VehicleForm {
   isBlacklisted: string;
 }
 
+// ✅ UPDATED: employeeCompanyNo → empName, mobileNo → salary
 interface IssuePassForm {
-  vehicleId        : number | null;
-  vehicleNo        : string;
-  typeOfVehicle    : string;
-  vehicleClass     : string;
-  empType          : string;
-  employeeNo       : string;
-  employeeCompanyNo: string;
-  contractorCode   : string;
-  dept             : string;
-  mobileNo         : string;
-  issueDate        : string;
-  validityDate     : string;
-  gateNo           : string;
-  parkingToBeUsed  : string;
-  remarks          : string;
+  vehicleId      : number | null;
+  vehicleNo      : string;
+  typeOfVehicle  : string;
+  vehicleClass   : string;
+  empType        : string;
+  employeeNo     : string;
+  empName        : string;   // was: employeeCompanyNo (EC No) → now NAME
+  salary         : string;   // was: mobileNo → now SALARY
+  contractorCode : string;
+  dept           : string;
+  issueDate      : string;
+  validityDate   : string;
+  gateNo         : string;
+  parkingToBeUsed: string;
+  remarks        : string;
 }
 
 interface IssuePassErrors {
-  issueDate        : string;
-  validityDate     : string;
-  gateNo           : string;
-  employeeNo       : string;
-  contractorCode   : string;
-  mobileNo         : string;
-  remarks          : string;
-  dept             : string;
-  employeeCompanyNo: string;
-  parkingToBeUsed  : string;
+  issueDate      : string;
+  validityDate   : string;
+  gateNo         : string;
+  employeeNo     : string;
+  contractorCode : string;
+  salary         : string;
+  remarks        : string;
+  dept           : string;
+  empName        : string;
+  parkingToBeUsed: string;
 }
 
 const EMPTY_FORM = (): VehicleForm => ({
@@ -78,15 +73,15 @@ const EMPTY_FORM = (): VehicleForm => ({
 
 const EMPTY_ISSUE_PASS_FORM = (): IssuePassForm => ({
   vehicleId: null, vehicleNo: '', typeOfVehicle: '', vehicleClass: '',
-  empType: 'Company_Employee', employeeNo: '', employeeCompanyNo: '',
-  contractorCode: '', dept: '', mobileNo: '',
+  empType: 'Company_Employee', employeeNo: '', empName: '', salary: '',
+  contractorCode: '', dept: '',
   issueDate: '', validityDate: '', gateNo: '', parkingToBeUsed: '', remarks: '',
 });
 
 const EMPTY_PASS_ERRORS = (): IssuePassErrors => ({
   issueDate: '', validityDate: '', gateNo: '',
-  employeeNo: '', contractorCode: '', mobileNo: '',
-  remarks: '', dept: '', employeeCompanyNo: '', parkingToBeUsed: '',
+  employeeNo: '', contractorCode: '', salary: '',
+  remarks: '', dept: '', empName: '', parkingToBeUsed: '',
 });
 
 @Component({
@@ -98,16 +93,11 @@ const EMPTY_PASS_ERRORS = (): IssuePassErrors => ({
 })
 export class Vehicles implements OnInit, OnDestroy {
   private readonly API_URL = API_CONFIG.VEHICLES;
-
-  // ✅ FIX: lowercase 'x-api-key' — uppercase 'X-API-KEY' was breaking the API in wpfix
   private readonly HEADERS = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
-
-  // Cancels all HTTP calls on component destroy — prevents ghost requests to Oracle
   private readonly destroy$ = new Subject<void>();
-
   readonly todayStr = new Date().toISOString().split('T')[0];
 
   // ── List state ──
@@ -138,7 +128,7 @@ export class Vehicles implements OnInit, OnDestroy {
   deleteError     = signal('');
   deleteTarget    = signal<any>(null);
 
-  // ── Issue Pass Modal ──
+  // ── Issue Pass / Raise Request Modal ──
   showIssuePassModal = signal(false);
   isSavingPass       = signal(false);
   issuePassError     = signal('');
@@ -146,70 +136,61 @@ export class Vehicles implements OnInit, OnDestroy {
   issuePassForm: IssuePassForm    = EMPTY_ISSUE_PASS_FORM();
   passFieldErrors: IssuePassErrors = EMPTY_PASS_ERRORS();
 
+  // ✅ NEW: Employee lookup state
+  isLookingUpEmp = signal(false);
+  empLookupError = signal('');
+  empLookupDone  = signal(false);
+
+  // ✅ NEW: Vehicle Documents state (shown inside Raise Request modal)
+  vehicleDocs      = signal<any[]>([]);
+  isLoadingDocs    = signal(false);
+
   constructor(private http: HttpClient) {}
   ngOnInit()    { this.loadVehicles(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  LOAD — called only on init + retry
+  //  LOAD VEHICLES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   loadVehicles() {
     this.isLoading.set(true);
     this.hasError.set(false);
 
     if (USE_DUMMY_DATA) {
-      setTimeout(() => {
-        this.allVehicles.set([...DUMMY_VEHICLES]);
-        this.isLoading.set(false);
-      }, 400);
+      setTimeout(() => { this.allVehicles.set([...DUMMY_VEHICLES]); this.isLoading.set(false); }, 400);
       return;
     }
 
     this.http
       .get<any[]>(this.API_URL, { headers: this.HEADERS, observe: 'response' })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(() => {
-          this.hasError.set(true);
-          this.isLoading.set(false);
-          return of(null);
-        })
+        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(() => { this.hasError.set(true); this.isLoading.set(false); return of(null); })
       )
       .subscribe((response: HttpResponse<any[]> | null) => {
         if (!response) return;
-        this.allVehicles.set(
-          response.status === 204 || !response.body ? [] : response.body
-        );
+        this.allVehicles.set(response.status === 204 || !response.body ? [] : response.body);
         this.isLoading.set(false);
       });
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  ADD / EDIT MODAL
+  //  ADD / EDIT VEHICLE MODAL
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   openAddModal() {
-    this.form = EMPTY_FORM();
-    this.isEditMode.set(false);
-    this.editId.set(null);
-    this.saveError.set('');
-    this.saveSuccess.set('');
+    this.form = EMPTY_FORM(); this.isEditMode.set(false);
+    this.editId.set(null); this.saveError.set(''); this.saveSuccess.set('');
     this.showModal.set(true);
   }
 
   openEditModal(v: any) {
     this.form = {
-      vehicleNo    : v.vehicleNo,
-      vehicleType  : v.vehicleType,
-      vehicleClass : v.vehicleClass,
-      brandModel   : v.brandModel || '',
-      isActive     : v.isActive,
-      isBlacklisted: v.isBlacklisted,
+      vehicleNo: v.vehicleNo, vehicleType: v.vehicleType,
+      vehicleClass: v.vehicleClass, brandModel: v.brandModel || '',
+      isActive: v.isActive, isBlacklisted: v.isBlacklisted,
     };
-    this.isEditMode.set(true);
-    this.editId.set(v.vehicleId);
-    this.saveError.set('');
-    this.saveSuccess.set('');
+    this.isEditMode.set(true); this.editId.set(v.vehicleId);
+    this.saveError.set(''); this.saveSuccess.set('');
     this.showModal.set(true);
   }
 
@@ -219,12 +200,10 @@ export class Vehicles implements OnInit, OnDestroy {
     if (!this.form.vehicleNo.trim())   { this.saveError.set('Vehicle number is required.'); return; }
     if (!this.form.vehicleType.trim()) { this.saveError.set('Vehicle type is required.');   return; }
     if (!this.form.vehicleClass)       { this.saveError.set('Vehicle class is required.');  return; }
-    if (this.isSaving()) return; // guard: no double-click sending two requests
+    if (this.isSaving()) return;
 
     this.form.vehicleNo = this.form.vehicleNo.toUpperCase().replace(/\s+/g, '');
-    this.isSaving.set(true);
-    this.saveError.set('');
-    this.saveSuccess.set('');
+    this.isSaving.set(true); this.saveError.set(''); this.saveSuccess.set('');
 
     if (USE_DUMMY_DATA) {
       setTimeout(() => {
@@ -232,8 +211,7 @@ export class Vehicles implements OnInit, OnDestroy {
           const idx = DUMMY_VEHICLES.findIndex(v => v.vehicleId === this.editId());
           if (idx > -1) DUMMY_VEHICLES[idx] = { ...DUMMY_VEHICLES[idx], ...this.form };
         } else {
-          const newId = Math.max(...DUMMY_VEHICLES.map(v => v.vehicleId)) + 1;
-          DUMMY_VEHICLES.push({ vehicleId: newId, ...this.form });
+          DUMMY_VEHICLES.push({ vehicleId: Math.max(...DUMMY_VEHICLES.map(v => v.vehicleId)) + 1, ...this.form });
         }
         this.allVehicles.set([...DUMMY_VEHICLES]);
         this.isSaving.set(false);
@@ -245,38 +223,26 @@ export class Vehicles implements OnInit, OnDestroy {
 
     if (this.isEditMode()) {
       const updatePayload = {
-        vehicleType  : this.form.vehicleType,
-        vehicleClass : this.form.vehicleClass,
-        brandModel   : this.form.brandModel,
-        isActive     : this.form.isActive,
-        isBlacklisted: this.form.isBlacklisted,
+        vehicleType: this.form.vehicleType, vehicleClass: this.form.vehicleClass,
+        brandModel: this.form.brandModel, isActive: this.form.isActive, isBlacklisted: this.form.isBlacklisted,
       };
-      this.http
-        .put(`${API_CONFIG.BASE_URL}/api/vehicles/update/${this.editId()}`, updatePayload, { headers: this.HEADERS })
+      this.http.put(`${API_CONFIG.BASE_URL}/api/vehicles/update/${this.editId()}`, updatePayload, { headers: this.HEADERS })
         .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-          catchError(err => { this.isSaving.set(false); this.saveError.set(err?.error?.message || 'Update failed.'); return of(null); })
-        )
+          catchError(err => { this.isSaving.set(false); this.saveError.set(err?.error?.message || 'Update failed.'); return of(null); }))
         .subscribe(res => {
           if (res === null) return;
-          this.isSaving.set(false);
-          this.saveSuccess.set('Vehicle updated successfully!');
-          // Local update — no extra GET to backend
-          const list = this.allVehicles();
-          const idx  = list.findIndex(v => v.vehicleId === this.editId());
+          this.isSaving.set(false); this.saveSuccess.set('Vehicle updated successfully!');
+          const list = this.allVehicles(); const idx = list.findIndex(v => v.vehicleId === this.editId());
           if (idx > -1) { list[idx] = { ...list[idx], ...updatePayload }; this.allVehicles.set([...list]); }
           setTimeout(() => this.closeModal(), 1200);
         });
     } else {
-      this.http
-        .post(API_CONFIG.VEHICLES_REGISTER, this.form, { headers: this.HEADERS })
+      this.http.post(API_CONFIG.VEHICLES_REGISTER, this.form, { headers: this.HEADERS })
         .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-          catchError(err => { this.isSaving.set(false); this.saveError.set(err?.error?.message || err?.error || 'Add failed.'); return of(null); })
-        )
+          catchError(err => { this.isSaving.set(false); this.saveError.set(err?.error?.message || err?.error || 'Add failed.'); return of(null); }))
         .subscribe((saved: any) => {
           if (!saved) return;
-          this.isSaving.set(false);
-          this.saveSuccess.set('Vehicle added successfully!');
-          // Append returned object — no extra GET
+          this.isSaving.set(false); this.saveSuccess.set('Vehicle added successfully!');
           this.allVehicles.set([...this.allVehicles(), saved]);
           setTimeout(() => this.closeModal(), 1200);
         });
@@ -286,56 +252,45 @@ export class Vehicles implements OnInit, OnDestroy {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  DELETE MODAL
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  openDeleteModal(v: any) {
-    this.deleteTarget.set(v);
-    this.deleteError.set('');
-    this.showDeleteModal.set(true);
-  }
-
-  closeDeleteModal() { this.showDeleteModal.set(false); }
+  openDeleteModal(v: any) { this.deleteTarget.set(v); this.deleteError.set(''); this.showDeleteModal.set(true); }
+  closeDeleteModal()      { this.showDeleteModal.set(false); }
 
   confirmDelete() {
     const v = this.deleteTarget();
-    if (!v || this.isDeleting()) return; // guard: no double-click
-
-    this.isDeleting.set(true);
-    this.deleteError.set('');
+    if (!v || this.isDeleting()) return;
+    this.isDeleting.set(true); this.deleteError.set('');
 
     if (USE_DUMMY_DATA) {
       setTimeout(() => {
         const idx = DUMMY_VEHICLES.findIndex(x => x.vehicleId === v.vehicleId);
         if (idx > -1) DUMMY_VEHICLES.splice(idx, 1);
         this.allVehicles.set([...DUMMY_VEHICLES]);
-        this.isDeleting.set(false);
-        this.closeDeleteModal();
+        this.isDeleting.set(false); this.closeDeleteModal();
       }, 500);
       return;
     }
 
-    this.http
-      .delete(`${API_CONFIG.BASE_URL}/api/vehicles/delete/${v.vehicleId}`, { headers: this.HEADERS, responseType: 'text' })
+    this.http.delete(`${API_CONFIG.BASE_URL}/api/vehicles/delete/${v.vehicleId}`, { headers: this.HEADERS, responseType: 'text' })
       .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => { this.isDeleting.set(false); this.deleteError.set(err?.error?.message || 'Delete failed.'); return of(null); })
-      )
+        catchError(err => { this.isDeleting.set(false); this.deleteError.set(err?.error?.message || 'Delete failed.'); return of(null); }))
       .subscribe(res => {
         if (res === null) return;
         this.isDeleting.set(false);
-        // Remove locally — no extra GET to backend
         this.allVehicles.set(this.allVehicles().filter(x => x.vehicleId !== v.vehicleId));
         this.closeDeleteModal();
       });
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  ISSUE PASS MODAL
+  //  RAISE REQUEST MODAL (was: Issue Pass)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   openIssuePassModal(v: any) {
     if (v.isBlacklisted === 'Y') {
-      alert(`⛔ Vehicle ${v.vehicleNo} is blacklisted. Pass cannot be issued.`);
+      alert(`⛔ Vehicle ${v.vehicleNo} is blacklisted. Pass cannot be raised.`);
       return;
     }
     if (v.isActive === 'N') {
-      alert(`⚠️ Vehicle ${v.vehicleNo} is inactive. Pass cannot be issued.`);
+      alert(`⚠️ Vehicle ${v.vehicleNo} is inactive. Pass cannot be raised.`);
       return;
     }
     this.issuePassForm = {
@@ -349,6 +304,14 @@ export class Vehicles implements OnInit, OnDestroy {
     this.issuePassError.set('');
     this.issuePassSuccess.set('');
     this.isSavingPass.set(false);
+    this.isLookingUpEmp.set(false);
+    this.empLookupError.set('');
+    this.empLookupDone.set(false);
+    this.vehicleDocs.set([]);
+
+    // ✅ Load this vehicle's documents immediately when modal opens
+    this.loadVehicleDocs(v.vehicleId);
+
     this.showIssuePassModal.set(true);
   }
 
@@ -357,6 +320,70 @@ export class Vehicles implements OnInit, OnDestroy {
     this.passFieldErrors = EMPTY_PASS_ERRORS();
     this.issuePassError.set('');
     this.issuePassSuccess.set('');
+    this.empLookupError.set('');
+    this.empLookupDone.set(false);
+    this.vehicleDocs.set([]);
+  }
+
+  // ✅ NEW: Load documents for this specific vehicleId — 1 GET, filter client-side
+  loadVehicleDocs(vehicleId: number) {
+    this.isLoadingDocs.set(true);
+
+    if (USE_DUMMY_DATA) {
+      setTimeout(() => { this.vehicleDocs.set([]); this.isLoadingDocs.set(false); }, 300);
+      return;
+    }
+
+    this.http
+      .get<any[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(() => { this.isLoadingDocs.set(false); return of([]); })
+      )
+      .subscribe((docs: any[]) => {
+        // Filter client-side — no extra backend endpoint needed
+        this.vehicleDocs.set((docs || []).filter(d => d.vehicle?.vehicleId === vehicleId));
+        this.isLoadingDocs.set(false);
+      });
+  }
+
+  // ✅ NEW: Auto-fill Name, Dept, Salary on Employee No blur
+  onEmployeeNoBlur() {
+    const empNo = this.issuePassForm.employeeNo.trim();
+    if (!empNo || this.issuePassForm.empType !== 'Company_Employee') return;
+
+    this.isLookingUpEmp.set(true);
+    this.empLookupError.set('');
+    this.empLookupDone.set(false);
+    // Reset auto-filled fields
+    this.issuePassForm.empName = '';
+    this.issuePassForm.dept    = '';
+    this.issuePassForm.salary  = '';
+
+    this.http
+      .get<any[]>(`${API_CONFIG.BASE_URL}/api/reports/employee-department`, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(() => {
+          this.isLookingUpEmp.set(false);
+          this.empLookupError.set('⚠️ Employee lookup failed. Fill manually.');
+          return of([]);
+        })
+      )
+      .subscribe((rows: any[]) => {
+        this.isLookingUpEmp.set(false);
+        // Array format: [empNo, name, salary, managerId, email, deptId, deptName]
+        const match = rows.find(r => String(r[EMP_IDX.empNo]) === empNo);
+        if (match) {
+          this.issuePassForm.empName = String(match[EMP_IDX.name]    || '');
+          this.issuePassForm.dept    = String(match[EMP_IDX.deptName]|| '').toUpperCase();
+          this.issuePassForm.salary  = String(match[EMP_IDX.salary]  || '');
+          this.empLookupDone.set(true);
+          this.empLookupError.set('');
+        } else {
+          this.empLookupError.set(`⚠️ Employee No "${empNo}" not found.`);
+        }
+      });
   }
 
   clearPassError(field: keyof IssuePassErrors) {
@@ -365,32 +392,30 @@ export class Vehicles implements OnInit, OnDestroy {
   }
 
   onEmpTypeChange() {
-    this.issuePassForm.employeeNo        = '';
-    this.issuePassForm.employeeCompanyNo = '';
-    this.issuePassForm.contractorCode    = '';
-    this.passFieldErrors.employeeNo      = '';
-    this.passFieldErrors.contractorCode  = '';
-    this.passFieldErrors.employeeCompanyNo = '';
+    this.issuePassForm.employeeNo    = '';
+    this.issuePassForm.empName       = '';
+    this.issuePassForm.contractorCode = '';
+    this.issuePassForm.dept          = '';
+    this.issuePassForm.salary        = '';
+    this.passFieldErrors.employeeNo  = '';
+    this.passFieldErrors.contractorCode = '';
+    this.passFieldErrors.empName     = '';
+    this.empLookupError.set('');
+    this.empLookupDone.set(false);
     this.issuePassError.set('');
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  AUTO-UPPERCASE HANDLERS
-  //  Each maps to exact VARCHAR2 column — converts as user types
-  //  Uses [ngModel] + (input) pattern to avoid cursor-jump bug
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   onEmployeeNoInput(e: Event) {
     const el = e.target as HTMLInputElement;
     const v  = el.value.toUpperCase().replace(/\s+/g, '');
     this.issuePassForm.employeeNo = v; el.value = v;
+    // Reset auto-filled when emp no changes
+    this.issuePassForm.empName = '';
+    this.issuePassForm.dept    = '';
+    this.issuePassForm.salary  = '';
+    this.empLookupDone.set(false);
+    this.empLookupError.set('');
     this.clearPassError('employeeNo');
-  }
-
-  onEmployeeCompanyNoInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    const v  = el.value.toUpperCase().replace(/\s+/g, '');
-    this.issuePassForm.employeeCompanyNo = v; el.value = v;
-    this.clearPassError('employeeCompanyNo');
   }
 
   onContractorCodeInput(e: Event) {
@@ -402,7 +427,7 @@ export class Vehicles implements OnInit, OnDestroy {
 
   onDeptInput(e: Event) {
     const el = e.target as HTMLInputElement;
-    const v  = el.value.toUpperCase(); // spaces allowed in dept
+    const v  = el.value.toUpperCase();
     this.issuePassForm.dept = v; el.value = v;
     this.clearPassError('dept');
   }
@@ -414,14 +439,6 @@ export class Vehicles implements OnInit, OnDestroy {
     this.clearPassError('parkingToBeUsed');
   }
 
-  onMobileNoInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    const v  = el.value.replace(/\D/g, '').slice(0, 15); // digits only, max 15
-    this.issuePassForm.mobileNo = v; el.value = v;
-    this.clearPassError('mobileNo');
-  }
-
-  // Real-time submit button disable — checks all SQL NOT NULL + constraints
   get isPassFormInvalid(): boolean {
     const f = this.issuePassForm;
     if (!f.issueDate)                                                    return true;
@@ -430,17 +447,15 @@ export class Vehicles implements OnInit, OnDestroy {
     if (!f.gateNo.trim())                                                return true;
     if (f.empType === 'Company_Employee' && !f.employeeNo.trim())       return true;
     if (f.empType === 'Contractor'       && !f.contractorCode.trim())   return true;
-    if (f.mobileNo && !/^\d{1,15}$/.test(f.mobileNo))                  return true;
     if (f.remarks && f.remarks.length > 200)                            return true;
-    if (f.dept    && f.dept.length    > 50)                             return true;
     return false;
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  SUBMIT ISSUE PASS
+  //  SUBMIT RAISE REQUEST
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   submitIssuePass() {
-    if (this.isSavingPass()) return; // guard: no double-submit
+    if (this.isSavingPass()) return;
 
     this.passFieldErrors = EMPTY_PASS_ERRORS();
     this.issuePassError.set('');
@@ -451,23 +466,18 @@ export class Vehicles implements OnInit, OnDestroy {
     if (!f.validityDate) { this.passFieldErrors.validityDate = 'Validity Date is required.'; hasError = true; }
     if (f.issueDate && f.validityDate && f.validityDate <= f.issueDate)
                          { this.passFieldErrors.validityDate = 'Must be after Issue Date.';  hasError = true; }
-    if (!f.gateNo.trim()) { this.passFieldErrors.gateNo      = 'Gate No is required.';       hasError = true; }
+    if (!f.gateNo.trim()) { this.passFieldErrors.gateNo     = 'Gate No is required.';       hasError = true; }
     if (f.empType === 'Company_Employee' && !f.employeeNo.trim())
                          { this.passFieldErrors.employeeNo   = 'Employee No is required.';   hasError = true; }
     if (f.empType === 'Contractor' && !f.contractorCode.trim())
-                         { this.passFieldErrors.contractorCode = 'Contractor Code required.';hasError = true; }
-    if (f.mobileNo && !/^\d{1,15}$/.test(f.mobileNo))
-                         { this.passFieldErrors.mobileNo     = 'Digits only, max 15.';       hasError = true; }
+                         { this.passFieldErrors.contractorCode = 'Contractor Code required.'; hasError = true; }
     if (f.remarks && f.remarks.length > 200)
-                         { this.passFieldErrors.remarks       = `Too long (${f.remarks.length}/200).`; hasError = true; }
-    if (f.dept && f.dept.length > 50)
-                         { this.passFieldErrors.dept          = `Too long (${f.dept.length}/50).`;     hasError = true; }
+                         { this.passFieldErrors.remarks = `Too long (${f.remarks.length}/200).`; hasError = true; }
     if (hasError) return;
 
     this.isSavingPass.set(true);
 
-    // ── Payload: camelCase matches PassRegistry.java getters exactly ──
-    // vehicle sent as nested object — @ManyToOne in PassRegistry.java
+    // ✅ Payload: salary → mobileNo field in DB (as agreed — pass registry keeps mobileNo col)
     const payload: any = {
       vehicle          : { vehicleId: f.vehicleId },
       typeOfVehicle    : f.typeOfVehicle    || null,
@@ -475,24 +485,26 @@ export class Vehicles implements OnInit, OnDestroy {
       issueDate        : f.issueDate,
       validityDate     : f.validityDate,
       gateNo           : f.gateNo.toUpperCase().trim(),
-      parkingToBeUsed  : f.parkingToBeUsed  ? f.parkingToBeUsed.toUpperCase()  : null,
+      parkingToBeUsed  : f.parkingToBeUsed  ? f.parkingToBeUsed.toUpperCase() : null,
       status           : 'Active',
       isActive         : 'Y',
       remarks          : f.remarks          || null,
       dept             : f.dept             || null,
-      mobileNo         : f.mobileNo         || null,
+      // ✅ mobileNo col in DB stores salary for company employees
+      mobileNo         : f.salary           || null,
       enterBy          : 'ADMIN',
       enterDate        : new Date().toISOString().split('T')[0],
-      employeeNo       : f.empType === 'Company_Employee' ? (f.employeeNo.toUpperCase().trim()        || null) : null,
-      employeeCompanyNo: f.empType === 'Company_Employee' ? (f.employeeCompanyNo.toUpperCase().trim() || null) : null,
-      contractorCode   : f.empType === 'Contractor'       ? (f.contractorCode.toUpperCase().trim()    || null) : null,
+      employeeNo       : f.empType === 'Company_Employee' ? (f.employeeNo.toUpperCase().trim()    || null) : null,
+      // ✅ employeeCompanyNo col stores the auto-filled employee name
+      employeeCompanyNo: f.empType === 'Company_Employee' ? (f.empName.trim() || null)                    : null,
+      contractorCode   : f.empType === 'Contractor'       ? (f.contractorCode.toUpperCase().trim() || null) : null,
     };
 
-    console.log('📤 Issue Pass payload:', JSON.stringify(payload, null, 2));
+    console.log('📤 Raise Request payload:', JSON.stringify(payload, null, 2));
 
     if (USE_DUMMY_DATA) {
       setTimeout(() => {
-        this.issuePassSuccess.set(`✅ Pass issued for ${f.vehicleNo}!`);
+        this.issuePassSuccess.set(`✅ Request raised for ${f.vehicleNo}!`);
         this.isSavingPass.set(false);
         setTimeout(() => this.closeIssuePassModal(), 1400);
       }, 600);
@@ -502,14 +514,12 @@ export class Vehicles implements OnInit, OnDestroy {
     this.http
       .post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
+        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
         catchError((err: any) => {
-          console.error('❌ Issue Pass error:', err);
+          console.error('❌ Raise Request error:', err);
           const msg =
             (typeof err?.error === 'string' ? err.error : null) ||
-            err?.error?.message ||
-            JSON.stringify(err?.error) ||
+            err?.error?.message || JSON.stringify(err?.error) ||
             `Server error ${err?.status}`;
           this.issuePassError.set(msg);
           this.isSavingPass.set(false);
@@ -518,16 +528,34 @@ export class Vehicles implements OnInit, OnDestroy {
       )
       .subscribe((res: any) => {
         if (!res) return;
-        console.log('✅ Pass issued:', res);
-        this.issuePassSuccess.set(`✅ Pass issued successfully for ${f.vehicleNo}!`);
+        this.issuePassSuccess.set(`✅ Request raised successfully for ${f.vehicleNo}!`);
         this.isSavingPass.set(false);
         setTimeout(() => this.closeIssuePassModal(), 1400);
       });
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  FILTER & PAGINATION — pure frontend, zero API calls
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ── Helpers ──
+  formatDocDate(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  getDocStatusClass(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return 'badge red';
+    if (days <= 30) return 'badge orange';
+    return 'badge green';
+  }
+
+  getDocStatusText(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return `Expired`;
+    if (days <= 30) return `${days}d left`;
+    return `Valid`;
+  }
+
+  // ── Filter / Pagination ──
   get filteredVehicles() {
     let list = this.allVehicles();
     const s  = this.searchText().toLowerCase();
@@ -541,13 +569,9 @@ export class Vehicles implements OnInit, OnDestroy {
     return list;
   }
 
-  get pagedVehicles() {
-    const start = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredVehicles.slice(start, start + this.pageSize());
-  }
-
-  get totalPages()    { return Math.ceil(this.filteredVehicles.length / this.pageSize()) || 1; }
-  get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
+  get pagedVehicles()  { const s = (this.currentPage()-1)*this.pageSize(); return this.filteredVehicles.slice(s, s+this.pageSize()); }
+  get totalPages()     { return Math.ceil(this.filteredVehicles.length / this.pageSize()) || 1; }
+  get totalPagesArr()  { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
   goToPage      (p: number)   { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
   onSearch      (val: string) { this.searchText.set(val);   this.currentPage.set(1); }

@@ -107,8 +107,9 @@
                   <button class="btn-icon-delete" title="Delete Vehicle" (click)="openDeleteModal(v)">
                     <i class="bi bi-trash3"></i> Delete
                   </button>
-                  <button class="btn-icon-issue" title="Issue Pass" (click)="openIssuePassModal(v)">
-                    <i class="bi bi-card-checklist"></i> Issue Pass
+                  <!-- ✅ CHANGED: Issue Pass → Raise Request -->
+                  <button class="btn-icon-issue" title="Raise Request" (click)="openIssuePassModal(v)">
+                    <i class="bi bi-send-fill"></i> Raise Request
                   </button>
                 </div>
               </td>
@@ -257,13 +258,14 @@
 
 
 <!-- ══════════════════════════════════════════════════════ -->
-<!--  ISSUE PASS MODAL                                     -->
+<!--  RAISE REQUEST MODAL (was: Issue Pass)                -->
 <!-- ══════════════════════════════════════════════════════ -->
 <div class="modal-overlay" *ngIf="showIssuePassModal()" (click)="closeIssuePassModal()"></div>
 <div class="modal-box modal-lg" *ngIf="showIssuePassModal()">
 
   <div class="modal-header modal-header-issue">
-    <h3><i class="bi bi-card-checklist"></i> Issue Pass — {{ issuePassForm.vehicleNo }}</h3>
+    <!-- ✅ CHANGED: title text -->
+    <h3><i class="bi bi-send-fill"></i> Raise Request — {{ issuePassForm.vehicleNo }}</h3>
     <button class="modal-close" (click)="closeIssuePassModal()">
       <i class="bi bi-x-lg"></i>
     </button>
@@ -278,7 +280,7 @@
       <i class="bi bi-exclamation-triangle-fill"></i> {{ issuePassError() }}
     </div>
 
-    <!-- SECTION 1: Vehicle Info — READ ONLY -->
+    <!-- ══ SECTION 1: VEHICLE DETAILS — READ ONLY ══ -->
     <div class="form-section-title">
       <i class="bi bi-truck"></i> Vehicle Details
       <span class="prefill-badge">Auto-filled</span>
@@ -306,7 +308,55 @@
       </div>
     </div>
 
-    <!-- SECTION 2: Person Details -->
+    <!-- ══ SECTION 2: VEHICLE DOCUMENTS ══ -->
+    <div class="form-section-title" style="color:#0369a1;border-color:#bae6fd">
+      <i class="bi bi-file-earmark-text-fill"></i> Vehicle Documents
+    </div>
+
+    <!-- Loading docs -->
+    <div *ngIf="isLoadingDocs()"
+      style="text-align:center;padding:12px;color:#666;font-size:13px">
+      <i class="bi bi-arrow-repeat spin-icon-sm"></i> Loading documents...
+    </div>
+
+    <!-- No docs -->
+    <div *ngIf="!isLoadingDocs() && vehicleDocs().length === 0"
+      style="text-align:center;color:#aaa;font-size:13px;
+             padding:10px 0 14px;font-style:italic;border-bottom:1px solid #f0f0f0;margin-bottom:14px">
+      <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
+    </div>
+
+    <!-- Docs mini-table -->
+    <div *ngIf="!isLoadingDocs() && vehicleDocs().length > 0"
+      style="overflow-x:auto;margin-bottom:16px">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead>
+          <tr style="background:#0f172a;color:white">
+            <th style="padding:8px 12px;text-align:left;font-weight:600;letter-spacing:0.4px">DOC TYPE</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;letter-spacing:0.4px">DOC NO</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;letter-spacing:0.4px">START</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;letter-spacing:0.4px">EXPIRY</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;letter-spacing:0.4px">STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of vehicleDocs()"
+            style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:7px 12px;font-weight:600;color:#1e293b">{{ d.documentType }}</td>
+            <td style="padding:7px 12px;color:#555">{{ d.documentNo || '—' }}</td>
+            <td style="padding:7px 12px;color:#555">{{ formatDocDate(d.startDate) }}</td>
+            <td style="padding:7px 12px;color:#555">{{ formatDocDate(d.expiryDate) }}</td>
+            <td style="padding:7px 12px">
+              <span [class]="getDocStatusClass(d.expiryDate)">
+                {{ getDocStatusText(d.expiryDate) }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ══ SECTION 3: PERSON DETAILS ══ -->
     <div class="form-section-title">
       <i class="bi bi-person-badge"></i> Person Details
     </div>
@@ -328,15 +378,17 @@
         </div>
       </div>
 
-      <!-- Company Employee fields -->
+      <!-- ── Company Employee fields ── -->
       <ng-container *ngIf="issuePassForm.empType === 'Company_Employee'">
 
+        <!-- Employee No — type here, blur triggers API lookup -->
         <div class="form-group">
           <label>Employee No <span class="req">*</span></label>
           <input type="text"
             [ngModel]="issuePassForm.employeeNo"
             (input)="onEmployeeNoInput($event)"
-            placeholder="e.g. EMP001"
+            (blur)="onEmployeeNoBlur()"
+            placeholder="e.g. 101"
             class="form-input"
             [class.input-error]="passFieldErrors.employeeNo"
             maxlength="20" />
@@ -344,33 +396,43 @@
             <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.employeeNo }}
           </small>
           <small class="form-hint" *ngIf="!passFieldErrors.employeeNo">
-            Auto-UPPERCASE · max 20 chars
+            Tab out / click away to auto-fill Name, Dept &amp; Salary
           </small>
         </div>
 
+        <!-- ✅ CHANGED: EC No → NAME (auto-filled readonly) -->
         <div class="form-group">
-          <label>EC No (Company No)</label>
+          <label>
+            Name
+            <span *ngIf="isLookingUpEmp()"
+              style="color:#0ea5e9;font-size:11px;font-weight:400;margin-left:6px">
+              <i class="bi bi-arrow-repeat spin-icon-sm"></i> Looking up...
+            </span>
+            <span *ngIf="empLookupDone() && !isLookingUpEmp()"
+              style="color:#16a34a;font-size:11px;font-weight:400;margin-left:6px">
+              ✅ Auto-filled
+            </span>
+          </label>
           <input type="text"
-            [ngModel]="issuePassForm.employeeCompanyNo"
-            (input)="onEmployeeCompanyNoInput($event)"
-            placeholder="e.g. HEG001"
-            class="form-input"
-            [class.input-error]="passFieldErrors.employeeCompanyNo"
-            maxlength="20" />
-          <small class="field-error" *ngIf="passFieldErrors.employeeCompanyNo">
-            <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.employeeCompanyNo }}
+            [value]="issuePassForm.empName"
+            class="form-input input-readonly"
+            readonly
+            placeholder="Auto-filled from Employee No" />
+          <small class="lookup-error" *ngIf="empLookupError()">
+            {{ empLookupError() }}
           </small>
-          <small class="form-hint" *ngIf="!passFieldErrors.employeeCompanyNo">
-            Auto-UPPERCASE · max 20 chars
+          <small class="form-hint" *ngIf="!empLookupError() && !empLookupDone()">
+            Filled automatically after Employee No lookup
           </small>
         </div>
 
+        <!-- Department — auto-filled but still editable -->
         <div class="form-group">
           <label>Department</label>
           <input type="text"
             [ngModel]="issuePassForm.dept"
             (input)="onDeptInput($event)"
-            placeholder="e.g. MECHANICAL"
+            placeholder="Auto-filled from Employee No"
             class="form-input"
             [class.input-error]="passFieldErrors.dept"
             maxlength="50" />
@@ -378,13 +440,24 @@
             <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.dept }}
           </small>
           <small class="form-hint" *ngIf="!passFieldErrors.dept">
-            Auto-UPPERCASE · max 50 chars
+            Auto-filled · editable · max 50 chars
           </small>
+        </div>
+
+        <!-- ✅ CHANGED: Mobile No → SALARY (auto-filled readonly) -->
+        <div class="form-group">
+          <label>Salary (₹)</label>
+          <input type="text"
+            [value]="issuePassForm.salary"
+            class="form-input input-readonly"
+            readonly
+            placeholder="Auto-filled from Employee No" />
+          <small class="form-hint">Filled automatically after Employee No lookup</small>
         </div>
 
       </ng-container>
 
-      <!-- Contractor fields -->
+      <!-- ── Contractor fields ── -->
       <ng-container *ngIf="issuePassForm.empType === 'Contractor'">
 
         <div class="form-group">
@@ -423,28 +496,9 @@
 
       </ng-container>
 
-      <!-- Mobile No — digits only, VARCHAR2(15) -->
-      <div class="form-group">
-        <label>Mobile No</label>
-        <input type="text"
-          [ngModel]="issuePassForm.mobileNo"
-          (input)="onMobileNoInput($event)"
-          placeholder="e.g. 9876543210"
-          class="form-input"
-          [class.input-error]="passFieldErrors.mobileNo"
-          maxlength="15"
-          inputmode="numeric" />
-        <small class="field-error" *ngIf="passFieldErrors.mobileNo">
-          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.mobileNo }}
-        </small>
-        <small class="form-hint" *ngIf="!passFieldErrors.mobileNo">
-          Digits only · max 15 (auto-strips letters)
-        </small>
-      </div>
-
     </div>
 
-    <!-- SECTION 3: Pass Details -->
+    <!-- ══ SECTION 4: PASS DETAILS ══ -->
     <div class="form-section-title">
       <i class="bi bi-calendar-check"></i> Pass Details
     </div>
@@ -544,12 +598,13 @@
     <button class="btn-cancel" (click)="closeIssuePassModal()" [disabled]="isSavingPass()">
       Cancel
     </button>
+    <!-- ✅ CHANGED: button text -->
     <button class="btn-save"
       (click)="submitIssuePass()"
       [disabled]="isPassFormInvalid || isSavingPass()">
       <i class="bi bi-arrow-repeat spin-icon-sm" *ngIf="isSavingPass()"></i>
       <i class="bi bi-send-fill" *ngIf="!isSavingPass()"></i>
-      {{ isSavingPass() ? 'Issuing...' : 'Issue Pass' }}
+      {{ isSavingPass() ? 'Submitting...' : 'Raise Request' }}
     </button>
   </div>
 
