@@ -237,16 +237,26 @@
   background: rgba(0,0,0,0.45);
   z-index: 999;
 }
+/* REPLACE WITH */
 .modal-box {
   position: fixed; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   background: #fff; border-radius: 12px;
-  width: 560px; max-width: 95vw;
+  width: min(560px, 92vw);
+  max-width: 95vw;
+  max-height: 90vh;
   box-shadow: 0 20px 60px rgba(0,0,0,0.25);
   z-index: 1000; overflow: hidden;
+  display: flex; flex-direction: column;
 }
-.modal-sm  { width: 420px; }
-.modal-lg  { width: 720px; }
+.modal-sm { width: min(420px, 90vw); }
+.modal-lg { width: min(720px, 94vw); }
+
+/* Modal body scrolls, not the whole modal */
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -379,3 +389,34 @@
 .warn-icon { font-size: 2.5rem; color: #f59e0b; margin-bottom: 12px; }
 .delete-vehicle-no { font-size: 1.3rem; font-weight: 800; color: #dc2626; margin: 8px 0; }
 .delete-warn-text { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+/* ════════════════════════════════
+   ZOOM FIX — paste in every module
+   ════════════════════════════════ */
+
+/* Modals stay within screen at any zoom */
+.modal-box {
+  width: min(560px, 92vw) !important;
+  max-height: 88vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+.modal-sm { width: min(420px, 88vw) !important; }
+.modal-lg { width: min(740px, 95vw) !important; }
+.modal-body { overflow-y: auto !important; flex: 1 !important; }
+
+/* Tables never break layout */
+.table-card  { overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+.dtable { min-width: 600px; }  /* forces scroll rather than crush */
+
+/* Filter bar wraps */
+.filter-bar   { flex-wrap: wrap; }
+.filter-group { flex-wrap: wrap; }
+.search-box   { min-width: 180px; flex: 1; }
+
+/* Page wrapper breathes */
+.page-wrapper { 
+  padding: clamp(12px, 1.5vw, 24px); 
+  box-sizing: border-box;
+}

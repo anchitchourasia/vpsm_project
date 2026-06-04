@@ -282,9 +282,13 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
       <!-- Document No -->
       <div class="form-group">
         <label>Document No <span class="req">*</span></label>
-        <input type="text" [(ngModel)]="form.documentNo"
+        <input type="text"
+          [ngModel]="form.documentNo"
+          (input)="onDocumentNoInput($event)"
           placeholder="e.g. PUC-HEG-2026-001"
-          class="form-control" />
+          class="form-control"
+          maxlength="50" />
+        <small class="field-hint">Auto-UPPERCASE · max 50 chars</small>
       </div>
 
       <!-- Start Date -->
@@ -671,4 +675,18 @@ export class Documents implements OnInit, OnDestroy {
       default               : return 'badge badge-surrendered';
     }
   }
+  onDocumentNoInput(event: Event): void {
+    const input   = event.target as HTMLInputElement;
+    const cleaned = input.value.toUpperCase().replace(/\s{2,}/g, ' ').trimStart();
+    input.value        = cleaned;
+    this.form.documentNo = cleaned;
+  }
+
+  onVehicleIdInput(event: Event): void {
+    const input   = event.target as HTMLInputElement;
+    const cleaned = input.value.replace(/[^0-9]/g, '');
+    input.value        = cleaned;
+    this.form.vehicleId = cleaned;
+  }
+
 }
