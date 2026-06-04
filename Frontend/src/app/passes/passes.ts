@@ -1,39 +1,22 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
+import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
 const USE_DUMMY_DATA = false;
+const HTTP_TIMEOUT_MS = 12000;
 
 const DUMMY_PASSES: any[] = [
-  { passId:1,  issueDate:'2024-01-10', validityDate:'2025-01-10', employeeNo:'EMP001', employeeCompanyNo:'HEG001', dept:'Mechanical',  contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'P-Block',    vehicleId:1,  typeOfVehicle:'Car',          mobileNo:'9876543210', passStatus:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-01-10', remarks:'' },
-  { passId:2,  issueDate:'2024-02-01', validityDate:'2025-02-01', employeeNo:'EMP002', employeeCompanyNo:'HEG002', dept:'Electrical',   contractorCode:null,    gateNo:'GATE_02', parkingToBeUsed:'A-Block',    vehicleId:2,  typeOfVehicle:'Bike',         mobileNo:'9876500001', passStatus:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-02-01', remarks:'' },
-  { passId:3,  issueDate:'2023-06-01', validityDate:'2024-06-01', employeeNo:null,     employeeCompanyNo:null,     dept:'Construction', contractorCode:'CON001', gateNo:'GATE_03', parkingToBeUsed:'Heavy Yard', vehicleId:3,  typeOfVehicle:'Dumper Truck', mobileNo:'9988776655', passStatus:'Expired',     empType:'Contractor',       isActive:'N', enterBy:'ADMIN', enterDate:'2023-06-01', remarks:'Load permit required' },
-  { passId:4,  issueDate:'2024-03-15', validityDate:'2025-03-15', employeeNo:'EMP004', employeeCompanyNo:'HEG004', dept:'Civil',        contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'B-Block',    vehicleId:5,  typeOfVehicle:'SUV',          mobileNo:'9800001234', passStatus:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-03-15', remarks:'' },
-  { passId:5,  issueDate:'2024-04-01', validityDate:'2024-12-31', employeeNo:null,     employeeCompanyNo:null,     dept:null,           contractorCode:'CON002', gateNo:'GATE_02', parkingToBeUsed:'Heavy Yard', vehicleId:8,  typeOfVehicle:'Truck',        mobileNo:'9700001111', passStatus:'Surrendered', empType:'Contractor',       isActive:'N', enterBy:'ADMIN', enterDate:'2024-04-01', remarks:'Surrendered early' },
-  { passId:6,  issueDate:'2025-01-01', validityDate:'2025-07-01', employeeNo:'EMP006', employeeCompanyNo:'HEG006', dept:'HR',           contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'A-Block',    vehicleId:9,  typeOfVehicle:'SUV',          mobileNo:'9600002222', passStatus:'Expiring',    empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2025-01-01', remarks:'Renewal due soon' },
-  { passId:7,  issueDate:'2025-02-10', validityDate:'2025-08-10', employeeNo:null,     employeeCompanyNo:null,     dept:'Heavy Works',  contractorCode:'CON003', gateNo:'GATE_03', parkingToBeUsed:'Heavy Yard', vehicleId:3,  typeOfVehicle:'Dumper Truck', mobileNo:'9500003333', passStatus:'Expiring',    empType:'Contractor',       isActive:'Y', enterBy:'ADMIN', enterDate:'2025-02-10', remarks:'' },
+  { passId:1, issueDate:'2024-01-10', validityDate:'2025-01-10', employeeNo:'EMP001', employeeCompanyNo:'HEG001', dept:'Mechanical',  contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'P-Block',    vehicle:{ vehicleId:1, vehicleNo:'MP04HEG1111', vehicleType:'Car',          vehicleClass:'Four_Wheeler'    }, typeOfVehicle:'Car',          mobileNo:'9876543210', status:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-01-10', remarks:'' },
+  { passId:2, issueDate:'2024-02-01', validityDate:'2025-02-01', employeeNo:'EMP002', employeeCompanyNo:'HEG002', dept:'Electrical',   contractorCode:null,    gateNo:'GATE_02', parkingToBeUsed:'A-Block',    vehicle:{ vehicleId:2, vehicleNo:'MP04HEG2222', vehicleType:'Bike',         vehicleClass:'Two_Wheeler'     }, typeOfVehicle:'Bike',         mobileNo:'9876500001', status:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-02-01', remarks:'' },
+  { passId:3, issueDate:'2023-06-01', validityDate:'2024-06-01', employeeNo:null,     employeeCompanyNo:null,     dept:'Construction', contractorCode:'CON001', gateNo:'GATE_03', parkingToBeUsed:'Heavy Yard', vehicle:{ vehicleId:3, vehicleNo:'MP04HEG3333', vehicleType:'Dumper Truck', vehicleClass:'Heavy_Machinery' }, typeOfVehicle:'Dumper Truck', mobileNo:'9988776655', status:'Expired',     empType:'Contractor',       isActive:'N', enterBy:'ADMIN', enterDate:'2023-06-01', remarks:'Load permit required' },
+  { passId:4, issueDate:'2024-03-15', validityDate:'2025-03-15', employeeNo:'EMP004', employeeCompanyNo:'HEG004', dept:'Civil',        contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'B-Block',    vehicle:{ vehicleId:5, vehicleNo:'MP04HEG5555', vehicleType:'SUV',          vehicleClass:'Four_Wheeler'    }, typeOfVehicle:'SUV',          mobileNo:'9800001234', status:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-03-15', remarks:'' },
+  { passId:5, issueDate:'2024-04-01', validityDate:'2024-12-31', employeeNo:null,     employeeCompanyNo:null,     dept:null,           contractorCode:'CON002', gateNo:'GATE_02', parkingToBeUsed:'Heavy Yard', vehicle:{ vehicleId:8, vehicleNo:'MP04HEG8888', vehicleType:'Truck',        vehicleClass:'Heavy_Machinery' }, typeOfVehicle:'Truck',        mobileNo:'9700001111', status:'Surrendered', empType:'Contractor',       isActive:'N', enterBy:'ADMIN', enterDate:'2024-04-01', remarks:'Surrendered early' },
 ];
 
-const DUMMY_VEHICLES: any[] = [
-  { vehicleId:1,   vehicleType:'Car'          },
-  { vehicleId:2,   vehicleType:'Bike'         },
-  { vehicleId:3,   vehicleType:'Dumper Truck' },
-  { vehicleId:4,   vehicleType:'Scooter'      },
-  { vehicleId:5,   vehicleType:'SUV'          },
-  { vehicleId:6,   vehicleType:'Sedan'        },
-  { vehicleId:7,   vehicleType:'Scooter'      },
-  { vehicleId:8,   vehicleType:'Truck'        },
-  { vehicleId:9,   vehicleType:'SUV'          },
-  { vehicleId:10,  vehicleType:'SUV'          },
-  { vehicleId:101, vehicleType:'Bike'         },
-];
-
-// ─────────────────────────────────────────────────────────────
-//  PassForm — ALL fields use camelCase for Angular form binding
-//  The payload mapper below converts to Oracle snake_case DDL
-// ─────────────────────────────────────────────────────────────
+// ── All form fields camelCase — matching PassRegistry.java getters exactly ──
 interface PassForm {
   issueDate        : string;
   validityDate     : string;
@@ -43,13 +26,13 @@ interface PassForm {
   contractorCode   : string;
   gateNo           : string;
   parkingToBeUsed  : string;
-  vehicleId        : string;
+  vehicleId        : string;   // the FK value — displayed as read-only in edit
   typeOfVehicle    : string;
   mobileNo         : string;
-  passStatus       : string;   // ← form field; mapped to 'status' in payload
+  passStatus       : string;   // form field name; maps to 'status' in payload
   empType          : string;
   remarks          : string;
-  isActive         : string;   // ← 'Y' or 'N'  (Oracle CHAR(1))
+  isActive         : string;
 }
 
 const EMPTY_FORM = (): PassForm => ({
@@ -66,14 +49,16 @@ const EMPTY_FORM = (): PassForm => ({
   templateUrl: './passes.html',
   styleUrl   : './passes.css',
 })
-export class Passes implements OnInit {
+export class Passes implements OnInit, OnDestroy {
 
-  private get HEADERS(): HttpHeaders {
-    return new HttpHeaders({
-      'X-API-KEY'   : API_CONFIG.API_KEY,
-      'Content-Type': 'application/json',
-    });
-  }
+  // ✅ FIX: lowercase 'x-api-key' — uppercase was breaking the API
+  private readonly HEADERS = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Content-Type': 'application/json',
+  });
+
+  // Cancel all HTTP calls on component destroy — prevents ghost Oracle requests
+  private readonly destroy$ = new Subject<void>();
 
   // ── State ──
   private allPassesRaw = signal<any[]>([]);
@@ -95,12 +80,13 @@ export class Passes implements OnInit {
     return this.allPassesRaw().filter(p => {
       const matchSearch =
         !q ||
-        (p.employeeNo     || '').toLowerCase().includes(q) ||
-        (p.contractorCode || '').toLowerCase().includes(q) ||
-        (p.dept           || '').toLowerCase().includes(q) ||
-        (p.mobileNo       || '').toLowerCase().includes(q) ||
-        String(p.passId   || '').includes(q);
-      // support both 'status' (Oracle) and 'passStatus' (dummy/legacy)
+        (p.employeeNo             || '').toLowerCase().includes(q) ||
+        (p.contractorCode         || '').toLowerCase().includes(q) ||
+        (p.dept                   || '').toLowerCase().includes(q) ||
+        (p.mobileNo               || '').toLowerCase().includes(q) ||
+        // ✅ FIX: search also checks nested vehicle fields
+        (p.vehicle?.vehicleNo     || '').toLowerCase().includes(q) ||
+        String(p.passId           || '').includes(q);
       const rowStatus    = p.status || p.passStatus || '';
       const matchStatus  = st === 'ALL' || rowStatus === st;
       const matchEmpType = et === 'ALL' || (p.empType || '') === et;
@@ -113,7 +99,7 @@ export class Passes implements OnInit {
     return this.filteredPasses().slice(start, start + this.pageSize());
   });
 
-  get totalPages(): number    { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
+  get totalPages(): number      { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
   get totalPagesArr(): number[] { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
   // ── Modal State ──
@@ -135,10 +121,11 @@ export class Passes implements OnInit {
   viewPass      = signal<any>(null);
 
   constructor(private http: HttpClient) {}
-  ngOnInit() { this.loadPasses(); }
+  ngOnInit()    { this.loadPasses(); }
+  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  GET → /api/passes/list
+  //  LOAD — only on init + retry
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   loadPasses() {
     this.isLoading.set(true);
@@ -149,34 +136,45 @@ export class Passes implements OnInit {
       return;
     }
 
-    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS }).subscribe({
-      next : (data) => { this.allPassesRaw.set(data ?? []); this.isLoading.set(false); },
-      error: (err)  => {
-        console.error('❌ loadPasses error:', err?.status, err?.error);
-        this.hasError.set(true);
+    this.http
+      .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('❌ loadPasses error:', err?.status, err?.error);
+          this.hasError.set(true);
+          this.isLoading.set(false);
+          return of(null);
+        })
+      )
+      .subscribe((response: HttpResponse<any[]> | null) => {
+        if (!response) return;
+        this.allPassesRaw.set(
+          response.status === 204 || !response.body ? [] : response.body
+        );
         this.isLoading.set(false);
-      },
-    });
+      });
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  VEHICLE LOOKUP — GET /api/vehicles/list → filter by id
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  VEHICLE LOOKUP — blur on Vehicle ID field in Add form
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   onVehicleIdBlur() {
     const id = this.form.vehicleId?.toString().trim();
     this.vehicleLookupError.set('');
     this.vehicleLookupSuccess.set('');
     this.form.typeOfVehicle = '';
-
     if (!id || id === '0') return;
+
     this.isLookingUp.set(true);
 
     if (USE_DUMMY_DATA) {
       setTimeout(() => {
-        const found = DUMMY_VEHICLES.find(v => v.vehicleId === +id);
+        const found = DUMMY_PASSES.find(p => String(p.vehicle?.vehicleId) === id);
         if (found) {
-          this.form.typeOfVehicle = found.vehicleType;
-          this.vehicleLookupSuccess.set('✅ ' + found.vehicleType);
+          this.form.typeOfVehicle = found.vehicle.vehicleType;
+          this.vehicleLookupSuccess.set('✅ ' + found.vehicle.vehicleType);
         } else {
           this.vehicleLookupError.set('Vehicle ID ' + id + ' not found.');
         }
@@ -185,26 +183,30 @@ export class Passes implements OnInit {
       return;
     }
 
-    this.http.get<any[]>(API_CONFIG.VEHICLES, { headers: this.HEADERS }).subscribe({
-      next: (list) => {
-        const found = (list || []).find(
-          v => String(v.vehicleId ?? v.vehicle_id ?? v.id) === id
-        );
+    // ✅ FIX: backend returns { vehicleId, vehicleType, ... } at root for Vehicles list
+    this.http
+      .get<any[]>(API_CONFIG.VEHICLES, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('❌ Vehicle lookup error:', err?.status);
+          this.vehicleLookupError.set('Could not reach Vehicles Master. Check backend.');
+          this.isLookingUp.set(false);
+          return of(null);
+        })
+      )
+      .subscribe((list: any[] | null) => {
+        if (!list) return;
+        const found = list.find(v => String(v.vehicleId) === id);
         if (found) {
-          this.form.typeOfVehicle =
-            found.vehicleType || found.vehicle_type || found.typeOfVehicle || found.type || '';
-          this.vehicleLookupSuccess.set('✅ Vehicle found: ' + this.form.typeOfVehicle);
+          this.form.typeOfVehicle = found.vehicleType || '';
+          this.vehicleLookupSuccess.set('✅ Vehicle found: ' + found.vehicleType);
         } else {
           this.vehicleLookupError.set('Vehicle ID ' + id + ' not found in Vehicles Master.');
         }
         this.isLookingUp.set(false);
-      },
-      error: (err) => {
-        console.error('❌ Vehicle lookup error:', err?.status, err?.error);
-        this.vehicleLookupError.set('Could not reach Vehicles Master. Check backend.');
-        this.isLookingUp.set(false);
-      },
-    });
+      });
   }
 
   onSearch       (v: string) { this.searchText.set(v);    this.currentPage.set(1); }
@@ -235,36 +237,46 @@ export class Passes implements OnInit {
 
   openAddModal() {
     this.form = EMPTY_FORM();
-    this.isEditMode.set(false); this.editId.set(null);
-    this.saveError.set(''); this.saveSuccess.set('');
-    this.vehicleLookupError.set(''); this.vehicleLookupSuccess.set('');
+    this.isEditMode.set(false);
+    this.editId.set(null);
+    this.saveError.set('');
+    this.saveSuccess.set('');
+    this.vehicleLookupError.set('');
+    this.vehicleLookupSuccess.set('');
     this.isLookingUp.set(false);
     this.showModal.set(true);
   }
 
   openEditModal(p: any) {
+    // ✅ FIX: vehicle is nested object { vehicleId, vehicleNo, vehicleType, vehicleClass }
+    // Must read p.vehicle?.vehicleId NOT p.vehicleId (doesn't exist at root)
     this.form = {
-      issueDate        : p.issueDate         || p.issue_date         || '',
-      validityDate     : p.validityDate      || p.validity_date      || '',
-      employeeNo       : p.employeeNo        || p.employee_no        || '',
-      employeeCompanyNo: p.employeeCompanyNo || p.employee_company_no|| '',
+      issueDate        : p.issueDate         || '',
+      validityDate     : p.validityDate      || '',
+      employeeNo       : p.employeeNo        || '',
+      employeeCompanyNo: p.employeeCompanyNo || '',
       dept             : p.dept              || '',
-      contractorCode   : p.contractorCode    || p.contractor_code    || '',
-      gateNo           : p.gateNo            || p.gate_no            || '',
-      parkingToBeUsed  : p.parkingToBeUsed   || p.parking_to_be_used || '',
-      vehicleId        : String(p.vehicleId  || p.vehicle_id         || ''),
-      typeOfVehicle    : p.typeOfVehicle     || p.type_of_vehicle    || '',
-      mobileNo         : p.mobileNo          || p.mobile_no          || '',
-      passStatus       : p.status || p.passStatus                    || 'Active',
-      empType          : p.empType           || p.emp_type           || 'Company_Employee',
+      contractorCode   : p.contractorCode    || '',
+      gateNo           : p.gateNo            || '',
+      parkingToBeUsed  : p.parkingToBeUsed   || '',
+      vehicleId        : String(p.vehicle?.vehicleId ?? ''),   // ✅ nested object
+      typeOfVehicle    : p.typeOfVehicle || p.vehicle?.vehicleType || '',
+      mobileNo         : p.mobileNo          || '',
+      passStatus       : p.status || p.passStatus || 'Active',
+      empType          : p.empType           || 'Company_Employee',
       remarks          : p.remarks           || '',
-      isActive         : p.isActive          || p.is_active          || 'Y',
+      isActive         : p.isActive          || 'Y',
     };
     this.isEditMode.set(true);
-    this.editId.set(p.passId || p.pass_id);
-    this.saveError.set(''); this.saveSuccess.set('');
+    this.editId.set(p.passId);
+    this.saveError.set('');
+    this.saveSuccess.set('');
     this.vehicleLookupError.set('');
-    this.vehicleLookupSuccess.set(this.form.typeOfVehicle ? '✅ Vehicle found: ' + this.form.typeOfVehicle : '');
+    this.vehicleLookupSuccess.set(
+      this.form.typeOfVehicle
+        ? '✅ Vehicle found: ' + this.form.typeOfVehicle
+        : ''
+    );
     this.isLookingUp.set(false);
     this.showViewModal.set(false);
     this.showModal.set(true);
@@ -275,66 +287,66 @@ export class Passes implements OnInit {
   closeViewModal()      { this.showViewModal.set(false); }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  POST → /api/passes/issue        (new pass)
-  //  PUT  → /api/passes/update/{id}  (edit pass)
+  //  SAVE PASS — POST /api/passes/issue  |  PUT /api/passes/update/{id}
   //
-  //  Payload keys match Oracle Pass_Registry DDL column names.
-  //  form.passStatus (Angular) → payload.status (Oracle column)
+  //  ✅ FIX: Payload uses camelCase keys — matches PassRegistry.java
+  //          getters (getEmployeeNo, getGateNo etc.)
+  //          NOT snake_case — Jackson serializes by getter names
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   savePass() {
-    // Validations
-    if (!String(this.form.vehicleId).trim())  { this.saveError.set('Vehicle ID is required.');                              return; }
-    if (this.vehicleLookupError())            { this.saveError.set('Fix Vehicle ID error before saving.');                  return; }
-    if (!this.form.typeOfVehicle.trim())      { this.saveError.set('Enter a valid Vehicle ID first — type auto-fills.');    return; }
-    if (!this.form.issueDate)                 { this.saveError.set('Issue Date is required.');                              return; }
-    if (!this.form.validityDate)              { this.saveError.set('Validity Date is required.');                           return; }
-    if (!this.form.gateNo.trim())             { this.saveError.set('Gate No is required.');                                 return; }
+    if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.');                            return; }
+    if (this.vehicleLookupError())           { this.saveError.set('Fix Vehicle ID error before saving.');                return; }
+    if (!this.form.typeOfVehicle.trim())     { this.saveError.set('Enter a valid Vehicle ID first — type auto-fills.'); return; }
+    if (!this.form.issueDate)                { this.saveError.set('Issue Date is required.');                            return; }
+    if (!this.form.validityDate)             { this.saveError.set('Validity Date is required.');                         return; }
+    if (!this.form.gateNo.trim())            { this.saveError.set('Gate No is required.');                               return; }
     if (this.form.empType === 'Company_Employee' && !this.form.employeeNo.trim()) {
       this.saveError.set('Employee No is required for Company Employee.'); return;
     }
     if (this.form.empType === 'Contractor' && !this.form.contractorCode.trim()) {
       this.saveError.set('Contractor Code is required for Contractor.'); return;
     }
+    if (this.isSaving()) return; // guard: no double-click
 
     this.isSaving.set(true);
     this.saveError.set('');
     this.saveSuccess.set('');
 
-    // ── Payload: Oracle Pass_Registry column names (snake_case) ──
+    // ✅ FIX: camelCase payload — matches PassRegistry.java @Column field names
+    // and Spring's Jackson serializer which reads getter names
     const payload: any = {
-      vehicle_id         : Number(this.form.vehicleId),
-      type_of_vehicle    : this.form.typeOfVehicle,
-      emp_type           : this.form.empType,
-      dept               : this.form.dept            || null,
-      mobile_no          : this.form.mobileNo        || null,
-      issue_date         : this.form.issueDate,
-      validity_date      : this.form.validityDate,
-      gate_no            : this.form.gateNo,
-      parking_to_be_used : this.form.parkingToBeUsed || null,
-      status             : this.form.passStatus,       // ← form.passStatus → Oracle 'status'
-      is_active          : this.form.isActive,         // ← 'Y' or 'N'  (CHAR(1))
-      remarks            : this.form.remarks           || null,
-      enter_by           : 'ADMIN',
-      enter_date         : new Date().toISOString().split('T')[0],
+      vehicle          : { vehicleId: Number(this.form.vehicleId) }, // @ManyToOne nested obj
+      typeOfVehicle    : this.form.typeOfVehicle,
+      empType          : this.form.empType,
+      dept             : this.form.dept             || null,
+      mobileNo         : this.form.mobileNo         || null,
+      issueDate        : this.form.issueDate,
+      validityDate     : this.form.validityDate,
+      gateNo           : this.form.gateNo,
+      parkingToBeUsed  : this.form.parkingToBeUsed  || null,
+      status           : this.form.passStatus,       // form.passStatus → Oracle STATUS column
+      isActive         : this.form.isActive,
+      remarks          : this.form.remarks           || null,
+      enterBy          : 'ADMIN',
+      enterDate        : new Date().toISOString().split('T')[0],
     };
 
     if (this.form.empType === 'Company_Employee') {
-      payload.employee_no          = this.form.employeeNo          || null;
-      payload.employee_company_no  = this.form.employeeCompanyNo   || null;
-      payload.contractor_code      = null;
+      payload.employeeNo        = this.form.employeeNo          || null;
+      payload.employeeCompanyNo = this.form.employeeCompanyNo   || null;
+      payload.contractorCode    = null;
     } else {
-      payload.contractor_code      = this.form.contractorCode      || null;
-      payload.employee_no          = null;
-      payload.employee_company_no  = null;
+      payload.contractorCode    = this.form.contractorCode      || null;
+      payload.employeeNo        = null;
+      payload.employeeCompanyNo = null;
     }
 
-    console.log('📤 Payload →', JSON.stringify(payload, null, 2));
+    console.log('📤 Pass payload →', JSON.stringify(payload, null, 2));
 
-    // ── Dummy mode ──
     if (USE_DUMMY_DATA) {
       setTimeout(() => {
         if (this.isEditMode()) {
-          const idx = this.allPassesRaw().findIndex(p => (p.passId || p.pass_id) === this.editId());
+          const idx = this.allPassesRaw().findIndex(p => p.passId === this.editId());
           if (idx !== -1) {
             const upd = [...this.allPassesRaw()];
             upd[idx]  = { ...upd[idx], ...payload };
@@ -351,31 +363,44 @@ export class Passes implements OnInit {
       return;
     }
 
-    // ── Live API ──
     const req$ = this.isEditMode()
-      ? this.http.put(`${API_CONFIG.PASSES_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
+      ? this.http.put(`${API_CONFIG.PASSES_UPDATE}/${this.editId()}`,  payload, { headers: this.HEADERS })
       : this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS });
 
-    req$.subscribe({
-      next: (res: any) => {
+    req$
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError((err: any) => {
+          const body = err?.error;
+          const msg  =
+            (typeof body === 'string' && body.length < 300 ? body : null) ||
+            body?.message || body?.error ||
+            (typeof body === 'object' ? JSON.stringify(body) : null) ||
+            `HTTP ${err?.status ?? '?'} — open F12 → Network for full error.`;
+          console.error('❌ Status:', err?.status, '| Body:', body);
+          this.saveError.set(msg);
+          this.isSaving.set(false);
+          return of(null);
+        })
+      )
+      .subscribe((res: any) => {
+        if (!res) return;
         console.log('✅ savePass response:', res);
-        this.saveSuccess.set(this.isEditMode() ? '✅ Pass updated successfully.' : '✅ Pass issued successfully.');
+        this.saveSuccess.set(
+          this.isEditMode() ? '✅ Pass updated successfully.' : '✅ Pass issued successfully.'
+        );
         this.isSaving.set(false);
-        this.loadPasses();
+        // ✅ Local list update after edit — no extra GET
+        if (this.isEditMode()) {
+          const list = this.allPassesRaw();
+          const idx  = list.findIndex(p => p.passId === this.editId());
+          if (idx !== -1) { list[idx] = { ...list[idx], ...res }; this.allPassesRaw.set([...list]); }
+        } else {
+          // Append new pass returned by backend
+          this.allPassesRaw.set([res, ...this.allPassesRaw()]);
+        }
         setTimeout(() => this.closeModal(), 1200);
-      },
-      error: (err: any) => {
-        const body = err?.error;
-        const msg  =
-          (typeof body === 'string' && body.length < 300 ? body : null) ||
-          body?.message || body?.error ||
-          (typeof body === 'object' ? JSON.stringify(body) : null) ||
-          `HTTP ${err?.status ?? '?'} — open F12 → Network tab for full error.`;
-        console.error('❌ Status:', err?.status);
-        console.error('❌ Body:',   body);
-        this.saveError.set(msg);
-        this.isSaving.set(false);
-      },
-    });
+      });
   }
 }

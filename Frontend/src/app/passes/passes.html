@@ -37,7 +37,7 @@
         <i class="bi bi-search search-icon"></i>
         <input
           type="text"
-          placeholder="Search emp code, contractor, dept, mobile..."
+          placeholder="Search emp code, contractor, dept, mobile, vehicle no..."
           [value]="searchText()"
           (input)="onSearch($any($event.target).value)"
           class="search-input"
@@ -75,6 +75,8 @@
               <th>EMP / CONTRACTOR</th>
               <th>EMP TYPE</th>
               <th>DEPT / AREA</th>
+              <!-- ✅ FIX: show vehicle no from nested object in table too -->
+              <th>VEHICLE NO</th>
               <th>TYPE OF VEHICLE</th>
               <th>GATE</th>
               <th>ISSUE DATE</th>
@@ -96,12 +98,16 @@
                 </span>
               </td>
               <td>{{ p.dept || '—' }}</td>
-              <td>{{ p.typeOfVehicle || '—' }}</td>
+              <!-- ✅ FIX: p.vehicle?.vehicleNo instead of p.vehicleNo -->
+              <td><strong>{{ p.vehicle?.vehicleNo || '—' }}</strong></td>
+              <td>{{ p.typeOfVehicle || p.vehicle?.vehicleType || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
               <td>{{ formatDate(p.issueDate) }}</td>
               <td>{{ formatDate(p.validityDate) }}</td>
               <td>
-                <span [class]="getStatusClass(p.passStatus || p.status)">{{ p.passStatus || p.status || '—' }}</span>
+                <span [class]="getStatusClass(p.status || p.passStatus)">
+                  {{ p.status || p.passStatus || '—' }}
+                </span>
               </td>
               <td>
                 <div class="action-btns">
@@ -115,7 +121,7 @@
               </td>
             </tr>
             <tr *ngIf="pagedPasses().length === 0">
-              <td colspan="11" class="no-data">No passes found.</td>
+              <td colspan="12" class="no-data">No passes found.</td>
             </tr>
           </tbody>
         </table>
@@ -148,6 +154,7 @@
   </div>
 </div>
 
+
 <!-- ══════════════════════════════════════════════════ -->
 <!--  ADD / EDIT MODAL                                  -->
 <!-- ══════════════════════════════════════════════════ -->
@@ -161,7 +168,6 @@
   </div>
 
   <div class="modal-body">
-
     <div class="alert-success" *ngIf="saveSuccess()">
       <i class="bi bi-check-circle-fill"></i> {{ saveSuccess() }}
     </div>
@@ -169,8 +175,10 @@
       <i class="bi bi-exclamation-triangle-fill"></i> {{ saveError() }}
     </div>
 
-    <!-- SECTION 1: Person -->
-    <div class="form-section-title">Person Details</div>
+    <!-- SECTION 1: Person Details -->
+    <div class="form-section-title">
+      <i class="bi bi-person-badge"></i> Person Details
+    </div>
     <div class="form-grid">
 
       <div class="form-group full-width">
@@ -190,38 +198,51 @@
       <ng-container *ngIf="form.empType === 'Company_Employee'">
         <div class="form-group">
           <label>Employee No <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.employeeNo" placeholder="e.g. EMP001" class="form-input" />
+          <input type="text" [(ngModel)]="form.employeeNo"
+            placeholder="e.g. EMP001" class="form-input"
+            style="text-transform:uppercase" />
         </div>
         <div class="form-group">
           <label>EC No (Company No)</label>
-          <input type="text" [(ngModel)]="form.employeeCompanyNo" placeholder="e.g. HEG001" class="form-input" />
+          <input type="text" [(ngModel)]="form.employeeCompanyNo"
+            placeholder="e.g. HEG001" class="form-input"
+            style="text-transform:uppercase" />
         </div>
         <div class="form-group">
           <label>Department</label>
-          <input type="text" [(ngModel)]="form.dept" placeholder="e.g. Mechanical" class="form-input" />
+          <input type="text" [(ngModel)]="form.dept"
+            placeholder="e.g. Mechanical" class="form-input"
+            style="text-transform:uppercase" />
         </div>
       </ng-container>
 
       <ng-container *ngIf="form.empType === 'Contractor'">
         <div class="form-group">
           <label>Contractor Code <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.contractorCode" placeholder="e.g. CON001" class="form-input" />
+          <input type="text" [(ngModel)]="form.contractorCode"
+            placeholder="e.g. CON001" class="form-input"
+            style="text-transform:uppercase" />
         </div>
         <div class="form-group">
           <label>Work Area / Department</label>
-          <input type="text" [(ngModel)]="form.dept" placeholder="e.g. Civil Works" class="form-input" />
+          <input type="text" [(ngModel)]="form.dept"
+            placeholder="e.g. Civil Works" class="form-input"
+            style="text-transform:uppercase" />
         </div>
       </ng-container>
 
       <div class="form-group">
         <label>Mobile No</label>
-        <input type="text" [(ngModel)]="form.mobileNo" placeholder="e.g. 9876543210" class="form-input" maxlength="15" />
+        <input type="text" [(ngModel)]="form.mobileNo"
+          placeholder="e.g. 9876543210" class="form-input"
+          maxlength="15" inputmode="numeric" />
       </div>
-
     </div>
 
-    <!-- SECTION 2: Vehicle -->
-    <div class="form-section-title">Vehicle Details</div>
+    <!-- SECTION 2: Vehicle Details -->
+    <div class="form-section-title">
+      <i class="bi bi-truck"></i> Vehicle Details
+    </div>
     <div class="form-grid">
 
       <div class="form-group">
@@ -231,13 +252,16 @@
             type="number"
             [(ngModel)]="form.vehicleId"
             (blur)="onVehicleIdBlur()"
-            placeholder="e.g. 101"
+            placeholder="e.g. 5"
             class="form-input"
+            [class.input-readonly]="isEditMode()"
+            [readonly]="isEditMode()"
             min="1"
           />
           <i class="bi bi-arrow-repeat spin-icon-sm lookup-spinner" *ngIf="isLookingUp()"></i>
         </div>
-        <small class="form-hint">Enter Vehicle ID from Vehicles Master table</small>
+        <small class="form-hint" *ngIf="!isEditMode()">Tab out after entering ID — type auto-fills</small>
+        <small class="form-hint" *ngIf="isEditMode()">Vehicle ID cannot be changed</small>
         <small class="lookup-error" *ngIf="vehicleLookupError()">
           <i class="bi bi-exclamation-triangle-fill"></i> {{ vehicleLookupError() }}
         </small>
@@ -247,7 +271,7 @@
       </div>
 
       <div class="form-group">
-        <label>Type of Vehicle <span class="req">*</span></label>
+        <label>Type of Vehicle</label>
         <input
           type="text"
           [(ngModel)]="form.typeOfVehicle"
@@ -261,7 +285,9 @@
     </div>
 
     <!-- SECTION 3: Pass Details -->
-    <div class="form-section-title">Pass Details</div>
+    <div class="form-section-title">
+      <i class="bi bi-calendar-check"></i> Pass Details
+    </div>
     <div class="form-grid">
       <div class="form-group">
         <label>Issue Date <span class="req">*</span></label>
@@ -269,7 +295,8 @@
       </div>
       <div class="form-group">
         <label>Validity Date <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="form.validityDate" class="form-input" />
+        <input type="date" [(ngModel)]="form.validityDate"
+          [min]="form.issueDate" class="form-input" />
       </div>
       <div class="form-group">
         <label>Gate No <span class="req">*</span></label>
@@ -283,7 +310,10 @@
       </div>
       <div class="form-group">
         <label>Parking To Be Used</label>
-        <input type="text" [(ngModel)]="form.parkingToBeUsed" placeholder="e.g. A-Block, Heavy Yard" class="form-input" />
+        <input type="text" [(ngModel)]="form.parkingToBeUsed"
+          placeholder="e.g. A-Block, Heavy Yard"
+          class="form-input"
+          style="text-transform:uppercase" />
       </div>
       <div class="form-group">
         <label>Status</label>
@@ -302,11 +332,14 @@
       </div>
       <div class="form-group full-width">
         <label>Remarks</label>
-        <textarea [(ngModel)]="form.remarks" rows="3" placeholder="Any remarks..." class="form-input"></textarea>
+        <textarea [(ngModel)]="form.remarks" rows="3"
+          placeholder="Any remarks..." class="form-input"
+          maxlength="200">
+        </textarea>
       </div>
     </div>
 
-  </div>
+  </div><!-- /modal-body -->
 
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeModal()" [disabled]="isSaving()">Cancel</button>
@@ -317,6 +350,7 @@
     </button>
   </div>
 </div>
+
 
 <!-- ══════════════════════════════════════════════════ -->
 <!--  VIEW DETAIL MODAL                                 -->
@@ -329,81 +363,114 @@
       <i class="bi bi-x-lg"></i>
     </button>
   </div>
+
   <div class="modal-body">
     <div class="detail-grid">
 
-      <!-- Person -->
+      <!-- PERSON -->
       <div class="detail-section">
-        <div class="detail-section-title">Person</div>
+        <div class="detail-section-title">PERSON</div>
         <div class="detail-row">
-          <span>Emp Type</span>
+          <span class="detail-label">Emp Type</span>
           <span [class]="getEmpTypeBadgeClass(viewPass().empType)">
             {{ viewPass().empType === 'Company_Employee' ? 'Company Employee' : 'Contractor' }}
           </span>
         </div>
-        <div class="detail-row" *ngIf="viewPass().empType === 'Company_Employee'">
-          <span>Employee No</span><strong>{{ viewPass().employeeNo || '—' }}</strong>
-        </div>
-        <div class="detail-row" *ngIf="viewPass().empType === 'Company_Employee'">
-          <span>EC No</span><strong>{{ viewPass().employeeCompanyNo || '—' }}</strong>
-        </div>
-        <div class="detail-row" *ngIf="viewPass().empType === 'Contractor'">
-          <span>Contractor Code</span><strong>{{ viewPass().contractorCode || '—' }}</strong>
+        <ng-container *ngIf="viewPass().empType === 'Company_Employee'">
+          <div class="detail-row">
+            <span class="detail-label">Employee No</span>
+            <strong class="detail-value">{{ viewPass().employeeNo || '—' }}</strong>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">EC No</span>
+            <strong class="detail-value">{{ viewPass().employeeCompanyNo || '—' }}</strong>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="viewPass().empType === 'Contractor'">
+          <div class="detail-row">
+            <span class="detail-label">Contractor Code</span>
+            <strong class="detail-value">{{ viewPass().contractorCode || '—' }}</strong>
+          </div>
+        </ng-container>
+        <div class="detail-row">
+          <span class="detail-label">Department / Work Area</span>
+          <strong class="detail-value">{{ viewPass().dept || '—' }}</strong>
         </div>
         <div class="detail-row">
-          <span>Department / Work Area</span><strong>{{ viewPass().dept || '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span>Mobile</span><strong>{{ viewPass().mobileNo || '—' }}</strong>
+          <span class="detail-label">Mobile</span>
+          <strong class="detail-value">{{ viewPass().mobileNo || '—' }}</strong>
         </div>
       </div>
 
-      <!-- Vehicle -->
+      <!-- VEHICLE — ✅ ALL FIXED: reads from nested vehicle object -->
       <div class="detail-section">
-        <div class="detail-section-title">Vehicle</div>
+        <div class="detail-section-title">VEHICLE</div>
         <div class="detail-row">
-          <span>Vehicle ID (FK)</span><strong>{{ viewPass().vehicleId || '—' }}</strong>
+          <span class="detail-label">Vehicle ID (FK)</span>
+          <strong class="detail-value">{{ viewPass().vehicle?.vehicleId ?? '—' }}</strong>
         </div>
         <div class="detail-row">
-          <span>Type of Vehicle</span><strong>{{ viewPass().typeOfVehicle || '—' }}</strong>
+          <span class="detail-label">Vehicle No</span>
+          <strong class="detail-value">{{ viewPass().vehicle?.vehicleNo ?? '—' }}</strong>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Type of Vehicle</span>
+          <strong class="detail-value">
+            {{ viewPass().typeOfVehicle || viewPass().vehicle?.vehicleType || '—' }}
+          </strong>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Vehicle Class</span>
+          <strong class="detail-value">{{ viewPass().vehicle?.vehicleClass ?? '—' }}</strong>
         </div>
       </div>
 
-      <!-- Pass Info -->
+      <!-- PASS INFO -->
       <div class="detail-section">
-        <div class="detail-section-title">Pass Info</div>
+        <div class="detail-section-title">PASS INFO</div>
         <div class="detail-row">
-          <span>Issue Date</span><strong>{{ formatDate(viewPass().issueDate) }}</strong>
+          <span class="detail-label">Issue Date</span>
+          <strong class="detail-value">{{ formatDate(viewPass().issueDate) }}</strong>
         </div>
         <div class="detail-row">
-          <span>Valid Till</span><strong>{{ formatDate(viewPass().validityDate) }}</strong>
+          <span class="detail-label">Valid Till</span>
+          <strong class="detail-value">{{ formatDate(viewPass().validityDate) }}</strong>
         </div>
         <div class="detail-row">
-          <span>Gate No</span><strong>{{ viewPass().gateNo || '—' }}</strong>
+          <span class="detail-label">Gate No</span>
+          <strong class="detail-value">{{ viewPass().gateNo || '—' }}</strong>
         </div>
         <div class="detail-row">
-          <span>Parking</span><strong>{{ viewPass().parkingToBeUsed || '—' }}</strong>
+          <span class="detail-label">Parking</span>
+          <strong class="detail-value">{{ viewPass().parkingToBeUsed || '—' }}</strong>
         </div>
         <div class="detail-row">
-          <span>Status</span>
-          <span [class]="getStatusClass(viewPass().status)">{{ viewPass().status }}</span>
+          <span class="detail-label">Status</span>
+          <span [class]="getStatusClass(viewPass().status || viewPass().passStatus)">
+            {{ viewPass().status || viewPass().passStatus || '—' }}
+          </span>
         </div>
         <div class="detail-row">
-          <span>Is Active</span><strong>{{ viewPass().isActive === 'Y' ? 'Yes' : 'No' }}</strong>
+          <span class="detail-label">Is Active</span>
+          <strong class="detail-value">{{ viewPass().isActive === 'Y' ? 'Yes' : 'No' }}</strong>
         </div>
         <div class="detail-row">
-          <span>Entered By</span><strong>{{ viewPass().enterBy || '—' }}</strong>
+          <span class="detail-label">Entered By</span>
+          <strong class="detail-value">{{ viewPass().enterBy || '—' }}</strong>
         </div>
         <div class="detail-row">
-          <span>Enter Date</span><strong>{{ formatDate(viewPass().enterDate) }}</strong>
+          <span class="detail-label">Enter Date</span>
+          <strong class="detail-value">{{ formatDate(viewPass().enterDate) }}</strong>
         </div>
         <div class="detail-row">
-          <span>Remarks</span><strong>{{ viewPass().remarks || '—' }}</strong>
+          <span class="detail-label">Remarks</span>
+          <strong class="detail-value">{{ viewPass().remarks || '—' }}</strong>
         </div>
       </div>
 
     </div>
   </div>
+
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
     <button class="btn-save" (click)="closeViewModal(); openEditModal(viewPass())">

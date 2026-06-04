@@ -107,8 +107,7 @@
                   <button class="btn-icon-delete" title="Delete Vehicle" (click)="openDeleteModal(v)">
                     <i class="bi bi-trash3"></i> Delete
                   </button>
-                  <!-- ✅ NEW: Issue Pass Button -->
-                  <button class="btn-icon-issue" title="Issue Pass for this vehicle" (click)="openIssuePassModal(v)">
+                  <button class="btn-icon-issue" title="Issue Pass" (click)="openIssuePassModal(v)">
                     <i class="bi bi-card-checklist"></i> Issue Pass
                   </button>
                 </div>
@@ -124,7 +123,7 @@
       <!-- PAGINATION -->
       <div class="pagination-bar">
         <span class="page-info">
-          Showing {{ (currentPage()-1)*pageSize()+1 }}-{{ currentPage()*pageSize() < filteredVehicles.length ? currentPage()*pageSize() : filteredVehicles.length }}
+          Showing {{ (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() < filteredVehicles.length ? currentPage()*pageSize() : filteredVehicles.length }}
           of {{ filteredVehicles.length }}
         </span>
         <div class="page-btns">
@@ -159,7 +158,6 @@
       <i class="bi bi-x-lg"></i>
     </button>
   </div>
-
   <div class="modal-body">
     <div class="alert-success" *ngIf="saveSuccess()">
       <i class="bi bi-check-circle-fill"></i> {{ saveSuccess() }}
@@ -167,9 +165,7 @@
     <div class="alert-error" *ngIf="saveError()">
       <i class="bi bi-exclamation-triangle-fill"></i> {{ saveError() }}
     </div>
-
     <div class="form-grid">
-
       <div class="form-group full-width">
         <label>Vehicle Number <span class="req">*</span></label>
         <input type="text" [(ngModel)]="form.vehicleNo"
@@ -179,14 +175,12 @@
           style="text-transform:uppercase" />
         <small class="form-hint">Auto-normalized: UPPERCASE, no spaces</small>
       </div>
-
       <div class="form-group">
         <label>Vehicle Type <span class="req">*</span></label>
         <input type="text" [(ngModel)]="form.vehicleType"
           placeholder="e.g. Car, Bike, Truck, JCB"
           class="form-input" />
       </div>
-
       <div class="form-group">
         <label>Vehicle Class <span class="req">*</span></label>
         <select [(ngModel)]="form.vehicleClass" class="form-input">
@@ -196,14 +190,12 @@
           <option value="Heavy_Machinery">Heavy Machinery</option>
         </select>
       </div>
-
       <div class="form-group full-width">
         <label>Brand / Model</label>
         <input type="text" [(ngModel)]="form.brandModel"
           placeholder="e.g. Honda City, Tata Prima"
           class="form-input" />
       </div>
-
       <div class="form-group">
         <label>Status <span class="req">*</span></label>
         <select [(ngModel)]="form.isActive" class="form-input">
@@ -211,7 +203,6 @@
           <option value="N">Inactive</option>
         </select>
       </div>
-
       <div class="form-group">
         <label>Blacklisted?</label>
         <select [(ngModel)]="form.isBlacklisted" class="form-input">
@@ -219,10 +210,8 @@
           <option value="Y">Yes — Blacklist this vehicle</option>
         </select>
       </div>
-
     </div>
   </div>
-
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeModal()" [disabled]="isSaving()">Cancel</button>
     <button class="btn-save" (click)="saveVehicle()" [disabled]="isSaving()">
@@ -268,7 +257,7 @@
 
 
 <!-- ══════════════════════════════════════════════════════ -->
-<!--  ISSUE PASS MODAL  ✅ NEW                             -->
+<!--  ISSUE PASS MODAL                                     -->
 <!-- ══════════════════════════════════════════════════════ -->
 <div class="modal-overlay" *ngIf="showIssuePassModal()" (click)="closeIssuePassModal()"></div>
 <div class="modal-box modal-lg" *ngIf="showIssuePassModal()">
@@ -282,7 +271,6 @@
 
   <div class="modal-body">
 
-    <!-- Feedback Alerts -->
     <div class="alert-success" *ngIf="issuePassSuccess()">
       <i class="bi bi-check-circle-fill"></i> {{ issuePassSuccess() }}
     </div>
@@ -290,7 +278,7 @@
       <i class="bi bi-exclamation-triangle-fill"></i> {{ issuePassError() }}
     </div>
 
-    <!-- SECTION 1: Vehicle Info — READ ONLY, pre-filled from row -->
+    <!-- SECTION 1: Vehicle Info — READ ONLY -->
     <div class="form-section-title">
       <i class="bi bi-truck"></i> Vehicle Details
       <span class="prefill-badge">Auto-filled</span>
@@ -328,51 +316,130 @@
         <label>Employee Type <span class="req">*</span></label>
         <div class="radio-group">
           <label class="radio-label">
-            <input type="radio" [(ngModel)]="issuePassForm.empType" value="Company_Employee" />
+            <input type="radio" [(ngModel)]="issuePassForm.empType"
+              value="Company_Employee" (change)="onEmpTypeChange()" />
             Company Employee
           </label>
           <label class="radio-label">
-            <input type="radio" [(ngModel)]="issuePassForm.empType" value="Contractor" />
+            <input type="radio" [(ngModel)]="issuePassForm.empType"
+              value="Contractor" (change)="onEmpTypeChange()" />
             Contractor
           </label>
         </div>
       </div>
 
+      <!-- Company Employee fields -->
       <ng-container *ngIf="issuePassForm.empType === 'Company_Employee'">
+
         <div class="form-group">
           <label>Employee No <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="issuePassForm.employeeNo"
-            placeholder="e.g. EMP001" class="form-input" />
+          <input type="text"
+            [ngModel]="issuePassForm.employeeNo"
+            (input)="onEmployeeNoInput($event)"
+            placeholder="e.g. EMP001"
+            class="form-input"
+            [class.input-error]="passFieldErrors.employeeNo"
+            maxlength="20" />
+          <small class="field-error" *ngIf="passFieldErrors.employeeNo">
+            <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.employeeNo }}
+          </small>
+          <small class="form-hint" *ngIf="!passFieldErrors.employeeNo">
+            Auto-UPPERCASE · max 20 chars
+          </small>
         </div>
+
         <div class="form-group">
           <label>EC No (Company No)</label>
-          <input type="text" [(ngModel)]="issuePassForm.employeeCompanyNo"
-            placeholder="e.g. HEG001" class="form-input" />
+          <input type="text"
+            [ngModel]="issuePassForm.employeeCompanyNo"
+            (input)="onEmployeeCompanyNoInput($event)"
+            placeholder="e.g. HEG001"
+            class="form-input"
+            [class.input-error]="passFieldErrors.employeeCompanyNo"
+            maxlength="20" />
+          <small class="field-error" *ngIf="passFieldErrors.employeeCompanyNo">
+            <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.employeeCompanyNo }}
+          </small>
+          <small class="form-hint" *ngIf="!passFieldErrors.employeeCompanyNo">
+            Auto-UPPERCASE · max 20 chars
+          </small>
         </div>
+
         <div class="form-group">
           <label>Department</label>
-          <input type="text" [(ngModel)]="issuePassForm.dept"
-            placeholder="e.g. Mechanical" class="form-input" />
+          <input type="text"
+            [ngModel]="issuePassForm.dept"
+            (input)="onDeptInput($event)"
+            placeholder="e.g. MECHANICAL"
+            class="form-input"
+            [class.input-error]="passFieldErrors.dept"
+            maxlength="50" />
+          <small class="field-error" *ngIf="passFieldErrors.dept">
+            <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.dept }}
+          </small>
+          <small class="form-hint" *ngIf="!passFieldErrors.dept">
+            Auto-UPPERCASE · max 50 chars
+          </small>
         </div>
+
       </ng-container>
 
+      <!-- Contractor fields -->
       <ng-container *ngIf="issuePassForm.empType === 'Contractor'">
+
         <div class="form-group">
           <label>Contractor Code <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="issuePassForm.contractorCode"
-            placeholder="e.g. CON001" class="form-input" />
+          <input type="text"
+            [ngModel]="issuePassForm.contractorCode"
+            (input)="onContractorCodeInput($event)"
+            placeholder="e.g. CON001"
+            class="form-input"
+            [class.input-error]="passFieldErrors.contractorCode"
+            maxlength="20" />
+          <small class="field-error" *ngIf="passFieldErrors.contractorCode">
+            <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.contractorCode }}
+          </small>
+          <small class="form-hint" *ngIf="!passFieldErrors.contractorCode">
+            Auto-UPPERCASE · max 20 chars
+          </small>
         </div>
+
         <div class="form-group">
           <label>Work Area / Department</label>
-          <input type="text" [(ngModel)]="issuePassForm.dept"
-            placeholder="e.g. Civil Works" class="form-input" />
+          <input type="text"
+            [ngModel]="issuePassForm.dept"
+            (input)="onDeptInput($event)"
+            placeholder="e.g. CIVIL WORKS"
+            class="form-input"
+            [class.input-error]="passFieldErrors.dept"
+            maxlength="50" />
+          <small class="field-error" *ngIf="passFieldErrors.dept">
+            <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.dept }}
+          </small>
+          <small class="form-hint" *ngIf="!passFieldErrors.dept">
+            Auto-UPPERCASE · max 50 chars
+          </small>
         </div>
+
       </ng-container>
 
+      <!-- Mobile No — digits only, VARCHAR2(15) -->
       <div class="form-group">
         <label>Mobile No</label>
-        <input type="text" [(ngModel)]="issuePassForm.mobileNo"
-          placeholder="e.g. 9876543210" class="form-input" maxlength="10" />
+        <input type="text"
+          [ngModel]="issuePassForm.mobileNo"
+          (input)="onMobileNoInput($event)"
+          placeholder="e.g. 9876543210"
+          class="form-input"
+          [class.input-error]="passFieldErrors.mobileNo"
+          maxlength="15"
+          inputmode="numeric" />
+        <small class="field-error" *ngIf="passFieldErrors.mobileNo">
+          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.mobileNo }}
+        </small>
+        <small class="form-hint" *ngIf="!passFieldErrors.mobileNo">
+          Digits only · max 15 (auto-strips letters)
+        </small>
       </div>
 
     </div>
@@ -382,41 +449,104 @@
       <i class="bi bi-calendar-check"></i> Pass Details
     </div>
     <div class="form-grid">
+
       <div class="form-group">
         <label>Issue Date <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="issuePassForm.issueDate" class="form-input" />
+        <input type="date"
+          [(ngModel)]="issuePassForm.issueDate"
+          (ngModelChange)="clearPassError('issueDate')"
+          class="form-input"
+          [class.input-error]="passFieldErrors.issueDate"
+          [min]="todayStr" />
+        <small class="field-error" *ngIf="passFieldErrors.issueDate">
+          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.issueDate }}
+        </small>
       </div>
+
       <div class="form-group">
         <label>Validity Date <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="issuePassForm.validityDate" class="form-input" />
+        <input type="date"
+          [(ngModel)]="issuePassForm.validityDate"
+          (ngModelChange)="clearPassError('validityDate')"
+          class="form-input"
+          [class.input-error]="passFieldErrors.validityDate"
+          [min]="issuePassForm.issueDate || todayStr" />
+        <small class="field-error" *ngIf="passFieldErrors.validityDate">
+          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.validityDate }}
+        </small>
+        <small class="form-hint" *ngIf="!passFieldErrors.validityDate && issuePassForm.issueDate">
+          Must be after Issue Date
+        </small>
       </div>
+
       <div class="form-group">
         <label>Gate No <span class="req">*</span></label>
-        <select [(ngModel)]="issuePassForm.gateNo" class="form-input">
+        <select
+          [(ngModel)]="issuePassForm.gateNo"
+          (ngModelChange)="clearPassError('gateNo')"
+          class="form-input"
+          [class.input-error]="passFieldErrors.gateNo">
           <option value="">-- Select Gate --</option>
           <option value="GATE_01">Gate 01</option>
           <option value="GATE_02">Gate 02</option>
           <option value="GATE_03">Gate 03</option>
           <option value="GATE_04">Gate 04</option>
         </select>
+        <small class="field-error" *ngIf="passFieldErrors.gateNo">
+          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.gateNo }}
+        </small>
       </div>
+
       <div class="form-group">
         <label>Parking To Be Used</label>
-        <input type="text" [(ngModel)]="issuePassForm.parkingToBeUsed"
-          placeholder="e.g. A-Block, Heavy Yard" class="form-input" />
+        <input type="text"
+          [ngModel]="issuePassForm.parkingToBeUsed"
+          (input)="onParkingInput($event)"
+          placeholder="e.g. A-BLOCK, HEAVY YARD"
+          class="form-input"
+          [class.input-error]="passFieldErrors.parkingToBeUsed"
+          maxlength="50" />
+        <small class="field-error" *ngIf="passFieldErrors.parkingToBeUsed">
+          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.parkingToBeUsed }}
+        </small>
+        <small class="form-hint" *ngIf="!passFieldErrors.parkingToBeUsed">
+          Auto-UPPERCASE · max 50 chars
+        </small>
       </div>
-      <div class="form-group full-width">
-        <label>Remarks</label>
-        <textarea [(ngModel)]="issuePassForm.remarks" rows="2"
-          placeholder="Any remarks..." class="form-input"></textarea>
-      </div>
-    </div>
 
+      <div class="form-group full-width">
+        <label>
+          Remarks
+          <span class="char-counter"
+            [class.counter-warn]="issuePassForm.remarks.length > 180"
+            [class.counter-error]="issuePassForm.remarks.length > 200">
+            {{ issuePassForm.remarks.length }}/200
+          </span>
+        </label>
+        <textarea
+          [(ngModel)]="issuePassForm.remarks"
+          (ngModelChange)="clearPassError('remarks')"
+          rows="2"
+          placeholder="Any remarks..."
+          class="form-input"
+          [class.input-error]="passFieldErrors.remarks"
+          maxlength="200">
+        </textarea>
+        <small class="field-error" *ngIf="passFieldErrors.remarks">
+          <i class="bi bi-exclamation-circle-fill"></i> {{ passFieldErrors.remarks }}
+        </small>
+      </div>
+
+    </div>
   </div><!-- /modal-body -->
 
   <div class="modal-footer">
-    <button class="btn-cancel" (click)="closeIssuePassModal()" [disabled]="isSavingPass()">Cancel</button>
-    <button class="btn-save" (click)="submitIssuePass()" [disabled]="isSavingPass()">
+    <button class="btn-cancel" (click)="closeIssuePassModal()" [disabled]="isSavingPass()">
+      Cancel
+    </button>
+    <button class="btn-save"
+      (click)="submitIssuePass()"
+      [disabled]="isPassFormInvalid || isSavingPass()">
       <i class="bi bi-arrow-repeat spin-icon-sm" *ngIf="isSavingPass()"></i>
       <i class="bi bi-send-fill" *ngIf="!isSavingPass()"></i>
       {{ isSavingPass() ? 'Issuing...' : 'Issue Pass' }}

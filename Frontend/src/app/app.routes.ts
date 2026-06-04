@@ -11,15 +11,18 @@ export const routes: Routes = [
   { path: 'vehicles/blacklisted', loadComponent: () => import('./vehicles/blacklisted').then(m => m.Blacklisted) },
 
   // PASS REGISTRY
-  { path: 'passes/active',    loadComponent: () => import('./passes/passes').then(m => m.Passes) },
+  { path: 'passes/active',      loadComponent: () => import('./passes/passes').then(m => m.Passes) },
+  { path: 'passes/expiring',    loadComponent: () => import('./passes/expiring-passes').then(m => m.ExpiringPasses) },
+  { path: 'passes/expired',     loadComponent: () => import('./passes/expired-passes').then(m => m.ExpiredPasses) },
+  { path: 'passes/surrendered', loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
 
   // COMPLIANCE DOCUMENTS
-  { path: 'docs/puc',         loadComponent: () => import('./documents/documents').then(m => m.Documents) },
+  { path: 'docs/puc',          loadComponent: () => import('./documents/documents').then(m => m.Documents) },
 
   // AUDIT HISTORY
-  { path: 'history/create',   loadComponent: () => import('./history/history').then(m => m.History) },
+  { path: 'history/create',    loadComponent: () => import('./history/history').then(m => m.History) },
 
   // ADMIN
-  { path: 'authority/company',loadComponent: () => import('./authority/authority').then(m => m.Authority) },
+  { path: 'authority/company', loadComponent: () => import('./authority/authority').then(m => m.Authority) },
 
 ];
