@@ -13,6 +13,10 @@ export const API_CONFIG = {
   PASSES_ISSUE     : `${environment.apiBaseUrl}/api/passes/issue`,
   PASSES_UPDATE    : `${environment.apiBaseUrl}/api/passes/update`,
 
+  DOCUMENTS        : `${environment.apiBaseUrl}/api/documents/list`,
+  DOCUMENTS_UPLOAD : `${environment.apiBaseUrl}/api/documents/upload`,
+  DOCUMENTS_UPDATE : `${environment.apiBaseUrl}/api/documents/update`,
+
   GATE_LOGS        : `${environment.apiBaseUrl}/api/gate-logs/list`,
   COMPLIANCE       : `${environment.apiBaseUrl}/api/compliance/list`,
 };

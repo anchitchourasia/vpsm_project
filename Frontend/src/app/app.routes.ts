@@ -7,7 +7,7 @@ export const routes: Routes = [
 
   // VEHICLES MASTER
   { path: 'vehicles/all',         loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
-  { path: 'vehicles/active',      loadComponent: () => import('./vehicles/active-vehicles').then(m => m.ActiveVehicles) },
+  { path: 'vehicles/active',      loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
   { path: 'vehicles/blacklisted', loadComponent: () => import('./vehicles/blacklisted').then(m => m.Blacklisted) },
 
   // PASS REGISTRY
@@ -16,11 +16,16 @@ export const routes: Routes = [
   { path: 'passes/expired',     loadComponent: () => import('./passes/expired-passes').then(m => m.ExpiredPasses) },
   { path: 'passes/surrendered', loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
 
-  // COMPLIANCE DOCUMENTS
-  { path: 'docs/puc',          loadComponent: () => import('./documents/documents').then(m => m.Documents) },
+  // COMPLIANCE DOCUMENTS — one component, docType via route data
+  { path: 'docs/all',       loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'ALL' } },
+  { path: 'docs/rc',        loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'RC' } },
+  { path: 'docs/puc',       loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'PUC' } },
+  { path: 'docs/insurance', loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Insurance' } },
+  { path: 'docs/fitness',   loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Fitness' } },
+  { path: 'docs/load-test', loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Load_Test' } },
 
   // AUDIT HISTORY
-  { path: 'history/create',    loadComponent: () => import('./history/history').then(m => m.History) },
+  { path: 'history/create', loadComponent: () => import('./history/history').then(m => m.History) },
 
   // ADMIN
   { path: 'authority/company', loadComponent: () => import('./authority/authority').then(m => m.Authority) },
