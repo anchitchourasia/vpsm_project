@@ -263,29 +263,26 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
           of {{ filteredDocs().length }}
         </span>
         <div class="page-btns">
-          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
-            <i class="bi bi-chevron-left"></i>
-          </button>
-          <button *ngFor="let pg of totalPagesArr" class="pg-btn"
-            [class.active]="pg === currentPage()" (click)="goToPage(pg)">{{ pg }}</button>
-          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
-            <i class="bi bi-chevron-right"></i>
-          </button>
+          <button class="page-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">‹</button>
+          <button class="page-btn"
+            *ngFor="let p of totalPagesArr"
+            [class.active]="p === currentPage()"
+            (click)="goToPage(p)">{{ p }}</button>
+          <button class="page-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">›</button>
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
 
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!--  ADD MODAL  — All 5 doc types: PUC + Insurance + RC + Fitness + Load Test -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════ -->
+<!-- ADD MODAL  (multi-doc upload)             -->
+<!-- ══════════════════════════════════════════ -->
 <div class="modal-overlay" *ngIf="showModal() && !isEditMode()" (click)="closeModal()"></div>
 <div class="modal-box modal-xl" *ngIf="showModal() && !isEditMode()">
   <div class="modal-header modal-header-add">
-    <h3>📄 Upload Documents — Multi-Type (All 5)</h3>
+    <h3>📄 Upload Compliance Documents</h3>
     <button class="modal-close" (click)="closeModal()"><i class="bi bi-x-lg"></i></button>
   </div>
 
@@ -293,27 +290,22 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
     <div class="alert-success" *ngIf="saveSuccess()">{{ saveSuccess() }}</div>
     <div class="alert-error"   *ngIf="saveError()">{{ saveError() }}</div>
 
-    <!-- Vehicle + Entered By -->
-    <div class="form-grid">
+    <!-- Vehicle + EnterBy -->
+    <div class="form-grid form-grid-2">
       <div class="form-group">
         <label>Vehicle ID <span class="req">*</span></label>
-        <input type="number" [(ngModel)]="form.vehicleId"
-          placeholder="Enter Vehicle ID from Vehicles Master"
-          class="form-control" min="1"
+        <input type="text" [(ngModel)]="form.vehicleId"
+          placeholder="Enter numeric Vehicle ID"
+          class="form-control" maxlength="10"
           (input)="onVehicleIdInput($event)" />
-        <small class="field-hint">Must match a valid Vehicle ID in the database</small>
       </div>
       <div class="form-group">
         <label>Entered By <span class="req">*</span></label>
         <input type="text" [(ngModel)]="form.enterBy"
-          class="form-control" placeholder="e.g. ADMIN" />
+          placeholder="e.g. ADMIN" class="form-control" maxlength="30"
+          (input)="onUpperCase($event, 'enterBy')" />
       </div>
     </div>
-
-    <p class="upload-note">
-      <i class="bi bi-info-circle-fill"></i>
-      Upload one or more document types at a time. At least one file is required.
-    </p>
 
     <!-- ══ PUC SECTION ══ -->
     <div class="doc-section" [class.doc-section-active]="form.pucFile">
@@ -326,7 +318,7 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
         <div class="form-group">
           <label>PUC No</label>
           <input type="text" [(ngModel)]="form.pucNo"
-            placeholder="e.g. PUC-HEG-2026-001" class="form-control" maxlength="50"
+            placeholder="e.g. PUC-MP04-2026-001" class="form-control" maxlength="50"
             (input)="onUpperCase($event, 'pucNo')" />
         </div>
         <div class="form-group">
@@ -372,7 +364,7 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
         <div class="form-group">
           <label>Insurance No</label>
           <input type="text" [(ngModel)]="form.insuranceNo"
-            placeholder="e.g. INS-HEG-2026-001" class="form-control" maxlength="50"
+            placeholder="e.g. INS-2026-HEG-001" class="form-control" maxlength="50"
             (input)="onUpperCase($event, 'insuranceNo')" />
         </div>
         <div class="form-group">
@@ -576,30 +568,34 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
       <div class="form-group">
         <label>Vehicle No</label>
         <input type="text" [value]="editVehicleNo()" class="form-control" readonly />
-        <small class="field-hint">Vehicle cannot be changed after upload</small>
       </div>
 
       <div class="form-group">
         <label>Document Type <span class="req">*</span></label>
-        <select [(ngModel)]="form.documentType" class="form-control" disabled>
-          <option value="">— Select Type —</option>
-          <option value="RC">RC (Registration)</option>
+        <select [(ngModel)]="form.documentType" class="form-control">
+          <option value="">— Select —</option>
           <option value="PUC">PUC Certificate</option>
           <option value="INSURANCE">Insurance</option>
-          <option value="Fitness">Fitness Certificate</option>
-          <option value="Load_Test">Load Test</option>
+          <option value="RC">RC (Registration)</option>
+          <option value="FITNESS">Fitness Certificate</option>
+          <option value="LOAD_TEST">Load Test</option>
         </select>
-        <small class="field-hint">Document type cannot be changed after upload</small>
       </div>
 
       <div class="form-group">
         <label>Document No <span class="req">*</span></label>
-        <input type="text"
-          [ngModel]="form.documentNo"
-          (input)="onDocumentNoInput($event)"
-          placeholder="Document number"
-          class="form-control" maxlength="50" />
-        <small class="field-hint">Auto-UPPERCASE · max 50 chars</small>
+        <input type="text" [(ngModel)]="form.documentNo"
+          placeholder="Document number" class="form-control" maxlength="60"
+          (input)="onDocumentNoInput($event)" />
+      </div>
+
+      <div class="form-group">
+        <label>Document Status</label>
+        <select [(ngModel)]="form.documentStatus" class="form-control">
+          <option value="Valid">Valid</option>
+          <option value="Expiring">Expiring</option>
+          <option value="Expired">Expired</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -612,30 +608,24 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
         <input type="date" [(ngModel)]="form.expiryDate" class="form-control" />
       </div>
 
-      <div class="form-group">
-        <label>Document Status</label>
-        <select [(ngModel)]="form.documentStatus" class="form-control">
-          <option value="Valid">Valid</option>
-          <option value="ACTIVE">Active</option>
-          <option value="Expired">Expired</option>
-          <option value="Expiring">Expiring</option>
-        </select>
+      <div class="form-group form-group-full">
+        <label>Remarks</label>
+        <textarea [(ngModel)]="form.remarks" rows="2"
+          placeholder="Optional notes..." class="form-control"></textarea>
       </div>
 
       <div class="form-group form-group-full">
-        <label>
-          <i class="bi bi-paperclip"></i>
-          Replace PDF Document
-          <span class="field-optional">(optional)</span>
-        </label>
+        <label>Replace PDF File (optional)</label>
         <div class="file-upload-box" [class.has-file]="form.selectedFile">
           <input type="file" accept=".pdf" id="pdfFileInput"
             class="file-input-hidden" (change)="onFileSelected($event, 'single')" />
           <label for="pdfFileInput" class="file-upload-label">
             <ng-container *ngIf="!form.selectedFile">
               <i class="bi bi-cloud-arrow-up-fill file-upload-icon"></i>
-              <span class="file-upload-text">Click to choose PDF</span>
-              <span class="file-upload-hint">Max 10 MB · PDF only</span>
+              <span class="file-upload-text">
+                {{ editExistingFileName() ? 'Replace: ' + editExistingFileName() : 'Choose PDF (optional)' }}
+              </span>
+              <span class="file-upload-hint">Max 10 MB</span>
             </ng-container>
             <ng-container *ngIf="form.selectedFile">
               <i class="bi bi-file-earmark-pdf-fill file-pdf-icon"></i>
@@ -644,22 +634,8 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
             </ng-container>
           </label>
           <button *ngIf="form.selectedFile" class="btn-remove-file" type="button"
-            (click)="clearFile($event, 'single')">
-            <i class="bi bi-x-circle-fill"></i>
-          </button>
+            (click)="clearFile($event, 'single')"><i class="bi bi-x-circle-fill"></i></button>
         </div>
-        <div class="existing-file-row" *ngIf="editExistingFileName()">
-          <i class="bi bi-file-earmark-pdf-fill" style="color:#dc2626"></i>
-          <span>Current file: <strong>{{ editExistingFileName() }}</strong></span>
-          <span class="field-hint">(Upload new file above to replace)</span>
-        </div>
-      </div>
-
-      <div class="form-group form-group-full">
-        <label>Remarks</label>
-        <textarea [(ngModel)]="form.remarks" rows="2"
-          placeholder="Optional remarks..."
-          class="form-control"></textarea>
       </div>
 
     </div>
@@ -669,92 +645,57 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
     <button class="btn-cancel" (click)="closeModal()" [disabled]="isSaving()">Cancel</button>
     <button class="btn-save" (click)="saveDocument()" [disabled]="isSaving()">
       <span *ngIf="isSaving()"><i class="bi bi-hourglass-split"></i> Saving...</span>
-      <span *ngIf="!isSaving()"><i class="bi bi-floppy-fill"></i> Update</span>
+      <span *ngIf="!isSaving()"><i class="bi bi-floppy-fill"></i> Save Changes</span>
     </button>
   </div>
 </div>
 
 
 <!-- ══════════════════════════════════════════ -->
-<!-- VIEW DETAIL MODAL                          -->
+<!-- VIEW MODAL                                -->
 <!-- ══════════════════════════════════════════ -->
 <div class="modal-overlay" *ngIf="showViewModal()" (click)="closeViewModal()"></div>
 <div class="modal-box modal-lg" *ngIf="showViewModal() && viewDoc()">
   <div class="modal-header modal-header-view">
-    <h3>📄 Document Detail — #{{ viewDoc().documentId }}</h3>
+    <h3>🔍 Document Details — #{{ viewDoc().documentId }}</h3>
     <button class="modal-close" (click)="closeViewModal()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="modal-body">
     <div class="detail-grid">
-
-      <div class="detail-section">
-        <div class="detail-section-title">VEHICLE</div>
-        <div class="detail-row"><span class="detail-label">Vehicle ID</span><strong class="detail-value">{{ viewDoc().vehicle?.vehicleId ?? '—' }}</strong></div>
-        <div class="detail-row"><span class="detail-label">Vehicle No</span><strong class="detail-value">{{ viewDoc().vehicle?.vehicleNo ?? '—' }}</strong></div>
-        <div class="detail-row"><span class="detail-label">Type</span><strong class="detail-value">{{ viewDoc().vehicle?.vehicleType ?? '—' }}</strong></div>
-        <div class="detail-row">
-          <span class="detail-label">Class</span>
-          <span [class]="getVehicleClassBadge(viewDoc().vehicle?.vehicleClass)">{{ viewDoc().vehicle?.vehicleClass ?? '—' }}</span>
-        </div>
-        <div class="detail-row"><span class="detail-label">Brand / Model</span><strong class="detail-value">{{ viewDoc().vehicle?.brandModel ?? '—' }}</strong></div>
-        <div class="detail-row">
-          <span class="detail-label">Blacklisted</span>
-          <span [class]="viewDoc().vehicle?.isBlacklisted === 'Y' ? 'badge badge-expired' : 'badge badge-active'">
-            {{ viewDoc().vehicle?.isBlacklisted === 'Y' ? 'Yes' : 'No' }}
-          </span>
-        </div>
+      <div class="detail-row"><span class="detail-label">Document ID</span><span>{{ viewDoc().documentId }}</span></div>
+      <div class="detail-row"><span class="detail-label">Vehicle No</span><strong>{{ viewDoc().vehicle?.vehicleNo || '—' }}</strong></div>
+      <div class="detail-row"><span class="detail-label">Vehicle Class</span><span>{{ viewDoc().vehicle?.vehicleClass || '—' }}</span></div>
+      <div class="detail-row"><span class="detail-label">Brand / Model</span><span>{{ viewDoc().vehicle?.brandModel || '—' }}</span></div>
+      <div class="detail-row"><span class="detail-label">Doc Type</span>
+        <span [class]="getDocTypeBadge(viewDoc().documentType)">
+          {{ DOC_TYPE_LABELS[viewDoc().documentType] || viewDoc().documentType }}
+        </span>
       </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">DOCUMENT INFO</div>
-        <div class="detail-row">
-          <span class="detail-label">Document Type</span>
-          <span [class]="getDocTypeBadge(viewDoc().documentType)">
-            {{ DOC_TYPE_LABELS[viewDoc().documentType] || viewDoc().documentType || '—' }}
-          </span>
-        </div>
-        <div class="detail-row"><span class="detail-label">Document No</span><strong class="detail-value">{{ viewDoc().documentNo || '—' }}</strong></div>
-        <div class="detail-row"><span class="detail-label">Start Date</span><strong class="detail-value">{{ formatDate(viewDoc().startDate) }}</strong></div>
-        <div class="detail-row"><span class="detail-label">Expiry Date</span><strong class="detail-value">{{ formatDate(viewDoc().expiryDate) }}</strong></div>
-        <div class="detail-row">
-          <span class="detail-label">Days Left</span>
-          <span [class]="getDaysLeftClass(viewDoc().expiryDate)">{{ getDaysLeftLabel(viewDoc().expiryDate) }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Status</span>
-          <span [class]="getStatusClass(viewDoc().documentStatus)">{{ viewDoc().documentStatus || '—' }}</span>
-        </div>
-        <div class="detail-row"><span class="detail-label">Remarks</span><strong class="detail-value">{{ viewDoc().remarks || '—' }}</strong></div>
+      <div class="detail-row"><span class="detail-label">Document No</span><span>{{ viewDoc().documentNo || '—' }}</span></div>
+      <div class="detail-row"><span class="detail-label">Start Date</span><span>{{ formatDate(viewDoc().startDate) }}</span></div>
+      <div class="detail-row"><span class="detail-label">Expiry Date</span><span>{{ formatDate(viewDoc().expiryDate) }}</span></div>
+      <div class="detail-row"><span class="detail-label">Days Left</span>
+        <span [class]="getDaysLeftClass(viewDoc().expiryDate)">
+          {{ getDaysLeftLabel(viewDoc().expiryDate) }}
+        </span>
       </div>
-
-      <div class="detail-section" *ngIf="viewDoc().fileName">
-        <div class="detail-section-title">ATTACHED FILE</div>
-        <div class="detail-row">
-          <span class="detail-label">File Name</span>
-          <strong class="detail-value">{{ viewDoc().fileName }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Download</span>
-          <button class="btn-pdf-lg" (click)="downloadPdf(viewDoc())">
-            <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
-          </button>
-        </div>
+      <div class="detail-row"><span class="detail-label">Status</span>
+        <span [class]="getStatusClass(viewDoc().documentStatus)">{{ viewDoc().documentStatus || '—' }}</span>
       </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">AUDIT INFO</div>
-        <div class="detail-row"><span class="detail-label">Entered By</span><strong class="detail-value">{{ viewDoc().enterBy || '—' }}</strong></div>
-        <div class="detail-row"><span class="detail-label">Enter Date</span><strong class="detail-value">{{ formatDate(viewDoc().enterDate) }}</strong></div>
+      <div class="detail-row"><span class="detail-label">Entered By</span><span>{{ viewDoc().enterBy || '—' }}</span></div>
+      <div class="detail-row"><span class="detail-label">Enter Date</span><span>{{ formatDate(viewDoc().enterDate) }}</span></div>
+      <div class="detail-row"><span class="detail-label">Remarks</span><span>{{ viewDoc().remarks || '—' }}</span></div>
+      <div class="detail-row"><span class="detail-label">PDF File</span>
+        <button *ngIf="viewDoc().fileName" class="btn-pdf" (click)="downloadPdf(viewDoc())">
+          <i class="bi bi-file-earmark-pdf-fill"></i> {{ viewDoc().fileName }}
+        </button>
+        <span *ngIf="!viewDoc().fileName" class="td-muted">No file attached</span>
       </div>
-
     </div>
   </div>
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <button class="btn-pdf-lg" *ngIf="viewDoc().fileName" (click)="downloadPdf(viewDoc())">
-      <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
-    </button>
-    <button class="btn-save" (click)="closeViewModal(); openEditModal(viewDoc())">
+    <button class="btn-save" (click)="openEditModal(viewDoc())">
       <i class="bi bi-pencil-square"></i> Edit
     </button>
   </div>
@@ -763,17 +704,17 @@ const EMPTY_FORM = (docType = ''): DocForm => ({
 })
 export class Documents implements OnInit, OnDestroy {
 
-  readonly DOC_TYPE_LABELS = DOC_TYPE_LABELS;
+  protected readonly DOC_TYPE_LABELS = DOC_TYPE_LABELS;
+
+  private destroy$ = new Subject<void>();
 
   private readonly HEADERS = new HttpHeaders({
-    'x-api-key': API_CONFIG.API_KEY,
+    'Accept': '*/*'
   });
   private readonly JSON_HEADERS = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
+    'Accept'      : 'application/json',
     'Content-Type': 'application/json',
   });
-
-  private readonly destroy$ = new Subject<void>();
 
   private allDocsRaw    = signal<any[]>([]);
   private activeDocType = signal<string>('ALL');
@@ -1061,14 +1002,44 @@ export class Documents implements OnInit, OnDestroy {
       if (this.form.loadTestStart >= this.form.loadTestExpiry) { this.saveError.set('Load Test Expiry must be after Start Date.'); return; }
     }
 
+    // ════ DUPLICATE GUARD — uses allDocsRaw() signal, zero extra HTTP requests ════
+    const vehicleIdNum = Number(this.form.vehicleId);
+
+    const existingTypes = this.allDocsRaw()
+      .filter(d => Number(d.vehicle?.vehicleId) === vehicleIdNum)
+      .map(d => (d.documentType ?? '').toUpperCase().replace(/[\s_\-]/g, ''));
+    // e.g. ['PUC', 'INSURANCE', 'RC']
+
+    const selectedDocs: { file: File | null; type: string; label: string }[] = [
+      { file: this.form.pucFile,       type: 'PUC',       label: 'PUC Certificate'     },
+      { file: this.form.insuranceFile, type: 'INSURANCE',  label: 'Insurance'           },
+      { file: this.form.rcFile,        type: 'RC',         label: 'RC (Registration)'   },
+      { file: this.form.fitnessFile,   type: 'FITNESS',    label: 'Fitness Certificate' },
+      { file: this.form.loadTestFile,  type: 'LOADTEST',   label: 'Load Test'           },
+    ];
+
+    const duplicates = selectedDocs
+      .filter(d => d.file !== null)
+      .filter(d => existingTypes.includes(d.type))
+      .map(d => d.label);
+
+    if (duplicates.length > 0) {
+      this.saveError.set(
+        `⚠️ Already uploaded for Vehicle ID ${vehicleIdNum}: ` +
+        `${duplicates.join(', ')}. ` +
+        `Use the ✏️ Edit button on the existing record to update it.`
+      );
+      return; // backend is never called
+    }
+    // ════ END DUPLICATE GUARD ════
+
     if (this.isSaving()) return;
     this.isSaving.set(true);
 
     const fd = new FormData();
-    fd.append('vehicleId', String(Number(this.form.vehicleId)));
+    fd.append('vehicleId', String(vehicleIdNum));
     fd.append('enterBy',   this.form.enterBy.trim());
 
-    // Append each section only if file exists (matches backend @RequestParam required=false)
     if (this.form.pucFile) {
       fd.append('pucNo',     this.form.pucNo.trim());
       fd.append('pucStart',  this.form.pucStart);
@@ -1087,14 +1058,12 @@ export class Documents implements OnInit, OnDestroy {
       fd.append('rcExpiry', this.form.rcExpiry);
       fd.append('rcFile',   this.form.rcFile, this.form.rcFile.name);
     }
-    // ── NEW: Fitness (backend needs to add these params) ──
     if (this.form.fitnessFile) {
       fd.append('fitnessNo',     this.form.fitnessNo.trim());
       fd.append('fitnessStart',  this.form.fitnessStart);
       fd.append('fitnessExpiry', this.form.fitnessExpiry);
       fd.append('fitnessFile',   this.form.fitnessFile, this.form.fitnessFile.name);
     }
-    // ── NEW: Load Test (backend needs to add these params) ──
     if (this.form.loadTestFile) {
       fd.append('loadTestNo',     this.form.loadTestNo.trim());
       fd.append('loadTestStart',  this.form.loadTestStart);
@@ -1118,40 +1087,79 @@ export class Documents implements OnInit, OnDestroy {
   }
 
   // ── CENTRALISED HTTP ERROR HANDLER ──
+  // Handles 3 response body formats from Spring backend:
+  //   1. Blob  — multipart/form-data endpoint returns text/plain or application/json as Blob
+  //   2. String — rare, but possible if Spring writes plain text directly
+  //   3. Object — GlobalExceptionHandler structured JSON { message, error, diagnosticLog }
   private handleHttpError(err: any): void {
     const status = err?.status ?? '?';
     const body   = err?.error;
+
+    // ── Case 1: Blob body (Spring multipart endpoints return error as Blob) ──
     if (body instanceof Blob) {
       body.text().then(text => {
-        let display = text;
+        let display = text.trim();
         try {
+          // Try JSON — GlobalExceptionHandler structured response
           const parsed = JSON.parse(text);
-          display = parsed?.message || parsed?.error || text;
-        } catch { /* plain text */ }
+          display = parsed?.message || parsed?.diagnosticLog || parsed?.error || text;
+        } catch {
+          // Plain string from backend catch(Exception e) — strip Oracle prefix
+          if (display.startsWith('Oracle File Upload Aborted:')) {
+            display = display.replace(
+              'Oracle File Upload Aborted: Database insertion failure. Details: ',
+              '⚠️ DB Error: '
+            );
+          }
+        }
+        // isSaving MUST be set inside .then() — not outside (async timing)
         this.saveError.set(`[${status}] ${display}`);
+        this.isSaving.set(false);
+      }).catch(() => {
+        this.saveError.set(`[${status}] Upload failed — see F12 → Network → Response tab.`);
+        this.isSaving.set(false);
       });
-    } else {
-      const msg =
-        (typeof body === 'string' && body.length < 400 ? body : null) ||
-        body?.message || body?.error ||
-        `HTTP ${status} — check F12 → Network Response tab`;
-      this.saveError.set(msg);
+      return; // ← early return — do NOT fall through to sync paths
     }
+
+    // ── Case 2: Plain string body ──
+    if (typeof body === 'string' && body.trim().length > 0) {
+      let display = body.trim();
+      if (display.startsWith('Oracle File Upload Aborted:')) {
+        display = display.replace(
+          'Oracle File Upload Aborted: Database insertion failure. Details: ',
+          '⚠️ DB Error: '
+        );
+      }
+      this.saveError.set(
+        `[${status}] ${display.length > 350 ? display.substring(0, 350) + '...' : display}`
+      );
+      this.isSaving.set(false);
+      return;
+    }
+
+    // ── Case 3: GlobalExceptionHandler JSON object ──
+    // Shape: { timestamp, status, error, message, diagnosticLog? }
+    if (body && typeof body === 'object') {
+      const msg = body.message || body.diagnosticLog || body.details || body.error;
+      if (msg) {
+        this.saveError.set(`[${status}] ${msg}`);
+        this.isSaving.set(false);
+        return;
+      }
+    }
+
+    // ── Case 4: Fallback ──
+    this.saveError.set(`[${status}] Upload failed — see F12 → Network → Response tab.`);
     this.isSaving.set(false);
   }
 
-  // ── PDF DOWNLOAD ──
+  // ── DOWNLOAD PDF ──
   downloadPdf(doc: any): void {
-    if (!doc?.documentId) return;
     const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${doc.documentId}`;
     this.http.get(url, { headers: this.HEADERS, responseType: 'blob' })
-      .pipe(
-        timeout(30000),
-        takeUntil(this.destroy$),
-        catchError(err => { alert('Could not download PDF.'); return of(null); })
-      )
+      .pipe(takeUntil(this.destroy$))
       .subscribe(blob => {
-        if (!blob) return;
         const link    = document.createElement('a');
         link.href     = URL.createObjectURL(blob);
         link.download = doc.fileName || `document_${doc.documentId}.pdf`;

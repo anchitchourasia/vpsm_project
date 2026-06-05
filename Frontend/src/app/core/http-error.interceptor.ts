@@ -11,7 +11,7 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
       if (error.status === 404) msg = 'API endpoint not found (404).';
       if (error.status === 500) msg = 'Server error (500). Contact backend team.';
 
-      console.error(`[VPMS HTTP Error] ${error.status} — ${msg}`);
+      console.error(`[VPMS HTTP Error] ${error.status} — ${msg}`,error.error);
 
       // ✅ CRITICAL FIX: Re-throw the ORIGINAL HttpErrorResponse, not a new Error()
       // Throwing `new Error(msg)` destroys err.status and err.error in downstream catchError()
