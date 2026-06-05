@@ -16,6 +16,7 @@ export const API_CONFIG = {
   DOCUMENTS        : `${environment.apiBaseUrl}/api/documents/list`,
   DOCUMENTS_UPLOAD : `${environment.apiBaseUrl}/api/documents/upload`,
   DOCUMENTS_UPDATE : `${environment.apiBaseUrl}/api/documents/update`,
+  DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/documents/download`, // ← NEW
 
   GATE_LOGS        : `${environment.apiBaseUrl}/api/gate-logs/list`,
   COMPLIANCE       : `${environment.apiBaseUrl}/api/compliance/list`,
