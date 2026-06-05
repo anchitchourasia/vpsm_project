@@ -1155,18 +1155,46 @@ export class Documents implements OnInit, OnDestroy {
   }
 
   // ── DOWNLOAD PDF ──
-  downloadPdf(doc: any): void {
-    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${doc.documentId}`;
-    this.http.get(url, { headers: this.HEADERS, responseType: 'blob' })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(blob => {
-        const link    = document.createElement('a');
-        link.href     = URL.createObjectURL(blob);
-        link.download = doc.fileName || `document_${doc.documentId}.pdf`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      });
-  }
+  // ── DOWNLOAD PDF ──
+downloadPdf(doc: any): void {
+  // Backend URL: GET /api/documents/download?id={documentId}
+  const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+
+  this.http.get(url, {
+    headers     : this.HEADERS,
+    responseType: 'blob',           // ← MUST be blob — binary PDF
+    observe     : 'response',       // ← lets us read Content-Disposition for filename
+  })
+  .pipe(takeUntil(this.destroy$))
+  .subscribe({
+    next: (res) => {
+      const blob = res.body!;
+
+      // ── Try to get real filename from Content-Disposition header ──
+      // e.g. Content-Disposition: attachment; filename="PUC_MP04HEG1111.pdf"
+      let fileName = doc.fileName || `document_${doc.documentId}.pdf`;
+      const cd = res.headers.get('Content-Disposition');
+      if (cd) {
+        const match = cd.match(/filename[^;=\n]*=(['"]?)([^'";\n]+)\1/);
+        if (match?.[2]) fileName = match[2].trim();
+      }
+
+      // ── Trigger browser download ──
+      const blobUrl = URL.createObjectURL(blob);
+      const link    = document.createElement('a');
+      link.href     = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    },
+    error: (err) => {
+      console.error('[VPMS] PDF download failed:', err?.status, err?.error);
+      alert(`⚠️ Could not download PDF (${err?.status ?? 'Network error'}). Check backend or try again.`);
+    }
+  });
+}
 
   // ── HELPERS ──
   formatDate(d: string): string {
