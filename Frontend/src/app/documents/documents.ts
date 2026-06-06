@@ -716,6 +716,13 @@ export class Documents implements OnInit, OnDestroy {
     'Content-Type': 'application/json',
   });
 
+  // ── NEW: POST_HEADERS for history log JSON calls ──
+  private readonly POST_HEADERS = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Content-Type': 'application/json',
+    'Accept'      : 'application/json',
+  });
+
   private allDocsRaw    = signal<any[]>([]);
   private activeDocType = signal<string>('ALL');
 
@@ -900,6 +907,40 @@ export class Documents implements OnInit, OnDestroy {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ── NEW: AUTO-LOG to History — fires silently
+  //    after every successful document upload / edit
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  private logHistory(vehicleId: any, action: string, empCode: string, remark: string): void {
+    const payload = {
+      passNo     : String(vehicleId ?? ''),
+      empCode    : (empCode || 'ADMIN').toUpperCase(),
+      action     : action.toUpperCase(),
+      remark     : remark || null,
+      dateOfEntry: new Date().toISOString(),
+    };
+
+    this.http
+      .post<any>(API_CONFIG.HISTORY_LOG, payload, {
+        headers: this.POST_HEADERS,
+        observe : 'response',
+      })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          // Silent fail — never block the user for a background log
+          console.warn('⚠️ [History Log] Document log failed silently:', err?.status, err?.error);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res?.status === 200 || res?.status === 201) {
+          console.log('📋 [History Log] Recorded:', payload.action, '→ vehicle', payload.passNo);
+        }
+      });
+  }
+
   // ── SAVE (handles ADD multi-doc and EDIT single-doc) ──
   saveDocument() {
     this.saveError.set('');
@@ -943,6 +984,15 @@ export class Documents implements OnInit, OnDestroy {
         )
         .subscribe((res: any) => {
           if (!res) return;
+
+          // ── NEW: Auto-log to history on successful EDIT ──
+          this.logHistory(
+            this.form.vehicleId,
+            'CREATE',
+            this.form.enterBy || 'ADMIN',
+            `${DOC_TYPE_LABELS[this.form.documentType] || this.form.documentType || 'Document'} updated — Doc ID ${this.editId()} for Vehicle ID ${this.form.vehicleId}`
+          );
+
           this.saveSuccess.set('✅ Document updated successfully.');
           this.isSaving.set(false);
           const list = [...this.allDocsRaw()];
@@ -1008,7 +1058,6 @@ export class Documents implements OnInit, OnDestroy {
     const existingTypes = this.allDocsRaw()
       .filter(d => Number(d.vehicle?.vehicleId) === vehicleIdNum)
       .map(d => (d.documentType ?? '').toUpperCase().replace(/[\s_\-]/g, ''));
-    // e.g. ['PUC', 'INSURANCE', 'RC']
 
     const selectedDocs: { file: File | null; type: string; label: string }[] = [
       { file: this.form.pucFile,       type: 'PUC',       label: 'PUC Certificate'     },
@@ -1071,6 +1120,19 @@ export class Documents implements OnInit, OnDestroy {
       fd.append('loadTestFile',   this.form.loadTestFile, this.form.loadTestFile.name);
     }
 
+    // Snapshot form values before async call (form may be reset by closeModal)
+    const enterBy    = this.form.enterBy.trim();
+    const capturedVehicleId = vehicleIdNum;
+
+    // ── NEW: Build list of doc labels being uploaded (for history remark) ──
+    const uploadingEntries = [
+      { file: this.form.pucFile,       label: 'PUC Certificate',     docNo: this.form.pucNo      },
+      { file: this.form.insuranceFile, label: 'Insurance',           docNo: this.form.insuranceNo },
+      { file: this.form.rcFile,        label: 'RC (Registration)',   docNo: this.form.rcNo        },
+      { file: this.form.fitnessFile,   label: 'Fitness Certificate', docNo: this.form.fitnessNo   },
+      { file: this.form.loadTestFile,  label: 'Load Test',           docNo: this.form.loadTestNo  },
+    ].filter(e => e.file !== null);
+
     this.http.post<any[]>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
@@ -1082,6 +1144,17 @@ export class Documents implements OnInit, OnDestroy {
         this.allDocsRaw.set([...res, ...this.allDocsRaw()]);
         this.saveSuccess.set(`✅ ${res.length} document(s) uploaded successfully.`);
         this.isSaving.set(false);
+
+        // ── NEW: Auto-log once per uploaded doc type (silent background calls) ──
+        for (const entry of uploadingEntries) {
+          this.logHistory(
+            capturedVehicleId,
+            'CREATE',
+            enterBy,
+            `${entry.label} uploaded for Vehicle ID ${capturedVehicleId} — Doc No: ${entry.docNo}`
+          );
+        }
+
         setTimeout(() => this.closeModal(), 1500);
       });
   }
@@ -1155,46 +1228,39 @@ export class Documents implements OnInit, OnDestroy {
   }
 
   // ── DOWNLOAD PDF ──
-  // ── DOWNLOAD PDF ──
-downloadPdf(doc: any): void {
-  // Backend URL: GET /api/documents/download?id={documentId}
-  const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+  downloadPdf(doc: any): void {
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
 
-  this.http.get(url, {
-    headers     : this.HEADERS,
-    responseType: 'blob',           // ← MUST be blob — binary PDF
-    observe     : 'response',       // ← lets us read Content-Disposition for filename
-  })
-  .pipe(takeUntil(this.destroy$))
-  .subscribe({
-    next: (res) => {
-      const blob = res.body!;
-
-      // ── Try to get real filename from Content-Disposition header ──
-      // e.g. Content-Disposition: attachment; filename="PUC_MP04HEG1111.pdf"
-      let fileName = doc.fileName || `document_${doc.documentId}.pdf`;
-      const cd = res.headers.get('Content-Disposition');
-      if (cd) {
-        const match = cd.match(/filename[^;=\n]*=(['"]?)([^'";\n]+)\1/);
-        if (match?.[2]) fileName = match[2].trim();
+    this.http.get(url, {
+      headers     : this.HEADERS,
+      responseType: 'blob',
+      observe     : 'response',
+    })
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (res) => {
+        const blob = res.body!;
+        let fileName = doc.fileName || `document_${doc.documentId}.pdf`;
+        const cd = res.headers.get('Content-Disposition');
+        if (cd) {
+          const match = cd.match(/filename[^;=\n]*=(['"]?)([^'"\n]+)\1/);
+          if (match?.[2]) fileName = match[2].trim();
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        const link    = document.createElement('a');
+        link.href     = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      },
+      error: (err) => {
+        console.error('[VPMS] PDF download failed:', err?.status, err?.error);
+        alert(`⚠️ Could not download PDF (${err?.status ?? 'Network error'}). Check backend or try again.`);
       }
-
-      // ── Trigger browser download ──
-      const blobUrl = URL.createObjectURL(blob);
-      const link    = document.createElement('a');
-      link.href     = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    },
-    error: (err) => {
-      console.error('[VPMS] PDF download failed:', err?.status, err?.error);
-      alert(`⚠️ Could not download PDF (${err?.status ?? 'Network error'}). Check backend or try again.`);
-    }
-  });
-}
+    });
+  }
 
   // ── HELPERS ──
   formatDate(d: string): string {

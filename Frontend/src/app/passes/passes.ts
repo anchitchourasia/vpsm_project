@@ -26,10 +26,10 @@ interface PassForm {
   contractorCode   : string;
   gateNo           : string;
   parkingToBeUsed  : string;
-  vehicleId        : string;   // the FK value — displayed as read-only in edit
+  vehicleId        : string;
   typeOfVehicle    : string;
   mobileNo         : string;
-  passStatus       : string;   // form field name; maps to 'status' in payload
+  passStatus       : string;
   empType          : string;
   remarks          : string;
   isActive         : string;
@@ -57,16 +57,20 @@ export class Passes implements OnInit, OnDestroy {
     'Content-Type': 'application/json',
   });
 
-  // Cancel all HTTP calls on component destroy — prevents ghost Oracle requests
+  // ── NEW: used for history POST (includes explicit Accept header) ──
+  private readonly POST_HEADERS = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Content-Type': 'application/json',
+    'Accept'      : 'application/json',
+  });
+
   private readonly destroy$ = new Subject<void>();
 
-  // ── State ──
   private allPassesRaw = signal<any[]>([]);
   isLoading  = signal(true);
   hasError   = signal(false);
   isDummy    = USE_DUMMY_DATA;
 
-  // ── Filters ──
   searchText    = signal('');
   filterStatus  = signal('ALL');
   filterEmpType = signal('ALL');
@@ -84,7 +88,6 @@ export class Passes implements OnInit, OnDestroy {
         (p.contractorCode         || '').toLowerCase().includes(q) ||
         (p.dept                   || '').toLowerCase().includes(q) ||
         (p.mobileNo               || '').toLowerCase().includes(q) ||
-        // ✅ FIX: search also checks nested vehicle fields
         (p.vehicle?.vehicleNo     || '').toLowerCase().includes(q) ||
         String(p.passId           || '').includes(q);
       const rowStatus    = p.status || p.passStatus || '';
@@ -102,7 +105,6 @@ export class Passes implements OnInit, OnDestroy {
   get totalPages(): number      { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
   get totalPagesArr(): number[] { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
-  // ── Modal State ──
   showModal   = signal(false);
   isEditMode  = signal(false);
   isSaving    = signal(false);
@@ -111,12 +113,10 @@ export class Passes implements OnInit, OnDestroy {
   editId      = signal<number | null>(null);
   form: PassForm = EMPTY_FORM();
 
-  // ── Vehicle Lookup ──
   vehicleLookupError   = signal('');
   vehicleLookupSuccess = signal('');
   isLookingUp          = signal(false);
 
-  // ── View Modal ──
   showViewModal = signal(false);
   viewPass      = signal<any>(null);
 
@@ -124,9 +124,6 @@ export class Passes implements OnInit, OnDestroy {
   ngOnInit()    { this.loadPasses(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  LOAD — only on init + retry
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   loadPasses() {
     this.isLoading.set(true);
     this.hasError.set(false);
@@ -157,9 +154,6 @@ export class Passes implements OnInit, OnDestroy {
       });
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  VEHICLE LOOKUP — blur on Vehicle ID field in Add form
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   onVehicleIdBlur() {
     const id = this.form.vehicleId?.toString().trim();
     this.vehicleLookupError.set('');
@@ -183,7 +177,6 @@ export class Passes implements OnInit, OnDestroy {
       return;
     }
 
-    // ✅ FIX: backend returns { vehicleId, vehicleType, ... } at root for Vehicles list
     this.http
       .get<any[]>(API_CONFIG.VEHICLES, { headers: this.HEADERS })
       .pipe(
@@ -248,8 +241,6 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   openEditModal(p: any) {
-    // ✅ FIX: vehicle is nested object { vehicleId, vehicleNo, vehicleType, vehicleClass }
-    // Must read p.vehicle?.vehicleId NOT p.vehicleId (doesn't exist at root)
     this.form = {
       issueDate        : p.issueDate         || '',
       validityDate     : p.validityDate      || '',
@@ -259,7 +250,7 @@ export class Passes implements OnInit, OnDestroy {
       contractorCode   : p.contractorCode    || '',
       gateNo           : p.gateNo            || '',
       parkingToBeUsed  : p.parkingToBeUsed   || '',
-      vehicleId        : String(p.vehicle?.vehicleId ?? ''),   // ✅ nested object
+      vehicleId        : String(p.vehicle?.vehicleId ?? ''),
       typeOfVehicle    : p.typeOfVehicle || p.vehicle?.vehicleType || '',
       mobileNo         : p.mobileNo          || '',
       passStatus       : p.status || p.passStatus || 'Active',
@@ -286,13 +277,6 @@ export class Passes implements OnInit, OnDestroy {
   openViewModal(p: any) { this.viewPass.set(p); this.showViewModal.set(true); }
   closeViewModal()      { this.showViewModal.set(false); }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  SAVE PASS — POST /api/passes/issue  |  PUT /api/passes/update/{id}
-  //
-  //  ✅ FIX: Payload uses camelCase keys — matches PassRegistry.java
-  //          getters (getEmployeeNo, getGateNo etc.)
-  //          NOT snake_case — Jackson serializes by getter names
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   savePass() {
     if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.');                            return; }
     if (this.vehicleLookupError())           { this.saveError.set('Fix Vehicle ID error before saving.');                return; }
@@ -306,16 +290,14 @@ export class Passes implements OnInit, OnDestroy {
     if (this.form.empType === 'Contractor' && !this.form.contractorCode.trim()) {
       this.saveError.set('Contractor Code is required for Contractor.'); return;
     }
-    if (this.isSaving()) return; // guard: no double-click
+    if (this.isSaving()) return;
 
     this.isSaving.set(true);
     this.saveError.set('');
     this.saveSuccess.set('');
 
-    // ✅ FIX: camelCase payload — matches PassRegistry.java @Column field names
-    // and Spring's Jackson serializer which reads getter names
     const payload: any = {
-      vehicle          : { vehicleId: Number(this.form.vehicleId) }, // @ManyToOne nested obj
+      vehicle          : { vehicleId: Number(this.form.vehicleId) },
       typeOfVehicle    : this.form.typeOfVehicle,
       empType          : this.form.empType,
       dept             : this.form.dept             || null,
@@ -324,7 +306,7 @@ export class Passes implements OnInit, OnDestroy {
       validityDate     : this.form.validityDate,
       gateNo           : this.form.gateNo,
       parkingToBeUsed  : this.form.parkingToBeUsed  || null,
-      status           : this.form.passStatus,       // form.passStatus → Oracle STATUS column
+      status           : this.form.passStatus,
       isActive         : this.form.isActive,
       remarks          : this.form.remarks           || null,
       enterBy          : 'ADMIN',
@@ -387,20 +369,76 @@ export class Passes implements OnInit, OnDestroy {
       .subscribe((res: any) => {
         if (!res) return;
         console.log('✅ savePass response:', res);
+
+        const isEdit  = this.isEditMode();
+        const savedId = res?.passId ?? this.editId() ?? '';
+        const empCode = (this.form.employeeNo || this.form.contractorCode || 'ADMIN').toUpperCase();
+
+        // ── Determine action based on status being saved ──
+        const action = isEdit
+          ? (this.form.passStatus === 'Surrendered' ? 'SURRENDER' : 'APPROVED')
+          : 'CREATE';
+
+        const remark = isEdit
+          ? `Pass ${savedId} updated — status: ${this.form.passStatus}`
+          : `New pass issued for Vehicle ID ${this.form.vehicleId}`;
+
+        // ── Auto-log to history (silent, never blocks user) ──
+        this.logHistory(savedId, action, empCode, remark);
+
         this.saveSuccess.set(
-          this.isEditMode() ? '✅ Pass updated successfully.' : '✅ Pass issued successfully.'
+          isEdit ? '✅ Pass updated successfully.' : '✅ Pass issued successfully.'
         );
         this.isSaving.set(false);
-        // ✅ Local list update after edit — no extra GET
-        if (this.isEditMode()) {
+
+        if (isEdit) {
           const list = this.allPassesRaw();
           const idx  = list.findIndex(p => p.passId === this.editId());
           if (idx !== -1) { list[idx] = { ...list[idx], ...res }; this.allPassesRaw.set([...list]); }
         } else {
-          // Append new pass returned by backend
           this.allPassesRaw.set([res, ...this.allPassesRaw()]);
         }
         setTimeout(() => this.closeModal(), 1200);
+      });
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  AUTO-LOG TO HISTORY — fires silently after every successful
+  //  pass issue / update / surrender.
+  //
+  //  POST /api/history/log  (API_CONFIG.HISTORY_LOG)
+  //  Payload shape matches HistoryLog.java entity fields.
+  //
+  //  ⚠️  Silent fail by design — history errors MUST NOT block
+  //      or surface to the user in any way.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  private logHistory(passId: any, action: string, empCode: string, remark: string): void {
+    const payload = {
+      passNo     : String(passId ?? ''),
+      empCode    : (empCode || 'ADMIN').toUpperCase(),
+      action     : action.toUpperCase(),
+      remark     : remark || null,
+      dateOfEntry: new Date().toISOString(),
+    };
+
+    this.http
+      .post<any>(API_CONFIG.HISTORY_LOG, payload, {
+        headers: this.POST_HEADERS,
+        observe : 'response',
+      })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          // Silent fail — never surface to user
+          console.warn('⚠️ [History Log] Failed silently:', err?.status, err?.error);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res?.status === 200 || res?.status === 201) {
+          console.log('📋 [History Log] Recorded — action:', payload.action, '| pass:', payload.passNo);
+        }
       });
   }
 }
