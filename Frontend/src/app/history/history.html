@@ -1,0 +1,127 @@
+<div class="page-wrapper">
+
+  <!-- ── PAGE HEADER ── -->
+  <div class="page-top">
+    <div class="page-title-row">
+      <i class="bi {{ cfg.icon }} page-icon" [style.color]="cfg.iconColor"></i>
+      <h2 class="page-heading">{{ cfg.title }}</h2>
+      <span class="record-pill"
+        [style.background]="cfg.pillBg"
+        [style.color]="cfg.pillColor">
+        {{ filteredLogs().length }} Records
+      </span>
+    </div>
+  </div>
+
+  <!-- ── LOADING STATE ── -->
+  <div *ngIf="isLoading()" class="state-box">
+    <i class="bi bi-arrow-repeat spin-icon"></i>
+    <p>Loading {{ cfg.title }}...</p>
+  </div>
+
+  <!-- ── ERROR STATE ── -->
+  <div *ngIf="hasError() && !isLoading()" class="state-box error-box">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <p>Failed to load history. Check if backend is running.</p>
+    <button class="btn-retry" (click)="loadHistory()">
+      <i class="bi bi-arrow-clockwise"></i> Retry
+    </button>
+  </div>
+
+  <!-- ── CONTENT (only when loaded) ── -->
+  <div *ngIf="!isLoading() && !hasError()">
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <i class="bi bi-search search-icon"></i>
+        <input
+          type="text"
+          placeholder="Search pass no, emp code, action, remark..."
+          [value]="searchText()"
+          (input)="onSearch($any($event.target).value)"
+          class="search-input"
+        />
+      </div>
+      <div class="filter-group">
+        <select (change)="onPageSize($any($event.target).value)" class="filter-select">
+          <option value="10">10 / page</option>
+          <option value="20">20 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- TABLE CARD -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>S.NO</th>
+              <th>DATE &amp; TIME</th>
+              <th>PASS NO</th>
+              <th>EMP CODE</th>
+              <th>ACTION</th>
+              <th>REMARK</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- DATA ROWS -->
+            <tr *ngFor="let log of pagedLogs(); let i = index">
+              <td class="td-muted">
+                {{ (currentPage() - 1) * pageSize() + i + 1 }}
+              </td>
+              <td class="td-muted">{{ formatDateTime(log.dateOfEntry) }}</td>
+              <td><strong class="pass-no">{{ log.passNo || '—' }}</strong></td>
+              <td>{{ log.empCode || '—' }}</td>
+              <td>
+                <span [class]="getActionBadgeClass(log.action)">
+                  {{ log.action || '—' }}
+                </span>
+              </td>
+              <td class="remark-cell" [title]="log.remark || ''">
+                {{ log.remark || '—' }}
+              </td>
+            </tr>
+
+            <!-- EMPTY STATE -->
+            <tr *ngIf="pagedLogs().length === 0">
+              <td colspan="6" class="no-data">
+                <i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:6px;"></i>
+                {{ cfg.emptyMsg }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PAGINATION -->
+      <div class="pagination-bar">
+        <span class="page-info">
+          Showing
+          {{ filteredLogs().length === 0 ? 0 : (currentPage() - 1) * pageSize() + 1 }}–{{
+            currentPage() * pageSize() < filteredLogs().length
+              ? currentPage() * pageSize()
+              : filteredLogs().length
+          }}
+          of {{ filteredLogs().length }}
+        </span>
+        <div class="page-btns">
+          <button class="page-btn"
+            (click)="goToPage(currentPage() - 1)"
+            [disabled]="currentPage() === 1">‹</button>
+          <button
+            *ngFor="let p of totalPagesArr"
+            class="page-btn"
+            [class.active]="p === currentPage()"
+            (click)="goToPage(p)">{{ p }}</button>
+          <button class="page-btn"
+            (click)="goToPage(currentPage() + 1)"
+            [disabled]="currentPage() === totalPages">›</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
