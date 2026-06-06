@@ -30,7 +30,7 @@ export const routes: Routes = [
   { path: 'history/approve',   loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'APPROVED'  } },
   { path: 'history/surrender', loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'SURRENDERED'} },
   { path: 'history/expiry',    loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'EXPIRED'   } },
-
+  { path: 'history/gate',      loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'GATE'       } },
   // ADMIN
   { path: 'authority/company', loadComponent: () => import('./authority/authority').then(m => m.Authority) },
 

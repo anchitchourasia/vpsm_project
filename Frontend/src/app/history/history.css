@@ -1,5 +1,5 @@
 /* ══ HISTORY / AUDIT LOG — history.css ══
-   Mirrors passes.css exactly — same tokens, same classes
+   Mirrors passes.css tokens. No modal needed — read-only view.
 ══════════════════════════════════════════ */
 
 /* ── PAGE WRAPPER ── */
@@ -12,64 +12,69 @@
 
 /* ── HEADER ── */
 .page-top {
-  display: flex; justify-content: space-between;
-  align-items: center; margin-bottom: 16px;
-  flex-wrap: wrap; gap: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .page-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.page-icon      { font-size: 1.3rem; color: #e65c00; }
+.page-icon      { font-size: 1.3rem; }
 .page-heading   { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; margin: 0; }
 .record-pill {
-  background: #f0f0f0; color: #555;
-  font-size: 0.72rem; padding: 2px 8px;
-  border-radius: 12px; font-weight: 600;
+  font-size: 0.72rem;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
 }
-.dummy-mode-pill {
-  background: #fef3c7; color: #92400e;
-  font-size: 9px; font-weight: 800;
-  padding: 2px 8px; border-radius: 20px; letter-spacing: 0.5px;
-}
-
-/* ── LOG ENTRY BUTTON (matches btn-add from passes) ── */
-.btn-issue {
-  background: #e65c00; color: white; border: none;
-  padding: 6px 14px; border-radius: 6px;
-  font-weight: 600; font-size: 12px; cursor: pointer;
-  display: flex; align-items: center; gap: 5px;
-  white-space: nowrap;
-}
-.btn-issue:hover { background: #cc5200; }
 
 /* ── FILTER BAR ── */
 .filter-bar {
-  display: flex; justify-content: space-between;
-  align-items: center; gap: 8px;
-  margin-bottom: 10px; flex-wrap: wrap;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
-.search-box  { position: relative; flex: 1; min-width: 140px; }
+.search-box  { position: relative; flex: 1; min-width: 160px; }
 .search-icon {
   position: absolute; left: 8px; top: 50%;
   transform: translateY(-50%); color: #aaa; font-size: 0.82rem;
+  pointer-events: none;
 }
 .search-input {
-  width: 100%; padding: 6px 10px 6px 28px;
-  border: 1px solid #ddd; border-radius: 6px;
-  font-size: 0.80rem; outline: none; box-sizing: border-box;
+  width: 100%;
+  padding: 6px 10px 6px 28px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.80rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.18s;
 }
 .search-input:focus { border-color: #e65c00; }
 .filter-group  { display: flex; gap: 6px; flex-wrap: wrap; }
 .filter-select {
-  padding: 5px 8px; border: 1px solid #ddd;
-  border-radius: 6px; font-size: 0.78rem;
-  outline: none; background: white; cursor: pointer;
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  outline: none;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.18s;
 }
 .filter-select:focus { border-color: #e65c00; }
 
 /* ── TABLE CARD ── */
 .table-card {
-  background: white; border-radius: 10px;
+  background: white;
+  border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  overflow: hidden; max-width: 100%;
+  overflow: hidden;
+  max-width: 100%;
 }
 .table-scroll {
   overflow-x: auto;
@@ -80,188 +85,143 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.78rem;
-  min-width: 820px;
+  min-width: 700px;
 }
 
-/* ── DARK NAVY THEAD (identical to passes) ── */
+/* ── DARK NAVY THEAD (matches passes/documents) ── */
 .dtable thead tr { background: #1a1a2e; color: white; }
 .dtable th {
-  padding: 8px 8px;
+  padding: 9px 10px;
   text-align: left;
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   white-space: nowrap;
 }
 .dtable td {
-  padding: 7px 8px;
+  padding: 7px 10px;
   border-bottom: 1px solid #f0f0f0;
   color: #333;
   white-space: nowrap;
   font-size: 0.78rem;
+  vertical-align: middle;
 }
 .dtable tbody tr:hover { background: #fdf3ed; }
 .td-muted { color: #999; font-size: 0.72rem; }
 
-/* ── PASS NO (monospace teal) ── */
+/* ── PASS NO ── */
 .pass-no {
   font-weight: 600;
-  font-family: monospace;
+  font-family: 'Courier New', monospace;
   color: #01696f;
+  font-size: 0.80rem;
 }
 
-/* ── REMARK (truncate long text) ── */
+/* ── REMARK CELL — truncate with tooltip ── */
 .remark-cell {
   max-width: 300px;
-  white-space: normal;
-  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: #666;
   font-size: 0.76rem;
+  cursor: default;
 }
 
-/* ── BADGES (exact copies from passes.css) ── */
+/* ── BADGES ── */
 .badge {
-  padding: 2px 7px; border-radius: 12px;
-  font-size: 0.68rem; font-weight: 700;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 700;
   white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 .badge-active      { background: #e6f4ea; color: #1e7e34; }
 .badge-expiring    { background: #fff8e1; color: #e65100; }
 .badge-expired     { background: #fdecea; color: #c0392b; }
-.badge-surrendered { background: #f0f0f0; color: #555; }
+.badge-surrendered { background: #f0f0f0; color: #555;    }
 .badge-employee    { background: #eff6ff; color: #1d4ed8; }
 .badge-contractor  { background: #f3e8ff; color: #7c3aed; }
 
-/* ── ACTION-SPECIFIC BADGE COLOURS ── */
-.badge.action-in       { background: #e6f4ea; color: #1e7e34; }   /* green  */
-.badge.action-entry    { background: #eff6ff; color: #1d4ed8; }   /* blue   */
-.badge.action-out      { background: #fdecea; color: #c0392b; }   /* red    */
-.badge.action-surrender{ background: #f0f0f0; color: #555;    }   /* grey   */
-.badge.action-create   { background: #fff8e1; color: #e65100; }   /* amber  */
-
 /* ── NO DATA ── */
 .no-data {
-  text-align: center; color: #999; padding: 24px;
-  font-style: italic; font-size: 0.82rem;
+  text-align: center;
+  color: #bbb;
+  padding: 40px 24px;
+  font-size: 0.85rem;
+  line-height: 2;
 }
 
-/* ── PAGINATION — class is pg-btn (matches passes + history.html) ── */
+/* ── PAGINATION ── */
 .pagination-bar {
-  display: flex; justify-content: space-between;
-  align-items: center; padding: 10px 14px;
-  background: #f8f9fa; border-top: 1px solid #eee;
-  flex-wrap: wrap; gap: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .page-info { font-size: 0.76rem; color: #666; }
 .page-btns { display: flex; gap: 3px; flex-wrap: wrap; }
-.pg-btn {
-  padding: 4px 9px; border: 1px solid #ddd;
-  background: white; border-radius: 4px;
-  cursor: pointer; font-size: 0.76rem; color: #333;
+
+/* Both .pg-btn AND .page-btn work — history.html uses page-btn */
+.pg-btn, .page-btn {
+  padding: 4px 9px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  color: #333;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.pg-btn:hover         { background: #fdf3ed; border-color: #e65c00; color: #e65c00; }
-.pg-btn.active        { background: #e65c00; color: white; border-color: #e65c00; font-weight: 700; }
-.pg-btn:disabled      { opacity: 0.4; cursor: default; }
+.pg-btn:hover,   .page-btn:hover   { background: #fdf3ed; border-color: #e65c00; color: #e65c00; }
+.pg-btn.active,  .page-btn.active  { background: #e65c00; color: white; border-color: #e65c00; font-weight: 700; }
+.pg-btn:disabled,.page-btn:disabled{ opacity: 0.4; cursor: default; pointer-events: none; }
 
 /* ── STATE BOXES (loading / error) ── */
 .state-box {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 8px; padding: 48px 24px;
-  color: #aaa; font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 24px;
+  color: #aaa;
+  font-size: 0.88rem;
 }
-.state-box i  { font-size: 2rem; }
-.error-box    { color: #e53e3e; }
-.spin-icon    { animation: spin 0.9s linear infinite; }
+.state-box i { font-size: 2rem; }
+.error-box   { color: #e53e3e; }
+.spin-icon   { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
 .btn-retry {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: #fff5f5; color: #e53e3e;
-  border: 1px solid #fed7d7; border-radius: 6px;
-  padding: 5px 12px; font-size: 0.82rem; cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff5f5;
+  color: #e53e3e;
+  border: 1px solid #fed7d7;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
 }
+.btn-retry:hover { background: #fee2e2; }
 
-/* ── MODAL (matches passes.css modal pattern) ── */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.4);
-  z-index: 1000; backdrop-filter: blur(2px);
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 640px) {
+  .page-top     { flex-direction: column; align-items: flex-start; }
+  .filter-bar   { flex-direction: column; }
+  .search-box   { width: 100%; }
+  .filter-group { width: 100%; }
+  .filter-select{ flex: 1; }
+  .dtable       { min-width: 560px; }
+  .remark-cell  { max-width: 160px; }
+  .pagination-bar { flex-direction: column; align-items: flex-start; }
 }
-.modal-box {
-  position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: white; border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
-  z-index: 1001; display: flex; flex-direction: column;
-  max-height: 90vh; overflow: hidden;
-}
-.modal-lg  { width: min(560px, 96vw); }
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px; border-bottom: 1px solid #f0f0f0;
-}
-.modal-header h3 { font-size: 0.98rem; font-weight: 700; margin: 0; color: #1a1a2e; }
-.modal-header-add  { background: linear-gradient(135deg, #fff7f0, #ffe8d6); }
-.modal-header-view { background: linear-gradient(135deg, #f0f9ff, #dbeafe); }
-.modal-close {
-  background: none; border: none; font-size: 1rem;
-  color: #aaa; cursor: pointer; padding: 4px;
-  border-radius: 5px; transition: color 0.15s;
-}
-.modal-close:hover { color: #e53e3e; }
-.modal-body   { padding: 18px; overflow-y: auto; flex: 1; }
-.modal-footer {
-  display: flex; justify-content: flex-end; gap: 8px;
-  padding: 12px 18px; border-top: 1px solid #f0f0f0;
-  background: #fafafa;
-}
-.btn-cancel {
-  padding: 6px 14px; border: 1px solid #ddd;
-  border-radius: 6px; font-size: 0.83rem;
-  background: white; color: #555; cursor: pointer;
-}
-.btn-save {
-  padding: 6px 16px; border: none; border-radius: 6px;
-  font-size: 0.83rem; font-weight: 600;
-  background: #e65c00; color: white; cursor: pointer;
-  transition: background 0.18s;
-}
-.btn-save:hover:not(:disabled) { background: #cc5200; }
-.btn-save:disabled { opacity: 0.5; cursor: default; }
-
-/* ── FORM (inside Add Log modal) ── */
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 12px;
-}
-.form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group-full { grid-column: 1 / -1; }
-.form-group label { font-size: 0.75rem; font-weight: 600; color: #555; }
-.form-control {
-  padding: 6px 10px; border: 1px solid #ddd;
-  border-radius: 6px; font-size: 0.82rem; color: #222;
-  outline: none; transition: border-color 0.18s; background: white;
-}
-.form-control:focus { border-color: #e65c00; }
-.req { color: #e53e3e; }
-
-/* ── ALERTS ── */
-.alert-success {
-  background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;
-  border-radius: 7px; padding: 8px 12px; font-size: 0.80rem; margin-bottom: 12px;
-}
-.alert-error {
-  background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
-  border-radius: 7px; padding: 8px 12px; font-size: 0.80rem; margin-bottom: 12px;
-}
-
-/* ── DETAIL VIEW ── */
-.detail-grid { display: flex; flex-direction: column; gap: 4px; }
-.detail-row {
-  display: grid; grid-template-columns: 130px 1fr;
-  gap: 8px; align-items: start;
-  padding: 6px 2px; border-bottom: 1px solid #f0f0f0;
-}
-.detail-row:last-child { border-bottom: none; }
-.detail-label { font-size: 0.73rem; font-weight: 600; color: #888; }
-.detail-value { font-size: 0.82rem; font-weight: 600; color: #1a1a2e; }
