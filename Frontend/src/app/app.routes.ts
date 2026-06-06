@@ -24,8 +24,12 @@ export const routes: Routes = [
   { path: 'docs/fitness',   loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Fitness' } },
   { path: 'docs/load-test', loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Load_Test' } },
 
-  // AUDIT HISTORY
-  { path: 'history/create', loadComponent: () => import('./history/history').then(m => m.History) },
+  // AUDIT HISTORY — one component, eventType via route data
+  { path: 'history/all',       loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'ALL'       } },
+  { path: 'history/create',    loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'CREATED'   } },
+  { path: 'history/approve',   loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'APPROVED'  } },
+  { path: 'history/surrender', loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'SURRENDERED'} },
+  { path: 'history/expiry',    loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'EXPIRED'   } },
 
   // ADMIN
   { path: 'authority/company', loadComponent: () => import('./authority/authority').then(m => m.Authority) },

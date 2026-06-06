@@ -23,6 +23,5 @@ export const API_CONFIG = {
 
   // ── HISTORY / AUDIT LOG ──
   HISTORY_LIST     : `${environment.apiBaseUrl}/api/history/list`,   // GET
-  HISTORY : `${environment.apiBaseUrl}/api/history/list`,
   HISTORY_LOG      : `${environment.apiBaseUrl}/api/history/log`,    // POST
 };
