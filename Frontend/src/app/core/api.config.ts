@@ -16,8 +16,13 @@ export const API_CONFIG = {
   DOCUMENTS        : `${environment.apiBaseUrl}/api/documents/list`,
   DOCUMENTS_UPLOAD : `${environment.apiBaseUrl}/api/documents/upload`,
   DOCUMENTS_UPDATE : `${environment.apiBaseUrl}/api/documents/update`,
-  DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/documents/download`, // ← NEW
+  DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/documents/download`,
 
   GATE_LOGS        : `${environment.apiBaseUrl}/api/gate-logs/list`,
   COMPLIANCE       : `${environment.apiBaseUrl}/api/compliance/list`,
+
+  // ── HISTORY / AUDIT LOG ──
+  HISTORY_LIST     : `${environment.apiBaseUrl}/api/history/list`,   // GET
+  HISTORY : `${environment.apiBaseUrl}/api/history/list`,
+  HISTORY_LOG      : `${environment.apiBaseUrl}/api/history/log`,    // POST
 };
