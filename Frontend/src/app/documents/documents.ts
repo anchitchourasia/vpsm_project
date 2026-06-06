@@ -716,7 +716,6 @@ export class Documents implements OnInit, OnDestroy {
     'Content-Type': 'application/json',
   });
 
-  // ── NEW: POST_HEADERS for history log JSON calls ──
   private readonly POST_HEADERS = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
@@ -907,10 +906,28 @@ export class Documents implements OnInit, OnDestroy {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ── NEW: AUTO-LOG to History — fires silently
-  //    after every successful document upload / edit
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ── INPUT HELPERS ──
+  onUpperCase(event: Event, field: keyof DocForm): void {
+    const input = event.target as HTMLInputElement;
+    const val   = input.value.toUpperCase();
+    (this.form as any)[field] = val;
+    input.value = val;
+  }
+
+  onVehicleIdInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    input.value = input.value.replace(/\D/g, '');
+    this.form.vehicleId = input.value;
+  }
+
+  onDocumentNoInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const val   = input.value.toUpperCase();
+    this.form.documentNo = val;
+    input.value = val;
+  }
+
+  // ── HISTORY LOG ──
   private logHistory(vehicleId: any, action: string, empCode: string, remark: string): void {
     const payload = {
       passNo     : String(vehicleId ?? ''),
@@ -929,7 +946,6 @@ export class Documents implements OnInit, OnDestroy {
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
         catchError(err => {
-          // Silent fail — never block the user for a background log
           console.warn('⚠️ [History Log] Document log failed silently:', err?.status, err?.error);
           return of(null);
         })
@@ -985,7 +1001,6 @@ export class Documents implements OnInit, OnDestroy {
         .subscribe((res: any) => {
           if (!res) return;
 
-          // ── NEW: Auto-log to history on successful EDIT ──
           this.logHistory(
             this.form.vehicleId,
             'CREATE',
@@ -1004,7 +1019,7 @@ export class Documents implements OnInit, OnDestroy {
       return;
     }
 
-    // ════ ADD MODE — multi-doc upload (all 5 types) ════
+    // ════ ADD MODE — multi-doc upload ════
     if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.'); return; }
     if (!this.form.enterBy.trim())           { this.saveError.set('Entered By is required.'); return; }
 
@@ -1020,7 +1035,7 @@ export class Documents implements OnInit, OnDestroy {
       return;
     }
 
-    // Per-section validation (only validate if file is attached)
+    // Per-section validation
     if (this.form.pucFile) {
       if (!this.form.pucNo.trim()) { this.saveError.set('PUC No is required.'); return; }
       if (!this.form.pucStart)     { this.saveError.set('PUC Start Date is required.'); return; }
@@ -1052,7 +1067,7 @@ export class Documents implements OnInit, OnDestroy {
       if (this.form.loadTestStart >= this.form.loadTestExpiry) { this.saveError.set('Load Test Expiry must be after Start Date.'); return; }
     }
 
-    // ════ DUPLICATE GUARD — uses allDocsRaw() signal, zero extra HTTP requests ════
+    // ════ DUPLICATE GUARD ════
     const vehicleIdNum = Number(this.form.vehicleId);
 
     const existingTypes = this.allDocsRaw()
@@ -1078,7 +1093,7 @@ export class Documents implements OnInit, OnDestroy {
         `${duplicates.join(', ')}. ` +
         `Use the ✏️ Edit button on the existing record to update it.`
       );
-      return; // backend is never called
+      return;
     }
     // ════ END DUPLICATE GUARD ════
 
@@ -1120,11 +1135,9 @@ export class Documents implements OnInit, OnDestroy {
       fd.append('loadTestFile',   this.form.loadTestFile, this.form.loadTestFile.name);
     }
 
-    // Snapshot form values before async call (form may be reset by closeModal)
-    const enterBy    = this.form.enterBy.trim();
+    const enterBy           = this.form.enterBy.trim();
     const capturedVehicleId = vehicleIdNum;
 
-    // ── NEW: Build list of doc labels being uploaded (for history remark) ──
     const uploadingEntries = [
       { file: this.form.pucFile,       label: 'PUC Certificate',     docNo: this.form.pucNo      },
       { file: this.form.insuranceFile, label: 'Insurance',           docNo: this.form.insuranceNo },
@@ -1145,7 +1158,6 @@ export class Documents implements OnInit, OnDestroy {
         this.saveSuccess.set(`✅ ${res.length} document(s) uploaded successfully.`);
         this.isSaving.set(false);
 
-        // ── NEW: Auto-log once per uploaded doc type (silent background calls) ──
         for (const entry of uploadingEntries) {
           this.logHistory(
             capturedVehicleId,
@@ -1159,62 +1171,66 @@ export class Documents implements OnInit, OnDestroy {
       });
   }
 
-  // ── CENTRALISED HTTP ERROR HANDLER ──
-  // Handles 3 response body formats from Spring backend:
-  //   1. Blob  — multipart/form-data endpoint returns text/plain or application/json as Blob
-  //   2. String — rare, but possible if Spring writes plain text directly
-  //   3. Object — GlobalExceptionHandler structured JSON { message, error, diagnosticLog }
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ── CENTRALISED HTTP ERROR HANDLER  (UPDATED) ──
+  //
+  //  Handles 3 body formats from Spring backend:
+  //  1. Blob   — multipart endpoint returns errors as Blob
+  //  2. String — plain text from inner catch(Exception e)
+  //  3. Object — GlobalExceptionHandler structured JSON
+  //             { timestamp, status, error, message, diagnosticLog }
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   private handleHttpError(err: any): void {
     const status = err?.status ?? '?';
     const body   = err?.error;
 
-    // ── Case 1: Blob body (Spring multipart endpoints return error as Blob) ──
+    // ── Case 1: Blob body ──
+    // Spring multipart/form-data endpoints return the error body as a Blob
     if (body instanceof Blob) {
       body.text().then(text => {
         let display = text.trim();
         try {
-          // Try JSON — GlobalExceptionHandler structured response
+          // Try JSON → GlobalExceptionHandler structured response
           const parsed = JSON.parse(text);
           display = parsed?.message || parsed?.diagnosticLog || parsed?.error || text;
         } catch {
-          // Plain string from backend catch(Exception e) — strip Oracle prefix
-          if (display.startsWith('Oracle File Upload Aborted:')) {
-            display = display.replace(
-              'Oracle File Upload Aborted: Database insertion failure. Details: ',
-              '⚠️ DB Error: '
-            );
+          // Plain string from backend catch(Exception e)
+          // Clean up the Oracle verbose prefix for a friendlier message
+          display = display
+            .replace('Oracle File Upload Aborted: Database insertion failure. Details: ', '')
+            .replace('Oracle File Upload Aborted: ', '');
+
+          // Cap very long strings
+          if (display.length > 350) {
+            display = display.substring(0, 350) + '…';
           }
         }
-        // isSaving MUST be set inside .then() — not outside (async timing)
+        // isSaving must be set inside .then() — async timing
         this.saveError.set(`[${status}] ${display}`);
         this.isSaving.set(false);
       }).catch(() => {
-        this.saveError.set(`[${status}] Upload failed — see F12 → Network → Response tab.`);
+        this.saveError.set(`[${status}] Upload failed — see F12 → Network for details.`);
         this.isSaving.set(false);
       });
-      return; // ← early return — do NOT fall through to sync paths
+      return; // ← critical: early return for async path
     }
 
     // ── Case 2: Plain string body ──
+    // Rare — happens if Spring writes response body as text/plain (not via multipart)
     if (typeof body === 'string' && body.trim().length > 0) {
-      let display = body.trim();
-      if (display.startsWith('Oracle File Upload Aborted:')) {
-        display = display.replace(
-          'Oracle File Upload Aborted: Database insertion failure. Details: ',
-          '⚠️ DB Error: '
-        );
-      }
-      this.saveError.set(
-        `[${status}] ${display.length > 350 ? display.substring(0, 350) + '...' : display}`
-      );
+      let display = body.trim()
+        .replace('Oracle File Upload Aborted: Database insertion failure. Details: ', '')
+        .replace('Oracle File Upload Aborted: ', '');
+      if (display.length > 350) display = display.substring(0, 350) + '…';
+      this.saveError.set(`[${status}] ${display}`);
       this.isSaving.set(false);
       return;
     }
 
-    // ── Case 3: GlobalExceptionHandler JSON object ──
-    // Shape: { timestamp, status, error, message, diagnosticLog? }
+    // ── Case 3: Structured JSON object ──
+    // GlobalExceptionHandler returns { timestamp, status, error, message, diagnosticLog }
     if (body && typeof body === 'object') {
-      const msg = body.message || body.diagnosticLog || body.details || body.error;
+      const msg = body.message || body.diagnosticLog || body.error || body.details;
       if (msg) {
         this.saveError.set(`[${status}] ${msg}`);
         this.isSaving.set(false);
@@ -1222,123 +1238,83 @@ export class Documents implements OnInit, OnDestroy {
       }
     }
 
-    // ── Case 4: Fallback ──
-    this.saveError.set(`[${status}] Upload failed — see F12 → Network → Response tab.`);
+    // ── Fallback ──
+    this.saveError.set(`[${status}] Server error — check backend logs or F12 → Network.`);
     this.isSaving.set(false);
   }
 
-  // ── DOWNLOAD PDF ──
-  downloadPdf(doc: any): void {
-    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
-
-    this.http.get(url, {
-      headers     : this.HEADERS,
-      responseType: 'blob',
-      observe     : 'response',
-    })
-    .pipe(takeUntil(this.destroy$))
-    .subscribe({
-      next: (res) => {
-        const blob = res.body!;
-        let fileName = doc.fileName || `document_${doc.documentId}.pdf`;
-        const cd = res.headers.get('Content-Disposition');
-        if (cd) {
-          const match = cd.match(/filename[^;=\n]*=(['"]?)([^'"\n]+)\1/);
-          if (match?.[2]) fileName = match[2].trim();
-        }
-        const blobUrl = URL.createObjectURL(blob);
-        const link    = document.createElement('a');
-        link.href     = blobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      },
-      error: (err) => {
-        console.error('[VPMS] PDF download failed:', err?.status, err?.error);
-        alert(`⚠️ Could not download PDF (${err?.status ?? 'Network error'}). Check backend or try again.`);
-      }
-    });
+  // ── BADGE HELPERS ──
+  getDocTypeBadge(type: string): string {
+    const t = (type || '').toUpperCase().replace(/[\s_\-]/g, '');
+    if (t === 'PUC')       return 'badge badge-puc';
+    if (t === 'INSURANCE') return 'badge badge-insurance';
+    if (t === 'RC')        return 'badge badge-rc';
+    if (t === 'FITNESS')   return 'badge badge-fitness';
+    if (t === 'LOADTEST')  return 'badge badge-loadtest';
+    return 'badge badge-default';
   }
 
-  // ── HELPERS ──
-  formatDate(d: string): string {
-    if (!d) return '—';
-    const dt = new Date(d);
-    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  getVehicleClassBadge(cls: string): string {
+    const c = (cls || '').toUpperCase().replace(/[\s_\-]/g, '');
+    if (c === 'HEAVYMACHINERY') return 'badge badge-heavy';
+    if (c === 'LIGHTMOTOR')     return 'badge badge-light';
+    return 'badge badge-default';
   }
 
-  getDaysLeft(expiryDate: string): number {
-    if (!expiryDate) return 0;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const end   = new Date(expiryDate); end.setHours(0,0,0,0);
-    return Math.ceil((end.getTime() - today.getTime()) / 86400000);
+  getStatusClass(status: string): string {
+    const s = (status || '').toLowerCase();
+    if (s === 'valid'  || s === 'active')   return 'status-pill status-valid';
+    if (s === 'expiring')                   return 'status-pill status-expiring';
+    if (s === 'expired')                    return 'status-pill status-expired';
+    return 'status-pill status-default';
   }
 
-  getDaysLeftLabel(expiryDate: string): string {
-    const days = this.getDaysLeft(expiryDate);
-    if (days < 0)   return `Expired ${Math.abs(days)}d ago`;
+  getDaysLeftClass(expiry: string): string {
+    if (!expiry) return 'days-pill days-na';
+    const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return 'days-pill days-expired';
+    if (days <= 30) return 'days-pill days-warning';
+    return 'days-pill days-ok';
+  }
+
+  getDaysLeftLabel(expiry: string): string {
+    if (!expiry) return '—';
+    const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000);
+    if (days < 0)  return `Expired ${Math.abs(days)}d ago`;
     if (days === 0) return 'Expires today';
-    return `${days} days`;
+    return `${days}d`;
   }
 
-  getDaysLeftClass(expiryDate: string): string {
-    const days = this.getDaysLeft(expiryDate);
-    if (days < 0)   return 'badge badge-expired';
-    if (days <= 30) return 'badge badge-expiring';
-    return 'badge badge-active';
+  formatDate(date: string): string {
+    if (!date) return '—';
+    try {
+      return new Date(date).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+    } catch { return date; }
   }
 
-  getStatusClass(s: string): string {
-    switch ((s || '').toLowerCase()) {
-      case 'valid'   : return 'badge badge-active';
-      case 'active'  : return 'badge badge-active';
-      case 'expiring': return 'badge badge-expiring';
-      case 'expired' : return 'badge badge-expired';
-      default        : return 'badge badge-surrendered';
-    }
-  }
-
-  getVehicleClassBadge(c: string): string {
-    switch (c) {
-      case 'Two_Wheeler'    : return 'badge badge-employee';
-      case 'Four_Wheeler'   : return 'badge badge-active';
-      case 'Heavy_Machinery': return 'badge badge-expiring';
-      default               : return 'badge badge-surrendered';
-    }
-  }
-
-  getDocTypeBadge(t: string): string {
-    switch ((t || '').toUpperCase()) {
-      case 'PUC'      : return 'badge badge-puc-pill';
-      case 'INSURANCE': return 'badge badge-insurance-pill';
-      case 'RC'       : return 'badge badge-rc-pill';
-      case 'FITNESS'  : return 'badge badge-fitness-pill';
-      case 'LOAD_TEST':
-      case 'LOAD TEST': return 'badge badge-loadtest-pill';
-      default         : return 'badge badge-surrendered';
-    }
-  }
-
-  onDocumentNoInput(event: Event): void {
-    const input   = event.target as HTMLInputElement;
-    const cleaned = input.value.toUpperCase().replace(/\s{2,}/g, ' ').trimStart();
-    input.value          = cleaned;
-    this.form.documentNo = cleaned;
-  }
-
-  onUpperCase(event: Event, field: keyof DocForm): void {
-    const input = event.target as HTMLInputElement;
-    const val   = input.value.toUpperCase().replace(/\s{2,}/g, ' ').trimStart();
-    input.value = val;
-    (this.form as any)[field] = val;
-  }
-
-  onVehicleIdInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const cleaned = input.value.replace(/[^0-9]/g, '');
-    input.value = cleaned;
-    this.form.vehicleId = cleaned;
+  // ── DOWNLOAD PDF ──
+  downloadPdf(d: any): void {
+    if (!d?.documentId || !d?.fileName) return;
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${d.documentId}`;
+    this.http.get(url, { headers: this.HEADERS, responseType: 'blob' })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('❌ PDF download error:', err?.status);
+          alert('Could not download file. Please try again.');
+          return of(null);
+        })
+      )
+      .subscribe((blob: Blob | null) => {
+        if (!blob) return;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = d.fileName;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      });
   }
 }
