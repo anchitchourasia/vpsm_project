@@ -37,5 +37,9 @@ export const routes: Routes = [
   // PASS ENTRY — Raise new pass request
     // PASS MANAGEMENT
   { path: 'pass-entry',   loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
-  { path: 'pass-details', loadComponent: () => import('./passes/passes').then(m => m.Passes) },
+  {
+  path: 'pass-details',
+  loadComponent: () =>
+    import('./pass-details/pass-details').then(m => m.PassDetails),
+  },
 ];

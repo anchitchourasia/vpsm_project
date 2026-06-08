@@ -1,223 +1,305 @@
-<div class="page-wrapper">
+<div class="pe-wrapper">
 
-  <div class="page-header">
-    <h2 class="page-title">🚗 Raise Pass Request</h2>
-    <p class="page-subtitle">Issue a new vehicle entry pass for Company Employee or Contractor.</p>
+  <!-- TOP BAR -->
+  <div class="pe-topbar">
+    <div class="pe-topbar-left">
+      <i class="bi bi-pass-fill pe-topbar-icon"></i>
+      <span class="pe-topbar-title">Pass Entry Form</span>
+      <span class="pe-topbar-sub">General Details</span>
+    </div>
+    <div class="pe-pass-id-chip" [class.generated]="passIdGenerated()">
+      <i class="bi bi-qr-code"></i>
+      <span>{{ passId() || 'Pass ID generates on Save' }}</span>
+    </div>
   </div>
 
-  @if (saveSuccess()) {
-    <div class="alert alert-success">{{ saveSuccess() }}</div>
-  }
-  @if (saveError()) {
-    <div class="alert alert-error">{{ saveError() }}</div>
-  }
+  <!-- EMPLOYEE TYPE SELECTOR -->
+  <div class="pe-emp-type-row">
+    <span class="pe-emp-type-label">Employee Type <span class="req">*</span></span>
+    <div class="pe-emp-type-options">
+      <label class="pe-type-card" [class.selected]="empType() === 'Company_Employee'"
+             (click)="setEmpType('Company_Employee')">
+        <i class="bi bi-building-fill"></i>
+        <span>Company Employee</span>
+        @if (empType() === 'Company_Employee') {
+          <i class="bi bi-check-circle-fill pe-check"></i>
+        }
+      </label>
+      <label class="pe-type-card" [class.selected]="empType() === 'Contractor'"
+             (click)="setEmpType('Contractor')">
+        <i class="bi bi-person-workspace"></i>
+        <span>Contractor</span>
+        @if (empType() === 'Contractor') {
+          <i class="bi bi-check-circle-fill pe-check"></i>
+        }
+      </label>
+    </div>
+  </div>
 
-  <form class="pass-form" (ngSubmit)="onSubmit()" novalidate autocomplete="off">
+  <!-- FORM BODY -->
+  @if (empType()) {
 
-    <!-- SECTION 1 — Vehicle Details -->
-    <div class="form-section">
-      <h3 class="section-title">Vehicle Details</h3>
-      <div class="form-grid">
+    <!-- ① VEHICLE DETAILS -->
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-truck-front-fill"></i>
+        <span>Vehicle Details</span>
+      </div>
+      <div class="pe-grid pe-grid-3">
 
-        <div class="form-group">
-          <label class="form-label required" for="vehicleNo">Vehicle Number</label>
-          <input id="vehicleNo" type="text" class="form-input"
-            [class.input-error]="errors.vehicleNo"
-            [(ngModel)]="form.vehicleNo" name="vehicleNo"
-            placeholder="e.g. MP50HEG500" maxlength="15"
-            (input)="onUpperInput($event, 'vehicleNo')" />
-          @if (errors.vehicleNo) { <span class="field-error">{{ errors.vehicleNo }}</span> }
+        <div class="pe-field">
+          <label>Vehicle Number <span class="req">*</span></label>
+          <input type="text" class="pe-input" placeholder="E.G. MP50XX1234"
+            [(ngModel)]="vehicleNo"
+            (input)="onUpperInput($event, 'vehicleNo')" maxlength="20" />
+          <span class="pe-field-hint">Auto-normalized: UPPERCASE, no spaces</span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label required" for="vehicleClass">Vehicle Class</label>
-          <select id="vehicleClass" class="form-select"
-            [class.input-error]="errors.vehicleClass"
-            [(ngModel)]="form.vehicleClass" name="vehicleClass"
-            (change)="clearError('vehicleClass')">
+        <div class="pe-field">
+          <label>Vehicle Type <span class="req">*</span></label>
+          <input type="text" class="pe-input" placeholder="e.g. Car, Bike, Truck, JCB"
+            [(ngModel)]="vehicleType"
+            (input)="onUpperInput($event, 'vehicleType')" maxlength="40" />
+        </div>
+
+        <div class="pe-field">
+          <label>Vehicle Class <span class="req">*</span></label>
+          <select class="pe-input" [(ngModel)]="vehicleClass">
             <option value="">-- Select Class --</option>
             <option value="Two_Wheeler">Two Wheeler</option>
             <option value="Four_Wheeler">Four Wheeler</option>
             <option value="Heavy_Machinery">Heavy Machinery</option>
           </select>
-          @if (errors.vehicleClass) { <span class="field-error">{{ errors.vehicleClass }}</span> }
         </div>
 
-        <div class="form-group">
-          <label class="form-label required" for="vehicleType">Vehicle Type</label>
-          <input id="vehicleType" type="text" class="form-input"
-            [class.input-error]="errors.vehicleType"
-            [(ngModel)]="form.vehicleType" name="vehicleType"
-            placeholder="e.g. BIKE, CAR, TRUCK" maxlength="50"
-            (input)="onUpperInputSpaces($event, 'vehicleType')" />
-          @if (errors.vehicleType) { <span class="field-error">{{ errors.vehicleType }}</span> }
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="brandModel">Brand / Model <span class="optional">(Optional)</span></label>
-          <input id="brandModel" type="text" class="form-input"
-            [(ngModel)]="form.brandModel" name="brandModel"
-            placeholder="e.g. HONDA ACTIVA" maxlength="80"
-            (input)="onUpperInputSpaces($event, 'brandModel')" />
+        <div class="pe-field">
+          <label>Brand / Model</label>
+          <input type="text" class="pe-input" placeholder="e.g. Honda City, Tata Prima"
+            [(ngModel)]="brandModel"
+            (input)="onUpperInput($event, 'brandModel')" maxlength="60" />
         </div>
 
       </div>
     </div>
 
-    <!-- SECTION 2 — Owner Details -->
-    <div class="form-section">
-      <h3 class="section-title">Owner Details</h3>
-
-      <div class="emp-type-toggle">
-        <label class="toggle-option" [class.active]="isEmployee">
-          <input type="radio" name="empType" value="Company_Employee"
-            [(ngModel)]="form.empType" (change)="onEmpTypeChange()" />
-          <span>👔 Company Employee</span>
-        </label>
-        <label class="toggle-option" [class.active]="isContractor">
-          <input type="radio" name="empType" value="Contractor"
-            [(ngModel)]="form.empType" (change)="onEmpTypeChange()" />
-          <span>🔧 Contractor</span>
-        </label>
+    <!-- ② EMPLOYEE / CONTRACTOR DETAILS -->
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-person-badge-fill"></i>
+        <span>{{ empType() === 'Contractor' ? 'Contractor Details' : 'Employee Details' }}</span>
       </div>
+      <div class="pe-grid pe-grid-3">
 
-      <div class="form-grid">
-
-        @if (isEmployee) {
-          <div class="form-group">
-            <label class="form-label required" for="ecNo">EC No / Employee Code</label>
-            <div class="input-with-loader">
-              <input id="ecNo" type="text" class="form-input"
-                [class.input-error]="errors.ecNo"
-                [(ngModel)]="form.ecNo" name="ecNo"
-                placeholder="e.g. 10023" maxlength="20"
-                (input)="onUpperInput($event, 'ecNo')"
-                (blur)="onEcNoBlur()" />
-              @if (fetchingEmployee()) { <span class="input-loader">⏳</span> }
-              @if (empFetchDone() && !fetchingEmployee()) { <span class="input-ok">✅</span> }
-            </div>
-            @if (errors.ecNo) { <span class="field-error">{{ errors.ecNo }}</span> }
-            @if (empFetchError()) { <span class="field-error">{{ empFetchError() }}</span> }
+        <div class="pe-field">
+          <label>EC No <span class="req">*</span></label>
+          <div class="pe-input-group">
+            <input type="text" class="pe-input" placeholder="Enter EC / Employee Code"
+              [(ngModel)]="ecNo"
+              (blur)="onEcNoBlur()"
+              (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
+            @if (fetchingEmployee()) {
+              <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
+            }
+            @if (empName() && !fetchingEmployee()) {
+              <span class="pe-ok">✅</span>
+            }
           </div>
+          <span class="pe-field-hint">Auto-fills name & dept on blur</span>
+        </div>
 
-          <div class="form-group">
-            <label class="form-label" for="empName">Employee Name <span class="optional">(Auto-filled)</span></label>
-            <input id="empName" type="text" class="form-input"
-              [(ngModel)]="form.empName" name="empName"
-              placeholder="Auto-filled on EC No"
-              [readonly]="empFetchDone()" [class.input-readonly]="empFetchDone()" />
-          </div>
+        <div class="pe-field">
+          <label>Name</label>
+          <input type="text" class="pe-input pe-readonly" [value]="empName()" readonly
+            placeholder="Auto-filled from EC No" />
+        </div>
 
-          <div class="form-group">
-            <label class="form-label" for="dept">Department <span class="optional">(Auto-filled)</span></label>
-            <input id="dept" type="text" class="form-input"
-              [(ngModel)]="form.dept" name="dept"
-              placeholder="Auto-filled on EC No"
-              [readonly]="empFetchDone()" [class.input-readonly]="empFetchDone()" />
-          </div>
-        }
+        <div class="pe-field">
+          <label>{{ empType() === 'Contractor' ? 'Company / Agency' : 'Department' }}</label>
+          <input type="text" class="pe-input pe-readonly" [value]="empDept()" readonly
+            placeholder="Auto-filled from EC No" />
+        </div>
 
-        @if (isContractor) {
-          <div class="form-group">
-            <label class="form-label required" for="contractorCode">Contractor Code</label>
-            <input id="contractorCode" type="text" class="form-input"
-              [class.input-error]="errors.contractorCode"
-              [(ngModel)]="form.contractorCode" name="contractorCode"
-              placeholder="e.g. CONT-001" maxlength="30"
-              (input)="onUpperInput($event, 'contractorCode')" />
-            @if (errors.contractorCode) { <span class="field-error">{{ errors.contractorCode }}</span> }
-          </div>
-
-          <div class="form-group">
-            <label class="form-label required" for="deptContractor">Agency / Department</label>
-            <input id="deptContractor" type="text" class="form-input"
-              [class.input-error]="errors.dept"
-              [(ngModel)]="form.dept" name="dept"
-              placeholder="e.g. CIVIL WORKS" maxlength="80"
-              (input)="onUpperInputSpaces($event, 'dept')" />
-            @if (errors.dept) { <span class="field-error">{{ errors.dept }}</span> }
+        @if (empType() === 'Contractor') {
+          <div class="pe-field">
+            <label>Contractor Firm Name</label>
+            <input type="text" class="pe-input" placeholder="Firm name"
+              [(ngModel)]="contractorFirm"
+              (input)="onUpperInput($event, 'contractorFirm')" maxlength="60" />
           </div>
         }
 
       </div>
+      @if (empFetchError()) {
+        <div class="pe-fetch-error">
+          <i class="bi bi-exclamation-triangle-fill"></i> {{ empFetchError() }}
+        </div>
+      }
     </div>
 
-    <!-- SECTION 3 — Pass Details -->
-    <div class="form-section">
-      <h3 class="section-title">Pass Details</h3>
-      <div class="form-grid">
+    <!-- ③ PASS DETAILS -->
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-card-checklist"></i>
+        <span>Pass Details</span>
+      </div>
+      <div class="pe-grid pe-grid-3">
 
-        <div class="form-group">
-          <label class="form-label required" for="issueDate">Issue Date</label>
-          <input id="issueDate" type="date" class="form-input"
-            [class.input-error]="errors.issueDate"
-            [(ngModel)]="form.issueDate" name="issueDate"
-            [max]="todayStr" (change)="clearError('issueDate')" />
-          @if (errors.issueDate) { <span class="field-error">{{ errors.issueDate }}</span> }
+        <div class="pe-field">
+          <label>Issue Date</label>
+          <input type="date" class="pe-input pe-readonly" [value]="todayDate" readonly />
+          <span class="pe-field-hint">Auto set to today</span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label required" for="validityDate">Valid Till</label>
-          <input id="validityDate" type="date" class="form-input"
-            [class.input-error]="errors.validityDate"
-            [(ngModel)]="form.validityDate" name="validityDate"
-            [min]="form.issueDate || todayStr"
-            (change)="clearError('validityDate')" />
-          @if (errors.validityDate) { <span class="field-error">{{ errors.validityDate }}</span> }
+        <div class="pe-field">
+          <label>Validity Date <span class="req">*</span></label>
+          <input type="date" class="pe-input" [(ngModel)]="validityDate" [min]="todayDate" />
         </div>
 
-        <div class="form-group">
-          <label class="form-label required" for="gateNo">Assigned Gate</label>
-          <select id="gateNo" class="form-select"
-            [class.input-error]="errors.gateNo"
-            [(ngModel)]="form.gateNo" name="gateNo"
-            (change)="clearError('gateNo')">
-            <option value="">-- Select Gate --</option>
+        <div class="pe-field">
+          <label>Gate No <span class="req">*</span></label>
+          <select class="pe-input" [(ngModel)]="gateNo">
+            <option value="">— Select Gate —</option>
             <option value="GATE_01">GATE 01</option>
             <option value="GATE_02">GATE 02</option>
             <option value="GATE_03">GATE 03</option>
             <option value="GATE_04">GATE 04</option>
+            <option value="GATE_05">GATE 05</option>
           </select>
-          @if (errors.gateNo) { <span class="field-error">{{ errors.gateNo }}</span> }
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="parkingToBeUsed">Parking Area <span class="optional">(Optional)</span></label>
-          <input id="parkingToBeUsed" type="text" class="form-input"
-            [(ngModel)]="form.parkingToBeUsed" name="parkingToBeUsed"
-            placeholder="e.g. BLOCK A" maxlength="50"
-            (input)="onUpperInputSpaces($event, 'parkingToBeUsed')" />
+        <div class="pe-field">
+          <label>Parking to be Used</label>
+          <select class="pe-input" [(ngModel)]="parkingArea">
+            <option value="">— Select Parking —</option>
+            <option value="P1_MAIN">P1 - Main Parking</option>
+            <option value="P2_CONTRACTOR">P2 - Contractor Bay</option>
+            <option value="P3_HEAVY">P3 - Heavy Machinery Bay</option>
+            <option value="P4_VISITOR">P4 - Visitor Lot</option>
+          </select>
         </div>
 
-        <div class="form-group form-group-full">
-          <label class="form-label" for="remarks">Remarks <span class="optional">(Optional, max 200 chars)</span></label>
-          <textarea id="remarks" class="form-textarea"
-            [class.input-error]="errors.remarks"
-            [(ngModel)]="form.remarks" name="remarks"
-            rows="3" maxlength="200"
-            placeholder="Any additional notes..."></textarea>
-          <span class="char-count">{{ form.remarks.length }}/200</span>
-          @if (errors.remarks) { <span class="field-error">{{ errors.remarks }}</span> }
+        <div class="pe-field pe-field-full">
+          <label>Remark</label>
+          <textarea class="pe-input" rows="2" placeholder="Optional notes..."
+            [(ngModel)]="remark" maxlength="250"></textarea>
+          <span class="pe-field-hint">{{ remark.length }}/250</span>
         </div>
 
       </div>
     </div>
 
-    <!-- Form Actions -->
-    <div class="form-actions">
-      <button type="button" class="btn btn-secondary"
-        (click)="onReset()" [disabled]="isSaving()">
-        🔄 Reset
-      </button>
-      <button type="submit" class="btn btn-primary"
-        [disabled]="isSaving() || isFormInvalid">
-        @if (isSaving()) {
-          <span class="btn-spinner">⏳</span> Issuing Pass...
-        } @else {
-          🚗 Issue Pass
+    <!-- ④ REQUIRED DOCUMENTS -->
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-file-earmark-check-fill"></i>
+        <span>Required Documents</span>
+        <span class="pe-doc-count">{{ docs().length }} / 5 added</span>
+      </div>
+
+      @if (docs().length > 0) {
+        <div class="pe-doc-table">
+          <div class="pe-doc-header-row">
+            <span>Doc Type</span>
+            <span>Doc No</span>
+            <span>Valid Upto</span>
+            <span>File (PDF)</span>
+            <span></span>
+          </div>
+          @for (doc of docs(); track doc.id; let i = $index) {
+            <div class="pe-doc-row">
+              <div class="pe-doc-cell">
+                <select class="pe-input pe-input-sm" [(ngModel)]="doc.docType"
+                  (ngModelChange)="onDocTypeChange(doc)">
+                  <option value="">— Type —</option>
+                  @for (t of availableDocTypes(doc); track t) {
+                    <option [value]="t">{{ t }}</option>
+                  }
+                </select>
+              </div>
+              <div class="pe-doc-cell">
+                <input type="text" class="pe-input pe-input-sm" placeholder="Doc number"
+                  [(ngModel)]="doc.docNo"
+                  (input)="onDocNoInput($event, doc)" maxlength="60" />
+              </div>
+              <div class="pe-doc-cell">
+                <input type="date" class="pe-input pe-input-sm" [(ngModel)]="doc.validUpto" />
+              </div>
+              <div class="pe-doc-cell">
+                <label class="pe-file-btn" [class.has-file]="doc.file">
+                  <input type="file" accept=".pdf" class="pe-file-hidden"
+                    (change)="onDocFileSelected($event, doc)" />
+                  <i class="bi" [class]="doc.file ? 'bi-file-earmark-pdf-fill' : 'bi-cloud-upload'"></i>
+                  <span>{{ doc.file ? shortName(doc.file.name) : 'Upload PDF' }}</span>
+                </label>
+              </div>
+              <div class="pe-doc-cell">
+                <button class="pe-doc-remove" (click)="removeDoc(i)" title="Remove">
+                  <i class="bi bi-x-circle-fill"></i>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <button class="pe-add-doc-btn" (click)="addDoc()"
+        [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
+        <i class="bi bi-plus-circle-fill"></i>
+        Add Document
+        @if (docs().length >= ALLOWED_DOC_TYPES.length) {
+          <span class="pe-add-hint">(All 5 types added)</span>
         }
+      </button>
+
+      <div class="pe-doc-info">
+        <i class="bi bi-info-circle"></i>
+        Supported: RC, PUC, Insurance, License, Fitness — each type once only.
+        Mandatory for Contractors &amp; Heavy Machinery.
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    @if (saveSuccess()) {
+      <div class="pe-alert pe-alert-success">
+        <i class="bi bi-check-circle-fill"></i> {{ saveSuccess() }}
+      </div>
+    }
+    @if (saveError()) {
+      <div class="pe-alert pe-alert-error">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ saveError() }}
+      </div>
+    }
+
+    <!-- ACTION BUTTONS -->
+    <div class="pe-actions">
+      <button class="pe-btn pe-btn-clear" (click)="clearForm()" [disabled]="isSaving()">
+        <i class="bi bi-x-square"></i> Clear
+      </button>
+      <button class="pe-btn pe-btn-save" (click)="onSave()" [disabled]="isSaving()">
+        @if (!isSaving()) {
+          <i class="bi bi-floppy-fill"></i> Save
+        } @else {
+          <i class="bi bi-hourglass-split"></i> Saving...
+        }
+      </button>
+      <button class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="!saved() || isSaving()">
+        <i class="bi bi-send-fill"></i> Submit
       </button>
     </div>
 
-  </form>
+    @if (!saved()) {
+      <div class="pe-submit-hint">
+        <i class="bi bi-info-circle"></i>
+        Save first to generate Pass ID, then Submit to finalise.
+      </div>
+    }
+
+  } @else {
+    <!-- EMPTY STATE -->
+    <div class="pe-empty">
+      <i class="bi bi-arrow-up-circle-fill"></i>
+      <p>Select employee type above to begin filling the form.</p>
+    </div>
+  }
+
 </div>
