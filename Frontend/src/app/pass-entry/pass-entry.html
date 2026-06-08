@@ -1,0 +1,223 @@
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <h2 class="page-title">🚗 Raise Pass Request</h2>
+    <p class="page-subtitle">Issue a new vehicle entry pass for Company Employee or Contractor.</p>
+  </div>
+
+  @if (saveSuccess()) {
+    <div class="alert alert-success">{{ saveSuccess() }}</div>
+  }
+  @if (saveError()) {
+    <div class="alert alert-error">{{ saveError() }}</div>
+  }
+
+  <form class="pass-form" (ngSubmit)="onSubmit()" novalidate autocomplete="off">
+
+    <!-- SECTION 1 — Vehicle Details -->
+    <div class="form-section">
+      <h3 class="section-title">Vehicle Details</h3>
+      <div class="form-grid">
+
+        <div class="form-group">
+          <label class="form-label required" for="vehicleNo">Vehicle Number</label>
+          <input id="vehicleNo" type="text" class="form-input"
+            [class.input-error]="errors.vehicleNo"
+            [(ngModel)]="form.vehicleNo" name="vehicleNo"
+            placeholder="e.g. MP50HEG500" maxlength="15"
+            (input)="onUpperInput($event, 'vehicleNo')" />
+          @if (errors.vehicleNo) { <span class="field-error">{{ errors.vehicleNo }}</span> }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="vehicleClass">Vehicle Class</label>
+          <select id="vehicleClass" class="form-select"
+            [class.input-error]="errors.vehicleClass"
+            [(ngModel)]="form.vehicleClass" name="vehicleClass"
+            (change)="clearError('vehicleClass')">
+            <option value="">-- Select Class --</option>
+            <option value="Two_Wheeler">Two Wheeler</option>
+            <option value="Four_Wheeler">Four Wheeler</option>
+            <option value="Heavy_Machinery">Heavy Machinery</option>
+          </select>
+          @if (errors.vehicleClass) { <span class="field-error">{{ errors.vehicleClass }}</span> }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="vehicleType">Vehicle Type</label>
+          <input id="vehicleType" type="text" class="form-input"
+            [class.input-error]="errors.vehicleType"
+            [(ngModel)]="form.vehicleType" name="vehicleType"
+            placeholder="e.g. BIKE, CAR, TRUCK" maxlength="50"
+            (input)="onUpperInputSpaces($event, 'vehicleType')" />
+          @if (errors.vehicleType) { <span class="field-error">{{ errors.vehicleType }}</span> }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="brandModel">Brand / Model <span class="optional">(Optional)</span></label>
+          <input id="brandModel" type="text" class="form-input"
+            [(ngModel)]="form.brandModel" name="brandModel"
+            placeholder="e.g. HONDA ACTIVA" maxlength="80"
+            (input)="onUpperInputSpaces($event, 'brandModel')" />
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SECTION 2 — Owner Details -->
+    <div class="form-section">
+      <h3 class="section-title">Owner Details</h3>
+
+      <div class="emp-type-toggle">
+        <label class="toggle-option" [class.active]="isEmployee">
+          <input type="radio" name="empType" value="Company_Employee"
+            [(ngModel)]="form.empType" (change)="onEmpTypeChange()" />
+          <span>👔 Company Employee</span>
+        </label>
+        <label class="toggle-option" [class.active]="isContractor">
+          <input type="radio" name="empType" value="Contractor"
+            [(ngModel)]="form.empType" (change)="onEmpTypeChange()" />
+          <span>🔧 Contractor</span>
+        </label>
+      </div>
+
+      <div class="form-grid">
+
+        @if (isEmployee) {
+          <div class="form-group">
+            <label class="form-label required" for="ecNo">EC No / Employee Code</label>
+            <div class="input-with-loader">
+              <input id="ecNo" type="text" class="form-input"
+                [class.input-error]="errors.ecNo"
+                [(ngModel)]="form.ecNo" name="ecNo"
+                placeholder="e.g. 10023" maxlength="20"
+                (input)="onUpperInput($event, 'ecNo')"
+                (blur)="onEcNoBlur()" />
+              @if (fetchingEmployee()) { <span class="input-loader">⏳</span> }
+              @if (empFetchDone() && !fetchingEmployee()) { <span class="input-ok">✅</span> }
+            </div>
+            @if (errors.ecNo) { <span class="field-error">{{ errors.ecNo }}</span> }
+            @if (empFetchError()) { <span class="field-error">{{ empFetchError() }}</span> }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="empName">Employee Name <span class="optional">(Auto-filled)</span></label>
+            <input id="empName" type="text" class="form-input"
+              [(ngModel)]="form.empName" name="empName"
+              placeholder="Auto-filled on EC No"
+              [readonly]="empFetchDone()" [class.input-readonly]="empFetchDone()" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="dept">Department <span class="optional">(Auto-filled)</span></label>
+            <input id="dept" type="text" class="form-input"
+              [(ngModel)]="form.dept" name="dept"
+              placeholder="Auto-filled on EC No"
+              [readonly]="empFetchDone()" [class.input-readonly]="empFetchDone()" />
+          </div>
+        }
+
+        @if (isContractor) {
+          <div class="form-group">
+            <label class="form-label required" for="contractorCode">Contractor Code</label>
+            <input id="contractorCode" type="text" class="form-input"
+              [class.input-error]="errors.contractorCode"
+              [(ngModel)]="form.contractorCode" name="contractorCode"
+              placeholder="e.g. CONT-001" maxlength="30"
+              (input)="onUpperInput($event, 'contractorCode')" />
+            @if (errors.contractorCode) { <span class="field-error">{{ errors.contractorCode }}</span> }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required" for="deptContractor">Agency / Department</label>
+            <input id="deptContractor" type="text" class="form-input"
+              [class.input-error]="errors.dept"
+              [(ngModel)]="form.dept" name="dept"
+              placeholder="e.g. CIVIL WORKS" maxlength="80"
+              (input)="onUpperInputSpaces($event, 'dept')" />
+            @if (errors.dept) { <span class="field-error">{{ errors.dept }}</span> }
+          </div>
+        }
+
+      </div>
+    </div>
+
+    <!-- SECTION 3 — Pass Details -->
+    <div class="form-section">
+      <h3 class="section-title">Pass Details</h3>
+      <div class="form-grid">
+
+        <div class="form-group">
+          <label class="form-label required" for="issueDate">Issue Date</label>
+          <input id="issueDate" type="date" class="form-input"
+            [class.input-error]="errors.issueDate"
+            [(ngModel)]="form.issueDate" name="issueDate"
+            [max]="todayStr" (change)="clearError('issueDate')" />
+          @if (errors.issueDate) { <span class="field-error">{{ errors.issueDate }}</span> }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="validityDate">Valid Till</label>
+          <input id="validityDate" type="date" class="form-input"
+            [class.input-error]="errors.validityDate"
+            [(ngModel)]="form.validityDate" name="validityDate"
+            [min]="form.issueDate || todayStr"
+            (change)="clearError('validityDate')" />
+          @if (errors.validityDate) { <span class="field-error">{{ errors.validityDate }}</span> }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="gateNo">Assigned Gate</label>
+          <select id="gateNo" class="form-select"
+            [class.input-error]="errors.gateNo"
+            [(ngModel)]="form.gateNo" name="gateNo"
+            (change)="clearError('gateNo')">
+            <option value="">-- Select Gate --</option>
+            <option value="GATE_01">GATE 01</option>
+            <option value="GATE_02">GATE 02</option>
+            <option value="GATE_03">GATE 03</option>
+            <option value="GATE_04">GATE 04</option>
+          </select>
+          @if (errors.gateNo) { <span class="field-error">{{ errors.gateNo }}</span> }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="parkingToBeUsed">Parking Area <span class="optional">(Optional)</span></label>
+          <input id="parkingToBeUsed" type="text" class="form-input"
+            [(ngModel)]="form.parkingToBeUsed" name="parkingToBeUsed"
+            placeholder="e.g. BLOCK A" maxlength="50"
+            (input)="onUpperInputSpaces($event, 'parkingToBeUsed')" />
+        </div>
+
+        <div class="form-group form-group-full">
+          <label class="form-label" for="remarks">Remarks <span class="optional">(Optional, max 200 chars)</span></label>
+          <textarea id="remarks" class="form-textarea"
+            [class.input-error]="errors.remarks"
+            [(ngModel)]="form.remarks" name="remarks"
+            rows="3" maxlength="200"
+            placeholder="Any additional notes..."></textarea>
+          <span class="char-count">{{ form.remarks.length }}/200</span>
+          @if (errors.remarks) { <span class="field-error">{{ errors.remarks }}</span> }
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary"
+        (click)="onReset()" [disabled]="isSaving()">
+        🔄 Reset
+      </button>
+      <button type="submit" class="btn btn-primary"
+        [disabled]="isSaving() || isFormInvalid">
+        @if (isSaving()) {
+          <span class="btn-spinner">⏳</span> Issuing Pass...
+        } @else {
+          🚗 Issue Pass
+        }
+      </button>
+    </div>
+
+  </form>
+</div>
