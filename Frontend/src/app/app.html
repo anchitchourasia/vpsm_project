@@ -39,6 +39,31 @@
         <i class="bi bi-house-door-fill sb-icon"></i>
         <span class="sb-label">Home</span>
       </a>
+            <!-- ── SECTION: PASS MANAGEMENT ── -->
+      <div class="sb-section-label">PASS MANAGEMENT</div>
+
+      <!-- Pass Entry (opens in new tab) -->
+      <div
+        class="sb-item"
+        (click)="openPassEntry(); $event.stopPropagation()"
+        style="cursor:pointer"
+        title="Open Pass Entry Form"
+      >
+        <i class="bi bi-pencil-square sb-icon"></i>
+        <span class="sb-label">Pass Entry</span>
+        <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem;margin-left:auto;opacity:0.55"></i>
+      </div>
+
+      <!-- Pass Details -->
+      <a
+        routerLink="/pass-details"
+        routerLinkActive="sb-active"
+        class="sb-item"
+        (click)="$event.stopPropagation()"
+      >
+        <i class="bi bi-card-list sb-icon"></i>
+        <span class="sb-label">Pass Details</span>
+      </a>
 
       <!-- Vehicles Master -->
       <div class="sb-group" [class.open]="isMenuOpen('vehicles')">

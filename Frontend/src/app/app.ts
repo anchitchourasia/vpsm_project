@@ -39,4 +39,8 @@ export class App {
   isMenuOpen(menu: string): boolean {
     return this.openMenus().has(menu);
   }
+    // ── PASS ENTRY — open in new browser tab ──────────
+  openPassEntry(): void {
+    window.open('/pass-entry', '_blank');
+  }
 }

@@ -33,5 +33,9 @@ export const routes: Routes = [
   { path: 'history/gate',      loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'GATE'       } },
   // ADMIN
   { path: 'authority/company', loadComponent: () => import('./authority/authority').then(m => m.Authority) },
+    // PASS MANAGEMENT
+  // PASS ENTRY — Raise new pass request
+  { path: 'passes/entry', loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
+  { path: 'pass-details', loadComponent: () => import('./passes/passes').then(m => m.Passes) },
 
 ];
