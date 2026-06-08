@@ -1,22 +1,23 @@
-import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core'; // ← added inject
+import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
-import { PassStateService, PassRecord } from '../services/pass-state.service'; // ← NEW
-
+import { PassStateService, PassRecord } from '../services/pass-state.service';
 
 const HTTP_TIMEOUT_MS = 12000;
 
+// Employee array index positions — matches /api/reports/employee-department
+// Response format: [empNo, name, salary, managerId, email, deptId, deptName]
+const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
 
 function generatePassId(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const rand = Math.floor(10000 + Math.random() * 90000);
   return `PASS-${date}-${rand}`;
 }
-
 
 interface DocEntry {
   id       : string;
@@ -26,14 +27,40 @@ interface DocEntry {
   file     : File | null;
 }
 
-
 const ALLOWED_DOC_TYPES = ['RC', 'PUC', 'INSURANCE', 'LICENSE', 'FITNESS'];
 
+// Auto-detect vehicle class from vehicle type keywords
+function detectVehicleClass(vehicleType: string): string {
+  const v = vehicleType.toLowerCase().trim();
+  if (!v) return '';
+
+  // Heavy Machinery keywords
+  const heavy = [
+    'jcb', 'excavator', 'crane', 'dozer', 'bulldozer', 'loader',
+    'dumper', 'truck', 'tipper', 'tanker', 'trailer', 'tractor',
+    'forklift', 'grader', 'roller', 'mixer', 'transit', 'compactor',
+    'paver', 'harvester', 'backhoe', 'rig', 'machinery', 'heavy'
+  ];
+  // Two Wheeler keywords
+  const twoWheeler = [
+    'bike', 'motorcycle', 'scooter', 'activa', 'scooty',
+    'moped', 'two wheeler', 'twowheeler', 'pulsar', 'splendor',
+    'bullet', 'bajaj', 'hero', 'tvs', 'honda', 'yamaha', 'ktm',
+    'royal enfield', 'suzuki', 'access', 'unicorn', 'shine'
+  ];
+
+  if (heavy.some(k => v.includes(k)))      return 'Heavy_Machinery';
+  if (twoWheeler.some(k => v.includes(k))) return 'Two_Wheeler';
+
+  // Default: anything else → Four Wheeler
+  // Only set if type has meaningful content (>= 2 chars)
+  if (v.length >= 2) return 'Four_Wheeler';
+  return '';
+}
 
 function emptyDoc(): DocEntry {
   return { id: crypto.randomUUID(), docType: '', docNo: '', validUpto: '', file: null };
 }
-
 
 @Component({
   selector   : 'app-pass-entry',
@@ -46,14 +73,19 @@ export class PassEntry implements OnInit, OnDestroy {
 
   protected readonly ALLOWED_DOC_TYPES = ALLOWED_DOC_TYPES;
 
-  private destroy$          = new Subject<void>();
-  private readonly HEADERS      = new HttpHeaders({ Accept: '*/*' });
-  private readonly JSON_HEADERS = new HttpHeaders({ Accept: 'application/json', 'Content-Type': 'application/json' });
-  private readonly POST_HEADERS = new HttpHeaders({ 'x-api-key': API_CONFIG.API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' });
+  private destroy$ = new Subject<void>();
 
-  // ← NEW: inject PassStateService
+  private readonly HEADERS = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Content-Type': 'application/json',
+  });
+  private readonly MULTIPART_HEADERS = new HttpHeaders({
+    'x-api-key': API_CONFIG.API_KEY,
+  });
+
   private passState = inject(PassStateService);
 
+  // Signals
   empType          = signal<string>('');
   passId           = signal<string>('');
   passIdGenerated  = signal(false);
@@ -67,15 +99,16 @@ export class PassEntry implements OnInit, OnDestroy {
   saveError        = signal('');
   docs             = signal<DocEntry[]>([]);
 
+  // Form fields
   vehicleNo      = '';
   vehicleType    = '';
   brandModel     = '';
   vehicleClass   = '';
   ecNo           = '';
-  contractorFirm = '';
+  contractorCode = '';
   validityDate   = '';
   gateNo         = '';
-  parkingArea    = '';
+  parkingArea    = '';   // plain text field now
   remark         = '';
 
   private empData            : any          = null;
@@ -93,11 +126,30 @@ export class PassEntry implements OnInit, OnDestroy {
   ngOnInit(): void {}
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  setEmpType(t: string): void { this.empType.set(t); this.clearAlerts(); }
+  setEmpType(t: string): void {
+    this.empType.set(t);
+    this.ecNo = ''; this.contractorCode = '';
+    this.empName.set(''); this.empDept.set('');
+    this.empFetchError.set(''); this.empData = null;
+    this.clearAlerts();
+  }
+
+  // ── VEHICLE TYPE INPUT ─────────────────────────────────────────────────────
+  // Uppercase + auto-detect class
+  onVehicleTypeInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const val   = input.value.toUpperCase();
+    this.vehicleType = val;
+    input.value      = val;
+
+    // Auto-detect class only if user hasn't manually locked it
+    const detected = detectVehicleClass(val);
+    if (detected) this.vehicleClass = detected;
+  }
 
   onUpperInput(event: Event, field: keyof this): void {
     const input = event.target as HTMLInputElement;
-    const val   = input.value.toUpperCase();
+    const val   = input.value.toUpperCase().replace(/\s+/g, '');
     (this as any)[field] = val;
     input.value = val;
   }
@@ -108,43 +160,53 @@ export class PassEntry implements OnInit, OnDestroy {
     input.value = doc.docNo;
   }
 
-  // ── Auto-fill employee on EC blur ──
+  // ── EC NO AUTO-FILL ────────────────────────────────────────────────────────
   onEcNoBlur(): void {
-    if (!this.ecNo.trim()) return;
-    this.empFetchError.set(''); this.empName.set(''); this.empDept.set(''); this.empData = null;
+    const ecNo = this.ecNo.trim();
+    if (!ecNo) return;
+
+    this.empFetchError.set('');
+    this.empName.set('');
+    this.empDept.set('');
+    this.empData = null;
     this.fetchingEmployee.set(true);
 
-    const url = `${API_CONFIG.BASE_URL}/api/reports/employee-department?ecNo=${encodeURIComponent(this.ecNo.trim())}`;
-    this.http.get<any>(url, { headers: this.JSON_HEADERS })
+    this.http
+      .get<any[]>(`${API_CONFIG.BASE_URL}/api/reports/employee-department`, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
         catchError(err => {
-          this.empFetchError.set(
-            err?.status === 404
-              ? `No employee found for EC No: ${this.ecNo}`
-              : `Could not fetch employee details (${err?.status ?? 'network error'})`
-          );
           this.fetchingEmployee.set(false);
-          return of(null);
+          this.empFetchError.set(
+            `Could not fetch employee details (${err?.status ?? 'network error'})`
+          );
+          return of([]);
         })
       )
-      .subscribe((res: any) => {
+      .subscribe((rows: any[]) => {
         this.fetchingEmployee.set(false);
-        if (!res) return;
-        const rec = Array.isArray(res) ? res[0] : res;
-        if (!rec) { this.empFetchError.set(`No data for EC No: ${this.ecNo}`); return; }
-        this.empData = rec;
-        this.empName.set(rec.employeeName || rec.name || rec.empName || '');
-        this.empDept.set(
-          this.empType() === 'Contractor'
-            ? (rec.agencyName  || rec.companyName || rec.department || '')
-            : (rec.departmentName || rec.department || rec.dept || '')
-        );
+
+        if (!rows || rows.length === 0) {
+          this.empFetchError.set('Employee list empty — check backend connection.');
+          return;
+        }
+
+        // Array row: [empNo, name, salary, managerId, email, deptId, deptName]
+        const match = rows.find(r => String(r[EMP_IDX.empNo]) === ecNo);
+
+        if (match) {
+          this.empData = match;
+          this.empName.set(String(match[EMP_IDX.name]    || ''));
+          this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
+          this.empFetchError.set('');
+        } else {
+          this.empFetchError.set(`No employee found for EC No: ${ecNo}`);
+        }
       });
   }
 
-  // ── Documents ──
+  // ── DOCUMENTS ──────────────────────────────────────────────────────────────
   addDoc(): void {
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
@@ -172,15 +234,19 @@ export class PassEntry implements OnInit, OnDestroy {
 
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
 
-  // ── Validation ──
+  // ── VALIDATION ─────────────────────────────────────────────────────────────
   private validate(): string {
-    if (!this.vehicleNo.trim())    return 'Vehicle No is required.';
-    if (!this.vehicleType.trim())  return 'Vehicle Type is required.';
-    if (!this.vehicleClass)        return 'Vehicle Class is required.';
-    if (!this.ecNo.trim())         return 'EC No is required.';
-    if (!this.validityDate)        return 'Validity Date is required.';
-    if (this.validityDate <= this.todayDate) return 'Validity Date must be in the future.';
-    if (!this.gateNo)              return 'Gate No is required.';
+    if (!this.vehicleNo.trim())   return 'Vehicle No is required.';
+    if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
+    if (!this.vehicleClass)       return 'Vehicle Class is required.';
+    if (this.empType() === 'Company_Employee' && !this.ecNo.trim())
+                                  return 'EC No is required.';
+    if (this.empType() === 'Contractor' && !this.contractorCode.trim())
+                                  return 'Contractor Code is required.';
+    if (!this.validityDate)       return 'Validity Date is required.';
+    if (this.validityDate <= this.todayDate)
+                                  return 'Validity Date must be in the future.';
+    if (!this.gateNo)             return 'Gate No is required.';
     for (const doc of this.docs()) {
       if (!doc.docType)        return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())   return `Document No is required for ${doc.docType}.`;
@@ -191,7 +257,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
-  // ── SAVE: Step 1 → Vehicle, Step 2 → Pass, Step 3 → Docs ──
+  // ── SAVE — 3-step sequential ───────────────────────────────────────────────
   onSave(): void {
     this.clearAlerts();
     const err = this.validate();
@@ -200,15 +266,17 @@ export class PassEntry implements OnInit, OnDestroy {
     this.isSaving.set(true);
 
     const vehiclePayload = {
-      vehicleNo   : this.vehicleNo.trim(),
-      vehicleType : this.vehicleType.trim(),
-      vehicleClass: this.vehicleClass,
-      brandModel  : this.brandModel.trim() || null,
-      isActive    : 'Y',
+      vehicleNo    : this.vehicleNo.trim(),
+      vehicleType  : this.vehicleType.trim(),
+      vehicleClass : this.vehicleClass,
+      brandModel   : this.brandModel.trim() || null,
+      isActive     : 'Y',
       isBlacklisted: 'N',
     };
 
-    this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, vehiclePayload, { headers: this.POST_HEADERS })
+    console.log('[Step 1] Vehicle payload:', vehiclePayload);
+
+    this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, vehiclePayload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err2 => { this.handleSaveError(err2, 'Step 1 — Vehicle'); return of(null); })
@@ -217,7 +285,7 @@ export class PassEntry implements OnInit, OnDestroy {
         if (!vRes) return;
         this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
         if (!this.savedVehicleId) {
-          this.saveError.set('[Step 1] Vehicle registered but ID not returned.');
+          this.saveError.set('[Step 1] Vehicle registered but no ID returned. Check backend response.');
           this.isSaving.set(false); return;
         }
         this.step2IssuePass();
@@ -226,18 +294,34 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private step2IssuePass(): void {
     const passPayload: any = {
-      vehicle     : { vehicleId: this.savedVehicleId },
-      issueDate   : this.todayDate,
-      validityDate: this.validityDate,
-      assignedGate: this.gateNo,
-      parkingArea : this.parkingArea || null,
-      passStatus  : 'Active',
-      remarks     : this.remark || null,
-      userCategory: this.empType(),
-      user        : { employeeCode: this.ecNo.trim() },
+      vehicle          : { vehicleId: this.savedVehicleId },
+      typeOfVehicle    : this.vehicleType  || null,
+      empType          : this.empType(),
+      issueDate        : this.todayDate,
+      validityDate     : this.validityDate,
+      gateNo           : this.gateNo.toUpperCase().trim(),
+      parkingToBeUsed  : this.parkingArea.trim().toUpperCase() || null,
+      status           : 'Active',
+      isActive         : 'Y',
+      remarks          : this.remark || null,
+      dept             : this.empDept() || null,
+      mobileNo         : null,
+      enterBy          : this.ecNo.trim() || 'ADMIN',
+      enterDate        : this.todayDate,
+      employeeNo       : this.empType() === 'Company_Employee'
+                           ? (this.ecNo.toUpperCase().trim() || null)
+                           : null,
+      employeeCompanyNo: this.empType() === 'Company_Employee'
+                           ? (this.empName().trim() || null)
+                           : null,
+      contractorCode   : this.empType() === 'Contractor'
+                           ? (this.contractorCode.toUpperCase().trim() || null)
+                           : null,
     };
 
-    this.http.post<any>(API_CONFIG.PASSES_ISSUE, passPayload, { headers: this.POST_HEADERS })
+    console.log('[Step 2] Pass payload:', JSON.stringify(passPayload, null, 2));
+
+    this.http.post<any>(API_CONFIG.PASSES_ISSUE, passPayload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => { this.handleSaveError(err, 'Step 2 — Pass Issue'); return of(null); })
@@ -248,11 +332,14 @@ export class PassEntry implements OnInit, OnDestroy {
         const genId = generatePassId();
         this.passId.set(genId);
         this.passIdGenerated.set(true);
+
+        // Log CREATE — use actual passRegistryId if returned, fallback to vehicleId
         this.logHistory(
           this.savedPassRegistryId ?? this.savedVehicleId,
           'CREATE', this.ecNo.trim(),
-          `Pass raised for Vehicle ${this.vehicleNo} — Gate: ${this.gateNo}, Valid till: ${this.validityDate}`
+          `Pass raised for Vehicle ${this.vehicleNo} Gate: ${this.gateNo}, Valid till: ${this.validityDate}`
         );
+
         if (this.docs().length > 0) { this.step3UploadDocs(); }
         else { this.finaliseSave(); }
       });
@@ -266,38 +353,46 @@ export class PassEntry implements OnInit, OnDestroy {
 
     for (const doc of this.docs()) {
       const dt = (doc.docType || '').toLowerCase();
-      if (!dt) continue; hasAny = true;
-      if (dt === 'rc')             { fd.append('rcNo', doc.docNo); fd.append('rcStart', this.todayDate); fd.append('rcExpiry', doc.validUpto); if (doc.file) fd.append('rcFile', doc.file, doc.file.name); }
-      else if (dt === 'puc')       { fd.append('pucNo', doc.docNo); fd.append('pucStart', this.todayDate); fd.append('pucExpiry', doc.validUpto); if (doc.file) fd.append('pucFile', doc.file, doc.file.name); }
+      if (!dt) continue;
+      hasAny = true;
+
+      if      (dt === 'rc')        { fd.append('rcNo',        doc.docNo); fd.append('rcStart',        this.todayDate); fd.append('rcExpiry',        doc.validUpto); if (doc.file) fd.append('rcFile',        doc.file, doc.file.name); }
+      else if (dt === 'puc')       { fd.append('pucNo',       doc.docNo); fd.append('pucStart',       this.todayDate); fd.append('pucExpiry',       doc.validUpto); if (doc.file) fd.append('pucFile',       doc.file, doc.file.name); }
       else if (dt === 'insurance') { fd.append('insuranceNo', doc.docNo); fd.append('insuranceStart', this.todayDate); fd.append('insuranceExpiry', doc.validUpto); if (doc.file) fd.append('insuranceFile', doc.file, doc.file.name); }
-      else if (dt === 'fitness')   { fd.append('fitnessNo', doc.docNo); fd.append('fitnessStart', this.todayDate); fd.append('fitnessExpiry', doc.validUpto); if (doc.file) fd.append('fitnessFile', doc.file, doc.file.name); }
-      else if (dt === 'license')   { fd.append('loadTestNo', doc.docNo); fd.append('loadTestStart', this.todayDate); fd.append('loadTestExpiry', doc.validUpto); if (doc.file) fd.append('loadTestFile', doc.file, doc.file.name); }
+      else if (dt === 'fitness')   { fd.append('fitnessNo',   doc.docNo); fd.append('fitnessStart',   this.todayDate); fd.append('fitnessExpiry',   doc.validUpto); if (doc.file) fd.append('fitnessFile',   doc.file, doc.file.name); }
+      else if (dt === 'license')   { fd.append('loadTestNo',  doc.docNo); fd.append('loadTestStart',  this.todayDate); fd.append('loadTestExpiry',  doc.validUpto); if (doc.file) fd.append('loadTestFile',  doc.file, doc.file.name); }
     }
 
     if (!hasAny) { this.finaliseSave(); return; }
-    this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.HEADERS })
+
+    console.log('[Step 3] Uploading documents...');
+    this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => { console.warn('⚠️ [Step 3] Doc upload failed:', err?.status); this.finaliseSave(true); return of(null); })
+        catchError(err => {
+          console.warn('[Step 3] Doc upload failed:', err?.status);
+          this.finaliseSave(true);
+          return of(null);
+        })
       )
       .subscribe(dRes => { if (dRes !== null) this.finaliseSave(); });
   }
 
   private finaliseSave(docWarn = false): void {
-    this.isSaving.set(false); this.saved.set(true);
+    this.isSaving.set(false);
+    this.saved.set(true);
     this.saveSuccess.set(
       docWarn
-        ? `✅ Pass saved (ID: ${this.passId()}) — Documents had an issue; upload separately from Documents module.`
-        : `✅ Pass saved! Pass ID: ${this.passId()}. Click Submit to finalise.`
+        ? `Pass saved (ID: ${this.passId()}) — Documents upload failed; add them from Documents module.`
+        : `Pass saved! Pass ID: ${this.passId()}. Click Submit to finalise.`
     );
   }
 
-  // ── SUBMIT ── ← ONLY THIS METHOD CHANGED
+  // ── SUBMIT ─────────────────────────────────────────────────────────────────
   onSubmit(): void {
-    if (!this.saved()) { this.saveError.set('Please Save first.'); return; }
+    if (!this.saved()) { this.saveError.set('Please Save first before submitting.'); return; }
     this.clearAlerts();
 
-    // Push to PassStateService so Pass Details view shows it
     const record: PassRecord = {
       passId        : this.passId(),
       empType       : this.empType(),
@@ -308,7 +403,7 @@ export class PassEntry implements OnInit, OnDestroy {
       ecNo          : this.ecNo,
       empName       : this.empName(),
       empDept       : this.empDept(),
-      contractorFirm: this.contractorFirm,
+      contractorFirm: this.contractorCode,
       issueDate     : this.todayDate,
       validityDate  : this.validityDate,
       gateNo        : this.gateNo,
@@ -324,20 +419,20 @@ export class PassEntry implements OnInit, OnDestroy {
     };
     this.passState.upsert(record);
 
-    // History log
     this.logHistory(
       this.savedPassRegistryId ?? this.savedVehicleId, 'APPROVED',
-      this.ecNo.trim(), `Pass submitted — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
+      this.ecNo.trim(),
+      `Pass submitted — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
     );
 
-    this.saveSuccess.set(`🎉 Pass submitted! ID: ${this.passId()} is now active. Redirecting...`);
+    this.saveSuccess.set(`Pass submitted! ID: ${this.passId()} is now active. Redirecting...`);
     setTimeout(() => this.router.navigate(['/passes/active']), 2200);
   }
 
-  // ── CLEAR ──
+  // ── CLEAR ──────────────────────────────────────────────────────────────────
   clearForm(): void {
     this.vehicleNo = ''; this.vehicleType = ''; this.brandModel = ''; this.vehicleClass = '';
-    this.ecNo = ''; this.contractorFirm = '';
+    this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
     this.empName.set(''); this.empDept.set(''); this.empData = null;
     this.docs.set([]);
@@ -346,7 +441,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.clearAlerts(); this.empFetchError.set('');
   }
 
-  // ── History log (silent) ──
+  // ── HISTORY LOG — silent, never blocks UI ─────────────────────────────────
   private logHistory(passNo: any, action: string, empCode: string, remark: string): void {
     const payload = {
       passNo     : String(passNo ?? ''),
@@ -355,9 +450,16 @@ export class PassEntry implements OnInit, OnDestroy {
       remark     : remark || null,
       dateOfEntry: new Date().toISOString(),
     };
-    this.http.post<any>(API_CONFIG.HISTORY_LOG, payload, { headers: this.POST_HEADERS, observe: 'response' })
-      .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(err => { console.warn('⚠️ [History] silent fail:', err?.status); return of(null); }))
-      .subscribe(res => { if (res?.status === 200 || res?.status === 201) console.log('📋 [History] Logged:', payload.action); });
+    this.http
+      .post<any>(API_CONFIG.HISTORY_LOG, payload, { headers: this.HEADERS, observe: 'response' })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => { console.warn('[History] silent fail:', err?.status); return of(null); })
+      )
+      .subscribe(res => {
+        if (res?.status === 200 || res?.status === 201)
+          console.log('[History] Logged:', payload.action);
+      });
   }
 
   private handleSaveError(err: any, step: string): void {
@@ -369,9 +471,12 @@ export class PassEntry implements OnInit, OnDestroy {
         try { msg = JSON.parse(t)?.message || t; } catch { msg = t; }
         this.saveError.set(`[${step}] [${status}] ${msg.substring(0, 300)}`);
         this.isSaving.set(false);
-      }); return;
+      });
+      return;
     }
-    msg = (typeof body === 'string' && body.trim()) ? body.trim() : (body?.message || body?.error || 'Server error — check backend logs.');
+    msg = (typeof body === 'string' && body.trim())
+      ? body.trim()
+      : (body?.message || body?.error || 'Server error — check backend logs.');
     this.saveError.set(`[${step}] [${status}] ${msg.substring(0, 300)}`);
     this.isSaving.set(false);
   }

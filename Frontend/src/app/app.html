@@ -1,3 +1,7 @@
+@if (!isPassEntryMode) {
+<!-- ════════════════════════════════════════
+     FULL APP SHELL (main tab only)
+     ════════════════════════════════════════ -->
 <div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
   <!-- ════════════════════════════════════════
        SIDEBAR
@@ -39,11 +43,11 @@
         <i class="bi bi-house-door-fill sb-icon"></i>
         <span class="sb-label">Home</span>
       </a>
-            <!-- ── SECTION: PASS MANAGEMENT ── -->
+
+      <!-- ── SECTION: PASS MANAGEMENT ── -->
       <div class="sb-section-label">PASS MANAGEMENT</div>
 
       <!-- Pass Entry (opens in new tab) -->
-      
       <div
         class="sb-item"
         (click)="openPassEntry(); $event.stopPropagation()"
@@ -54,6 +58,7 @@
         <span class="sb-label">Pass Entry</span>
         <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem;margin-left:auto;opacity:0.55"></i>
       </div>
+
       <!-- Pass Details -->
       <a
         routerLink="/pass-details"
@@ -236,3 +241,11 @@
     </main>
   </div>
 </div>
+
+} @else {
+<!-- ════════════════════════════════════════
+     STANDALONE PASS-ENTRY TAB
+     No sidebar. No shell. Just the raw form.
+     ════════════════════════════════════════ -->
+<router-outlet></router-outlet>
+}
