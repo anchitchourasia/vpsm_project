@@ -574,3 +574,38 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   .pe-actions  { flex-direction: column; padding: 1rem; }
   .pe-btn      { justify-content: center; }
 }
+/* ── Grid variants ───────────────────────────────────────────── */
+.pe-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+.pe-grid-1 {
+  grid-template-columns: 1fr;
+}
+
+/* ── Date wrapper — dd/mm/yyyy display trick ─────────────────── */
+.pe-date-wrapper {
+  position  : relative;
+  display   : flex;
+  align-items: center;
+}
+.pe-date-wrapper .pe-date-display {
+  cursor    : pointer;
+  padding-right: 2.2rem;
+}
+.pe-date-hidden {
+  position : absolute;
+  opacity  : 0;
+  width    : 0;
+  height   : 0;
+  pointer-events: none;
+  top      : 0;
+  left     : 0;
+}
+.pe-date-icon {
+  position : absolute;
+  right    : .75rem;
+  color    : #1d6fd8;
+  font-size: 1rem;
+  cursor   : pointer;
+  pointer-events: all;
+}

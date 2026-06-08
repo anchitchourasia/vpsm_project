@@ -29,19 +29,16 @@ interface DocEntry {
 
 const ALLOWED_DOC_TYPES = ['RC', 'PUC', 'INSURANCE', 'LICENSE', 'FITNESS'];
 
-// Auto-detect vehicle class from vehicle type keywords
 function detectVehicleClass(vehicleType: string): string {
   const v = vehicleType.toLowerCase().trim();
   if (!v) return '';
 
-  // Heavy Machinery keywords
   const heavy = [
     'jcb', 'excavator', 'crane', 'dozer', 'bulldozer', 'loader',
     'dumper', 'truck', 'tipper', 'tanker', 'trailer', 'tractor',
     'forklift', 'grader', 'roller', 'mixer', 'transit', 'compactor',
     'paver', 'harvester', 'backhoe', 'rig', 'machinery', 'heavy'
   ];
-  // Two Wheeler keywords
   const twoWheeler = [
     'bike', 'motorcycle', 'scooter', 'activa', 'scooty',
     'moped', 'two wheeler', 'twowheeler', 'pulsar', 'splendor',
@@ -51,10 +48,7 @@ function detectVehicleClass(vehicleType: string): string {
 
   if (heavy.some(k => v.includes(k)))      return 'Heavy_Machinery';
   if (twoWheeler.some(k => v.includes(k))) return 'Two_Wheeler';
-
-  // Default: anything else → Four Wheeler
-  // Only set if type has meaningful content (>= 2 chars)
-  if (v.length >= 2) return 'Four_Wheeler';
+  if (v.length >= 2)                       return 'Four_Wheeler';
   return '';
 }
 
@@ -85,7 +79,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private passState = inject(PassStateService);
 
-  // Signals
+  // ── Signals ────────────────────────────────────────────────────────────────
   empType          = signal<string>('');
   passId           = signal<string>('');
   passIdGenerated  = signal(false);
@@ -93,13 +87,14 @@ export class PassEntry implements OnInit, OnDestroy {
   empFetchError    = signal('');
   empName          = signal('');
   empDept          = signal('');
+  empSalary        = signal('');        // ✅ NEW — salary auto-fill
   isSaving         = signal(false);
   saved            = signal(false);
   saveSuccess      = signal('');
   saveError        = signal('');
   docs             = signal<DocEntry[]>([]);
 
-  // Form fields
+  // ── Form fields ────────────────────────────────────────────────────────────
   vehicleNo      = '';
   vehicleType    = '';
   brandModel     = '';
@@ -108,14 +103,32 @@ export class PassEntry implements OnInit, OnDestroy {
   contractorCode = '';
   validityDate   = '';
   gateNo         = '';
-  parkingArea    = '';   // plain text field now
+  parkingArea    = '';
   remark         = '';
 
-  private empData            : any          = null;
+  private empData            : any           = null;
   private savedVehicleId     : number | null = null;
   private savedPassRegistryId: number | null = null;
 
+  // ── DATE HELPERS ───────────────────────────────────────────────────────────
+  /** Today as yyyy-mm-dd — used for API payloads & [min] binding */
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
+
+  /** ✅ Converts yyyy-mm-dd → dd/mm/yyyy for display fields */
+  formatDateDDMMYYYY(isoDate: string): string {
+    if (!isoDate || isoDate.length < 10) return isoDate ?? '';
+    const [y, m, d] = isoDate.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  /** ✅ Opens native date picker safely — avoids TS2774 ternary error */
+  openDatePicker(input: HTMLInputElement): void {
+    try {
+      (input as any).showPicker();
+    } catch {
+      input.click();
+    }
+  }
 
   availableDocTypes = (currentDoc: DocEntry): string[] => {
     const used = this.docs().filter(d => d !== currentDoc).map(d => d.docType).filter(Boolean);
@@ -126,23 +139,21 @@ export class PassEntry implements OnInit, OnDestroy {
   ngOnInit(): void {}
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
+  // ── EMPLOYEE TYPE SWITCH ───────────────────────────────────────────────────
   setEmpType(t: string): void {
     this.empType.set(t);
     this.ecNo = ''; this.contractorCode = '';
-    this.empName.set(''); this.empDept.set('');
+    this.empName.set(''); this.empDept.set(''); this.empSalary.set(''); // ✅ reset salary
     this.empFetchError.set(''); this.empData = null;
     this.clearAlerts();
   }
 
   // ── VEHICLE TYPE INPUT ─────────────────────────────────────────────────────
-  // Uppercase + auto-detect class
   onVehicleTypeInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     const val   = input.value.toUpperCase();
     this.vehicleType = val;
     input.value      = val;
-
-    // Auto-detect class only if user hasn't manually locked it
     const detected = detectVehicleClass(val);
     if (detected) this.vehicleClass = detected;
   }
@@ -168,6 +179,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empFetchError.set('');
     this.empName.set('');
     this.empDept.set('');
+    this.empSalary.set('');   // ✅ clear salary before fetch
     this.empData = null;
     this.fetchingEmployee.set(true);
 
@@ -192,13 +204,13 @@ export class PassEntry implements OnInit, OnDestroy {
           return;
         }
 
-        // Array row: [empNo, name, salary, managerId, email, deptId, deptName]
         const match = rows.find(r => String(r[EMP_IDX.empNo]) === ecNo);
 
         if (match) {
           this.empData = match;
           this.empName.set(String(match[EMP_IDX.name]    || ''));
           this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
+          this.empSalary.set(String(match[EMP_IDX.salary] || '')); // ✅ auto-fill salary
           this.empFetchError.set('');
         } else {
           this.empFetchError.set(`No employee found for EC No: ${ecNo}`);
@@ -274,7 +286,7 @@ export class PassEntry implements OnInit, OnDestroy {
       isBlacklisted: 'N',
     };
 
-    console.log('[Step 1] Vehicle payload:', vehiclePayload);
+    console.log('[Step 1] Vehicle payload:', JSON.stringify(vehiclePayload, null, 2));
 
     this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, vehiclePayload, { headers: this.HEADERS })
       .pipe(
@@ -333,11 +345,12 @@ export class PassEntry implements OnInit, OnDestroy {
         this.passId.set(genId);
         this.passIdGenerated.set(true);
 
-        // Log CREATE — use actual passRegistryId if returned, fallback to vehicleId
+        // ✅ History remark — validity date shown as dd/mm/yyyy
         this.logHistory(
           this.savedPassRegistryId ?? this.savedVehicleId,
-          'CREATE', this.ecNo.trim(),
-          `Pass raised for Vehicle ${this.vehicleNo} Gate: ${this.gateNo}, Valid till: ${this.validityDate}`
+          'CREATE',
+          this.ecNo.trim(),
+          `Pass raised for Vehicle ${this.vehicleNo} Gate: ${this.gateNo}, Valid till: ${this.formatDateDDMMYYYY(this.validityDate)}`
         );
 
         if (this.docs().length > 0) { this.step3UploadDocs(); }
@@ -434,7 +447,8 @@ export class PassEntry implements OnInit, OnDestroy {
     this.vehicleNo = ''; this.vehicleType = ''; this.brandModel = ''; this.vehicleClass = '';
     this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
-    this.empName.set(''); this.empDept.set(''); this.empData = null;
+    this.empName.set(''); this.empDept.set(''); this.empSalary.set(''); // ✅ reset salary
+    this.empData = null;
     this.docs.set([]);
     this.passId.set(''); this.passIdGenerated.set(false);
     this.saved.set(false); this.savedVehicleId = null; this.savedPassRegistryId = null;
