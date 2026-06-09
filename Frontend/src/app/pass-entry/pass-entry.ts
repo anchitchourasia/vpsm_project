@@ -13,10 +13,9 @@ const HTTP_TIMEOUT_MS = 12000;
 // Response format: [empNo, name, salary, managerId, email, deptId, deptName]
 const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
 
-function generatePassId(): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.floor(10000 + Math.random() * 90000);
-  return `PASS-${date}-${rand}`;
+// ✅ ADD THIS
+function formatPassId(dbPassId: number): string {
+  return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
 }
 
 interface DocEntry {
@@ -341,7 +340,7 @@ export class PassEntry implements OnInit, OnDestroy {
       .subscribe((pRes: any) => {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
-        const genId = generatePassId();
+        const genId = formatPassId(this.savedPassRegistryId as number);  // PASS-HEG-0047
         this.passId.set(genId);
         this.passIdGenerated.set(true);
 
