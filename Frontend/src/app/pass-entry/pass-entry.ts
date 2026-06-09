@@ -255,10 +255,12 @@ export class PassEntry implements OnInit, OnDestroy {
     if (this.validityDate <= this.todayDate)
                                   return 'Validity Date must be in the future.';
     if (!this.gateNo)             return 'Gate No is required.';
+    
     for (const doc of this.docs()) {
       if (!doc.docType)        return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())   return `Document No is required for ${doc.docType}.`;
       if (!doc.validUpto)      return `Valid Upto date is required for ${doc.docType}.`;
+      if (!doc.file)           return `Please upload a PDF file for ${doc.docType}.`;
     }
     return '';
   }
@@ -420,6 +422,7 @@ export class PassEntry implements OnInit, OnDestroy {
   onSubmit(): void {
     if (!this.saved()) { this.saveError.set('Please Save first before submitting.'); return; }
     this.clearAlerts();
+    
 
     const record: PassRecord = {
       passId        : this.passId(),
