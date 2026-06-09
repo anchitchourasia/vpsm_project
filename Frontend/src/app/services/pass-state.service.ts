@@ -22,13 +22,36 @@ export interface PassRecord {
   createdAt      : string;
 }
 
+const STORAGE_KEY = 'vpsm_pass_records';
+
+/** Read persisted records from localStorage safely */
+function loadFromStorage(): PassRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as PassRecord[];
+  } catch {
+    return [];
+  }
+}
+
+/** Persist records to localStorage */
+function saveToStorage(records: PassRecord[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch {
+    console.warn('[PassStateService] localStorage write failed.');
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class PassStateService {
 
   private zone    = inject(NgZone);
   private channel = new BroadcastChannel('pass_submitted_channel');
 
-  private _passes = signal<PassRecord[]>([]);
+  // ✅ Initialize signal from localStorage — survives refresh & session close
+  private _passes = signal<PassRecord[]>(loadFromStorage());
 
   /** All passes — read-only */
   readonly passes = this._passes.asReadonly();
@@ -38,8 +61,13 @@ export class PassStateService {
     this._passes().filter(p => p.status === 'Submitted')
   );
 
+  /** All saved (not yet submitted) passes — draft recovery */
+  readonly savedDrafts = computed(() =>
+    this._passes().filter(p => p.status === 'Saved')
+  );
+
   constructor() {
-    // 🔑 Listen for records broadcast from the pass-entry tab
+    // Listen for records broadcast from pass-entry tab (cross-tab sync)
     this.channel.onmessage = (event) => {
       if (event.data?.type === 'PASS_SUBMITTED') {
         this.zone.run(() => this.upsert(event.data.record as PassRecord));
@@ -47,33 +75,55 @@ export class PassStateService {
     };
   }
 
-  /** Add or update a pass record in memory */
+  /** Add or update a pass record — persists to localStorage immediately */
   upsert(record: PassRecord): void {
     this._passes.update(list => {
       const idx = list.findIndex(p => p.passId === record.passId);
+      let updated: PassRecord[];
       if (idx >= 0) {
-        const updated = [...list];
+        updated = [...list];
         updated[idx] = record;
-        return updated;
+      } else {
+        updated = [record, ...list]; // newest first
       }
-      return [record, ...list]; // newest first
+      saveToStorage(updated);  // ✅ Persist every upsert
+      return updated;
     });
   }
 
-  /** Broadcast a submitted record to ALL open tabs of this app */
+  /** Broadcast a submitted record to ALL open tabs */
   broadcast(record: PassRecord): void {
     this.channel.postMessage({ type: 'PASS_SUBMITTED', record });
   }
 
   /** Mark a saved pass as submitted */
   markSubmitted(passId: string): void {
-    this._passes.update(list =>
-      list.map(p => p.passId === passId ? { ...p, status: 'Submitted' } : p)
-    );
+    this._passes.update(list => {
+      const updated = list.map(p =>
+        p.passId === passId ? { ...p, status: 'Submitted' as const } : p
+      );
+      saveToStorage(updated);  // ✅ Persist status change
+      return updated;
+    });
   }
 
   /** Get a single pass by ID */
   getById(passId: string): PassRecord | undefined {
     return this._passes().find(p => p.passId === passId);
+  }
+
+  /** Delete a draft pass (Saved status only) from storage */
+  deleteDraft(passId: string): void {
+    this._passes.update(list => {
+      const updated = list.filter(p => !(p.passId === passId && p.status === 'Saved'));
+      saveToStorage(updated);
+      return updated;
+    });
+  }
+
+  /** Clear all records — for admin/reset use only */
+  clearAll(): void {
+    this._passes.set([]);
+    localStorage.removeItem(STORAGE_KEY);
   }
 }

@@ -128,7 +128,34 @@ export class PassEntry implements OnInit, OnDestroy {
   };
 
   constructor(private http: HttpClient, private router: Router) {}
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    try {
+    const raw = localStorage.getItem('vpsm_resume_draft');
+    if (raw) {
+      const draft: PassRecord = JSON.parse(raw);
+      localStorage.removeItem('vpsm_resume_draft'); // consume it — one-time
+      this.empType.set(draft.empType);
+      this.vehicleNo      = draft.vehicleNo;
+      this.vehicleType    = draft.vehicleType;
+      this.vehicleClass   = draft.vehicleClass;
+      this.brandModel     = draft.brandModel;
+      this.ecNo           = draft.ecNo;
+      this.contractorCode = draft.contractorFirm;
+      this.validityDate   = draft.validityDate;
+      this.gateNo         = draft.gateNo;
+      this.parkingArea    = draft.parkingArea;
+      this.remark         = draft.remark;
+      this.empName.set(draft.empName);
+      this.empDept.set(draft.empDept);
+      this.passId.set(draft.passId);
+      this.passIdGenerated.set(true);
+      this.saved.set(true); // already saved — user can go straight to Submit
+      this.saveSuccess.set(`Draft resumed — Pass ID: ${draft.passId}. Review and Submit.`);
+    }
+  } catch { /* silent */ }
+
+
+  }
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   // ── EMPLOYEE TYPE SWITCH ───────────────────────────────────────────────────
