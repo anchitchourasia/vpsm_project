@@ -80,7 +80,7 @@ const DUMMY_PASSES: any[] = [
           <tbody>
             <tr *ngFor="let p of pagedPasses(); let i = index">
               <td>{{ (currentPage()-1)*pageSize() + i + 1 }}</td>
-              <td class="td-muted">{{ p.passId }}</td>
+              <td class="td-muted">{{ formatPassId(p.passId) }}</td>
               <td><strong>{{ p.empType === 'Contractor' ? (p.contractorCode || '—') : (p.employeeNo || '—') }}</strong></td>
               <td>
                 <span [class]="getEmpTypeBadgeClass(p.empType)">
@@ -127,7 +127,7 @@ const DUMMY_PASSES: any[] = [
 <div class="modal-overlay" *ngIf="showViewModal()" (click)="closeViewModal()"></div>
 <div class="modal-box modal-lg" *ngIf="showViewModal() && viewPass()">
   <div class="modal-header modal-header-view">
-    <h3>🪪 Pass Detail — #{{ viewPass().passId }}</h3>
+    <h3>🪪 Pass Detail — {{ formatPassId(viewPass().passId) }}</h3>
     <button class="modal-close" (click)="closeViewModal()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="modal-body">
@@ -244,6 +244,7 @@ export class ExpiredPasses implements OnInit, OnDestroy {
         (p.mobileNo           || '').toLowerCase().includes(q) ||
         (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
         String(p.passId       || '').includes(q);
+        this.formatPassId(p.passId).toLowerCase().includes(q);
       const matchEmpType = et === 'ALL' || (p.empType || '') === et;
       return matchSearch && matchEmpType;
     });
@@ -264,7 +265,11 @@ export class ExpiredPasses implements OnInit, OnDestroy {
   onFilterEmpType(v: string) { this.filterEmpType.set(v); this.currentPage.set(1); }
   onPageSize     (v: string) { this.pageSize.set(+v);     this.currentPage.set(1); }
   goToPage       (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
-
+  
+  formatPassId(dbPassId: number | null | undefined): string {
+    if (!dbPassId && dbPassId !== 0) return '—';
+    return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
+  }
   formatDate(d: string): string {
     if (!d) return '—';
     const dt = new Date(d);
