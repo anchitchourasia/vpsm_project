@@ -13,7 +13,6 @@ const HTTP_TIMEOUT_MS = 12000;
 // Response format: [empNo, name, salary, managerId, email, deptId, deptName]
 const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
 
-// ✅ ADD THIS
 function formatPassId(dbPassId: number): string {
   return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
 }
@@ -23,6 +22,7 @@ interface DocEntry {
   docType  : string;
   docNo    : string;
   validUpto: string;
+  // ✅ CHANGED: file kept for UI display (name shown to user) but NOT sent to backend
   file     : File | null;
 }
 
@@ -72,8 +72,10 @@ export class PassEntry implements OnInit, OnDestroy {
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
+  // ✅ CHANGED: MULTIPART_HEADERS still needed — upload endpoint is @RequestParam (form fields)
   private readonly MULTIPART_HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
+    // DO NOT set Content-Type — browser sets multipart boundary automatically
   });
 
   private passState = inject(PassStateService);
@@ -86,7 +88,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empFetchError    = signal('');
   empName          = signal('');
   empDept          = signal('');
-  empSalary        = signal('');        // ✅ NEW — salary auto-fill
+  empSalary        = signal('');
   isSaving         = signal(false);
   saved            = signal(false);
   saveSuccess      = signal('');
@@ -110,23 +112,16 @@ export class PassEntry implements OnInit, OnDestroy {
   private savedPassRegistryId: number | null = null;
 
   // ── DATE HELPERS ───────────────────────────────────────────────────────────
-  /** Today as yyyy-mm-dd — used for API payloads & [min] binding */
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
 
-  /** ✅ Converts yyyy-mm-dd → dd/mm/yyyy for display fields */
   formatDateDDMMYYYY(isoDate: string): string {
     if (!isoDate || isoDate.length < 10) return isoDate ?? '';
     const [y, m, d] = isoDate.split('-');
     return `${d}/${m}/${y}`;
   }
 
-  /** ✅ Opens native date picker safely — avoids TS2774 ternary error */
   openDatePicker(input: HTMLInputElement): void {
-    try {
-      (input as any).showPicker();
-    } catch {
-      input.click();
-    }
+    try { (input as any).showPicker(); } catch { input.click(); }
   }
 
   availableDocTypes = (currentDoc: DocEntry): string[] => {
@@ -142,7 +137,7 @@ export class PassEntry implements OnInit, OnDestroy {
   setEmpType(t: string): void {
     this.empType.set(t);
     this.ecNo = ''; this.contractorCode = '';
-    this.empName.set(''); this.empDept.set(''); this.empSalary.set(''); // ✅ reset salary
+    this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empFetchError.set(''); this.empData = null;
     this.clearAlerts();
   }
@@ -178,7 +173,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empFetchError.set('');
     this.empName.set('');
     this.empDept.set('');
-    this.empSalary.set('');   // ✅ clear salary before fetch
+    this.empSalary.set('');
     this.empData = null;
     this.fetchingEmployee.set(true);
 
@@ -209,7 +204,7 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empData = match;
           this.empName.set(String(match[EMP_IDX.name]    || ''));
           this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
-          this.empSalary.set(String(match[EMP_IDX.salary] || '')); // ✅ auto-fill salary
+          this.empSalary.set(String(match[EMP_IDX.salary] || ''));
           this.empFetchError.set('');
         } else {
           this.empFetchError.set(`No employee found for EC No: ${ecNo}`);
@@ -239,6 +234,8 @@ export class PassEntry implements OnInit, OnDestroy {
     const file = input.files[0];
     if (file.type !== 'application/pdf') { this.saveError.set('Only PDF files are allowed.'); return; }
     if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.'); return; }
+    // ✅ Store file reference for UI display only (name shown to user)
+    // File bytes are NOT sent to backend — backend reads from local disk
     doc.file = file;
     this.clearAlerts();
   }
@@ -268,16 +265,20 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
-  // ── SAVE — 3-step sequential ───────────────────────────────────────────────
+  // ── SAVE (3-step pipeline) ─────────────────────────────────────────────────
   onSave(): void {
-    this.clearAlerts();
     const err = this.validate();
     if (err) { this.saveError.set(err); return; }
     if (this.isSaving()) return;
+    this.clearAlerts();
     this.isSaving.set(true);
+    this.step1RegisterVehicle();
+  }
 
-    const vehiclePayload = {
-      vehicleNo    : this.vehicleNo.trim(),
+  // STEP 1 — POST /api/vehicles/register
+  private step1RegisterVehicle(): void {
+    const payload = {
+      vehicleNo    : this.vehicleNo.trim().toUpperCase(),
       vehicleType  : this.vehicleType.trim(),
       vehicleClass : this.vehicleClass,
       brandModel   : this.brandModel.trim() || null,
@@ -285,82 +286,69 @@ export class PassEntry implements OnInit, OnDestroy {
       isBlacklisted: 'N',
     };
 
-    console.log('[Step 1] Vehicle payload:', JSON.stringify(vehiclePayload, null, 2));
-
-    this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, vehiclePayload, { headers: this.HEADERS })
+    console.log('[Step 1] Registering vehicle...');
+    this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, payload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err2 => { this.handleSaveError(err2, 'Step 1 — Vehicle'); return of(null); })
+        catchError(err => { this.handleSaveError(err, 'Step 1 — Vehicle'); return of(null); })
       )
-      .subscribe((vRes: any) => {
+      .subscribe(vRes => {
         if (!vRes) return;
         this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
-        if (!this.savedVehicleId) {
-          this.saveError.set('[Step 1] Vehicle registered but no ID returned. Check backend response.');
-          this.isSaving.set(false); return;
-        }
+        console.log('[Step 1] Vehicle ID:', this.savedVehicleId);
         this.step2IssuePass();
       });
   }
 
+  // STEP 2 — POST /api/passes/issue
   private step2IssuePass(): void {
-    const passPayload: any = {
+    const payload = {
       vehicle          : { vehicleId: this.savedVehicleId },
-      typeOfVehicle    : this.vehicleType  || null,
-      empType          : this.empType(),
       issueDate        : this.todayDate,
       validityDate     : this.validityDate,
-      gateNo           : this.gateNo.toUpperCase().trim(),
-      parkingToBeUsed  : this.parkingArea.trim().toUpperCase() || null,
-      status           : 'Active',
-      isActive         : 'Y',
-      remarks          : this.remark || null,
+      employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim()           : null,
+      employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim()           : null,
       dept             : this.empDept() || null,
-      mobileNo         : null,
-      enterBy          : this.ecNo.trim() || 'ADMIN',
+      contractorCode   : this.empType() === 'Contractor'       ? this.contractorCode.trim() : null,
+      gateNo           : this.gateNo,
+      parkingToBeUsed  : this.parkingArea.trim() || null,
+      status           : 'Active',
+      empType          : this.empType(),
+      enterBy          : (this.ecNo.trim() || 'ADMIN').toUpperCase(),
       enterDate        : this.todayDate,
-      employeeNo       : this.empType() === 'Company_Employee'
-                           ? (this.ecNo.toUpperCase().trim() || null)
-                           : null,
-      employeeCompanyNo: this.empType() === 'Company_Employee'
-                           ? (this.empName().trim() || null)
-                           : null,
-      contractorCode   : this.empType() === 'Contractor'
-                           ? (this.contractorCode.toUpperCase().trim() || null)
-                           : null,
+      remarks          : this.remark.trim() || null,
     };
 
-    console.log('[Step 2] Pass payload:', JSON.stringify(passPayload, null, 2));
-
-    this.http.post<any>(API_CONFIG.PASSES_ISSUE, passPayload, { headers: this.HEADERS })
+    console.log('[Step 2] Issuing pass...');
+    this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => { this.handleSaveError(err, 'Step 2 — Pass Issue'); return of(null); })
+        catchError(err => { this.handleSaveError(err, 'Step 2 — Pass'); return of(null); })
       )
-      .subscribe((pRes: any) => {
+      .subscribe(pRes => {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
-        const genId = formatPassId(this.savedPassRegistryId as number);  // PASS-HEG-0047
+
+        // ✅ Use DB passId as the canonical Pass ID — no random UUID
+        const genId = formatPassId(this.savedPassRegistryId!);
         this.passId.set(genId);
         this.passIdGenerated.set(true);
 
-        // ✅ History remark — validity date shown as dd/mm/yyyy
-        this.logHistory(
-          this.savedPassRegistryId ?? this.savedVehicleId,
-          'CREATE',
-          this.ecNo.trim(),
-          `Pass raised for Vehicle ${this.vehicleNo} Gate: ${this.gateNo}, Valid till: ${this.formatDateDDMMYYYY(this.validityDate)}`
-        );
-
+        console.log('[Step 2] Pass ID:', genId, '| DB ID:', this.savedPassRegistryId);
         if (this.docs().length > 0) { this.step3UploadDocs(); }
         else { this.finaliseSave(); }
       });
   }
 
+  // STEP 3 — POST /api/documents/upload
+  // ✅ UPDATED: Backend no longer stores file bytes (no @Lob BLOB column).
+  // DB only stores FILE_NAME (VARCHAR). Backend reads actual file from server disk.
+  // We only send: vehicleId, enterBy, {docType}No, {docType}Start, {docType}Expiry, {docType}FileName
+  // We do NOT send the File binary blob — backend ignores it.
   private step3UploadDocs(): void {
     const fd = new FormData();
     fd.append('vehicleId', String(this.savedVehicleId));
-    fd.append('enterBy', this.ecNo.trim() || 'ADMIN');
+    fd.append('enterBy', (this.ecNo.trim() || 'ADMIN').toUpperCase());
     let hasAny = false;
 
     for (const doc of this.docs()) {
@@ -368,16 +356,44 @@ export class PassEntry implements OnInit, OnDestroy {
       if (!dt) continue;
       hasAny = true;
 
-      if      (dt === 'rc')        { fd.append('rcNo',        doc.docNo); fd.append('rcStart',        this.todayDate); fd.append('rcExpiry',        doc.validUpto); if (doc.file) fd.append('rcFile',        doc.file, doc.file.name); }
-      else if (dt === 'puc')       { fd.append('pucNo',       doc.docNo); fd.append('pucStart',       this.todayDate); fd.append('pucExpiry',       doc.validUpto); if (doc.file) fd.append('pucFile',       doc.file, doc.file.name); }
-      else if (dt === 'insurance') { fd.append('insuranceNo', doc.docNo); fd.append('insuranceStart', this.todayDate); fd.append('insuranceExpiry', doc.validUpto); if (doc.file) fd.append('insuranceFile', doc.file, doc.file.name); }
-      else if (dt === 'fitness')   { fd.append('fitnessNo',   doc.docNo); fd.append('fitnessStart',   this.todayDate); fd.append('fitnessExpiry',   doc.validUpto); if (doc.file) fd.append('fitnessFile',   doc.file, doc.file.name); }
-      else if (dt === 'license')   { fd.append('loadTestNo',  doc.docNo); fd.append('loadTestStart',  this.todayDate); fd.append('loadTestExpiry',  doc.validUpto); if (doc.file) fd.append('loadTestFile',  doc.file, doc.file.name); }
+      // ✅ UPDATED: Send only fileName as a string — no File blob appended
+      // Backend parameter is pucFileName, rcFileName etc. (not pucFile / rcFile)
+      // The @Transient fileData field accepts the string but does NOT persist to DB.
+      const fileName = doc.file ? doc.file.name : `${dt}_${this.savedVehicleId}.pdf`;
+
+      if (dt === 'rc') {
+        fd.append('rcNo',       doc.docNo);
+        fd.append('rcStart',    this.todayDate);
+        fd.append('rcExpiry',   doc.validUpto);
+        fd.append('rcFileName', fileName);   // ✅ just the name string — stored as VARCHAR
+        // ✅ REMOVED: fd.append('rcFile', doc.file, ...) — no blob needed
+      } else if (dt === 'puc') {
+        fd.append('pucNo',       doc.docNo);
+        fd.append('pucStart',    this.todayDate);
+        fd.append('pucExpiry',   doc.validUpto);
+        fd.append('pucFileName', fileName);
+      } else if (dt === 'insurance') {
+        fd.append('insuranceNo',       doc.docNo);
+        fd.append('insuranceStart',    this.todayDate);
+        fd.append('insuranceExpiry',   doc.validUpto);
+        fd.append('insuranceFileName', fileName);
+      } else if (dt === 'fitness') {
+        fd.append('fitnessNo',       doc.docNo);
+        fd.append('fitnessStart',    this.todayDate);
+        fd.append('fitnessExpiry',   doc.validUpto);
+        fd.append('fitnessFileName', fileName);
+      } else if (dt === 'license') {
+        // Maps to LOAD_TEST in backend
+        fd.append('loadTestNo',       doc.docNo);
+        fd.append('loadTestStart',    this.todayDate);
+        fd.append('loadTestExpiry',   doc.validUpto);
+        fd.append('loadTestFileName', fileName);
+      }
     }
 
     if (!hasAny) { this.finaliseSave(); return; }
 
-    console.log('[Step 3] Uploading documents...');
+    console.log('[Step 3] Uploading document metadata...');
     this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
@@ -446,7 +462,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.vehicleNo = ''; this.vehicleType = ''; this.brandModel = ''; this.vehicleClass = '';
     this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
-    this.empName.set(''); this.empDept.set(''); this.empSalary.set(''); // ✅ reset salary
+    this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empData = null;
     this.docs.set([]);
     this.passId.set(''); this.passIdGenerated.set(false);

@@ -1108,31 +1108,31 @@ export class Documents implements OnInit, OnDestroy {
       fd.append('pucNo',     this.form.pucNo.trim());
       fd.append('pucStart',  this.form.pucStart);
       fd.append('pucExpiry', this.form.pucExpiry);
-      fd.append('pucFile',   this.form.pucFile, this.form.pucFile.name);
+      fd.append('pucFileName', this.form.pucFile.name);
     }
     if (this.form.insuranceFile) {
       fd.append('insuranceNo',     this.form.insuranceNo.trim());
       fd.append('insuranceStart',  this.form.insuranceStart);
       fd.append('insuranceExpiry', this.form.insuranceExpiry);
-      fd.append('insuranceFile',   this.form.insuranceFile, this.form.insuranceFile.name);
+      fd.append('insuranceFileName', this.form.insuranceFile.name);
     }
     if (this.form.rcFile) {
       fd.append('rcNo',     this.form.rcNo.trim());
       fd.append('rcStart',  this.form.rcStart);
       fd.append('rcExpiry', this.form.rcExpiry);
-      fd.append('rcFile',   this.form.rcFile, this.form.rcFile.name);
+      fd.append('rcFileName', this.form.rcFile.name);
     }
     if (this.form.fitnessFile) {
       fd.append('fitnessNo',     this.form.fitnessNo.trim());
       fd.append('fitnessStart',  this.form.fitnessStart);
       fd.append('fitnessExpiry', this.form.fitnessExpiry);
-      fd.append('fitnessFile',   this.form.fitnessFile, this.form.fitnessFile.name);
+      fd.append('fitnessFileName', this.form.fitnessFile.name);
     }
     if (this.form.loadTestFile) {
       fd.append('loadTestNo',     this.form.loadTestNo.trim());
       fd.append('loadTestStart',  this.form.loadTestStart);
       fd.append('loadTestExpiry', this.form.loadTestExpiry);
-      fd.append('loadTestFile',   this.form.loadTestFile, this.form.loadTestFile.name);
+      fd.append('loadTestFileName', this.form.loadTestFile.name);
     }
 
     const enterBy           = this.form.enterBy.trim();
@@ -1297,7 +1297,7 @@ export class Documents implements OnInit, OnDestroy {
   // ── DOWNLOAD PDF ──
   downloadPdf(d: any): void {
     if (!d?.documentId || !d?.fileName) return;
-    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${d.documentId}`;
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${d.documentId}`;
     this.http.get(url, { headers: this.HEADERS, responseType: 'blob' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
