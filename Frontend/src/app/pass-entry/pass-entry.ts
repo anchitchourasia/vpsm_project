@@ -243,6 +243,7 @@ export class PassEntry implements OnInit, OnDestroy {
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
 
   // ── VALIDATION ─────────────────────────────────────────────────────────────
+    // ── VALIDATION (Save — no doc restriction) ─────────────────────────────────
   private validate(): string {
     if (!this.vehicleNo.trim())   return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
@@ -255,7 +256,23 @@ export class PassEntry implements OnInit, OnDestroy {
     if (this.validityDate <= this.todayDate)
                                   return 'Validity Date must be in the future.';
     if (!this.gateNo)             return 'Gate No is required.';
-    
+    for (const doc of this.docs()) {
+      if (!doc.docType)        return 'Select Document Type for all document rows.';
+      if (!doc.docNo.trim())   return `Document No is required for ${doc.docType}.`;
+      if (!doc.validUpto)      return `Valid Upto date is required for ${doc.docType}.`;
+      if (!doc.file)           return `Please upload a PDF file for ${doc.docType}.`;
+    }
+    return '';
+  }
+
+  // ── VALIDATION (Submit — all 5 docs mandatory) ─────────────────────────────
+  private validateSubmit(): string {
+    if (this.docs().length < ALLOWED_DOC_TYPES.length) {
+      const missing = ALLOWED_DOC_TYPES.filter(
+        t => !this.docs().some(d => d.docType === t)
+      );
+      return `All 5 documents are mandatory. Missing: ${missing.join(', ')}.`;
+    }
     for (const doc of this.docs()) {
       if (!doc.docType)        return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())   return `Document No is required for ${doc.docType}.`;
@@ -421,7 +438,9 @@ export class PassEntry implements OnInit, OnDestroy {
   // ── SUBMIT ─────────────────────────────────────────────────────────────────
   onSubmit(): void {
     if (!this.saved()) { this.saveError.set('Please Save first before submitting.'); return; }
-    this.clearAlerts();
+    const docErr = this.validateSubmit();
+    if (docErr) { this.saveError.set(docErr); return; }
+    this.clearAlerts(); 
     
 
     const record: PassRecord = {
