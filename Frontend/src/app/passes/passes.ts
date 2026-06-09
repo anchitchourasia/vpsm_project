@@ -51,13 +51,11 @@ const EMPTY_FORM = (): PassForm => ({
 })
 export class Passes implements OnInit, OnDestroy {
 
-  // ✅ FIX: lowercase 'x-api-key' — uppercase was breaking the API
   private readonly HEADERS = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
 
-  // ── NEW: used for history POST (includes explicit Accept header) ──
   private readonly POST_HEADERS = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
@@ -89,7 +87,9 @@ export class Passes implements OnInit, OnDestroy {
         (p.dept                   || '').toLowerCase().includes(q) ||
         (p.mobileNo               || '').toLowerCase().includes(q) ||
         (p.vehicle?.vehicleNo     || '').toLowerCase().includes(q) ||
-        String(p.passId           || '').includes(q);
+        String(p.passId           || '').includes(q)              ||
+        // ✅ NEW — search also matches formatted ID e.g. "PASS-HEG-0047"
+        this.formatPassId(p.passId).toLowerCase().includes(q);
       const rowStatus    = p.status || p.passStatus || '';
       const matchStatus  = st === 'ALL' || rowStatus === st;
       const matchEmpType = et === 'ALL' || (p.empType || '') === et;
@@ -207,6 +207,13 @@ export class Passes implements OnInit, OnDestroy {
   onFilterEmpType(v: string) { this.filterEmpType.set(v); this.currentPage.set(1); }
   onPageSize     (v: string) { this.pageSize.set(+v);     this.currentPage.set(1); }
   goToPage       (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
+
+  // ✅ NEW — formats DB integer passId → "PASS-HEG-0047"
+  // Same logic as pass-entry.ts so both screens show identical Pass IDs
+  formatPassId(dbPassId: number | null | undefined): string {
+    if (!dbPassId && dbPassId !== 0) return '—';
+    return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
+  }
 
   formatDate(d: string): string {
     if (!d) return '—';
@@ -374,7 +381,6 @@ export class Passes implements OnInit, OnDestroy {
         const savedId = res?.passId ?? this.editId() ?? '';
         const empCode = (this.form.employeeNo || this.form.contractorCode || 'ADMIN').toUpperCase();
 
-        // ── Determine action based on status being saved ──
         const action = isEdit
           ? (this.form.passStatus === 'Surrendered' ? 'SURRENDER' : 'APPROVED')
           : 'CREATE';
@@ -383,7 +389,6 @@ export class Passes implements OnInit, OnDestroy {
           ? `Pass ${savedId} updated — status: ${this.form.passStatus}`
           : `New pass issued for Vehicle ID ${this.form.vehicleId}`;
 
-        // ── Auto-log to history (silent, never blocks user) ──
         this.logHistory(savedId, action, empCode, remark);
 
         this.saveSuccess.set(
@@ -398,6 +403,7 @@ export class Passes implements OnInit, OnDestroy {
         } else {
           this.allPassesRaw.set([res, ...this.allPassesRaw()]);
         }
+
         setTimeout(() => this.closeModal(), 1200);
       });
   }
@@ -430,7 +436,6 @@ export class Passes implements OnInit, OnDestroy {
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
         catchError(err => {
-          // Silent fail — never surface to user
           console.warn('⚠️ [History Log] Failed silently:', err?.status, err?.error);
           return of(null);
         })

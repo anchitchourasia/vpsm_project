@@ -37,7 +37,7 @@
         <i class="bi bi-search search-icon"></i>
         <input
           type="text"
-          placeholder="Search emp code, contractor, dept, mobile, vehicle no..."
+          placeholder="Search pass id, emp code, contractor, dept, mobile, vehicle no..."
           [value]="searchText()"
           (input)="onSearch($any($event.target).value)"
           class="search-input"
@@ -75,7 +75,6 @@
               <th>EMP / CONTRACTOR</th>
               <th>EMP TYPE</th>
               <th>DEPT / AREA</th>
-              <!-- ✅ FIX: show vehicle no from nested object in table too -->
               <th>VEHICLE NO</th>
               <th>TYPE OF VEHICLE</th>
               <th>GATE</th>
@@ -88,7 +87,10 @@
           <tbody>
             <tr *ngFor="let p of pagedPasses(); let i = index">
               <td>{{ (currentPage()-1)*pageSize() + i + 1 }}</td>
-              <td class="td-muted">{{ p.passId }}</td>
+
+              <!-- ✅ CHANGE 1 — formatted Pass ID instead of raw number -->
+              <td class="td-passid"><strong>{{ formatPassId(p.passId) }}</strong></td>
+
               <td>
                 <strong>{{ p.empType === 'Contractor' ? (p.contractorCode || '—') : (p.employeeNo || '—') }}</strong>
               </td>
@@ -98,7 +100,6 @@
                 </span>
               </td>
               <td>{{ p.dept || '—' }}</td>
-              <!-- ✅ FIX: p.vehicle?.vehicleNo instead of p.vehicleNo -->
               <td><strong>{{ p.vehicle?.vehicleNo || '—' }}</strong></td>
               <td>{{ p.typeOfVehicle || p.vehicle?.vehicleType || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
@@ -161,7 +162,8 @@
 <div class="modal-overlay" *ngIf="showModal()" (click)="closeModal()"></div>
 <div class="modal-box modal-lg" *ngIf="showModal()">
   <div class="modal-header">
-    <h3>{{ isEditMode() ? '✏️ Edit Pass — #' + editId() : '➕ Issue New Pass' }}</h3>
+    <!-- ✅ CHANGE 2 — formatted Pass ID in edit modal title -->
+    <h3>{{ isEditMode() ? '✏️ Edit Pass — ' + formatPassId(editId()) : '➕ Issue New Pass' }}</h3>
     <button class="modal-close" (click)="closeModal()">
       <i class="bi bi-x-lg"></i>
     </button>
@@ -358,7 +360,8 @@
 <div class="modal-overlay" *ngIf="showViewModal()" (click)="closeViewModal()"></div>
 <div class="modal-box modal-lg" *ngIf="showViewModal() && viewPass()">
   <div class="modal-header modal-header-view">
-    <h3>🪪 Pass Detail — #{{ viewPass().passId }}</h3>
+    <!-- ✅ CHANGE 3 — formatted Pass ID in view modal title -->
+    <h3>🪪 Pass Detail — {{ formatPassId(viewPass().passId) }}</h3>
     <button class="modal-close" (click)="closeViewModal()">
       <i class="bi bi-x-lg"></i>
     </button>
@@ -402,7 +405,7 @@
         </div>
       </div>
 
-      <!-- VEHICLE — ✅ ALL FIXED: reads from nested vehicle object -->
+      <!-- VEHICLE -->
       <div class="detail-section">
         <div class="detail-section-title">VEHICLE</div>
         <div class="detail-row">
@@ -428,6 +431,13 @@
       <!-- PASS INFO -->
       <div class="detail-section">
         <div class="detail-section-title">PASS INFO</div>
+
+        <!-- ✅ CHANGE 4 — Pass ID row added as first item in PASS INFO section -->
+        <div class="detail-row">
+          <span class="detail-label">Pass ID</span>
+          <strong class="detail-value">{{ formatPassId(viewPass().passId) }}</strong>
+        </div>
+
         <div class="detail-row">
           <span class="detail-label">Issue Date</span>
           <strong class="detail-value">{{ formatDate(viewPass().issueDate) }}</strong>
