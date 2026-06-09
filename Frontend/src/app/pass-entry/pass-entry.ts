@@ -22,7 +22,6 @@ interface DocEntry {
   docType  : string;
   docNo    : string;
   validUpto: string;
-  // ✅ CHANGED: file kept for UI display (name shown to user) but NOT sent to backend
   file     : File | null;
 }
 
@@ -72,7 +71,6 @@ export class PassEntry implements OnInit, OnDestroy {
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
-  // ✅ CHANGED: MULTIPART_HEADERS still needed — upload endpoint is @RequestParam (form fields)
   private readonly MULTIPART_HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
     // DO NOT set Content-Type — browser sets multipart boundary automatically
@@ -228,22 +226,24 @@ export class PassEntry implements OnInit, OnDestroy {
     } else { this.clearAlerts(); }
   }
 
+  // ✅ FIXED: Use signal update instead of direct mutation — prevents Angular
+  //           change detection delay that caused 30s UI freeze on file select
   onDocFileSelected(event: Event, doc: DocEntry): void {
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
     const file = input.files[0];
     if (file.type !== 'application/pdf') { this.saveError.set('Only PDF files are allowed.'); return; }
     if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.'); return; }
-    // ✅ Store file reference for UI display only (name shown to user)
-    // File bytes are NOT sent to backend — backend reads from local disk
-    doc.file = file;
+    // Force signal update so Angular detects change immediately
+    this.docs.update(list =>
+      list.map(d => d.id === doc.id ? { ...d, file } : d)
+    );
     this.clearAlerts();
   }
 
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
 
-  // ── VALIDATION ─────────────────────────────────────────────────────────────
-    // ── VALIDATION (Save — no doc restriction) ─────────────────────────────────
+  // ── VALIDATION (Save — no doc count restriction) ───────────────────────────
   private validate(): string {
     if (!this.vehicleNo.trim())   return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
@@ -348,7 +348,7 @@ export class PassEntry implements OnInit, OnDestroy {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
 
-        // ✅ Use DB passId as the canonical Pass ID — no random UUID
+        // Use DB passId as the canonical Pass ID — no random UUID
         const genId = formatPassId(this.savedPassRegistryId!);
         this.passId.set(genId);
         this.passIdGenerated.set(true);
@@ -360,69 +360,81 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   // STEP 3 — POST /api/documents/upload
-  // ✅ UPDATED: Backend no longer stores file bytes (no @Lob BLOB column).
-  // DB only stores FILE_NAME (VARCHAR). Backend reads actual file from server disk.
-  // We only send: vehicleId, enterBy, {docType}No, {docType}Start, {docType}Expiry, {docType}FileName
-  // We do NOT send the File binary blob — backend ignores it.
+  // ✅ FIXED: Now reads each PDF as Base64 using FileReader (browser-local, no network cost)
+  //           and sends all 5 docs in ONE request with proper Base64 fields that backend expects.
+  //           Previously only filename string was sent → backend received null Base64 → slow failure.
   private step3UploadDocs(): void {
-    const fd = new FormData();
-    fd.append('vehicleId', String(this.savedVehicleId));
-    fd.append('enterBy', 'ADMIN');
-    let hasAny = false;
+    const docsToProcess = this.docs().filter(d => d.docType && d.file);
+    if (docsToProcess.length === 0) { this.finaliseSave(); return; }
 
-    for (const doc of this.docs()) {
-      const dt = (doc.docType || '').toLowerCase();
-      if (!dt) continue;
-      hasAny = true;
+    // Read all files as Base64 in parallel (browser-local FileReader — instant for 244KB files)
+    const readPromises = docsToProcess.map(doc =>
+      new Promise<{ doc: DocEntry; base64: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve({ doc, base64: (reader.result as string).split(',')[1] });
+        reader.onerror = () => reject(new Error(`Failed to read ${doc.docType}`));
+        reader.readAsDataURL(doc.file!);
+      })
+    );
 
-      // ✅ UPDATED: Send only fileName as a string — no File blob appended
-      // Backend parameter is pucFileName, rcFileName etc. (not pucFile / rcFile)
-      // The @Transient fileData field accepts the string but does NOT persist to DB.
-      const fileName = doc.file ? doc.file.name : `${dt}_${this.savedVehicleId}.pdf`;
+    Promise.all(readPromises).then(results => {
+      const fd = new FormData();
+      fd.append('vehicleId', String(this.savedVehicleId));
+      fd.append('enterBy', 'ADMIN');
 
-      if (dt === 'rc') {
-        fd.append('rcNo',       doc.docNo);
-        fd.append('rcStart',    this.todayDate);
-        fd.append('rcExpiry',   doc.validUpto);
-        fd.append('rcFileName', fileName);   // ✅ just the name string — stored as VARCHAR
-        // ✅ REMOVED: fd.append('rcFile', doc.file, ...) — no blob needed
-      } else if (dt === 'puc') {
-        fd.append('pucNo',       doc.docNo);
-        fd.append('pucStart',    this.todayDate);
-        fd.append('pucExpiry',   doc.validUpto);
-        fd.append('pucFileName', fileName);
-      } else if (dt === 'insurance') {
-        fd.append('insuranceNo',       doc.docNo);
-        fd.append('insuranceStart',    this.todayDate);
-        fd.append('insuranceExpiry',   doc.validUpto);
-        fd.append('insuranceFileName', fileName);
-      } else if (dt === 'fitness') {
-        fd.append('fitnessNo',       doc.docNo);
-        fd.append('fitnessStart',    this.todayDate);
-        fd.append('fitnessExpiry',   doc.validUpto);
-        fd.append('fitnessFileName', fileName);
-      } else if (dt === 'license') {
-        // Maps to LOAD_TEST in backend
-        fd.append('loadTestNo',       doc.docNo);
-        fd.append('loadTestStart',    this.todayDate);
-        fd.append('loadTestExpiry',   doc.validUpto);
-        fd.append('loadTestFileName', fileName);
+      for (const { doc, base64 } of results) {
+        const dt       = doc.docType.toLowerCase();
+        const fileName = doc.file!.name;
+
+        if (dt === 'rc') {
+          fd.append('rcNo',        doc.docNo);
+          fd.append('rcStart',     this.todayDate);
+          fd.append('rcExpiry',    doc.validUpto);
+          fd.append('rcFileName',  fileName);
+          fd.append('rcBase64',    base64);
+        } else if (dt === 'puc') {
+          fd.append('pucNo',        doc.docNo);
+          fd.append('pucStart',     this.todayDate);
+          fd.append('pucExpiry',    doc.validUpto);
+          fd.append('pucFileName',  fileName);
+          fd.append('pucBase64',    base64);
+        } else if (dt === 'insurance') {
+          fd.append('insuranceNo',        doc.docNo);
+          fd.append('insuranceStart',     this.todayDate);
+          fd.append('insuranceExpiry',    doc.validUpto);
+          fd.append('insuranceFileName',  fileName);
+          fd.append('insuranceBase64',    base64);
+        } else if (dt === 'fitness') {
+          fd.append('fitnessNo',        doc.docNo);
+          fd.append('fitnessStart',     this.todayDate);
+          fd.append('fitnessExpiry',    doc.validUpto);
+          fd.append('fitnessFileName',  fileName);
+          fd.append('fitnessBase64',    base64);
+        } else if (dt === 'license') {
+          fd.append('loadTestNo',        doc.docNo);
+          fd.append('loadTestStart',     this.todayDate);
+          fd.append('loadTestExpiry',    doc.validUpto);
+          fd.append('loadTestFileName',  fileName);
+          fd.append('loadTestBase64',    base64);
+        }
       }
-    }
 
-    if (!hasAny) { this.finaliseSave(); return; }
+      console.log('[Step 3] Uploading document metadata + Base64...');
+      this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+          catchError(err => {
+            console.warn('[Step 3] Doc upload failed:', err?.status);
+            this.finaliseSave(true);
+            return of(null);
+          })
+        )
+        .subscribe(dRes => { if (dRes !== null) this.finaliseSave(); });
 
-    console.log('[Step 3] Uploading document metadata...');
-    this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => {
-          console.warn('[Step 3] Doc upload failed:', err?.status);
-          this.finaliseSave(true);
-          return of(null);
-        })
-      )
-      .subscribe(dRes => { if (dRes !== null) this.finaliseSave(); });
+    }).catch(err => {
+      console.warn('[Step 3] FileReader error:', err);
+      this.finaliseSave(true);
+    });
   }
 
   private finaliseSave(docWarn = false): void {
@@ -440,8 +452,7 @@ export class PassEntry implements OnInit, OnDestroy {
     if (!this.saved()) { this.saveError.set('Please Save first before submitting.'); return; }
     const docErr = this.validateSubmit();
     if (docErr) { this.saveError.set(docErr); return; }
-    this.clearAlerts(); 
-    
+    this.clearAlerts();
 
     const record: PassRecord = {
       passId        : this.passId(),
