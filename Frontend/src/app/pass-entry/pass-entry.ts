@@ -314,7 +314,7 @@ export class PassEntry implements OnInit, OnDestroy {
       parkingToBeUsed  : this.parkingArea.trim() || null,
       status           : 'Active',
       empType          : this.empType(),
-      enterBy          : (this.ecNo.trim() || 'ADMIN').toUpperCase(),
+      enterBy          : 'ADMIN',
       enterDate        : this.todayDate,
       remarks          : this.remark.trim() || null,
     };
@@ -348,7 +348,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private step3UploadDocs(): void {
     const fd = new FormData();
     fd.append('vehicleId', String(this.savedVehicleId));
-    fd.append('enterBy', (this.ecNo.trim() || 'ADMIN').toUpperCase());
+    fd.append('enterBy', 'ADMIN');
     let hasAny = false;
 
     for (const doc of this.docs()) {
