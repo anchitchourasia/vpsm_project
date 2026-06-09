@@ -429,7 +429,7 @@
         }
       </button>
       <button class="pe-btn pe-btn-submit" (click)="onSubmit()"
-        [disabled]="!saved() || isSaving()">
+        [disabled]="isSaving()">
         <i class="bi bi-send-fill"></i> Submit
       </button>
     </div>
@@ -437,7 +437,7 @@
     @if (!saved()) {
       <div class="pe-submit-hint">
         <i class="bi bi-info-circle"></i>
-        Save first to generate Pass ID, then Submit to finalise.
+        You can Save first to review, or click Submit directly to save &amp; finalise in one step.
       </div>
     }
 
