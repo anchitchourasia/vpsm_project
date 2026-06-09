@@ -109,8 +109,8 @@ export class PassEntry implements OnInit, OnDestroy {
   private savedVehicleId     : number | null = null;
   private savedPassRegistryId: number | null = null;
 
-  // ✅ Flag — set to true when user clicks Submit without saving first
-  private isAutoSubmitting = false;
+  // ✅ Tracks the DRAFT- passId assigned at Save time so we can clean it up after Submit
+  private draftPassId: string | null = null;
 
   // ── DATE HELPERS ───────────────────────────────────────────────────────────
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
@@ -133,12 +133,13 @@ export class PassEntry implements OnInit, OnDestroy {
   constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {
-    // ✅ Resume draft if user was redirected back from pass-details
+    // ✅ Resume draft if user navigated back from Pass Details → Drafts tab → Resume
     try {
       const raw = localStorage.getItem('vpsm_resume_draft');
       if (raw) {
         const draft: PassRecord = JSON.parse(raw);
-        localStorage.removeItem('vpsm_resume_draft'); // consume it — one-time
+        localStorage.removeItem('vpsm_resume_draft'); // consume it — one-time use
+
         this.empType.set(draft.empType);
         this.vehicleNo      = draft.vehicleNo;
         this.vehicleType    = draft.vehicleType;
@@ -152,10 +153,15 @@ export class PassEntry implements OnInit, OnDestroy {
         this.remark         = draft.remark;
         this.empName.set(draft.empName);
         this.empDept.set(draft.empDept);
+
+        // ✅ Keep the DRAFT- id so we can delete it from localStorage after Submit
+        this.draftPassId = draft.passId;
         this.passId.set(draft.passId);
         this.passIdGenerated.set(true);
-        this.saved.set(true); // already saved — user can go straight to Submit
-        this.saveSuccess.set(`Draft resumed — Pass ID: ${draft.passId}. Review and Submit.`);
+        this.saved.set(true);
+        this.saveSuccess.set(
+          `Draft resumed — ${draft.passId}. Add all 5 documents and click Submit to register.`
+        );
       }
     } catch { /* silent */ }
   }
@@ -265,7 +271,6 @@ export class PassEntry implements OnInit, OnDestroy {
     const file = input.files[0];
     if (file.type !== 'application/pdf') { this.saveError.set('Only PDF files are allowed.'); return; }
     if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.'); return; }
-    // Force signal update so Angular detects change immediately
     this.docs.update(list =>
       list.map(d => d.id === doc.id ? { ...d, file } : d)
     );
@@ -274,7 +279,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
 
-  // ── VALIDATION (Save — no doc count restriction) ───────────────────────────
+  // ── VALIDATION (Save — form fields only, docs not mandatory) ──────────────
   private validate(): string {
     if (!this.vehicleNo.trim())   return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
@@ -296,7 +301,7 @@ export class PassEntry implements OnInit, OnDestroy {
     return '';
   }
 
-  // ── VALIDATION (Submit — all 5 docs mandatory) ─────────────────────────────
+  // ── VALIDATION (Submit — all 5 docs strictly mandatory) ───────────────────
   private validateSubmit(): string {
     if (this.docs().length < ALLOWED_DOC_TYPES.length) {
       const missing = ALLOWED_DOC_TYPES.filter(
@@ -315,38 +320,71 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
-  // ── SAVE (3-step pipeline) ─────────────────────────────────────────────────
+  // ── SAVE — LOCAL ONLY, ZERO API CALLS ─────────────────────────────────────
+  // ✅ Validates form fields → generates a DRAFT- prefix local ID → persists
+  //    to localStorage via PassStateService. Nothing touches the DB.
+  //    Real PASS-HEG-XXXX ID is only assigned by DB at Submit time.
   onSave(): void {
     const err = this.validate();
     if (err) { this.saveError.set(err); return; }
+    this.clearAlerts();
+
+    // Generate a local DRAFT- ID only once per session
+    // If user saves again (re-save), reuse the existing DRAFT- id
+    if (!this.passIdGenerated()) {
+      const draftId = `DRAFT-${Date.now()}`;
+      this.passId.set(draftId);
+      this.passIdGenerated.set(true);
+      this.draftPassId = draftId;
+    }
+
+    // ✅ Build PassRecord with status 'Saved' — no DB fields (vehicleId etc.) needed
+    const record: PassRecord = {
+      passId        : this.passId(),
+      empType       : this.empType(),
+      vehicleNo     : this.vehicleNo,
+      vehicleType   : this.vehicleType,
+      vehicleClass  : this.vehicleClass,
+      brandModel    : this.brandModel,
+      ecNo          : this.ecNo,
+      empName       : this.empName(),
+      empDept       : this.empDept(),
+      contractorFirm: this.contractorCode,
+      issueDate     : this.todayDate,
+      validityDate  : this.validityDate,
+      gateNo        : this.gateNo,
+      parkingArea   : this.parkingArea,
+      remark        : this.remark,
+      docs          : this.docs().map(d => ({
+        docType  : d.docType,
+        docNo    : d.docNo,
+        validUpto: d.validUpto,
+      })),
+      status   : 'Saved',
+      createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    };
+
+    // ✅ Persist to localStorage — survives refresh & session close
+    this.passState.upsert(record);
+    this.saved.set(true);
+    this.saveSuccess.set(
+      `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
+    );
+  }
+
+  // ── SUBMIT — ALL 3 API STEPS, ALWAYS ──────────────────────────────────────
+  // ✅ Works whether user saved first or clicks Submit directly.
+  //    In both cases: validate fully → run Step1 → Step2 → Step3 → register in DB.
+  //    After success, old DRAFT- record (if any) is removed from localStorage.
+  onSubmit(): void {
+    const formErr = this.validate();
+    if (formErr) { this.saveError.set(formErr); return; }
+    const docErr = this.validateSubmit();
+    if (docErr) { this.saveError.set(docErr); return; }
     if (this.isSaving()) return;
     this.clearAlerts();
     this.isSaving.set(true);
-    this.isAutoSubmitting = false;
     this.step1RegisterVehicle();
-  }
-
-  // ── SUBMIT — works both with and without prior Save ────────────────────────
-  onSubmit(): void {
-    // ✅ Path A — user clicks Submit WITHOUT saving first
-    if (!this.saved()) {
-      const formErr = this.validate();
-      if (formErr) { this.saveError.set(formErr); return; }
-      const docErr = this.validateSubmit();
-      if (docErr) { this.saveError.set(docErr); return; }
-      if (this.isSaving()) return;
-      this.clearAlerts();
-      this.isSaving.set(true);
-      this.isAutoSubmitting = true;   // ✅ chain submit after pipeline completes
-      this.step1RegisterVehicle();
-      return;
-    }
-
-    // ✅ Path B — user already saved, now clicks Submit
-    const docErr = this.validateSubmit();
-    if (docErr) { this.saveError.set(docErr); return; }
-    this.clearAlerts();
-    this.doSubmit();
   }
 
   // STEP 1 — POST /api/vehicles/register
@@ -403,22 +441,23 @@ export class PassEntry implements OnInit, OnDestroy {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
 
-        const genId = formatPassId(this.savedPassRegistryId!);
-        this.passId.set(genId);
+        // ✅ Real DB-assigned Pass ID replaces any DRAFT- id
+        const realId = formatPassId(this.savedPassRegistryId!);
+        this.passId.set(realId);
         this.passIdGenerated.set(true);
 
-        console.log('[Step 2] Pass ID:', genId, '| DB ID:', this.savedPassRegistryId);
+        console.log('[Step 2] Real Pass ID:', realId, '| DB ID:', this.savedPassRegistryId);
         if (this.docs().length > 0) { this.step3UploadDocs(); }
-        else { this.finaliseSave(false, this.isAutoSubmitting); }
+        else { this.finaliseSubmit(); }
       });
   }
 
   // STEP 3 — POST /api/documents/upload
-  // ✅ FIXED: Reads each PDF as Base64 via FileReader (browser-local, instant for 244KB)
-  //           Sends all docs in ONE request with proper Base64 fields backend expects.
+  // ✅ Reads each PDF as Base64 via FileReader (browser-local, instant for ~244KB)
+  //    Sends all docs in ONE request with proper Base64 fields backend expects.
   private step3UploadDocs(): void {
     const docsToProcess = this.docs().filter(d => d.docType && d.file);
-    if (docsToProcess.length === 0) { this.finaliseSave(false, this.isAutoSubmitting); return; }
+    if (docsToProcess.length === 0) { this.finaliseSubmit(); return; }
 
     const readPromises = docsToProcess.map(doc =>
       new Promise<{ doc: DocEntry; base64: string }>((resolve, reject) => {
@@ -477,44 +516,31 @@ export class PassEntry implements OnInit, OnDestroy {
           timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
           catchError(err => {
             console.warn('[Step 3] Doc upload failed:', err?.status);
-            this.finaliseSave(true, this.isAutoSubmitting);
+            // ✅ Docs failed but pass is registered — still finalise, warn user
+            this.finaliseSubmit(true);
             return of(null);
           })
         )
         .subscribe(dRes => {
-          if (dRes !== null) this.finaliseSave(false, this.isAutoSubmitting);
+          if (dRes !== null) this.finaliseSubmit();
         });
 
     }).catch(err => {
       console.warn('[Step 3] FileReader error:', err);
-      this.finaliseSave(true, this.isAutoSubmitting);
+      this.finaliseSubmit(true);
     });
   }
 
-  // ── FINALISE SAVE ──────────────────────────────────────────────────────────
-  private finaliseSave(docWarn = false, autoSubmit = false): void {
+  // ── FINALISE SUBMIT ────────────────────────────────────────────────────────
+  // ✅ All 3 steps done. Build PassRecord with real PASS-HEG-XXXX ID,
+  //    upsert to localStorage, delete old DRAFT- record if existed,
+  //    log history, show success, redirect.
+  private finaliseSubmit(docWarn = false): void {
     this.isSaving.set(false);
     this.saved.set(true);
 
-    // ✅ If triggered by direct Submit click — skip "saved" message, go straight to submit
-    if (autoSubmit) {
-      this.doSubmit();
-      return;
-    }
-
-    this.saveSuccess.set(
-      docWarn
-        ? `Pass saved (ID: ${this.passId()}) — Documents upload failed; add them from Documents module.`
-        : `Pass saved! Pass ID: ${this.passId()}. Click Submit to finalise.`
-    );
-  }
-
-  // ── INTERNAL SUBMIT LOGIC (shared by direct Submit + auto-submit after save) ──
-  private doSubmit(): void {
-    this.isAutoSubmitting = false;
-
     const record: PassRecord = {
-      passId        : this.passId(),
+      passId        : this.passId(),          // ✅ Real PASS-HEG-XXXX from DB
       empType       : this.empType(),
       vehicleNo     : this.vehicleNo,
       vehicleType   : this.vehicleType,
@@ -537,6 +563,14 @@ export class PassEntry implements OnInit, OnDestroy {
       status   : 'Submitted',
       createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     };
+
+    // ✅ Remove the old DRAFT- record from localStorage before upserting the real one
+    if (this.draftPassId && this.draftPassId !== this.passId()) {
+      this.passState.deleteDraft(this.draftPassId);
+    }
+    this.draftPassId = null;
+
+    // ✅ Upsert the real submitted record into localStorage
     this.passState.upsert(record);
 
     this.logHistory(
@@ -545,7 +579,11 @@ export class PassEntry implements OnInit, OnDestroy {
       `Pass submitted — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
     );
 
-    this.saveSuccess.set(`Pass submitted! ID: ${this.passId()} is now active. Redirecting...`);
+    this.saveSuccess.set(
+      docWarn
+        ? `Pass registered! ID: ${this.passId()} — Documents upload failed; add from Documents module.`
+        : `Pass submitted! ID: ${this.passId()} is now active. Redirecting...`
+    );
     setTimeout(() => this.router.navigate(['/passes/active']), 2200);
   }
 
@@ -558,8 +596,9 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empData = null;
     this.docs.set([]);
     this.passId.set(''); this.passIdGenerated.set(false);
-    this.saved.set(false); this.savedVehicleId = null; this.savedPassRegistryId = null;
-    this.isAutoSubmitting = false;
+    this.saved.set(false);
+    this.savedVehicleId = null; this.savedPassRegistryId = null;
+    this.draftPassId = null;
     this.clearAlerts(); this.empFetchError.set('');
   }
 
