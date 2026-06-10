@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
-import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
+// ✅ CHANGE 1: Added interval, switchMap
+import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
 const USE_DUMMY_DATA = false;
@@ -88,7 +89,7 @@ export class Passes implements OnInit, OnDestroy {
         (p.mobileNo               || '').toLowerCase().includes(q) ||
         (p.vehicle?.vehicleNo     || '').toLowerCase().includes(q) ||
         String(p.passId           || '').includes(q)              ||
-        // ✅ NEW — search also matches formatted ID e.g. "PASS-HEG-0047"
+        // search also matches formatted ID e.g. "PASS-HEG-0047"
         this.formatPassId(p.passId).toLowerCase().includes(q);
       const rowStatus    = p.status || p.passStatus || '';
       const matchStatus  = st === 'ALL' || rowStatus === st;
@@ -121,7 +122,9 @@ export class Passes implements OnInit, OnDestroy {
   viewPass      = signal<any>(null);
 
   constructor(private http: HttpClient) {}
-  ngOnInit()    { this.loadPasses(); }
+
+  // ✅ CHANGE 2: startPolling() added
+  ngOnInit()    { this.loadPasses(); this.startPolling(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadPasses() {
@@ -151,6 +154,26 @@ export class Passes implements OnInit, OnDestroy {
           response.status === 204 || !response.body ? [] : response.body
         );
         this.isLoading.set(false);
+      });
+  }
+
+  // ✅ CHANGE 3: Silent background poll every 30s
+  private startPolling(): void {
+    if (USE_DUMMY_DATA) return;
+    interval(30000)
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(() =>
+          this.http
+            .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+            .pipe(catchError(() => of(null)))
+        )
+      )
+      .subscribe((response: HttpResponse<any[]> | null) => {
+        if (!response) return;
+        this.allPassesRaw.set(
+          response.status === 204 || !response.body ? [] : response.body
+        );
       });
   }
 
@@ -208,8 +231,7 @@ export class Passes implements OnInit, OnDestroy {
   onPageSize     (v: string) { this.pageSize.set(+v);     this.currentPage.set(1); }
   goToPage       (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
 
-  // ✅ NEW — formats DB integer passId → "PASS-HEG-0047"
-  // Same logic as pass-entry.ts so both screens show identical Pass IDs
+  // formats DB integer passId → "PASS-HEG-0047"
   formatPassId(dbPassId: number | null | undefined): string {
     if (!dbPassId && dbPassId !== 0) return '—';
     return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
@@ -396,13 +418,8 @@ export class Passes implements OnInit, OnDestroy {
         );
         this.isSaving.set(false);
 
-        if (isEdit) {
-          const list = this.allPassesRaw();
-          const idx  = list.findIndex(p => p.passId === this.editId());
-          if (idx !== -1) { list[idx] = { ...list[idx], ...res }; this.allPassesRaw.set([...list]); }
-        } else {
-          this.allPassesRaw.set([res, ...this.allPassesRaw()]);
-        }
+        // ✅ CHANGE 4: Always re-fetch from server for accuracy
+        this.loadPasses();
 
         setTimeout(() => this.closeModal(), 1200);
       });

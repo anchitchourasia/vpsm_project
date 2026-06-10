@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
+import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
 
@@ -23,7 +23,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   'Load Test' : 'Load Test',
 };
 
-// ── Dummy seed data for offline development ──
 const DUMMY_DOCS: any[] = [
   {
     documentId: 21, documentType: 'RC', documentNo: 'RC-MH02-REG-8822',
@@ -60,7 +59,6 @@ const DUMMY_DOCS: any[] = [
 ];
 
 
-// ── DocForm: covers all 5 document types ──
 interface DocForm {
   vehicleId      : string;
   enterBy        : string;
@@ -71,27 +69,22 @@ interface DocForm {
   documentStatus : string;
   remarks        : string;
   selectedFile   : File | null;
-  // PUC
   pucNo          : string;
   pucStart       : string;
   pucExpiry      : string;
   pucFile        : File | null;
-  // Insurance
   insuranceNo    : string;
   insuranceStart : string;
   insuranceExpiry: string;
   insuranceFile  : File | null;
-  // RC
   rcNo           : string;
   rcStart        : string;
   rcExpiry       : string;
   rcFile         : File | null;
-  // Fitness
   fitnessNo      : string;
   fitnessStart   : string;
   fitnessExpiry  : string;
   fitnessFile    : File | null;
-  // Load Test
   loadTestNo     : string;
   loadTestStart  : string;
   loadTestExpiry : string;
@@ -708,14 +701,11 @@ export class Documents implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  private readonly HEADERS = new HttpHeaders({
-    'Accept': '*/*'
-  });
+  private readonly HEADERS = new HttpHeaders({ 'Accept': '*/*' });
   private readonly JSON_HEADERS = new HttpHeaders({
     'Accept'      : 'application/json',
     'Content-Type': 'application/json',
   });
-
   private readonly POST_HEADERS = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
@@ -936,29 +926,36 @@ export class Documents implements OnInit, OnDestroy {
       remark     : remark || null,
       dateOfEntry: new Date().toISOString(),
     };
-
     this.http
-      .post<any>(API_CONFIG.HISTORY_LOG, payload, {
-        headers: this.POST_HEADERS,
-        observe : 'response',
-      })
+      .post<any>(API_CONFIG.HISTORY_LOG, payload, { headers: this.POST_HEADERS, observe: 'response' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
         catchError(err => {
-          console.warn('⚠️ [History Log] Document log failed silently:', err?.status, err?.error);
+          console.warn('⚠️ [History Log] failed silently:', err?.status, err?.error);
           return of(null);
         })
       )
       .subscribe(res => {
-        if (res?.status === 200 || res?.status === 201) {
+        if (res?.status === 200 || res?.status === 201)
           console.log('📋 [History Log] Recorded:', payload.action, '→ vehicle', payload.passNo);
-        }
       });
   }
 
+  // ── FILE → BASE64 HELPER ──
+  // Backend stores files as Base64 strings in Oracle VARCHAR2 (FILE_DATA column).
+  // Raw binary File objects must be converted before sending via FormData.
+  private toBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   // ── SAVE (handles ADD multi-doc and EDIT single-doc) ──
-  saveDocument() {
+  async saveDocument(): Promise<void> {
     this.saveError.set('');
     this.saveSuccess.set('');
 
@@ -1000,14 +997,10 @@ export class Documents implements OnInit, OnDestroy {
         )
         .subscribe((res: any) => {
           if (!res) return;
-
           this.logHistory(
-            this.form.vehicleId,
-            'CREATE',
-            this.form.enterBy || 'ADMIN',
+            this.form.vehicleId, 'CREATE', this.form.enterBy || 'ADMIN',
             `${DOC_TYPE_LABELS[this.form.documentType] || this.form.documentType || 'Document'} updated — Doc ID ${this.editId()} for Vehicle ID ${this.form.vehicleId}`
           );
-
           this.saveSuccess.set('✅ Document updated successfully.');
           this.isSaving.set(false);
           const list = [...this.allDocsRaw()];
@@ -1100,55 +1093,63 @@ export class Documents implements OnInit, OnDestroy {
     if (this.isSaving()) return;
     this.isSaving.set(true);
 
+    // ── CONVERT FILES TO BASE64 BEFORE SENDING ──
+    // Backend expects Base64 strings (pucBase64, insuranceBase64, etc.)
+    // NOT raw binary File objects. Files are stored as VARCHAR2 in Oracle.
     const fd = new FormData();
     fd.append('vehicleId', String(vehicleIdNum));
     fd.append('enterBy',   this.form.enterBy.trim());
 
     if (this.form.pucFile) {
-      fd.append('pucNo',     this.form.pucNo.trim());
-      fd.append('pucStart',  this.form.pucStart);
-      fd.append('pucExpiry', this.form.pucExpiry);
+      const pucBase64 = await this.toBase64(this.form.pucFile);
+      fd.append('pucNo',       this.form.pucNo.trim());
+      fd.append('pucStart',    this.form.pucStart);
+      fd.append('pucExpiry',   this.form.pucExpiry);
       fd.append('pucFileName', this.form.pucFile.name);
-      fd.append('pucFile',     this.form.pucFile, this.form.pucFile.name);
+      fd.append('pucBase64',   pucBase64);
     }
     if (this.form.insuranceFile) {
-      fd.append('insuranceNo',     this.form.insuranceNo.trim());
-      fd.append('insuranceStart',  this.form.insuranceStart);
-      fd.append('insuranceExpiry', this.form.insuranceExpiry);
+      const insuranceBase64 = await this.toBase64(this.form.insuranceFile);
+      fd.append('insuranceNo',       this.form.insuranceNo.trim());
+      fd.append('insuranceStart',    this.form.insuranceStart);
+      fd.append('insuranceExpiry',   this.form.insuranceExpiry);
       fd.append('insuranceFileName', this.form.insuranceFile.name);
-      fd.append('insuranceFile',     this.form.insuranceFile,this.form.insuranceFile.name);
+      fd.append('insuranceBase64',   insuranceBase64);
     }
     if (this.form.rcFile) {
-      fd.append('rcNo',     this.form.rcNo.trim());
-      fd.append('rcStart',  this.form.rcStart);
-      fd.append('rcExpiry', this.form.rcExpiry);
+      const rcBase64 = await this.toBase64(this.form.rcFile);
+      fd.append('rcNo',       this.form.rcNo.trim());
+      fd.append('rcStart',    this.form.rcStart);
+      fd.append('rcExpiry',   this.form.rcExpiry);
       fd.append('rcFileName', this.form.rcFile.name);
-      fd.append('rcFile',     this.form.rcFile, this.form.rcFile.name);
+      fd.append('rcBase64',   rcBase64);
     }
     if (this.form.fitnessFile) {
-      fd.append('fitnessNo',     this.form.fitnessNo.trim());
-      fd.append('fitnessStart',  this.form.fitnessStart);
-      fd.append('fitnessExpiry', this.form.fitnessExpiry);
+      const fitnessBase64 = await this.toBase64(this.form.fitnessFile);
+      fd.append('fitnessNo',       this.form.fitnessNo.trim());
+      fd.append('fitnessStart',    this.form.fitnessStart);
+      fd.append('fitnessExpiry',   this.form.fitnessExpiry);
       fd.append('fitnessFileName', this.form.fitnessFile.name);
-      fd.append('fitnessFile',     this.form.fitnessFile, this.form.fitnessFile.name);
+      fd.append('fitnessBase64',   fitnessBase64);
     }
     if (this.form.loadTestFile) {
-      fd.append('loadTestNo',     this.form.loadTestNo.trim());
-      fd.append('loadTestStart',  this.form.loadTestStart);
-      fd.append('loadTestExpiry', this.form.loadTestExpiry);
+      const loadTestBase64 = await this.toBase64(this.form.loadTestFile);
+      fd.append('loadTestNo',       this.form.loadTestNo.trim());
+      fd.append('loadTestStart',    this.form.loadTestStart);
+      fd.append('loadTestExpiry',   this.form.loadTestExpiry);
       fd.append('loadTestFileName', this.form.loadTestFile.name);
-      fd.append('loadTestFile',     this.form.loadTestFile, this.form.loadTestFile.name);
+      fd.append('loadTestBase64',   loadTestBase64);
     }
 
     const enterBy           = this.form.enterBy.trim();
     const capturedVehicleId = vehicleIdNum;
 
     const uploadingEntries = [
-      { file: this.form.pucFile,       label: 'PUC Certificate',     docNo: this.form.pucNo      },
-      { file: this.form.insuranceFile, label: 'Insurance',           docNo: this.form.insuranceNo },
-      { file: this.form.rcFile,        label: 'RC (Registration)',   docNo: this.form.rcNo        },
-      { file: this.form.fitnessFile,   label: 'Fitness Certificate', docNo: this.form.fitnessNo   },
-      { file: this.form.loadTestFile,  label: 'Load Test',           docNo: this.form.loadTestNo  },
+      { file: this.form.pucFile,       label: 'PUC Certificate',     docNo: this.form.pucNo       },
+      { file: this.form.insuranceFile, label: 'Insurance',           docNo: this.form.insuranceNo  },
+      { file: this.form.rcFile,        label: 'RC (Registration)',   docNo: this.form.rcNo         },
+      { file: this.form.fitnessFile,   label: 'Fitness Certificate', docNo: this.form.fitnessNo    },
+      { file: this.form.loadTestFile,  label: 'Load Test',           docNo: this.form.loadTestNo   },
     ].filter(e => e.file !== null);
 
     this.http.post<any[]>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.HEADERS })
@@ -1162,66 +1163,48 @@ export class Documents implements OnInit, OnDestroy {
         this.allDocsRaw.set([...res, ...this.allDocsRaw()]);
         this.saveSuccess.set(`✅ ${res.length} document(s) uploaded successfully.`);
         this.isSaving.set(false);
-
         for (const entry of uploadingEntries) {
           this.logHistory(
-            capturedVehicleId,
-            'CREATE',
-            enterBy,
+            capturedVehicleId, 'CREATE', enterBy,
             `${entry.label} uploaded for Vehicle ID ${capturedVehicleId} — Doc No: ${entry.docNo}`
           );
         }
-
         setTimeout(() => this.closeModal(), 1500);
       });
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ── CENTRALISED HTTP ERROR HANDLER  (UPDATED) ──
-  //
-  //  Handles 3 body formats from Spring backend:
-  //  1. Blob   — multipart endpoint returns errors as Blob
-  //  2. String — plain text from inner catch(Exception e)
-  //  3. Object — GlobalExceptionHandler structured JSON
-  //             { timestamp, status, error, message, diagnosticLog }
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ── CENTRALISED HTTP ERROR HANDLER ──
+  // Handles 3 body formats from Spring backend:
+  // 1. Blob   — multipart endpoint returns errors as Blob
+  // 2. String — plain text from inner catch(Exception e)
+  // 3. Object — GlobalExceptionHandler { timestamp, status, error, message, diagnosticLog }
   private handleHttpError(err: any): void {
     const status = err?.status ?? '?';
     const body   = err?.error;
 
-    // ── Case 1: Blob body ──
-    // Spring multipart/form-data endpoints return the error body as a Blob
+    // Case 1: Blob body
     if (body instanceof Blob) {
       body.text().then(text => {
         let display = text.trim();
         try {
-          // Try JSON → GlobalExceptionHandler structured response
           const parsed = JSON.parse(text);
           display = parsed?.message || parsed?.diagnosticLog || parsed?.error || text;
         } catch {
-          // Plain string from backend catch(Exception e)
-          // Clean up the Oracle verbose prefix for a friendlier message
           display = display
             .replace('Oracle File Upload Aborted: Database insertion failure. Details: ', '')
             .replace('Oracle File Upload Aborted: ', '');
-
-          // Cap very long strings
-          if (display.length > 350) {
-            display = display.substring(0, 350) + '…';
-          }
+          if (display.length > 350) display = display.substring(0, 350) + '…';
         }
-        // isSaving must be set inside .then() — async timing
         this.saveError.set(`[${status}] ${display}`);
         this.isSaving.set(false);
       }).catch(() => {
         this.saveError.set(`[${status}] Upload failed — see F12 → Network for details.`);
         this.isSaving.set(false);
       });
-      return; // ← critical: early return for async path
+      return;
     }
 
-    // ── Case 2: Plain string body ──
-    // Rare — happens if Spring writes response body as text/plain (not via multipart)
+    // Case 2: Plain string body
     if (typeof body === 'string' && body.trim().length > 0) {
       let display = body.trim()
         .replace('Oracle File Upload Aborted: Database insertion failure. Details: ', '')
@@ -1232,8 +1215,7 @@ export class Documents implements OnInit, OnDestroy {
       return;
     }
 
-    // ── Case 3: Structured JSON object ──
-    // GlobalExceptionHandler returns { timestamp, status, error, message, diagnosticLog }
+    // Case 3: Structured JSON object
     if (body && typeof body === 'object') {
       const msg = body.message || body.diagnosticLog || body.error || body.details;
       if (msg) {
@@ -1243,7 +1225,7 @@ export class Documents implements OnInit, OnDestroy {
       }
     }
 
-    // ── Fallback ──
+    // Fallback
     this.saveError.set(`[${status}] Server error — check backend logs or F12 → Network.`);
     this.isSaving.set(false);
   }
@@ -1268,9 +1250,9 @@ export class Documents implements OnInit, OnDestroy {
 
   getStatusClass(status: string): string {
     const s = (status || '').toLowerCase();
-    if (s === 'valid'  || s === 'active')   return 'status-pill status-valid';
-    if (s === 'expiring')                   return 'status-pill status-expiring';
-    if (s === 'expired')                    return 'status-pill status-expired';
+    if (s === 'valid' || s === 'active') return 'status-pill status-valid';
+    if (s === 'expiring')                return 'status-pill status-expiring';
+    if (s === 'expired')                 return 'status-pill status-expired';
     return 'status-pill status-default';
   }
 
@@ -1285,7 +1267,7 @@ export class Documents implements OnInit, OnDestroy {
   getDaysLeftLabel(expiry: string): string {
     if (!expiry) return '—';
     const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000);
-    if (days < 0)  return `Expired ${Math.abs(days)}d ago`;
+    if (days < 0)   return `Expired ${Math.abs(days)}d ago`;
     if (days === 0) return 'Expires today';
     return `${days}d`;
   }
@@ -1300,26 +1282,35 @@ export class Documents implements OnInit, OnDestroy {
   }
 
   // ── DOWNLOAD PDF ──
+  // Backend GET /download?id=X returns raw PDF bytes (Content-Type: application/pdf).
+  // responseType:'blob' is MANDATORY. Do NOT pass JSON headers — they corrupt the binary stream.
   downloadPdf(d: any): void {
     if (!d?.documentId || !d?.fileName) return;
     const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${d.documentId}`;
+
     this.http.get(url, { responseType: 'blob' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(err => {
-          console.error('❌ PDF download error:', err?.status);
-          alert('Could not download file. Please try again.');
+        catchError((err: any) => {
+          console.error('❌ Download error:', err);
+          alert('Download failed — check if backend is running.');
           return of(null);
         })
       )
       .subscribe((blob: Blob | null) => {
-        if (!blob) return;
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = d.fileName;
-        link.click();
-        URL.revokeObjectURL(link.href);
+        if (!blob || blob.size === 0) {
+          alert('Error: Server returned an empty file. The document may not have been uploaded correctly.');
+          return;
+        }
+        const blobUrl = window.URL.createObjectURL(blob);
+        const anchor  = document.createElement('a');
+        anchor.href     = blobUrl;
+        anchor.download = d.fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(blobUrl);
       });
   }
 }
