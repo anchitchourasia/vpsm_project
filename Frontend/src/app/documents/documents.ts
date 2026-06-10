@@ -1303,7 +1303,7 @@ export class Documents implements OnInit, OnDestroy {
   downloadPdf(d: any): void {
     if (!d?.documentId || !d?.fileName) return;
     const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${d.documentId}`;
-    this.http.get(url, { headers: this.HEADERS, responseType: 'blob' })
+    this.http.get(url, { responseType: 'blob' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
