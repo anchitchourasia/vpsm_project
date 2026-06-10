@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
+import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
 

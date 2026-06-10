@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
-import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
+import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
 const USE_DUMMY_DATA = false;
@@ -146,8 +146,23 @@ export class Vehicles implements OnInit, OnDestroy {
   isLoadingDocs    = signal(false);
 
   constructor(private http: HttpClient) {}
-  ngOnInit()    { this.loadVehicles(); }
+  ngOnInit()    { this.loadVehicles(); this.startPolling(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+
+  private startPolling(): void {
+  interval(30000)
+    .pipe(
+      takeUntil(this.destroy$),
+      switchMap(() =>
+        this.http.get<any[]>(API_CONFIG.VEHICLES, { headers: this.HEADERS })
+          .pipe(catchError(() => of(null)))
+      )
+    )
+    .subscribe(data => {
+      if (data) this.allVehicles.set(data);
+    });
+  }
+
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  LOAD VEHICLES
