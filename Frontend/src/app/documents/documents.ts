@@ -955,7 +955,7 @@ export class Documents implements OnInit, OnDestroy {
   }
 
   // ── SAVE (handles ADD multi-doc and EDIT single-doc) ──
-  async saveDocument(): Promise<void> {
+  saveDocument(): void {
     this.saveError.set('');
     this.saveSuccess.set('');
 
@@ -1065,14 +1065,14 @@ export class Documents implements OnInit, OnDestroy {
 
     const existingTypes = this.allDocsRaw()
       .filter(d => Number(d.vehicle?.vehicleId) === vehicleIdNum)
-      .map(d => (d.documentType ?? '').toUpperCase().replace(/[\s_\-]/g, ''));
+      .map(d => (d.documentType ?? '').toUpperCase().replace(/[\s\-]/g, ''));
 
     const selectedDocs: { file: File | null; type: string; label: string }[] = [
       { file: this.form.pucFile,       type: 'PUC',       label: 'PUC Certificate'     },
       { file: this.form.insuranceFile, type: 'INSURANCE',  label: 'Insurance'           },
       { file: this.form.rcFile,        type: 'RC',         label: 'RC (Registration)'   },
       { file: this.form.fitnessFile,   type: 'FITNESS',    label: 'Fitness Certificate' },
-      { file: this.form.loadTestFile,  type: 'LOADTEST',   label: 'Load Test'           },
+      { file: this.form.loadTestFile,  type: 'LOAD_TEST',   label: 'Load Test'           },
     ];
 
     const duplicates = selectedDocs
@@ -1096,17 +1096,41 @@ export class Documents implements OnInit, OnDestroy {
     // ── CONVERT FILES TO BASE64 BEFORE SENDING ──
     // Backend expects Base64 strings (pucBase64, insuranceBase64, etc.)
     // NOT raw binary File objects. Files are stored as VARCHAR2 in Oracle.
+        // ── SEND RAW MULTIPART FILES (backend accepts MultipartFile directly) ──
+        // ── SEND RAW MULTIPART FILES (backend accepts MultipartFile directly) ──
     const fd = new FormData();
     fd.append('vehicleId', String(vehicleIdNum));
     fd.append('enterBy',   this.form.enterBy.trim());
 
     if (this.form.pucFile) {
-      const pucBase64 = await this.toBase64(this.form.pucFile);
-      fd.append('pucNo',       this.form.pucNo.trim());
-      fd.append('pucStart',    this.form.pucStart);
-      fd.append('pucExpiry',   this.form.pucExpiry);
-      fd.append('pucFileName', this.form.pucFile.name);
-      fd.append('pucBase64',   pucBase64);
+      fd.append('pucNo',     this.form.pucNo.trim());
+      fd.append('pucStart',  this.form.pucStart);
+      fd.append('pucExpiry', this.form.pucExpiry);
+      fd.append('pucFile',   this.form.pucFile, this.form.pucFile.name);
+    }
+    if (this.form.insuranceFile) {
+      fd.append('insuranceNo',     this.form.insuranceNo.trim());
+      fd.append('insuranceStart',  this.form.insuranceStart);
+      fd.append('insuranceExpiry', this.form.insuranceExpiry);
+      fd.append('insuranceFile',   this.form.insuranceFile, this.form.insuranceFile.name);
+    }
+    if (this.form.rcFile) {
+      fd.append('rcNo',     this.form.rcNo.trim());
+      fd.append('rcStart',  this.form.rcStart);
+      fd.append('rcExpiry', this.form.rcExpiry);
+      fd.append('rcFile',   this.form.rcFile, this.form.rcFile.name);
+    }
+    if (this.form.fitnessFile) {
+      fd.append('fitnessNo',     this.form.fitnessNo.trim());
+      fd.append('fitnessStart',  this.form.fitnessStart);
+      fd.append('fitnessExpiry', this.form.fitnessExpiry);
+      fd.append('fitnessFile',   this.form.fitnessFile, this.form.fitnessFile.name);
+    }
+    if (this.form.loadTestFile) {
+      fd.append('loadTestNo',     this.form.loadTestNo.trim());
+      fd.append('loadTestStart',  this.form.loadTestStart);
+      fd.append('loadTestExpiry', this.form.loadTestExpiry);
+      fd.append('loadTestFile',   this.form.loadTestFile, this.form.loadTestFile.name);
     }
     if (this.form.insuranceFile) {
       const insuranceBase64 = await this.toBase64(this.form.insuranceFile);
