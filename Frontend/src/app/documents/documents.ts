@@ -1132,38 +1132,6 @@ export class Documents implements OnInit, OnDestroy {
       fd.append('loadTestExpiry', this.form.loadTestExpiry);
       fd.append('loadTestFile',   this.form.loadTestFile, this.form.loadTestFile.name);
     }
-    if (this.form.insuranceFile) {
-      const insuranceBase64 = await this.toBase64(this.form.insuranceFile);
-      fd.append('insuranceNo',       this.form.insuranceNo.trim());
-      fd.append('insuranceStart',    this.form.insuranceStart);
-      fd.append('insuranceExpiry',   this.form.insuranceExpiry);
-      fd.append('insuranceFileName', this.form.insuranceFile.name);
-      fd.append('insuranceBase64',   insuranceBase64);
-    }
-    if (this.form.rcFile) {
-      const rcBase64 = await this.toBase64(this.form.rcFile);
-      fd.append('rcNo',       this.form.rcNo.trim());
-      fd.append('rcStart',    this.form.rcStart);
-      fd.append('rcExpiry',   this.form.rcExpiry);
-      fd.append('rcFileName', this.form.rcFile.name);
-      fd.append('rcBase64',   rcBase64);
-    }
-    if (this.form.fitnessFile) {
-      const fitnessBase64 = await this.toBase64(this.form.fitnessFile);
-      fd.append('fitnessNo',       this.form.fitnessNo.trim());
-      fd.append('fitnessStart',    this.form.fitnessStart);
-      fd.append('fitnessExpiry',   this.form.fitnessExpiry);
-      fd.append('fitnessFileName', this.form.fitnessFile.name);
-      fd.append('fitnessBase64',   fitnessBase64);
-    }
-    if (this.form.loadTestFile) {
-      const loadTestBase64 = await this.toBase64(this.form.loadTestFile);
-      fd.append('loadTestNo',       this.form.loadTestNo.trim());
-      fd.append('loadTestStart',    this.form.loadTestStart);
-      fd.append('loadTestExpiry',   this.form.loadTestExpiry);
-      fd.append('loadTestFileName', this.form.loadTestFile.name);
-      fd.append('loadTestBase64',   loadTestBase64);
-    }
 
     const enterBy           = this.form.enterBy.trim();
     const capturedVehicleId = vehicleIdNum;
