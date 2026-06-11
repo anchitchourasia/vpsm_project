@@ -453,82 +453,66 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   // STEP 3 — POST /api/documents/upload
-  // ✅ Reads each PDF as Base64 via FileReader (browser-local, instant for ~244KB)
-  //    Sends all docs in ONE request with proper Base64 fields backend expects.
+  // ✅ Sends each document as a raw multipart File (MultipartFile on backend).
+  //    Backend reads bytes directly — no Base64 conversion needed.
+  //    ALLOWED_DOC_TYPES = ['RC', 'PUC', 'INSURANCE', 'LICENSE', 'FITNESS']
+  //    Maps: RC→rcFile, PUC→pucFile, INSURANCE→insuranceFile,
+  //          LICENSE→loadTestFile, FITNESS→fitnessFile
   private step3UploadDocs(): void {
     const docsToProcess = this.docs().filter(d => d.docType && d.file);
     if (docsToProcess.length === 0) { this.finaliseSubmit(); return; }
 
-    const readPromises = docsToProcess.map(doc =>
-      new Promise<{ doc: DocEntry; base64: string }>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve({ doc, base64: (reader.result as string).split(',')[1] });
-        reader.onerror = () => reject(new Error(`Failed to read ${doc.docType}`));
-        reader.readAsDataURL(doc.file!);
-      })
-    );
+    const fd = new FormData();
+    fd.append('vehicleId', String(this.savedVehicleId));
+    fd.append('enterBy',   'ADMIN');
 
-    Promise.all(readPromises).then(results => {
-      const fd = new FormData();
-      fd.append('vehicleId', String(this.savedVehicleId));
-      fd.append('enterBy', 'ADMIN');
+    for (const doc of docsToProcess) {
+      const dt   = doc.docType.toLowerCase(); // 'rc' | 'puc' | 'insurance' | 'license' | 'fitness'
+      const file = doc.file!;
 
-      for (const { doc, base64 } of results) {
-        const dt       = doc.docType.toLowerCase();
-        const fileName = doc.file!.name;
-
-        if (dt === 'rc') {
-          fd.append('rcNo',        doc.docNo);
-          fd.append('rcStart',     this.todayDate);
-          fd.append('rcExpiry',    doc.validUpto);
-          fd.append('rcFileName',  fileName);
-          fd.append('rcBase64',    base64);
-        } else if (dt === 'puc') {
-          fd.append('pucNo',        doc.docNo);
-          fd.append('pucStart',     this.todayDate);
-          fd.append('pucExpiry',    doc.validUpto);
-          fd.append('pucFileName',  fileName);
-          fd.append('pucBase64',    base64);
-        } else if (dt === 'insurance') {
-          fd.append('insuranceNo',        doc.docNo);
-          fd.append('insuranceStart',     this.todayDate);
-          fd.append('insuranceExpiry',    doc.validUpto);
-          fd.append('insuranceFileName',  fileName);
-          fd.append('insuranceBase64',    base64);
-        } else if (dt === 'fitness') {
-          fd.append('fitnessNo',        doc.docNo);
-          fd.append('fitnessStart',     this.todayDate);
-          fd.append('fitnessExpiry',    doc.validUpto);
-          fd.append('fitnessFileName',  fileName);
-          fd.append('fitnessBase64',    base64);
-        } else if (dt === 'license') {
-          fd.append('loadTestNo',        doc.docNo);
-          fd.append('loadTestStart',     this.todayDate);
-          fd.append('loadTestExpiry',    doc.validUpto);
-          fd.append('loadTestFileName',  fileName);
-          fd.append('loadTestBase64',    base64);
-        }
+      if (dt === 'rc') {
+        fd.append('rcNo',     doc.docNo);
+        fd.append('rcStart',  this.todayDate);
+        fd.append('rcExpiry', doc.validUpto);
+        fd.append('rcFile',   file, file.name);
+      } else if (dt === 'puc') {
+        fd.append('pucNo',     doc.docNo);
+        fd.append('pucStart',  this.todayDate);
+        fd.append('pucExpiry', doc.validUpto);
+        fd.append('pucFile',   file, file.name);
+      } else if (dt === 'insurance') {
+        fd.append('insuranceNo',     doc.docNo);
+        fd.append('insuranceStart',  this.todayDate);
+        fd.append('insuranceExpiry', doc.validUpto);
+        fd.append('insuranceFile',   file, file.name);
+      } else if (dt === 'license') {
+        // ✅ LICENSE maps to loadTest fields in backend
+        fd.append('loadTestNo',     doc.docNo);
+        fd.append('loadTestStart',  this.todayDate);
+        fd.append('loadTestExpiry', doc.validUpto);
+        fd.append('loadTestFile',   file, file.name);
+      } else if (dt === 'fitness') {
+        fd.append('fitnessNo',     doc.docNo);
+        fd.append('fitnessStart',  this.todayDate);
+        fd.append('fitnessExpiry', doc.validUpto);
+        fd.append('fitnessFile',   file, file.name);
       }
+    }
 
-      console.log('[Step 3] Uploading document metadata + Base64...');
-      this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
-        .pipe(
-          timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-          catchError(err => {
-            console.warn('[Step 3] Doc upload failed:', err?.status);
-            // ✅ Docs failed but pass is registered — still finalise, warn user
-            this.finaliseSubmit(true);
-            return of(null);
-          })
-        )
-        .subscribe(dRes => {
-          if (dRes !== null) this.finaliseSubmit();
-        });
-
-    }).catch(err => {
-      console.warn('[Step 3] FileReader error:', err);
-      this.finaliseSubmit(true);
-    });
+    console.log('[Step 3] Uploading documents as raw multipart files...');
+    this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          console.warn('[Step 3] Doc upload failed:', err?.status);
+          // ✅ Docs failed but pass is registered — still finalise, warn user
+          this.finaliseSubmit(true);
+          return of(null);
+        })
+      )
+      .subscribe(dRes => {
+        if (dRes !== null) this.finaliseSubmit();
+      });
   }
 
   // ── FINALISE SUBMIT ────────────────────────────────────────────────────────
