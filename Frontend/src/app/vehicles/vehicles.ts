@@ -249,6 +249,15 @@ export class Vehicles implements OnInit, OnDestroy {
           this.isSaving.set(false); this.saveSuccess.set('Vehicle updated successfully!');
           const list = this.allVehicles(); const idx = list.findIndex(v => v.vehicleId === this.editId());
           if (idx > -1) { list[idx] = { ...list[idx], ...updatePayload }; this.allVehicles.set([...list]); }
+
+          // ✅ LOG HISTORY
+          this.logHistory(
+            String(this.editId()),
+            'VEHICLE_UPD',
+            localStorage.getItem('vpsm_userName') || 'ADMIN',
+            `Vehicle updated — ID: ${this.editId()}, No: ${this.form.vehicleNo}`
+          );
+
           setTimeout(() => this.closeModal(), 1200);
         });
     } else {
@@ -259,6 +268,15 @@ export class Vehicles implements OnInit, OnDestroy {
           if (!saved) return;
           this.isSaving.set(false); this.saveSuccess.set('Vehicle added successfully!');
           this.allVehicles.set([...this.allVehicles(), saved]);
+
+          // ✅ LOG HISTORY
+          this.logHistory(
+            String(saved.vehicleId ?? ''),
+            'VEHICLE_REG',
+            localStorage.getItem('vpsm_userName') || 'ADMIN',
+            `New vehicle registered — No: ${saved.vehicleNo}, Class: ${saved.vehicleClass}`
+          );
+
           setTimeout(() => this.closeModal(), 1200);
         });
     }
@@ -545,6 +563,15 @@ export class Vehicles implements OnInit, OnDestroy {
         if (!res) return;
         this.issuePassSuccess.set(`✅ Request raised successfully for ${f.vehicleNo}!`);
         this.isSavingPass.set(false);
+
+        // ✅ LOG HISTORY
+        this.logHistory(
+          String(res?.passId ?? f.vehicleId ?? ''),
+          'SUBMITTED',
+          (f.empType === 'Company_Employee' ? f.employeeNo : f.contractorCode) || 'ADMIN',
+          `Pass raised for Vehicle ${f.vehicleNo} — Gate: ${f.gateNo}, Valid till: ${f.validityDate}`
+        );
+
         setTimeout(() => this.closeIssuePassModal(), 1400);
       });
   }
@@ -597,4 +624,25 @@ export class Vehicles implements OnInit, OnDestroy {
   getStatusClass(v: string) { return v === 'Y' ? 'badge green' : 'badge red';  }
   getStatusText (v: string) { return v === 'Y' ? 'ACTIVE'      : 'INACTIVE';   }
   getBlackClass (v: string) { return v === 'Y' ? 'badge red'   : 'badge grey'; }
+
+    // ── HISTORY LOG — silent, never blocks UI ─────────────────────────────────
+  private logHistory(passNo: string, action: string, empCode: string, remark: string): void {
+    const payload = {
+      passNo     : passNo.substring(0, 20),
+      empCode    : (empCode || 'ADMIN').toUpperCase().substring(0, 20),
+      action     : action.toUpperCase().substring(0, 20),
+      remark     : (remark || '').substring(0, 195),
+      dateOfEntry: new Date().toISOString(),
+    };
+    this.http
+      .post<any>(API_CONFIG.HISTORY_LOG, payload, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => { console.warn('[History] silent fail:', err?.status); return of(null); })
+      )
+      .subscribe(res => {
+        if (res) console.log('[History] Logged:', payload.action);
+      });
+  }
 }

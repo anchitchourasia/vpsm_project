@@ -360,6 +360,13 @@ export class PassEntry implements OnInit, OnDestroy {
     this.saveSuccess.set(
       `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
     );
+    // ── Log draft save to history ──
+    this.logHistory(
+      this.passId(),              // DRAFT-1234567890
+      'DRAFT_SAVED',
+      this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+      `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
+    );
   }
 
   // ── SUBMIT — ALL 3 API STEPS, ALWAYS ──────────────────────────────────────

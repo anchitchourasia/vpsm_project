@@ -1,65 +1,46 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+// Frontend/src/app/history/history.ts
+import { Component, OnInit, OnDestroy, signal, computed, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 
-const HTTP_TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 15000;
 
-// ── ACTION_MAP: route eventType  →  API action values (both forms for safety) ──
-const ACTION_MAP: Record<string, string[]> = {
-  ALL:         [],
-  CREATED:     ['CREATE', 'CREATED'],
-  APPROVED:    ['APPROVE', 'APPROVED'],
-  SURRENDERED: ['SURRENDER', 'SURRENDERED'],
-  EXPIRED:     ['EXPIRED', 'EXPIRY', 'EXPIRE'],
-  GATE:        ['IN', 'OUT', 'ENTRY', 'EXIT'],
+// ── ACTION GROUPS — maps route data to which action values to show ──
+const ACTION_GROUPS: Record<string, string[]> = {
+  'pass-created'  : ['SUBMITTED', 'CREATED', 'PASS_RAISED', 'DRAFT_SAVED'],
+  'approved'      : ['APPROVED', 'CONFIRMED'],
+  'surrendered'   : ['SURRENDERED'],
+  'expiry-events' : ['EXPIRED', 'EXPIRY_WARN'],
+  'gate-movements': ['GATE_IN', 'GATE_OUT', 'GATE_ENTRY', 'GATE_EXIT'],
+  'all'           : [],  // empty = show all
 };
 
-// ── Per-section page config (title, icon, badge color) ──
-const PAGE_CONFIG: Record<string, {
-  title: string; icon: string; iconColor: string;
-  pillBg: string; pillColor: string; emptyMsg: string;
-}> = {
-  ALL: {
-    title: 'All History', icon: 'bi-clock-history',
-    iconColor: '#6366f1',
-    pillBg: '#f0f0f0', pillColor: '#555',
-    emptyMsg: 'No history records found.',
-  },
-  CREATED: {
-    title: 'Pass Created History', icon: 'bi-plus-circle-fill',
-    iconColor: '#e65c00',
-    pillBg: '#fff8e1', pillColor: '#e65100',
-    emptyMsg: 'No pass creation events found.',
-  },
-  APPROVED: {
-    title: 'Approved History', icon: 'bi-check-circle-fill',
-    iconColor: '#1e7e34',
-    pillBg: '#e6f4ea', pillColor: '#1e7e34',
-    emptyMsg: 'No approval events found.',
-  },
-  SURRENDERED: {
-    title: 'Surrendered History', icon: 'bi-x-circle-fill',
-    iconColor: '#6c757d',
-    pillBg: '#f0f0f0', pillColor: '#555',
-    emptyMsg: 'No surrender events found.',
-  },
-  EXPIRED: {
-    title: 'Expiry Events', icon: 'bi-calendar-x-fill',
-    iconColor: '#c0392b',
-    pillBg: '#fdecea', pillColor: '#c0392b',
-    emptyMsg: 'No expiry events found.',
-  },
-  GATE: {
-    title: 'Gate Movement History', icon: 'bi-door-open-fill',
-    iconColor: '#006494',
-    pillBg: '#e8f4fd', pillColor: '#006494',
-    emptyMsg: 'No gate movement events found.',
-  },
+const TAB_LABELS: Record<string, string> = {
+  'pass-created'  : 'Pass Created',
+  'approved'      : 'Approved',
+  'surrendered'   : 'Surrendered',
+  'expiry-events' : 'Expiry Events',
+  'gate-movements': 'Gate Movements',
+  'all'           : 'All History',
 };
+
+interface HistoryRecord {
+  passNo      : string;
+  dateOfEntry : string;
+  empCode     : string;
+  action      : string;
+  remark      : string;
+  passRegistry?: {
+    passId   : number;
+    status   : string;
+    vehicle  ?: { vehicleNo: string };
+    gateNo   ?: string;
+  } | null;
+}
 
 @Component({
   selector   : 'app-history',
@@ -70,145 +51,118 @@ const PAGE_CONFIG: Record<string, {
 })
 export class History implements OnInit, OnDestroy {
 
+  private destroy$  = new Subject<void>();
   private readonly HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
     'Accept'   : 'application/json',
   });
-  private readonly destroy$ = new Subject<void>();
 
-  // ── Route-driven state ──
-  eventType = signal<string>('ALL');
-  get cfg() { return PAGE_CONFIG[this.eventType()] ?? PAGE_CONFIG['ALL']; }
+  allRecords   = signal<HistoryRecord[]>([]);
+  isLoading    = signal(true);
+  hasError     = signal(false);
+  searchText   = signal('');
+  currentPage  = signal(1);
+  pageSize     = signal(10);
+  activeGroup  = signal<string>('all');
 
-  // ── Data ──
-  private allLogsRaw = signal<any[]>([]);
-  isLoading          = signal(true);
-  hasError           = signal(false);
+  currentTabLabel = computed(() => TAB_LABELS[this.activeGroup()] ?? 'History');
 
-  // ── Filter/pagination ──
-  searchText  = signal('');
-  currentPage = signal(1);
-  pageSize    = signal(10);
+  // ── Filter by action group + search ──────────────────────────────────────
+  filteredRecords = computed(() => {
+    const group   = this.activeGroup();
+    const actions = ACTION_GROUPS[group] ?? [];
+    const q       = this.searchText().toLowerCase().trim();
 
-  // ── Computed: filter by search text ──
-  filteredLogs = computed(() => {
-    const q = this.searchText().toLowerCase();
-    if (!q) return this.allLogsRaw();
-    return this.allLogsRaw().filter(h =>
-      (h.passNo    || '').toLowerCase().includes(q) ||
-      (h.empCode   || '').toLowerCase().includes(q) ||
-      (h.action    || '').toLowerCase().includes(q) ||
-      (h.remark    || '').toLowerCase().includes(q)
+    let list = this.allRecords();
+    
+    // Filter by action group (empty = all)
+    if (actions.length > 0) {
+      list = list.filter(r =>
+        actions.some(a => (r.action || '').toUpperCase() === a.toUpperCase())
+      );
+    }
+
+    // Filter by search text
+    if (q) {
+      list = list.filter(r =>
+        (r.passNo   || '').toLowerCase().includes(q) ||
+        (r.empCode  || '').toLowerCase().includes(q) ||
+        (r.action   || '').toLowerCase().includes(q) ||
+        (r.remark   || '').toLowerCase().includes(q) ||
+        (r.passRegistry?.vehicle?.vehicleNo || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Sort newest first
+    return [...list].sort((a, b) =>
+      new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
     );
   });
 
-  // ── Computed: paginate ──
-  pagedLogs = computed(() => {
-    const s = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredLogs().slice(s, s + this.pageSize());
+  pagedRecords = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredRecords().slice(start, start + this.pageSize());
   });
 
-  get totalPages()    { return Math.max(1, Math.ceil(this.filteredLogs().length / this.pageSize())); }
+  get totalPages()    { return Math.max(1, Math.ceil(this.filteredRecords().length / this.pageSize())); }
   get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
   constructor(private http: HttpClient, private route: ActivatedRoute) {}
 
-  ngOnInit() {
-    // Re-fires on every sidebar click between history sub-routes
+  ngOnInit(): void {
+    // Read which tab we're on from route data
     this.route.data.pipe(takeUntil(this.destroy$)).subscribe(data => {
-      this.eventType.set(data['eventType'] ?? 'ALL');
-      this.searchText.set('');
+      this.activeGroup.set(data['historyType'] || 'all');
       this.currentPage.set(1);
-      this.loadHistory();
     });
+    this.loadHistory();
   }
 
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  // ── LOAD from API ──
-  loadHistory() {
+  loadHistory(): void {
     this.isLoading.set(true);
     this.hasError.set(false);
 
-    this.http
-      .get<any[]>(`${API_CONFIG.BASE_URL}/api/history/list`, {
-        headers: this.HEADERS,
-        observe : 'response',
-      })
+    this.http.get<HistoryRecord[]>(API_CONFIG.HISTORY_LIST, { headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
-          console.error('❌ [History] GET error:', err?.status, err?.error);
+          console.error('[History] Load error:', err?.status);
           this.hasError.set(true);
           this.isLoading.set(false);
-          return of(null);
+          return of([]);
         })
       )
-      .subscribe((res: HttpResponse<any[]> | null) => {
-        if (!res) return;
-
-        const raw: any[] = (res.status === 204 || !res.body) ? [] : res.body;
-        const matchActions = ACTION_MAP[this.eventType()] ?? [];
-
-        // Filter by eventType, or show all if eventType = ALL
-        const filtered = matchActions.length === 0
-          ? raw
-          : raw.filter(h =>
-              matchActions.includes((h.action || '').toUpperCase())
-            );
-
-        // Sort newest first by dateOfEntry
-        filtered.sort((a, b) =>
-          new Date(b.dateOfEntry || 0).getTime() - new Date(a.dateOfEntry || 0).getTime()
-        );
-
-        this.allLogsRaw.set(filtered);
+      .subscribe(data => {
+        this.allRecords.set(Array.isArray(data) ? data : []);
         this.isLoading.set(false);
       });
   }
 
-  // ── Filter/pagination handlers ──
-  onSearch  (v: string) { this.searchText.set(v); this.currentPage.set(1); }
-  onPageSize(v: string) { this.pageSize.set(+v);  this.currentPage.set(1); }
-  goToPage  (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
+  onSearch(v: string): void { this.searchText.set(v); this.currentPage.set(1); }
+  onPageSize(v: string): void { this.pageSize.set(+v); this.currentPage.set(1); }
+  goToPage(p: number): void { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
 
-  // ── Date formatter (matches documents.ts pattern) ──
-  formatDateTime(d: string): string {
+  formatDate(d: string): string {
     if (!d) return '—';
-    const dt = new Date(d);
-    if (isNaN(dt.getTime())) return d;
-    return (
-      dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
-      ', ' +
-      dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-    );
+    try {
+      return new Date(d).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      });
+    } catch { return d; }
   }
 
-  // ── Badge class per action (uses existing app.css badge classes) ──
-  getActionBadgeClass(action: string): string {
-    switch ((action || '').toUpperCase()) {
-      case 'CREATE':
-      case 'CREATED':
-        return 'badge badge-expiring';    // orange
-      case 'APPROVE':
-      case 'APPROVED':
-        return 'badge badge-active';      // green
-      case 'SURRENDER':
-      case 'SURRENDERED':
-        return 'badge badge-surrendered'; // grey
-      case 'EXPIRED':
-      case 'EXPIRY':
-      case 'EXPIRE':
-        return 'badge badge-expired';     // red
-      case 'IN':
-      case 'ENTRY':
-        return 'badge badge-employee';    // blue
-      case 'OUT':
-      case 'EXIT':
-        return 'badge badge-expired';     // red
-      default:
-        return 'badge badge-surrendered';
-    }
+  getActionClass(action: string): string {
+    const a = (action || '').toUpperCase();
+    if (['SUBMITTED','CREATED','PASS_RAISED'].includes(a)) return 'action-pill action-create';
+    if (['APPROVED','CONFIRMED'].includes(a))              return 'action-pill action-approve';
+    if (['REJECTED'].includes(a))                          return 'action-pill action-reject';
+    if (['SURRENDERED'].includes(a))                       return 'action-pill action-surrender';
+    if (['EXPIRED','EXPIRY_WARN'].includes(a))             return 'action-pill action-expired';
+    if (['GATE_IN','GATE_ENTRY'].includes(a))              return 'action-pill action-gate-in';
+    if (['GATE_OUT','GATE_EXIT'].includes(a))              return 'action-pill action-gate-out';
+    return 'action-pill action-default';
   }
 }

@@ -47,7 +47,17 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pass-details/pass-details').then(m => m.PassDetails),
   },
-
   // FALLBACK
   { path: '**', redirectTo: '' },
+  {
+    path: 'history',
+    children: [
+      { path: 'pass-created',   component: History, data: { historyType: 'pass-created'   } },
+      { path: 'approved',       component: History, data: { historyType: 'approved'        } },
+      { path: 'surrendered',    component: History, data: { historyType: 'surrendered'     } },
+      { path: 'expiry-events',  component: History, data: { historyType: 'expiry-events'   } },
+      { path: 'gate-movements', component: History, data: { historyType: 'gate-movements'  } },
+      { path: '',               redirectTo: 'pass-created', pathMatch: 'full'               },
+    ]
+  }
 ];
