@@ -14,6 +14,21 @@
       <span class="pd-count-label">Total Submitted</span>
     </div>
   </div>
+  <!-- Add this just below the page header / above the tabs -->
+  <div class="sync-bar">
+    <span *ngIf="isSyncing()" class="sync-indicator">
+      <i class="bi bi-arrow-repeat spin"></i> Syncing with server...
+    </span>
+    <span *ngIf="!isSyncing() && lastSyncedAt()" class="sync-ok">
+      <i class="bi bi-check-circle-fill"></i> Live — Last synced at {{ lastSyncedAt() }}
+    </span>
+    <span *ngIf="syncError()" class="sync-err">
+      <i class="bi bi-exclamation-triangle-fill"></i> {{ syncError() }}
+    </span>
+    <button class="btn-sync-now" (click)="refreshNow()" [disabled]="isSyncing()" title="Refresh Now">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+  </div>
 
   <!-- TABS -->
   <div class="pd-tabs">

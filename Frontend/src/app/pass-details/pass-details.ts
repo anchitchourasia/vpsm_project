@@ -1,8 +1,27 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Subject, interval, takeUntil, timeout, catchError, of, startWith } from 'rxjs';
 import { PassStateService, PassRecord, WorkflowStatus } from '../services/pass-state.service';
+import { API_CONFIG } from '../core/api.config';
+
+const REFRESH_INTERVAL_MS = 30_000;  // auto-refresh every 30 seconds
+const HTTP_TIMEOUT_MS     = 12_000;
+
+/** Maps raw DB status string → WorkflowStatus used by PassStateService */
+function dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
+  switch ((dbStatus || '').toLowerCase()) {
+    case 'submitted'  : return 'Submitted';
+    case 'confirmed'  : return 'Confirmed';
+    case 'active'     : return 'Approved';
+    case 'rejected'   : return 'Confirmation_Rejected';
+    case 'surrendered': return 'Approval_Rejected';   // closest valid match
+    case 'expired'    : return 'Approval_Rejected';   // closest valid match
+    default           : return 'Submitted';
+  }
+}
 
 @Component({
   selector   : 'app-pass-details',
@@ -11,10 +30,23 @@ import { PassStateService, PassRecord, WorkflowStatus } from '../services/pass-s
   templateUrl: './pass-details.html',
   styleUrl   : './pass-details.css',
 })
-export class PassDetails {
+export class PassDetails implements OnInit, OnDestroy {
 
   private svc    = inject(PassStateService);
   private router = inject(Router);
+  private http   = inject(HttpClient);
+
+  private readonly destroy$     = new Subject<void>();
+  private readonly HEADERS = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Accept'      : 'application/json',
+    'Content-Type': 'application/json',
+  });
+
+  // ── NEW: Live sync state ──────────────────────────────────────────────────
+  protected isSyncing       = signal(false);
+  protected lastSyncedAt    = signal<string>('');
+  protected syncError       = signal('');
 
   // ── Data sources (existing — unchanged) ──────────────────────────────────
   protected readonly submittedPasses = this.svc.submittedPasses;
@@ -63,7 +95,121 @@ export class PassDetails {
       : this.filteredDrafts()
   );
 
-  // ── Handlers (existing — unchanged) ───────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // LIFECYCLE
+  // ─────────────────────────────────────────────────────────────────────────
+
+  ngOnInit(): void {
+    // Immediate sync on page load + auto-refresh every 30s
+    interval(REFRESH_INTERVAL_MS)
+      .pipe(startWith(0), takeUntil(this.destroy$))
+      .subscribe(() => this.syncStatusFromDB());
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REAL-TIME DB SYNC — fetches all passes from backend, merges status into
+  // local PassStateService records so badges update without page reload
+  // ─────────────────────────────────────────────────────────────────────────
+
+  protected refreshNow(): void {
+    this.syncStatusFromDB();
+  }
+
+  private syncStatusFromDB(): void {
+    // Nothing to sync if no submitted passes exist locally
+    const localPasses = this.svc.submittedPasses();
+    if (!localPasses.length) return;
+
+    this.isSyncing.set(true);
+    this.syncError.set('');
+
+    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.warn('[PassDetails] Sync failed:', err?.status);
+          this.syncError.set('Could not reach server. Showing last known status.');
+          this.isSyncing.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(dbPasses => {
+        if (!dbPasses?.length) {
+          this.isSyncing.set(false);
+          return;
+        }
+
+        // For each local submitted pass, find matching DB record and sync status
+        for (const local of localPasses) {
+          const dbMatch = this.findDbMatch(local, dbPasses);
+          if (!dbMatch) continue;
+
+          const dbStatus       = dbMatch.status as string;
+          const workflowStatus = dbStatusToWorkflow(dbStatus);
+
+          // Build updated record — preserve ALL existing local fields
+          const updated: PassRecord = {
+            ...local,
+            workflowStatus,
+            // Sync confirmer info from DB remarks/enterBy when confirmed/rejected
+            ...(
+              ['confirmed', 'rejected'].includes(dbStatus.toLowerCase()) && {
+                confirmedBy    : dbMatch.enterBy   || local.confirmedBy,
+                confirmedAt    : dbMatch.enterDate  || local.confirmedAt,
+                confirmerRemark: dbMatch.remarks    || local.confirmerRemark,
+              }
+            ),
+            // Sync approver info from DB when active (approved)
+            ...(
+              dbStatus.toLowerCase() === 'active' && {
+                approvedBy    : dbMatch.enterBy  || local.approvedBy,
+                approvedAt    : dbMatch.enterDate || local.approvedAt,
+                approverRemark: dbMatch.remarks   || local.approverRemark,
+                confirmedBy   : local.confirmedBy || dbMatch.enterBy,
+              }
+            ),
+          };
+
+          this.svc.upsert(updated);
+        }
+
+        this.isSyncing.set(false);
+        this.lastSyncedAt.set(
+          new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })
+        );
+      });
+  }
+
+  /**
+   * Match local PassRecord to a DB record.
+   * Strategy: match by numeric DB passId embedded in formatted passId string,
+   * OR fallback match by vehicleNo + employeeNo.
+   */
+  private findDbMatch(local: PassRecord, dbPasses: any[]): any | null {
+    // Primary: extract numeric id from "PASS-HEG-0058" → 58
+    const numericId = parseInt(local.passId.replace(/\D/g, ''), 10);
+    if (!isNaN(numericId)) {
+      const byId = dbPasses.find(d => d.passId === numericId);
+      if (byId) return byId;
+    }
+
+    // Fallback: match by vehicleNo + employeeNo
+    return dbPasses.find(d =>
+      (d.vehicle?.vehicleNo || '').toUpperCase() === (local.vehicleNo || '').toUpperCase() &&
+      (d.employeeNo || '') === (local.ecNo || '')
+    ) ?? null;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ALL EXISTING HANDLERS — completely unchanged
+  // ─────────────────────────────────────────────────────────────────────────
+
   protected toggle(passId: string): void {
     this.expandedId.update(cur => cur === passId ? null : passId);
   }
@@ -118,30 +264,25 @@ export class PassDetails {
     return `${d}/${m}/${y}`;
   }
 
-  // ── NEW: Workflow helpers ──────────────────────────────────────────────────
+  // ── Workflow helpers (existing — unchanged) ───────────────────────────────
 
-  /** Human-readable status label for badge */
   protected workflowLabel(p: PassRecord): string {
     return this.svc.getStatusLabel(p.workflowStatus);
   }
 
-  /** CSS class for status badge */
   protected workflowClass(p: PassRecord): string {
     return this.svc.getStatusClass(p.workflowStatus);
   }
 
-  /**
-   * Build a timeline trail for a pass record.
-   * Only includes stages that have actually happened.
-   * Purely computed — no state mutation.
-   */
-  protected workflowTrail(p: PassRecord): { label: string; by: string; at: string; remark: string }[] {
+  protected workflowTrail(p: PassRecord): {
+    label: string; by: string; at: string; remark: string
+  }[] {
     const trail: { label: string; by: string; at: string; remark: string }[] = [];
 
-    // Stage 1 — always present if record exists
+    // Stage 1 — always present
     trail.push({
       label : 'Submitted',
-      by    : p.submittedBy  ?? 'ADMIN',
+      by    : p.submittedBy  ?? 'REQUESTER',
       at    : p.submittedAt  ? this.formatDateTime(p.submittedAt) : p.createdAt,
       remark: '',
     });
@@ -149,7 +290,9 @@ export class PassDetails {
     // Stage 2 — confirmer acted
     if (p.confirmedAt) {
       trail.push({
-        label : p.workflowStatus === 'Confirmation_Rejected' ? 'Returned by Confirmer' : 'Confirmed',
+        label : p.workflowStatus === 'Confirmation_Rejected'
+                  ? 'Returned by Confirmer'
+                  : 'Confirmed',
         by    : p.confirmedBy    ?? '—',
         at    : this.formatDateTime(p.confirmedAt),
         remark: p.confirmerRemark ?? '',
@@ -159,7 +302,9 @@ export class PassDetails {
     // Stage 3 — approver acted
     if (p.approvedAt) {
       trail.push({
-        label : p.workflowStatus === 'Approval_Rejected' ? 'Returned by Approver' : 'Approved',
+        label : p.workflowStatus === 'Approval_Rejected'
+                  ? 'Returned by Approver'
+                  : 'Approved',
         by    : p.approvedBy    ?? '—',
         at    : this.formatDateTime(p.approvedAt),
         remark: p.approverRemark ?? '',

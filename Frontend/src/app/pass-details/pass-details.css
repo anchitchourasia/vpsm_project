@@ -594,3 +594,12 @@
 .pd-status-confirmed   { background:#fff3e0; color:#ef6c00; }
 .pd-status-approved    { background:#e8f5e9; color:#2e7d32; }
 .pd-status-rejected    { background:#ffebee; color:#c62828; }
+.sync-bar       { display:flex; align-items:center; gap:12px; padding:8px 16px; background:#f0fdf4; border-radius:8px; margin-bottom:16px; font-size:13px; flex-wrap:wrap; }
+.sync-indicator { color:#0369a1; font-weight:600; display:flex; align-items:center; gap:6px; }
+.sync-ok        { color:#166534; font-weight:600; display:flex; align-items:center; gap:6px; }
+.sync-err       { color:#991b1b; font-weight:600; display:flex; align-items:center; gap:6px; }
+.btn-sync-now   { margin-left:auto; background:#fff; border:1px solid #d1fae5; color:#166534; padding:5px 14px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+.btn-sync-now:hover    { background:#dcfce7; }
+.btn-sync-now:disabled { opacity:.5; cursor:not-allowed; }
+.spin { animation: spin 1s linear infinite; display:inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
