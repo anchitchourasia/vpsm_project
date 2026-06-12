@@ -3,12 +3,11 @@
   <!-- ── PAGE HEADER ── -->
   <div class="page-top">
     <div class="page-title-row">
-      <i class="bi {{ cfg.icon }} page-icon" [style.color]="cfg.iconColor"></i>
-      <h2 class="page-heading">{{ cfg.title }}</h2>
+      <i class="bi bi-clock-history page-icon" style="color:#e67e22;"></i>
+      <h2 class="page-heading">{{ currentTabLabel() }}</h2>
       <span class="record-pill"
-        [style.background]="cfg.pillBg"
-        [style.color]="cfg.pillColor">
-        {{ filteredLogs().length }} Records
+        style="background:#fff3e0; color:#e67e22;">
+        {{ filteredRecords().length }} Records
       </span>
     </div>
   </div>
@@ -16,7 +15,7 @@
   <!-- ── LOADING STATE ── -->
   <div *ngIf="isLoading()" class="state-box">
     <i class="bi bi-arrow-repeat spin-icon"></i>
-    <p>Loading {{ cfg.title }}...</p>
+    <p>Loading {{ currentTabLabel() }}...</p>
   </div>
 
   <!-- ── ERROR STATE ── -->
@@ -68,15 +67,15 @@
           </thead>
           <tbody>
             <!-- DATA ROWS -->
-            <tr *ngFor="let log of pagedLogs(); let i = index">
+            <tr *ngFor="let log of pagedRecords(); let i = index">
               <td class="td-muted">
                 {{ (currentPage() - 1) * pageSize() + i + 1 }}
               </td>
-              <td class="td-muted">{{ formatDateTime(log.dateOfEntry) }}</td>
+              <td class="td-muted">{{ formatDate(log.dateOfEntry) }}</td>
               <td><strong class="pass-no">{{ log.passNo || '—' }}</strong></td>
               <td>{{ log.empCode || '—' }}</td>
               <td>
-                <span [class]="getActionBadgeClass(log.action)">
+                <span [class]="getActionClass(log.action)">
                   {{ log.action || '—' }}
                 </span>
               </td>
@@ -86,10 +85,10 @@
             </tr>
 
             <!-- EMPTY STATE -->
-            <tr *ngIf="pagedLogs().length === 0">
+            <tr *ngIf="pagedRecords().length === 0">
               <td colspan="6" class="no-data">
                 <i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:6px;"></i>
-                {{ cfg.emptyMsg }}
+                No {{ currentTabLabel() }} records found.
               </td>
             </tr>
           </tbody>
@@ -100,12 +99,12 @@
       <div class="pagination-bar">
         <span class="page-info">
           Showing
-          {{ filteredLogs().length === 0 ? 0 : (currentPage() - 1) * pageSize() + 1 }}–{{
-            currentPage() * pageSize() < filteredLogs().length
+          {{ filteredRecords().length === 0 ? 0 : (currentPage() - 1) * pageSize() + 1 }}–{{
+            currentPage() * pageSize() < filteredRecords().length
               ? currentPage() * pageSize()
-              : filteredLogs().length
+              : filteredRecords().length
           }}
-          of {{ filteredLogs().length }}
+          of {{ filteredRecords().length }}
         </span>
         <div class="page-btns">
           <button class="page-btn"
