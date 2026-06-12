@@ -1,0 +1,65 @@
+<div class="page">
+  <div class="header">
+    <div>
+      <h2>Confirmer Queue</h2>
+      <p>Requests waiting for confirmation review.</p>
+    </div>
+    <div class="count">{{ queue().length }} Pending</div>
+  </div>
+
+  <div class="notice" *ngIf="queue().length === 0">
+    No submitted requests are waiting for confirmation.
+  </div>
+
+  <div class="grid" *ngIf="queue().length > 0">
+    <div class="card" *ngFor="let p of queue()">
+      <div class="row between">
+        <strong>{{ p.passId }}</strong>
+        <span class="badge" [ngClass]="getStatusClass(p.workflowStatus)">
+          {{ getStatusLabel(p.workflowStatus) }}
+        </span>
+      </div>
+      <div class="meta">{{ p.vehicleNo }} • {{ p.vehicleType }} • {{ p.vehicleClass }}</div>
+      <div class="meta">{{ p.empName }} | {{ p.empDept || p.contractorFirm }}</div>
+      <div class="actions">
+        <button type="button" (click)="openDetails(p)">View Details</button>
+        <button type="button" class="confirm" (click)="openDetails(p)">Review</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer" *ngIf="selectedPass() as p">
+    <div class="drawer-card">
+      <div class="row between">
+        <h3>{{ p.passId }}</h3>
+        <button type="button" class="link" (click)="closeDetails()">Close</button>
+      </div>
+
+      <div class="details">
+        <div><span>Vehicle</span><strong>{{ p.vehicleNo }}</strong></div>
+        <div><span>Type</span><strong>{{ p.vehicleType }}</strong></div>
+        <div><span>Class</span><strong>{{ p.vehicleClass }}</strong></div>
+        <div><span>Employee / Contractor</span><strong>{{ p.empType }}</strong></div>
+        <div><span>Name</span><strong>{{ p.empName }}</strong></div>
+        <div><span>Dept / Firm</span><strong>{{ p.empDept || p.contractorFirm }}</strong></div>
+        <div><span>Gate</span><strong>{{ p.gateNo }}</strong></div>
+        <div><span>Validity</span><strong>{{ p.validityDate }}</strong></div>
+      </div>
+
+      <label>Confirmer Remark</label>
+      <textarea
+  [ngModel]="actionRemark()"
+  (ngModelChange)="actionRemark.set($event)"
+  rows="3"
+  placeholder="Enter review remarks">
+</textarea>
+      <div class="error" *ngIf="actionError()">{{ actionError() }}</div>
+      <div class="success" *ngIf="actionSuccess()">{{ actionSuccess() }}</div>
+
+      <div class="actions end">
+        <button type="button" class="reject" (click)="reject(p)" [disabled]="actingOn() === p.passId">Reject</button>
+        <button type="button" class="confirm" (click)="confirm(p)" [disabled]="actingOn() === p.passId">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>

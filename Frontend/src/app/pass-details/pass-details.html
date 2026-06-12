@@ -94,9 +94,12 @@
                   <i class="bi bi-calendar-check"></i>
                   Valid till: <strong>{{ formatDate(pass.validityDate) }}</strong>
                 </span>
-                <span class="pd-status-chip pd-status-submitted">
-                  <i class="bi bi-check-circle-fill"></i> Submitted
+
+                <!-- ✅ NEW: Dynamic workflow status badge -->
+                <span class="pd-status-chip" [ngClass]="workflowClass(pass)">
+                  <i class="bi bi-circle-fill"></i> {{ workflowLabel(pass) }}
                 </span>
+
                 <i class="bi pd-chevron"
                    [class.bi-chevron-down]="expandedId() !== pass.passId"
                    [class.bi-chevron-up]="expandedId() === pass.passId"></i>
@@ -209,6 +212,29 @@
                           <span class="pd-doc-type-badge">{{ doc.docType }}</span>
                           <span>{{ doc.docNo || '—' }}</span>
                           <span>{{ formatDate(doc.validUpto) || '—' }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <!-- ✅ NEW: WORKFLOW TRAIL SECTION -->
+                @if (workflowTrail(pass).length > 0) {
+                  <div class="pd-detail-section">
+                    <div class="pd-detail-section-title">
+                      <i class="bi bi-diagram-3-fill"></i> Workflow Trail
+                    </div>
+                    <div class="pd-trail">
+                      @for (step of workflowTrail(pass); track step.label; let i = $index) {
+                        <div class="pd-trail-step">
+                          <div class="pd-trail-dot" [class.pd-trail-dot-last]="i === workflowTrail(pass).length - 1"></div>
+                          <div class="pd-trail-content">
+                            <span class="pd-trail-label">{{ step.label }}</span>
+                            <span class="pd-trail-meta">{{ step.by }} · {{ step.at }}</span>
+                            @if (step.remark) {
+                              <span class="pd-trail-remark">{{ step.remark }}</span>
+                            }
+                          </div>
                         </div>
                       }
                     </div>

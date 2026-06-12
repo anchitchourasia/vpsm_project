@@ -1,0 +1,8 @@
+.login-page { min-height:100vh; display:flex; align-items:center; justify-content:center; background:#f0f2f8; padding:20px; }
+.card { width:min(420px, 100%); background:#fff; border-radius:16px; padding:24px; box-shadow:0 6px 20px rgba(0,0,0,.08); }
+.brand { display:inline-block; background:#1a237e; color:#fff; padding:6px 10px; border-radius:999px; font-weight:700; margin-bottom:12px; }
+h2 { margin:0 0 8px; color:#1a237e; }
+p { margin:0 0 18px; color:#5b6472; }
+label { display:block; margin-top:12px; margin-bottom:6px; font-weight:600; color:#37474f; }
+input, select, button { width:100%; padding:11px 12px; border-radius:10px; border:1px solid #d0d7de; font-size:14px; }
+button { margin-top:18px; border:none; background:#1a237e; color:#fff; font-weight:700; cursor:pointer; }

@@ -1,0 +1,19 @@
+<div class="login-page">
+  <div class="card">
+    <div class="brand">VPSM</div>
+    <h2>Login</h2>
+    <p>Select a role to enter the correct workflow screen.</p>
+
+    <label>User Name</label>
+    <input type="text" [(ngModel)]="userName" placeholder="Enter your name" />
+
+    <label>Role</label>
+    <select [(ngModel)]="role">
+      <option value="Requester">Requester</option>
+      <option value="Confirmer">Confirmer</option>
+      <option value="Approver">Approver</option>
+    </select>
+
+    <button type="button" (click)="continue()">Continue</button>
+  </div>
+</div>
