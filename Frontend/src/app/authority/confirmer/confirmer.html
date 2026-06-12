@@ -17,24 +17,18 @@
     </div>
   </div>
 
-  <!-- LOADING -->
   <div class="state-box" *ngIf="isLoading()">
     <i class="bi bi-arrow-repeat spin"></i>
     <p>Loading pending passes...</p>
   </div>
 
-  <!-- ERROR -->
   <div class="state-box error-state" *ngIf="hasError() && !isLoading()">
     <i class="bi bi-exclamation-triangle-fill"></i>
-    <p>Could not connect to server. Check if backend is running.</p>
-    <button class="btn-retry" (click)="loadPasses()">
-      <i class="bi bi-arrow-clockwise"></i> Retry
-    </button>
+    <p>Could not connect to server.</p>
+    <button class="btn-retry" (click)="loadPasses()"><i class="bi bi-arrow-clockwise"></i> Retry</button>
   </div>
 
   <div *ngIf="!isLoading() && !hasError()">
-
-    <!-- SEARCH -->
     <div class="toolbar">
       <div class="search-wrap">
         <i class="bi bi-search si"></i>
@@ -43,29 +37,20 @@
       </div>
     </div>
 
-    <!-- EMPTY -->
     <div class="state-box" *ngIf="pendingList().length === 0">
       <i class="bi bi-inbox" style="font-size:3rem;color:#bbb;display:block"></i>
       <p style="margin-top:12px">No passes pending your confirmation.</p>
       <small>Passes submitted by requesters will appear here automatically.</small>
     </div>
 
-    <!-- TABLE -->
     <div class="table-card" *ngIf="pendingList().length > 0">
       <div class="table-scroll">
         <table class="dtable">
           <thead>
             <tr>
-              <th>S.NO</th>
-              <th>PASS ID</th>
-              <th>EMPLOYEE NO</th>
-              <th>VEHICLE NO</th>
-              <th>TYPE</th>
-              <th>GATE</th>
-              <th>ISSUE DATE</th>
-              <th>VALID TILL</th>
-              <th>STATUS</th>
-              <th>ACTION</th>
+              <th>S.NO</th><th>PASS ID</th><th>EMPLOYEE NO</th><th>VEHICLE NO</th>
+              <th>TYPE</th><th>GATE</th><th>ISSUE DATE</th><th>VALID TILL</th>
+              <th>STATUS</th><th>ACTION</th>
             </tr>
           </thead>
           <tbody>
@@ -88,8 +73,6 @@
           </tbody>
         </table>
       </div>
-
-      <!-- PAGINATION -->
       <div class="pagination-bar">
         <span class="pg-info">
           Showing {{ pendingList().length === 0 ? 0 : (currentPage()-1)*pageSize+1 }}
@@ -150,6 +133,65 @@
           <div class="di"><label>Issue Date</label><span>{{ formatDate(p.issueDate) }}</span></div>
           <div class="di"><label>Valid Till</label><span>{{ formatDate(p.validityDate) }}</span></div>
           <div class="di"><label>Submitted By</label><span>{{ p.enterBy || '—' }}</span></div>
+        </div>
+
+        <!-- ── COMPLIANCE DOCUMENTS ── -->
+        <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
+
+        <!-- Loading -->
+        <div class="doc-loading" *ngIf="isLoadingDocs()">
+          <i class="bi bi-arrow-repeat spin"></i> Loading documents...
+        </div>
+
+        <!-- Error -->
+        <div class="doc-error" *ngIf="docLoadError() && !isLoadingDocs()">
+          <i class="bi bi-exclamation-triangle-fill"></i> {{ docLoadError() }}
+        </div>
+
+        <!-- Documents Table -->
+        <div class="doc-table-wrap" *ngIf="!isLoadingDocs() && passDocuments().length > 0">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>DOC TYPE</th>
+                <th>DOC NO</th>
+                <th>START</th>
+                <th>EXPIRY</th>
+                <th>STATUS</th>
+                <th>FILE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let doc of passDocuments()">
+                <td><span class="doc-type-badge">{{ doc.documentType }}</span></td>
+                <td><strong>{{ doc.documentNo || '—' }}</strong></td>
+                <td>{{ formatDocDate(doc.startDate) }}</td>
+                <td>{{ formatDocDate(doc.expiryDate) }}</td>
+                <td>
+                  <span class="doc-status-badge" [ngClass]="getDocStatusClass(doc.expiryDate)">
+                    {{ getDocStatusText(doc.expiryDate) }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn-view-pdf"
+                    (click)="viewDocument(doc)"
+                    [disabled]="!doc.fileName"
+                    [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
+                    [style.opacity]="doc.fileName ? '1' : '0.4'"
+                    [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    {{ doc.fileName ? 'View' : '—' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- No docs message (only after load, no error) -->
+        <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()"
+          class="doc-empty">
+          <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
         <!-- Remark -->

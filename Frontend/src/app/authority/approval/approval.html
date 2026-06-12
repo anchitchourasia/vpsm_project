@@ -28,7 +28,6 @@
   </div>
 
   <div *ngIf="!isLoading() && !hasError()">
-
     <div class="toolbar">
       <div class="search-wrap">
         <i class="bi bi-search si"></i>
@@ -48,15 +47,8 @@
         <table class="dtable">
           <thead>
             <tr>
-              <th>S.NO</th>
-              <th>PASS ID</th>
-              <th>EMPLOYEE NO</th>
-              <th>VEHICLE NO</th>
-              <th>TYPE</th>
-              <th>GATE</th>
-              <th>CONFIRMED BY</th>
-              <th>STATUS</th>
-              <th>ACTION</th>
+              <th>S.NO</th><th>PASS ID</th><th>EMPLOYEE NO</th><th>VEHICLE NO</th>
+              <th>TYPE</th><th>GATE</th><th>CONFIRMED BY</th><th>STATUS</th><th>ACTION</th>
             </tr>
           </thead>
           <tbody>
@@ -115,14 +107,17 @@
           <div class="di"><label>Vehicle No</label><span>{{ p.vehicle?.vehicleNo || '—' }}</span></div>
           <div class="di"><label>Type</label><span>{{ p.vehicle?.vehicleType || p.typeOfVehicle || '—' }}</span></div>
           <div class="di"><label>Class</label><span>{{ p.vehicle?.vehicleClass || '—' }}</span></div>
+          <div class="di"><label>Brand/Model</label><span>{{ p.vehicle?.brandModel || '—' }}</span></div>
         </div>
 
         <!-- Employee -->
         <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
         <div class="dg">
           <div class="di"><label>Employee No</label><span>{{ p.employeeNo || '—' }}</span></div>
+          <div class="di"><label>Company No</label><span>{{ p.employeeCompanyNo || '—' }}</span></div>
           <div class="di"><label>Emp Type</label><span>{{ p.empType || '—' }}</span></div>
           <div class="di"><label>Department</label><span>{{ p.dept || '—' }}</span></div>
+          <div class="di"><label>Contractor Code</label><span>{{ p.contractorCode || '—' }}</span></div>
           <div class="di"><label>Mobile</label><span>{{ p.mobileNo || '—' }}</span></div>
         </div>
 
@@ -131,18 +126,78 @@
         <div class="dg">
           <div class="di"><label>Pass ID</label><span>{{ p.passId }}</span></div>
           <div class="di"><label>Gate No</label><span>{{ p.gateNo || '—' }}</span></div>
+          <div class="di"><label>Parking Area</label><span>{{ p.parkingToBeUsed || '—' }}</span></div>
           <div class="di"><label>Issue Date</label><span>{{ formatDate(p.issueDate) }}</span></div>
           <div class="di"><label>Valid Till</label><span>{{ formatDate(p.validityDate) }}</span></div>
         </div>
 
-        <!-- Confirmer's decision — from remarks field -->
+        <!-- ── COMPLIANCE DOCUMENTS ── -->
+        <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
+
+        <!-- Loading -->
+        <div class="doc-loading" *ngIf="isLoadingDocs()">
+          <i class="bi bi-arrow-repeat spin"></i> Loading documents...
+        </div>
+
+        <!-- Error -->
+        <div class="doc-error" *ngIf="docLoadError() && !isLoadingDocs()">
+          <i class="bi bi-exclamation-triangle-fill"></i> {{ docLoadError() }}
+        </div>
+
+        <!-- Documents Table -->
+        <div class="doc-table-wrap" *ngIf="!isLoadingDocs() && passDocuments().length > 0">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>DOC TYPE</th>
+                <th>DOC NO</th>
+                <th>START</th>
+                <th>EXPIRY</th>
+                <th>STATUS</th>
+                <th>FILE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let doc of passDocuments()">
+                <td><span class="doc-type-badge">{{ doc.documentType }}</span></td>
+                <td><strong>{{ doc.documentNo || '—' }}</strong></td>
+                <td>{{ formatDocDate(doc.startDate) }}</td>
+                <td>{{ formatDocDate(doc.expiryDate) }}</td>
+                <td>
+                  <span class="doc-status-badge" [ngClass]="getDocStatusClass(doc.expiryDate)">
+                    {{ getDocStatusText(doc.expiryDate) }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn-view-pdf"
+                    (click)="viewDocument(doc)"
+                    [disabled]="!doc.fileName"
+                    [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
+                    [style.opacity]="doc.fileName ? '1' : '0.4'"
+                    [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    {{ doc.fileName ? 'View' : '—' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- No docs -->
+        <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()"
+          class="doc-empty">
+          <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
+        </div>
+
+        <!-- Confirmer's Decision -->
         <div class="sec-title"><i class="bi bi-person-check-fill"></i> Confirmer's Decision</div>
         <div class="confirmer-box">
           <div class="trail-row"><span class="tl">Confirmed By</span><span class="tv">{{ p.enterBy || '—' }}</span></div>
           <div class="trail-row"><span class="tl">Confirmer Remark</span><span class="tv">{{ p.remarks || '—' }}</span></div>
         </div>
 
-        <!-- Approver remark -->
+        <!-- Approver Decision -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Approver Decision</div>
         <div class="form-group">
           <textarea class="form-textarea" rows="3"

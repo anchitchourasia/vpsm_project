@@ -25,12 +25,23 @@ interface PassRecord {
   issueDate        : string;
   validityDate     : string;
   vehicle          : {
-    vehicleId  : number;
-    vehicleNo  : string;
-    vehicleType: string;
+    vehicleId   : number;
+    vehicleNo   : string;
+    vehicleType : string;
     vehicleClass: string;
     brandModel ?: string;
   } | null;
+}
+
+// ✅ Matches the actual API response from /api/documents/list
+interface DocumentRecord {
+  documentId  : number;
+  documentType: string;
+  documentNo  : string;
+  startDate   : string;
+  expiryDate  : string;
+  fileName   ?: string;   // ✅ ADD THIS — same field as documents module
+  vehicle    ?: { vehicleId: number };
 }
 
 @Component({
@@ -49,12 +60,10 @@ export class Confirmer implements OnInit, OnDestroy {
   });
   private readonly destroy$ = new Subject<void>();
 
-  // ── Session ──────────────────────────────────────────────────────────────
   readonly confirmerName = signal(
     localStorage.getItem('vpsm_userName') || 'CONFIRMER'
   );
 
-  // ── List State ───────────────────────────────────────────────────────────
   allPasses   = signal<PassRecord[]>([]);
   isLoading   = signal(true);
   hasError    = signal(false);
@@ -62,14 +71,17 @@ export class Confirmer implements OnInit, OnDestroy {
   currentPage = signal(1);
   readonly pageSize = 10;
 
-  // ── Action State ─────────────────────────────────────────────────────────
   selectedPass  = signal<PassRecord | null>(null);
   actionRemark  = signal('');
   actionError   = signal('');
   actionSuccess = signal('');
   isActing      = signal(false);
 
-  // ── Computed: Only status === 'Submitted' passes shown ───────────────────
+  // ── Documents State ───────────────────────────────────────────────────────
+  passDocuments  = signal<DocumentRecord[]>([]);
+  isLoadingDocs  = signal(false);
+  docLoadError   = signal('');
+
   pendingList = computed(() => {
     const q    = this.searchText().toLowerCase().trim();
     const list = this.allPasses().filter(p =>
@@ -77,7 +89,7 @@ export class Confirmer implements OnInit, OnDestroy {
     );
     if (!q) return list;
     return list.filter(p =>
-      String(p.passId).includes(q)                        ||
+      String(p.passId).includes(q)                           ||
       (p.employeeNo         || '').toLowerCase().includes(q) ||
       (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
       (p.dept               || '').toLowerCase().includes(q) ||
@@ -98,15 +110,12 @@ export class Confirmer implements OnInit, OnDestroy {
   ngOnInit()    { this.loadPasses(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
-  // ── Load All Passes from Real Backend DB ─────────────────────────────────
   loadPasses(): void {
     this.isLoading.set(true);
     this.hasError.set(false);
-
     this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
       .pipe(
-        timeout(TIMEOUT_MS),
-        takeUntil(this.destroy$),
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           console.error('[Confirmer] Load error:', err);
           this.hasError.set(true);
@@ -120,12 +129,19 @@ export class Confirmer implements OnInit, OnDestroy {
       });
   }
 
-  // ── Modal Controls ───────────────────────────────────────────────────────
   openDetails(p: PassRecord): void {
     this.selectedPass.set(p);
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
+    this.passDocuments.set([]);
+    this.docLoadError.set('');
+
+    if (p.vehicle?.vehicleId) {
+      this.loadDocuments(p.vehicle.vehicleId);
+    } else {
+      this.docLoadError.set('No vehicle linked — cannot load documents.');
+    }
   }
 
   closeDetails(): void {
@@ -133,9 +149,84 @@ export class Confirmer implements OnInit, OnDestroy {
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
+    this.passDocuments.set([]);
+    this.docLoadError.set('');
   }
 
-  // ── Confirm Pass → status: 'Confirmed' → goes to Approver queue ──────────
+  // ── GET /api/documents/list → filter by vehicleId (same as vehicles.ts) ──
+  private loadDocuments(vehicleId: number): void {
+    this.isLoadingDocs.set(true);
+    this.docLoadError.set('');
+
+    this.http.get<DocumentRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.docLoadError.set(
+            'Could not load documents (' + (err?.status || 'network error') + ')'
+          );
+          this.isLoadingDocs.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(docs => {
+        const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
+        this.passDocuments.set(filtered);
+        if (filtered.length === 0) {
+          this.docLoadError.set('No documents found for this vehicle.');
+        }
+        this.isLoadingDocs.set(false);
+      });
+  }
+
+  // ── Open PDF in new tab using download endpoint ───────────────────────────
+  // ── NEW (correct — query param, blob download like documents module) ──
+viewDocument(doc: DocumentRecord): void {
+  if (!doc?.documentId || !doc?.fileName) {
+    alert('No file attached to this document.');
+    return;
+  }
+  const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+  this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
+    .pipe(
+      timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+      catchError(err => {
+        console.error('❌ PDF download error:', err?.status);
+        alert('Could not load file. It may not have been uploaded yet.');
+        return of(null);
+      })
+    )
+    .subscribe((blob: Blob | null) => {
+      if (!blob) return;
+      // Open PDF in new tab instead of downloading
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+    });
+}
+
+  // ── Date formatting — same as vehicles.ts ────────────────────────────────
+  formatDocDate(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  getDocStatusClass(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return 'doc-expired';
+    if (days <= 30) return 'doc-expiring';
+    return 'doc-valid';
+  }
+
+  getDocStatusText(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return 'Expired';
+    if (days <= 30) return `${days}d left`;
+    return 'Valid';
+  }
+
+  // ── Confirm Pass ──────────────────────────────────────────────────────────
   confirm(pass: PassRecord): void {
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required before confirming.');
@@ -143,46 +234,32 @@ export class Confirmer implements OnInit, OnDestroy {
     }
     this.isActing.set(true);
     this.actionError.set('');
-
     const updatePayload = {
       status  : 'Confirmed',
       enterBy : this.confirmerName(),
       remarks : `Confirmed by ${this.confirmerName()}: ${this.actionRemark().trim()}`,
       vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
-
-    this.http.put(
-      `${API_CONFIG.PASSES_UPDATE}/${pass.passId}`,
-      updatePayload,
-      { headers: this.HEADERS }
-    )
-    .pipe(
-      timeout(TIMEOUT_MS),
-      takeUntil(this.destroy$),
-      catchError(err => {
-        this.actionError.set(
-          'Confirmation failed: ' + (err?.error?.message || err?.message || 'Server error')
-        );
+    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Confirmation failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.passId, pass.employeeNo, 'CONFIRMED',
+          `Confirmed by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`✅ Pass #${pass.passId} confirmed and sent to Approver.`);
         this.isActing.set(false);
-        return of(null);
-      })
-    )
-    .subscribe(res => {
-      if (res === null) return;
-      this.logHistory(
-        pass.passId,
-        pass.employeeNo,
-        'CONFIRMED',
-        `Confirmed by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`
-      );
-      this.actionSuccess.set(`✅ Pass #${pass.passId} confirmed and sent to Approver.`);
-      this.isActing.set(false);
-      this.loadPasses();
-      setTimeout(() => this.closeDetails(), 2000);
-    });
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
   }
 
-  // ── Reject Pass → status: 'Rejected' → returned to Requester ─────────────
+  // ── Reject Pass ───────────────────────────────────────────────────────────
   reject(pass: PassRecord): void {
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required before rejecting.');
@@ -190,77 +267,43 @@ export class Confirmer implements OnInit, OnDestroy {
     }
     this.isActing.set(true);
     this.actionError.set('');
-
     const updatePayload = {
       status  : 'Rejected',
       enterBy : this.confirmerName(),
       remarks : `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
       vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
-
-    this.http.put(
-      `${API_CONFIG.PASSES_UPDATE}/${pass.passId}`,
-      updatePayload,
-      { headers: this.HEADERS }
-    )
-    .pipe(
-      timeout(TIMEOUT_MS),
-      takeUntil(this.destroy$),
-      catchError(err => {
-        this.actionError.set(
-          'Rejection failed: ' + (err?.error?.message || err?.message || 'Server error')
-        );
+    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.passId, pass.employeeNo, 'REJECTED',
+          `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`❌ Pass #${pass.passId} rejected and returned to requester.`);
         this.isActing.set(false);
-        return of(null);
-      })
-    )
-    .subscribe(res => {
-      if (res === null) return;
-      this.logHistory(
-        pass.passId,
-        pass.employeeNo,
-        'REJECTED',
-        `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`
-      );
-      this.actionSuccess.set(`❌ Pass #${pass.passId} rejected and returned to requester.`);
-      this.isActing.set(false);
-      this.loadPasses();
-      setTimeout(() => this.closeDetails(), 2000);
-    });
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
   }
 
-  // ── Post to History Audit Log Table ──────────────────────────────────────
-  private logHistory(
-    passId : number,
-    empCode: string,
-    action : string,
-    remark : string
-  ): void {
+  private logHistory(passId: number, empCode: string, action: string, remark: string): void {
     const payload = {
-      passNo      : String(passId),
-      empCode     : empCode || 'SYSTEM',
-      action,
-      remark      : remark.substring(0, 200),
-      dateOfEntry : new Date()
+      passNo: String(passId), empCode: empCode || 'SYSTEM',
+      action, remark: remark.substring(0, 200), dateOfEntry: new Date()
     };
     this.http.post(API_CONFIG.HISTORY_LOG, payload, { headers: this.HEADERS })
-      .pipe(takeUntil(this.destroy$), catchError(() => of(null)))
-      .subscribe();
+      .pipe(takeUntil(this.destroy$), catchError(() => of(null))).subscribe();
   }
 
-  // ── Pagination & Search ───────────────────────────────────────────────────
-  onSearch(value: string): void {
-    this.searchText.set(value);
-    this.currentPage.set(1);
-  }
+  onSearch(value: string): void { this.searchText.set(value); this.currentPage.set(1); }
+  goToPage(page: number): void  { if (page >= 1 && page <= this.totalPages) this.currentPage.set(page); }
 
-  goToPage(page: number): void {
-    if (page >= 1 && page <= this.totalPages) {
-      this.currentPage.set(page);
-    }
-  }
-
-  // ── Status Label — human readable ────────────────────────────────────────
   getStatusLabel(status: string): string {
     switch ((status || '').toLowerCase()) {
       case 'submitted'  : return 'Pending Confirmation';
@@ -273,7 +316,6 @@ export class Confirmer implements OnInit, OnDestroy {
     }
   }
 
-  // ── Status CSS Badge Class ────────────────────────────────────────────────
   getStatusClass(status: string): string {
     switch ((status || '').toLowerCase()) {
       case 'submitted'  : return 'badge-submitted';
@@ -286,7 +328,6 @@ export class Confirmer implements OnInit, OnDestroy {
     }
   }
 
-  // ── Date Formatter ────────────────────────────────────────────────────────
   formatDate(d: string): string {
     if (!d) return '—';
     try { return new Date(d).toLocaleDateString('en-GB'); } catch { return d; }
