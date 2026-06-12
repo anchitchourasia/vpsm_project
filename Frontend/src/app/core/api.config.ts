@@ -25,5 +25,6 @@ export const API_CONFIG = {
   HISTORY_LIST     : `${environment.apiBaseUrl}/api/history/list`,   // GET
   HISTORY_LOG      : `${environment.apiBaseUrl}/api/history/log`,    // POST
   HISTORY          : `${environment.apiBaseUrl}/api/history/list`,
-  AUTHORITY        : `${environment.apiBaseUrl}/api/authority/list`
+  AUTHORITY        : `${environment.apiBaseUrl}/api/authority/list`,
+  AUTHORITY_GRANT  : `${environment.apiBaseUrl}/api/authority/grant`,  // POST
 };
