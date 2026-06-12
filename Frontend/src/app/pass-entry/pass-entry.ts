@@ -409,9 +409,9 @@ export class PassEntry implements OnInit, OnDestroy {
       contractorCode   : this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
       gateNo           : this.gateNo,
       parkingToBeUsed  : this.parkingArea.trim() || null,
-      status           : 'Active',
+      status           : 'Submitted',
       empType          : this.empType(),
-      enterBy          : 'ADMIN',
+      enterBy          : localStorage.getItem('vpsm_userName') || 'REQUESTER',
       enterDate        : this.todayDate,
       remarks          : this.remark.trim() || null,
     };
@@ -441,7 +441,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
     const fd = new FormData();
     fd.append('vehicleId', String(this.savedVehicleId));
-    fd.append('enterBy', 'ADMIN');
+    fd.append('enterBy', localStorage.getItem('vpsm_userName') || 'REQUESTER');
 
     for (const doc of docsToProcess) {
       const dt = doc.docType.toLowerCase();
@@ -520,7 +520,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.passState.upsert({
       ...record,
       workflowStatus: 'Submitted',
-      submittedBy   : 'ADMIN',
+      submittedBy   : localStorage.getItem('vpsm_userName') || 'REQUESTER',
       submittedAt   : new Date().toISOString(),
     });
 
