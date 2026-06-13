@@ -116,12 +116,21 @@
                   <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
                 </div>
                 <div class="pd-card-header-actions">
-                  <button
-                    class="pd-btn-download"
-                    title="Download / Print this pass as a slip"
-                    (click)="downloadPass(pass, $event)">
-                    <i class="bi bi-download"></i> Download Pass
-                  </button>
+
+                  <!-- Download Pass — only visible for Approved passes -->
+                  @if (pass.workflowStatus === 'Approved') {
+                    <button
+                      class="pd-btn-download"
+                      title="Download / Print this pass as a slip"
+                      (click)="downloadPass(pass, $event)">
+                      <i class="bi bi-download"></i> Download Pass
+                    </button>
+                  } @else {
+                    <span class="pd-btn-download-locked" title="Pass must be Approved before downloading">
+                      <i class="bi bi-lock-fill"></i> Download Pass
+                    </span>
+                  }
+
                   <i class="bi pd-chevron"
                      [class.bi-chevron-down]="expandedId() !== pass.passId"
                      [class.bi-chevron-up]="expandedId() === pass.passId"></i>
