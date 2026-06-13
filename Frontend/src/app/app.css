@@ -33,7 +33,7 @@ body {
    ════════════════════════════════════════ */
 .sidebar {
   width: 230px;
-  background: #2b2d42;
+  background: #000000;
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -49,7 +49,7 @@ body {
   width: 62px;
   cursor: pointer;
 }
-.sidebar.collapsed:hover { background: #353754; }
+.sidebar.collapsed:hover { background: #1a1a1a; }
 
 /* ── BRAND ROW ──────────────────────────────── */
 .sb-brand {
@@ -57,7 +57,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 14px;
-  background: #1f2033;
+  background: #1a1a1a;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   min-height: 60px;
   flex-shrink: 0;
@@ -102,7 +102,7 @@ body {
   font-size: 12px;
   transition: all 0.2s;
 }
-.sb-toggle:hover { color: #fff; background: rgba(255,255,255,0.14); }
+.sb-toggle:hover { color: #AC9457; background: rgba(255,255,255,0.14); }
 
 .toggle-arrow {
   display: inline-flex;
@@ -164,12 +164,12 @@ body {
 }
 .sb-item:hover {
   background: rgba(255,255,255,0.06);
-  color: #edf2f4;
+  color: #AC9457;
   border-left-color: #4361ee;
 }
 .sb-item.sb-active {
   background: rgba(67,97,238,0.18);
-  color: #fff;
+  color: #AC9457;
   border-left-color: #4361ee;
 }
 
@@ -179,12 +179,12 @@ body {
   flex-shrink: 0;
   width: 22px;
   text-align: center;
-  color: #964B00;
+  color: #AC9457;
   transition: color 0.15s;
 }
 .sb-item:hover .sb-icon,
 .sb-item.sb-active .sb-icon,
-.sb-group.open .sb-parent .sb-icon { color: #4361ee; }
+.sb-group.open .sb-parent .sb-icon { color: #AC9457; }
 
 /* ── LABEL ──────────────────────────────────── */
 .sb-label {
@@ -264,7 +264,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #1f2033;
+  background: #1a1a1a;
   flex-shrink: 0;
   overflow: hidden;
   min-height: 54px;
@@ -291,10 +291,10 @@ body {
 
 .sb-footer-name {
   font-size: 11.5px; font-weight: 700;
-  color: #edf2f4; white-space: nowrap;
+  color: #AC9457; white-space: nowrap;
 }
 .sb-footer-role {
-  font-size: 10px; color: #6c757d; white-space: nowrap;
+  font-size: 10px; color: #AC9457; white-space: nowrap;
 }
 
 /* ════════════════════════════════════════
@@ -302,20 +302,20 @@ body {
    ════════════════════════════════════════ */
 .dev-bar {
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #AC9457;
   display: flex; align-items: center;
   padding: 6px 16px;
   font-size: 11px;
-  color: #cc0000; font-weight: 600; gap: 8px;
+  color: #AC9457; font-weight: 600; gap: 8px;
 }
 .dev-bar span { margin-right: auto; font-style: italic; }
 .dev-actions  { display: flex; gap: 6px; }
 .dev-btn {
-  border: 1.5px solid #374151; background: #fff;
+  border: 1.5px solid #AC9457; background: #AC9457;
   color: #374151; padding: 4px 12px; border-radius: 5px;
   font-size: 11px; font-weight: 700; cursor: pointer;
 }
-.dev-btn:hover { background: #f3f4f6; }
+.dev-btn:hover { background: #AC9457; }
 
 /* ════════════════════════════════════════
    PAGE HEADER

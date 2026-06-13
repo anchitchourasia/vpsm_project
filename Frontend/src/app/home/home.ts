@@ -16,8 +16,7 @@ const HTTP_TIMEOUT_MS = 12_000;
 
     <div class="page-header">
       <div class="ph-left">
-        <span class="page-title">HOME</span>
-        <span class="page-sub">*CONNECTED REAL-TIME OPERATIONAL DATA LAYER</span>
+        
       </div>
       <button class="btn-add-pass" (click)="openPassEntry()">
         <i class="bi bi-plus-circle-fill"></i> ADD PASS
