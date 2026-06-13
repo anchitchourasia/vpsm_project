@@ -23,6 +23,16 @@ function dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
   }
 }
 
+// Live document record shape — matches /api/documents/list response (same as Confirmer)
+interface LiveDocRecord {
+  documentId  : number;
+  documentType: string;
+  documentNo  : string;
+  expiryDate  : string;
+  fileName   ?: string;
+  vehicle    ?: { vehicleId: number };
+}
+
 @Component({
   selector   : 'app-pass-details',
   standalone : true,
@@ -47,8 +57,14 @@ export class PassDetails implements OnInit, OnDestroy {
   protected isSyncing    = signal(false);
   protected lastSyncedAt = signal<string>('');
   protected syncError    = signal('');
-  protected pdfLoading = signal<number | null>(null);
-  protected pdfError   = signal<string>('');
+  protected pdfLoading   = signal<number | null>(null);
+  protected pdfError     = signal<string>('');
+
+  // ── Live document state (fetched fresh from API per expanded pass) ────────
+  protected liveDocuments  = signal<LiveDocRecord[]>([]);
+  protected isLoadingDocs  = signal(false);
+  protected docLoadError   = signal('');
+  protected docPassId      = signal<string | null>(null);
 
   // ── Data sources ──────────────────────────────────────────────────────────
   protected readonly submittedPasses = this.svc.submittedPasses;
@@ -60,7 +76,7 @@ export class PassDetails implements OnInit, OnDestroy {
   protected expandedId      = signal<string | null>(null);
   protected confirmDeleteId = signal<string | null>(null);
 
-  // ── NEW: Status filter signal ─────────────────────────────────────────────
+  // ── Status filter signal ──────────────────────────────────────────────────
   protected filterStatus = signal<string>('ALL');
 
   // ── Status filter options shown as chips ─────────────────────────────────
@@ -221,7 +237,101 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // NEW: DOWNLOAD PASS — opens a printable slip in a new tab
+  // LIVE DOCUMENT FETCH — same strategy as Confirmer component
+  // Step 1: GET /api/passes/list → find vehicleId for this pass
+  // Step 2: GET /api/documents/list → filter by vehicleId
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private loadLiveDocs(passId: string): void {
+    this.isLoadingDocs.set(true);
+    this.docLoadError.set('');
+    this.liveDocuments.set([]);
+
+    const numericId = parseInt(passId.replace(/\D/g, ''), 10);
+
+    // Step 1 — resolve vehicleId from DB pass record
+    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.docLoadError.set('Could not load documents (' + (err?.status || 'network error') + ')');
+          this.isLoadingDocs.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(dbPasses => {
+        const matched   = (dbPasses || []).find((d: any) => d.passId === numericId);
+        const vehicleId = matched?.vehicle?.vehicleId ?? null;
+
+        if (!vehicleId) {
+          this.docLoadError.set('No vehicle linked to this pass in the database.');
+          this.isLoadingDocs.set(false);
+          return;
+        }
+
+        // Step 2 — fetch all documents, filter by vehicleId
+        this.http.get<LiveDocRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
+          .pipe(
+            timeout(HTTP_TIMEOUT_MS),
+            takeUntil(this.destroy$),
+            catchError(err => {
+              this.docLoadError.set('Could not load documents (' + (err?.status || 'network error') + ')');
+              this.isLoadingDocs.set(false);
+              return of([]);
+            })
+          )
+          .subscribe(docs => {
+            const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
+            this.liveDocuments.set(filtered);
+            if (filtered.length === 0) {
+              this.docLoadError.set('No documents found for this vehicle.');
+            }
+            this.isLoadingDocs.set(false);
+          });
+      });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // VIEW DOCUMENT PDF — identical to Confirmer's viewDocument()
+  // ─────────────────────────────────────────────────────────────────────────
+
+  protected viewDocumentPdf(
+    doc: { documentId?: number; fileName?: string },
+    event: Event
+  ): void {
+    event.stopPropagation();
+    if (!doc?.documentId || !doc?.fileName) {
+      this.pdfError.set('No file attached to this document.');
+      setTimeout(() => this.pdfError.set(''), 3500);
+      return;
+    }
+    this.pdfLoading.set(doc.documentId);
+    this.pdfError.set('');
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+    this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('[PassDetails] PDF error:', err?.status);
+          this.pdfError.set('Could not load file. It may not have been uploaded yet.');
+          this.pdfLoading.set(null);
+          setTimeout(() => this.pdfError.set(''), 4000);
+          return of(null);
+        })
+      )
+      .subscribe((blob: Blob | null) => {
+        this.pdfLoading.set(null);
+        if (!blob) return;
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+      });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DOWNLOAD PASS — opens a printable slip in a new tab
   // ─────────────────────────────────────────────────────────────────────────
 
   protected downloadPass(pass: PassRecord, event: Event): void {
@@ -285,60 +395,39 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ALL EXISTING HANDLERS — completely unchanged
+  // UI HANDLERS
   // ─────────────────────────────────────────────────────────────────────────
 
   protected toggle(passId: string): void {
+    const isOpening = this.expandedId() !== passId;
     this.expandedId.update(cur => cur === passId ? null : passId);
+
+    if (isOpening) {
+      // Clear previous doc state and fetch fresh for newly opened card
+      this.liveDocuments.set([]);
+      this.docLoadError.set('');
+      this.docPassId.set(passId);
+      this.loadLiveDocs(passId);
+    }
   }
 
   protected onSearch(e: Event): void {
     this.searchTerm.set((e.target as HTMLInputElement).value);
   }
 
-  // NEW handler for filter chip clicks
   protected onFilterStatus(value: string): void {
     this.filterStatus.set(value);
-  }
-  protected viewDocumentPdf(
-    doc: { documentId?: number; fileName?: string },
-    event: Event
-  ): void {
-    event.stopPropagation();
-    if (!doc?.documentId || !doc?.fileName) {
-      this.pdfError.set('No file attached to this document.');
-      setTimeout(() => this.pdfError.set(''), 3500);
-      return;
-    }
-    this.pdfLoading.set(doc.documentId);
-    this.pdfError.set('');
-    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
-    this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          console.error('[PassDetails] PDF error:', err?.status);
-          this.pdfError.set('Could not load file. It may not have been uploaded yet.');
-          this.pdfLoading.set(null);
-          setTimeout(() => this.pdfError.set(''), 4000);
-          return of(null);
-        })
-      )
-      .subscribe((blob: Blob | null) => {
-        this.pdfLoading.set(null);
-        if (!blob) return;
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
-      });
   }
 
   protected setTab(tab: 'submitted' | 'drafts'): void {
     this.activeTab.set(tab);
     this.expandedId.set(null);
     this.searchTerm.set('');
-    this.filterStatus.set('ALL'); // reset filter on tab switch
+    this.filterStatus.set('ALL');
+    // Clear doc state on tab switch
+    this.liveDocuments.set([]);
+    this.docLoadError.set('');
+    this.docPassId.set(null);
   }
 
   protected resumeDraft(pass: PassRecord): void {
@@ -362,6 +451,7 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ── Labels ────────────────────────────────────────────────────────────────
+
   protected classLabel(cls: string): string {
     const map: Record<string, string> = {
       'Two_Wheeler'    : '🏍️ Two Wheeler',
@@ -382,6 +472,7 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ── Workflow helpers ──────────────────────────────────────────────────────
+
   protected workflowLabel(p: PassRecord): string {
     return this.svc.getStatusLabel(p.workflowStatus);
   }

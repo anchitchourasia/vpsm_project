@@ -233,13 +233,34 @@
                   </div>
                 </div>
 
-                <!-- DOCUMENTS -->
-                @if (pass.docs && pass.docs.length > 0) {
-                  <div class="pd-detail-section">
-                    <div class="pd-detail-section-title">
-                      <i class="bi bi-file-earmark-check-fill"></i>
-                      Documents ({{ pass.docs.length }})
+                <!-- ═══════════════════════════════════════════════════════
+                     DOCUMENTS — Live from API (replaces old pass.docs[])
+                ═══════════════════════════════════════════════════════ -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title">
+                    <i class="bi bi-file-earmark-check-fill"></i>
+                    Documents
+                    @if (!isLoadingDocs() && liveDocuments().length > 0) {
+                      <span class="pd-doc-count-badge">({{ liveDocuments().length }})</span>
+                    }
+                  </div>
+
+                  <!-- Loading spinner -->
+                  @if (isLoadingDocs()) {
+                    <div class="pd-doc-loading">
+                      <i class="bi bi-arrow-repeat spin"></i> Loading documents from server...
                     </div>
+                  }
+
+                  <!-- Error state -->
+                  @else if (docLoadError() && liveDocuments().length === 0) {
+                    <div class="pd-doc-empty-msg">
+                      <i class="bi bi-file-earmark-x"></i> {{ docLoadError() }}
+                    </div>
+                  }
+
+                  <!-- Document table -->
+                  @else if (liveDocuments().length > 0) {
                     @if (pdfError()) {
                       <div class="pd-pdf-error">
                         <i class="bi bi-exclamation-triangle-fill"></i> {{ pdfError() }}
@@ -252,11 +273,11 @@
                         <span>Valid Upto</span>
                         <span>Actions</span>
                       </div>
-                      @for (doc of pass.docs; track doc.docType) {
+                      @for (doc of liveDocuments(); track doc.documentId) {
                         <div class="pd-doc-row">
-                          <span class="pd-doc-type-badge">{{ doc.docType }}</span>
-                          <span>{{ doc.docNo || '—' }}</span>
-                          <span>{{ formatDate(doc.validUpto) || '—' }}</span>
+                          <span class="pd-doc-type-badge">{{ doc.documentType }}</span>
+                          <span>{{ doc.documentNo || '—' }}</span>
+                          <span>{{ formatDate(doc.expiryDate) || '—' }}</span>
                           <span class="pd-doc-actions">
                             @if (doc.fileName) {
                               <button
@@ -279,8 +300,17 @@
                         </div>
                       }
                     </div>
-                  </div>
-                }
+                  }
+
+                  <!-- No docs at all -->
+                  @else {
+                    <div class="pd-doc-empty-msg">
+                      <i class="bi bi-file-earmark-x"></i> No documents found for this vehicle.
+                    </div>
+                  }
+
+                </div>
+                <!-- ═══════════════════ END DOCUMENTS ═══════════════════ -->
 
                 <!-- WORKFLOW TRAIL -->
                 @if (workflowTrail(pass).length > 0) {

@@ -769,3 +769,36 @@
   }
   .pd-card-header-row2 { flex-direction: column; align-items: flex-start; gap: 6px; }
 }
+/* ── Live doc loading / empty state ─────────────────────── */
+.pd-doc-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  margin-top: 6px;
+}
+
+.pd-doc-empty-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  margin-top: 6px;
+}
+
+.pd-doc-count-badge {
+  font-weight: 400;
+  color: #64748b;
+  margin-left: 4px;
+  font-size: 0.85rem;
+}
