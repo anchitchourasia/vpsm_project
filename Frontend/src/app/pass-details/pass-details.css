@@ -237,29 +237,57 @@
   box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.15), 0 4px 20px rgba(30, 64, 175, 0.10);
 }
 
-/* CARD HEADER */
+/* ══════════════════════════════════════════
+   CARD HEADER — 2-ROW CLEAN LAYOUT
+══════════════════════════════════════════ */
 .pd-card-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.25rem;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 10px;
   cursor: pointer;
   user-select: none;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   background: #eef4ff;
   transition: background 0.15s;
 }
 .pd-card-header:hover { background: #e3ecff; }
-.pd-card-header-left,
-.pd-card-header-right {
+
+/* ROW 1 — Pass ID + Vehicle + Class  |  Actions + Chevron */
+.pd-card-header-row1 {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  justify-content: space-between;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-/* PASS ID CHIP */
+.pd-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pd-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ROW 2 — Meta info strip */
+.pd-card-header-row2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: #dce8f8;
+  border-radius: 8px;
+}
+
+/* ── PASS ID CHIP ── */
 .pd-pass-id-chip {
   background: #dbeafe;
   color: #1e40af;
@@ -272,18 +300,20 @@
   gap: 0.3rem;
   border: 1px solid #93c5fd;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
-/* VEHICLE NUMBER */
+/* ── VEHICLE NUMBER ── */
 .pd-vehicle-no {
   font-size: 1rem;
   font-weight: 700;
   color: #0f172a;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-/* VEHICLE CLASS BADGE */
+/* ── VEHICLE CLASS BADGE ── */
 .pd-vehicle-class-badge {
   font-size: 0.72rem;
   font-weight: 600;
@@ -293,9 +323,10 @@
   border-radius: 20px;
   border: 1px solid #c5d5f7;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
-/* EMPLOYEE TYPE BADGE */
+/* ── EMPLOYEE TYPE BADGE ── */
 .pd-emp-badge {
   font-size: 0.72rem;
   font-weight: 600;
@@ -304,9 +335,10 @@
   padding: 0.18rem 0.65rem;
   border-radius: 20px;
   border: 1px solid #a7f3d0;
+  white-space: nowrap;
 }
 
-/* GATE CHIP */
+/* ── GATE CHIP ── */
 .pd-gate-chip {
   font-size: 0.72rem;
   font-weight: 600;
@@ -318,9 +350,10 @@
   padding: 0.18rem 0.6rem;
   border-radius: 20px;
   border: 1px solid #fed7aa;
+  white-space: nowrap;
 }
 
-/* VALIDITY */
+/* ── VALIDITY ── */
 .pd-validity {
   font-size: 0.75rem;
   color: #3b5bdb;
@@ -328,21 +361,25 @@
   align-items: center;
   gap: 0.3rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 .pd-validity strong { color: #0f172a; font-weight: 700; }
 
-/* STATUS CHIPS */
+/* ── STATUS CHIPS ── */
 .pd-status-chip {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 0.2rem 0.7rem;
+  padding: 0.22rem 0.75rem;
   border-radius: 20px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
+.pd-status-chip .bi-circle-fill { font-size: 0.45rem; }
+
 .pd-status-submitted {
   background: #ecfdf5;
   color: #065f46;
@@ -354,12 +391,13 @@
   border: 1px solid #fde68a;
 }
 
-/* CHEVRON */
+/* ── CHEVRON ── */
 .pd-chevron {
   font-size: 1rem;
   color: #93b4d8;
   transition: transform 0.2s;
-  margin-left: 0.25rem;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════
@@ -423,30 +461,30 @@
   border-radius: 9px;
   overflow: hidden;
 }
-.pd-doc-header {
+.pd-doc-header,
+.pd-doc-row {
   display: grid;
-  grid-template-columns: 130px 1fr 150px;
+  grid-template-columns: 1.4fr 1.4fr 1.2fr 1.6fr;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  align-items: center;
+}
+.pd-doc-header {
   background: #d5e4f7;
-  padding: 0.45rem 0.9rem;
   font-size: 0.69rem;
   font-weight: 700;
   color: #3b5bdb;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  gap: 0.5rem;
 }
 .pd-doc-row {
-  display: grid;
-  grid-template-columns: 130px 1fr 150px;
-  padding: 0.5rem 0.9rem;
   font-size: 0.85rem;
-  gap: 0.5rem;
   border-top: 1px solid #c7d9f5;
-  align-items: center;
   background: #eef4ff;
   transition: background 0.12s;
 }
 .pd-doc-row:hover { background: #e3ecff; }
+
 .pd-doc-type-badge {
   background: #dbeafe;
   color: #1e40af;
@@ -458,6 +496,63 @@
   display: inline-block;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* ── DOCUMENT ACTION BUTTONS ── */
+.pd-doc-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pd-doc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  border: 1.5px solid transparent;
+}
+.pd-doc-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.pd-doc-btn-view  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.pd-doc-btn-view:hover:not(:disabled) { background: #1d4ed8; color: #fff; }
+.pd-doc-no-file {
+  font-size: 0.73rem;
+  color: #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-style: italic;
+}
+
+/* PDF error toast */
+.pd-pdf-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff5f5;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+/* PDF spinner */
+.pd-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
 }
 
 /* CREATED AT FOOTER */
@@ -493,11 +588,30 @@
   cursor: pointer;
   transition: background 0.18s, box-shadow 0.18s;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 .pd-btn-resume:hover {
   background: #1d4ed8;
   box-shadow: 0 3px 10px rgba(30, 64, 175, 0.30);
 }
+
+/* DOWNLOAD PASS BUTTON */
+.pd-btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 7px;
+  border: 1.5px solid #1a237e;
+  background: #fff;
+  color: #1a237e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.pd-btn-download:hover { background: #1a237e; color: #fff; }
 
 /* DELETE BUTTON */
 .pd-btn-delete {
@@ -551,12 +665,87 @@
 .pd-btn-confirm-no:hover { background: #dbeafe; }
 
 /* ══════════════════════════════════════════
+   WORKFLOW TRAIL
+══════════════════════════════════════════ */
+.pd-trail { display: flex; flex-direction: column; gap: 0; padding: 4px 0; }
+.pd-trail-step { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 14px; position: relative; }
+.pd-trail-dot { width: 12px; height: 12px; border-radius: 50%; background: #1a237e; margin-top: 4px; flex-shrink: 0; }
+.pd-trail-dot-last { background: #2e7d32; }
+.pd-trail-content { display: flex; flex-direction: column; gap: 2px; }
+.pd-trail-label { font-weight: 700; color: #1a237e; font-size: 14px; }
+.pd-trail-meta { font-size: 12px; color: #777; }
+.pd-trail-remark { font-size: 13px; color: #37474f; background: #f5f5f5; padding: 4px 8px; border-radius: 6px; margin-top: 2px; }
+
+/* ══════════════════════════════════════════
+   WORKFLOW STATUS BADGE CLASSES (ngClass)
+══════════════════════════════════════════ */
+.badge-draft      { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+.badge-submitted  { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+.badge-confirmed  { background: #fff3e0; color: #ef6c00; border: 1px solid #ffcc80; }
+.badge-approved   { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.badge-rejected   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+/* ══════════════════════════════════════════
+   SYNC BAR
+══════════════════════════════════════════ */
+.sync-bar       { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #f0fdf4; border-radius: 8px; margin-bottom: 16px; font-size: 13px; flex-wrap: wrap; }
+.sync-indicator { color: #0369a1; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.sync-ok        { color: #166534; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.sync-err       { color: #991b1b; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.btn-sync-now   { margin-left: auto; background: #fff; border: 1px solid #d1fae5; color: #166534; padding: 5px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.btn-sync-now:hover    { background: #dcfce7; }
+.btn-sync-now:disabled { opacity: .5; cursor: not-allowed; }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════════════════
+   STATUS FILTER CHIPS BAR
+══════════════════════════════════════════ */
+.pd-status-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.pd-status-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #d1d5db;
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.pd-status-filter-chip:hover { border-color: #1a237e; color: #1a237e; background: #eef2ff; }
+.pd-status-chip-active { background: #1a237e !important; color: #fff !important; border-color: #1a237e !important; font-weight: 700; }
+.pd-chip-count {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+}
+.pd-status-chip-active .pd-chip-count { background: rgba(255, 255, 255, 0.3); color: #fff; }
+
+/* ══════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════ */
 @media (max-width: 768px) {
   .pd-wrapper { padding: 1.25rem 1rem; }
-  .pd-card-header { flex-direction: column; align-items: flex-start; }
-  .pd-card-header-right { gap: 0.4rem; }
+  .pd-card-header-row1 { flex-direction: column; align-items: flex-start; }
+  .pd-card-header-actions { width: 100%; justify-content: flex-end; }
   .pd-detail-grid { grid-template-columns: 1fr 1fr; }
   .pd-doc-header,
   .pd-doc-row { grid-template-columns: 100px 1fr 110px; }
@@ -578,67 +767,5 @@
     gap: 0.4rem;
     padding: 0.5rem 1rem;
   }
+  .pd-card-header-row2 { flex-direction: column; align-items: flex-start; gap: 6px; }
 }
-/* Workflow Trail */
-.pd-trail { display:flex; flex-direction:column; gap:0; padding:4px 0; }
-.pd-trail-step { display:flex; gap:14px; align-items:flex-start; padding-bottom:14px; position:relative; }
-.pd-trail-dot { width:12px; height:12px; border-radius:50%; background:#1a237e; margin-top:4px; flex-shrink:0; }
-.pd-trail-dot-last { background:#2e7d32; }
-.pd-trail-content { display:flex; flex-direction:column; gap:2px; }
-.pd-trail-label { font-weight:700; color:#1a237e; font-size:14px; }
-.pd-trail-meta { font-size:12px; color:#777; }
-.pd-trail-remark { font-size:13px; color:#37474f; background:#f5f5f5; padding:4px 8px; border-radius:6px; margin-top:2px; }
-
-/* Dynamic workflow status badge classes */
-.pd-status-submitted   { background:#e3f2fd; color:#1565c0; }
-.pd-status-confirmed   { background:#fff3e0; color:#ef6c00; }
-.pd-status-approved    { background:#e8f5e9; color:#2e7d32; }
-.pd-status-rejected    { background:#ffebee; color:#c62828; }
-.sync-bar       { display:flex; align-items:center; gap:12px; padding:8px 16px; background:#f0fdf4; border-radius:8px; margin-bottom:16px; font-size:13px; flex-wrap:wrap; }
-.sync-indicator { color:#0369a1; font-weight:600; display:flex; align-items:center; gap:6px; }
-.sync-ok        { color:#166534; font-weight:600; display:flex; align-items:center; gap:6px; }
-.sync-err       { color:#991b1b; font-weight:600; display:flex; align-items:center; gap:6px; }
-.btn-sync-now   { margin-left:auto; background:#fff; border:1px solid #d1fae5; color:#166534; padding:5px 14px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
-.btn-sync-now:hover    { background:#dcfce7; }
-.btn-sync-now:disabled { opacity:.5; cursor:not-allowed; }
-.spin { animation: spin 1s linear infinite; display:inline-block; }
-@keyframes spin { to { transform: rotate(360deg); } }
-/* ── STATUS FILTER CHIPS BAR ── */
-.pd-status-filter-bar {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  margin-bottom: 14px; padding: 12px 16px;
-  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
-}
-.pd-status-filter-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 14px; border-radius: 20px; border: 1.5px solid #d1d5db;
-  background: #fff; font-size: 0.78rem; font-weight: 500; color: #374151;
-  cursor: pointer; transition: all .15s; white-space: nowrap;
-}
-.pd-status-filter-chip:hover { border-color: #1a237e; color: #1a237e; background: #eef2ff; }
-.pd-status-chip-active { background: #1a237e !important; color: #fff !important; border-color: #1a237e !important; font-weight: 700; }
-.pd-chip-count { background: rgba(255,255,255,0.25); border-radius: 10px; padding: 1px 6px; font-size: 0.72rem; font-weight: 700; min-width: 18px; text-align: center; }
-.pd-status-chip-active .pd-chip-count { background: rgba(255,255,255,0.3); color: #fff; }
-
-/* ── DOWNLOAD PASS BUTTON ── */
-.pd-btn-download {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 12px; border-radius: 6px; border: 1.5px solid #1a237e;
-  background: #fff; color: #1a237e; font-size: 0.75rem; font-weight: 600;
-  cursor: pointer; transition: all .15s; white-space: nowrap;
-}
-.pd-btn-download:hover { background: #1a237e; color: #fff; }
-
-/* ── DOCUMENT ACTION BUTTONS ── */
-.pd-doc-header, .pd-doc-row { grid-template-columns: 1.4fr 1.4fr 1.2fr 1.6fr !important; }
-.pd-doc-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.pd-doc-btn {
-  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
-  border-radius: 5px; font-size: 0.73rem; font-weight: 600; text-decoration: none;
-  cursor: pointer; transition: all .15s; white-space: nowrap; border: 1.5px solid transparent;
-}
-.pd-doc-btn-view  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.pd-doc-btn-view:hover { background: #1d4ed8; color: #fff; }
-.pd-doc-btn-dl    { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
-.pd-doc-btn-dl:hover  { background: #15803d; color: #fff; }
-.pd-doc-no-file { font-size: 0.73rem; color: #9ca3af; display: inline-flex; align-items: center; gap: 4px; font-style: italic; }

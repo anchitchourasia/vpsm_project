@@ -54,7 +54,7 @@
   ══════════════════════════════════════ -->
   @if (activeTab() === 'submitted') {
 
-    <!-- ── STATUS FILTER CHIPS BAR ── -->
+    <!-- STATUS FILTER CHIPS BAR -->
     <div class="pd-status-filter-bar">
       @for (opt of statusOptions; track opt.value) {
         <button
@@ -103,16 +103,33 @@
         @for (pass of filteredSubmitted(); track pass.passId) {
           <div class="pd-card" [class.pd-card-expanded]="expandedId() === pass.passId">
 
-            <!-- CARD HEADER -->
+            <!-- CARD HEADER — 2-row layout -->
             <div class="pd-card-header" (click)="toggle(pass.passId)">
-              <div class="pd-card-header-left">
-                <span class="pd-pass-id-chip">
-                  <i class="bi bi-qr-code"></i> {{ pass.passId }}
-                </span>
-                <span class="pd-vehicle-no">{{ pass.vehicleNo }}</span>
-                <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
+
+              <!-- ROW 1: Pass ID + Vehicle No + Class  |  Download + Chevron -->
+              <div class="pd-card-header-row1">
+                <div class="pd-card-header-left">
+                  <span class="pd-pass-id-chip">
+                    <i class="bi bi-qr-code"></i> {{ pass.passId }}
+                  </span>
+                  <span class="pd-vehicle-no">{{ pass.vehicleNo }}</span>
+                  <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
+                </div>
+                <div class="pd-card-header-actions">
+                  <button
+                    class="pd-btn-download"
+                    title="Download / Print this pass as a slip"
+                    (click)="downloadPass(pass, $event)">
+                    <i class="bi bi-download"></i> Download Pass
+                  </button>
+                  <i class="bi pd-chevron"
+                     [class.bi-chevron-down]="expandedId() !== pass.passId"
+                     [class.bi-chevron-up]="expandedId() === pass.passId"></i>
+                </div>
               </div>
-              <div class="pd-card-header-right">
+
+              <!-- ROW 2: Meta strip — Employee | Gate | Valid Till | Status -->
+              <div class="pd-card-header-row2">
                 <span class="pd-emp-badge">{{ empTypeLabel(pass.empType) }}</span>
                 <span class="pd-gate-chip">
                   <i class="bi bi-door-open"></i> {{ pass.gateNo }}
@@ -121,24 +138,11 @@
                   <i class="bi bi-calendar-check"></i>
                   Valid till: <strong>{{ formatDate(pass.validityDate) }}</strong>
                 </span>
-
-                <!-- STATUS BADGE -->
                 <span class="pd-status-chip" [ngClass]="workflowClass(pass)">
                   <i class="bi bi-circle-fill"></i> {{ workflowLabel(pass) }}
                 </span>
-
-                <!-- ✅ NEW: DOWNLOAD PASS BUTTON -->
-                <button
-                  class="pd-btn-download"
-                  title="Download / Print this pass as a slip"
-                  (click)="downloadPass(pass, $event)">
-                  <i class="bi bi-download"></i> Download Pass
-                </button>
-
-                <i class="bi pd-chevron"
-                   [class.bi-chevron-down]="expandedId() !== pass.passId"
-                   [class.bi-chevron-up]="expandedId() === pass.passId"></i>
               </div>
+
             </div>
 
             <!-- CARD BODY (expanded) -->
@@ -229,13 +233,18 @@
                   </div>
                 </div>
 
-                <!-- ✅ DOCUMENTS — with View PDF + Download PDF buttons -->
+                <!-- DOCUMENTS -->
                 @if (pass.docs && pass.docs.length > 0) {
                   <div class="pd-detail-section">
                     <div class="pd-detail-section-title">
                       <i class="bi bi-file-earmark-check-fill"></i>
                       Documents ({{ pass.docs.length }})
                     </div>
+                    @if (pdfError()) {
+                      <div class="pd-pdf-error">
+                        <i class="bi bi-exclamation-triangle-fill"></i> {{ pdfError() }}
+                      </div>
+                    }
                     <div class="pd-doc-table">
                       <div class="pd-doc-header">
                         <span>Type</span>
@@ -249,11 +258,6 @@
                           <span>{{ doc.docNo || '—' }}</span>
                           <span>{{ formatDate(doc.validUpto) || '—' }}</span>
                           <span class="pd-doc-actions">
-                            @if (pdfError()) {
-                              <span class="pd-pdf-error">
-                                <i class="bi bi-exclamation-triangle-fill"></i> {{ pdfError() }}
-                              </span>
-                            }
                             @if (doc.fileName) {
                               <button
                                 class="pd-doc-btn pd-doc-btn-view"
@@ -358,48 +362,56 @@
         @for (pass of filteredDrafts(); track pass.passId) {
           <div class="pd-card pd-card-draft">
 
-            <!-- DRAFT CARD HEADER -->
+            <!-- DRAFT CARD HEADER — 2-row layout -->
             <div class="pd-card-header" (click)="toggle(pass.passId)">
-              <div class="pd-card-header-left">
-                <span class="pd-pass-id-chip">
-                  <i class="bi bi-qr-code"></i> {{ pass.passId }}
-                </span>
-                <span class="pd-vehicle-no">{{ pass.vehicleNo }}</span>
-                <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
+
+              <!-- ROW 1: Pass ID + Vehicle No + Class  |  Resume + Delete + Chevron -->
+              <div class="pd-card-header-row1">
+                <div class="pd-card-header-left">
+                  <span class="pd-pass-id-chip">
+                    <i class="bi bi-qr-code"></i> {{ pass.passId }}
+                  </span>
+                  <span class="pd-vehicle-no">{{ pass.vehicleNo }}</span>
+                  <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
+                </div>
+                <div class="pd-card-header-actions">
+                  <button class="pd-btn-resume" title="Resume this draft in Pass Entry form"
+                    (click)="$event.stopPropagation(); resumeDraft(pass)">
+                    <i class="bi bi-arrow-repeat"></i> Resume
+                  </button>
+                  @if (confirmDeleteId() === pass.passId) {
+                    <span class="pd-delete-confirm">
+                      Delete?
+                      <button class="pd-btn-confirm-yes" (click)="$event.stopPropagation(); confirmDelete(pass.passId)">Yes</button>
+                      <button class="pd-btn-confirm-no"  (click)="$event.stopPropagation(); cancelDelete()">No</button>
+                    </span>
+                  } @else {
+                    <button class="pd-btn-delete" title="Delete this draft"
+                      (click)="$event.stopPropagation(); askDelete(pass.passId)">
+                      <i class="bi bi-trash3-fill"></i>
+                    </button>
+                  }
+                  <i class="bi pd-chevron"
+                     [class.bi-chevron-down]="expandedId() !== pass.passId"
+                     [class.bi-chevron-up]="expandedId() === pass.passId"></i>
+                </div>
               </div>
-              <div class="pd-card-header-right">
+
+              <!-- ROW 2: Meta strip — Employee | Gate | Draft status -->
+              <div class="pd-card-header-row2">
                 <span class="pd-emp-badge">{{ empTypeLabel(pass.empType) }}</span>
                 <span class="pd-gate-chip">
                   <i class="bi bi-door-open"></i> {{ pass.gateNo }}
                 </span>
+                <span class="pd-validity">
+                  <i class="bi bi-calendar-check"></i>
+                  Valid till: <strong>{{ formatDate(pass.validityDate) }}</strong>
+                </span>
                 <span class="pd-status-chip pd-status-draft">
                   <i class="bi bi-pencil-fill"></i> Draft
                 </span>
-
-                <!-- RESUME BUTTON -->
-                <button class="pd-btn-resume" title="Resume this draft in Pass Entry form"
-                  (click)="$event.stopPropagation(); resumeDraft(pass)">
-                  <i class="bi bi-arrow-repeat"></i> Resume
-                </button>
-
-                <!-- DELETE BUTTON -->
-                @if (confirmDeleteId() === pass.passId) {
-                  <span class="pd-delete-confirm">
-                    Delete?
-                    <button class="pd-btn-confirm-yes" (click)="$event.stopPropagation(); confirmDelete(pass.passId)">Yes</button>
-                    <button class="pd-btn-confirm-no"  (click)="$event.stopPropagation(); cancelDelete()">No</button>
-                  </span>
-                } @else {
-                  <button class="pd-btn-delete" title="Delete this draft"
-                    (click)="$event.stopPropagation(); askDelete(pass.passId)">
-                    <i class="bi bi-trash3-fill"></i>
-                  </button>
-                }
-
-                <i class="bi pd-chevron"
-                   [class.bi-chevron-down]="expandedId() !== pass.passId"
-                   [class.bi-chevron-up]="expandedId() === pass.passId"></i>
               </div>
+
             </div>
 
             <!-- DRAFT EXPANDED BODY -->
