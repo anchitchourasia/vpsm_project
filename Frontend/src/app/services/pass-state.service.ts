@@ -146,13 +146,27 @@ export class PassStateService {
   );
 
   constructor() {
-    // Cross-tab sync — listen for records from pass-entry tab (EXISTING)
-    this.channel.onmessage = (event) => {
-      if (event.data?.type === 'PASS_SUBMITTED') {
-        this.zone.run(() => this.upsert(event.data.record as PassRecord));
+  // Cross-tab sync — BroadcastChannel for submitted passes
+  this.channel.onmessage = (event) => {
+    if (event.data?.type === 'PASS_SUBMITTED') {
+      this.zone.run(() => this.upsert(event.data.record as PassRecord));
+    }
+    // ── NEW: draft saved or deleted in pass-entry tab → reload signal ──
+    if (event.data?.type === 'DRAFT_UPSERT' || event.data?.type === 'DRAFT_DELETED') {
+      this.zone.run(() => this._passes.set(loadFromStorage()));
+    }
+  };
+
+  // ── NEW: localStorage storage event — fires in OTHER tabs when localStorage changes ──
+  // This is the key fix: pass-entry tab writes localStorage → pass-details tab reloads signal
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'vpsm_pass_records') {
+        this.zone.run(() => this._passes.set(loadFromStorage()));
       }
-    };
+    });
   }
+}
 
   // ── EXISTING METHODS (unchanged) ──────────────────────────────────────────
 
@@ -175,6 +189,10 @@ export class PassStateService {
   /** Broadcast a submitted record to ALL open tabs */
   broadcast(record: PassRecord): void {
     this.channel.postMessage({ type: 'PASS_SUBMITTED', record });
+  }
+  /** Notify other tabs that a draft was saved/deleted so they reload */
+  broadcastDraftChange(): void {
+    this.channel.postMessage({ type: 'DRAFT_UPSERT' });
   }
 
   /** Mark a saved pass as submitted — also syncs workflowStatus */

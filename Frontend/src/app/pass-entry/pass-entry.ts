@@ -356,6 +356,8 @@ export class PassEntry implements OnInit, OnDestroy {
     };
 
     this.passState.upsert(record);
+    this.passState.broadcastDraftChange();   // ← add this line
+    this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any); // notify other tabs
     this.saved.set(true);
     this.saveSuccess.set(
       `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
