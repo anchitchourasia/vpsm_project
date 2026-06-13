@@ -7,7 +7,7 @@ import { Subject, interval, takeUntil, timeout, catchError, of, startWith } from
 import { PassStateService, PassRecord, WorkflowStatus } from '../services/pass-state.service';
 import { API_CONFIG } from '../core/api.config';
 
-const REFRESH_INTERVAL_MS = 30_000;  // auto-refresh every 30 seconds
+const REFRESH_INTERVAL_MS = 30_000;
 const HTTP_TIMEOUT_MS     = 12_000;
 
 /** Maps raw DB status string → WorkflowStatus used by PassStateService */
@@ -17,8 +17,8 @@ function dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     case 'confirmed'  : return 'Confirmed';
     case 'active'     : return 'Approved';
     case 'rejected'   : return 'Confirmation_Rejected';
-    case 'surrendered': return 'Approval_Rejected';   // closest valid match
-    case 'expired'    : return 'Approval_Rejected';   // closest valid match
+    case 'surrendered': return 'Approval_Rejected';
+    case 'expired'    : return 'Approval_Rejected';
     default           : return 'Submitted';
   }
 }
@@ -36,34 +36,59 @@ export class PassDetails implements OnInit, OnDestroy {
   private router = inject(Router);
   private http   = inject(HttpClient);
 
-  private readonly destroy$     = new Subject<void>();
-  private readonly HEADERS = new HttpHeaders({
+  private readonly destroy$  = new Subject<void>();
+  private readonly HEADERS   = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Accept'      : 'application/json',
     'Content-Type': 'application/json',
   });
 
-  // ── NEW: Live sync state ──────────────────────────────────────────────────
-  protected isSyncing       = signal(false);
-  protected lastSyncedAt    = signal<string>('');
-  protected syncError       = signal('');
+  // ── Live sync state ───────────────────────────────────────────────────────
+  protected isSyncing    = signal(false);
+  protected lastSyncedAt = signal<string>('');
+  protected syncError    = signal('');
 
-  // ── Data sources (existing — unchanged) ──────────────────────────────────
+  // ── Data sources ──────────────────────────────────────────────────────────
   protected readonly submittedPasses = this.svc.submittedPasses;
   protected readonly savedDrafts     = this.svc.savedDrafts;
 
-  // ── UI State (existing — unchanged) ───────────────────────────────────────
+  // ── UI State ──────────────────────────────────────────────────────────────
   protected searchTerm      = signal('');
   protected activeTab       = signal<'submitted' | 'drafts'>('submitted');
   protected expandedId      = signal<string | null>(null);
   protected confirmDeleteId = signal<string | null>(null);
 
-  // ── Filtered submitted passes (existing — unchanged) ──────────────────────
+  // ── NEW: Status filter signal ─────────────────────────────────────────────
+  protected filterStatus = signal<string>('ALL');
+
+  // ── Status filter options shown as chips ─────────────────────────────────
+  protected readonly statusOptions: { value: string; label: string }[] = [
+    { value: 'ALL',                   label: 'All Statuses'          },
+    { value: 'Submitted',             label: 'Pending Confirmation'  },
+    { value: 'Confirmed',             label: 'Pending Approval'      },
+    { value: 'Approved',              label: 'Approved'              },
+    { value: 'Confirmation_Rejected', label: 'Returned by Confirmer' },
+    { value: 'Approval_Rejected',     label: 'Returned by Approver'  },
+  ];
+
+  // ── Per-status counts for chips ───────────────────────────────────────────
+  protected statusCounts = computed(() => {
+    const passes = this.submittedPasses();
+    const counts: Record<string, number> = { ALL: passes.length };
+    for (const p of passes) {
+      const ws = p.workflowStatus ?? 'Submitted';
+      counts[ws] = (counts[ws] ?? 0) + 1;
+    }
+    return counts;
+  });
+
+  // ── Filtered submitted passes (search + status filter) ───────────────────
   protected filteredSubmitted = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
+    const term   = this.searchTerm().toLowerCase().trim();
+    const status = this.filterStatus();
+
     return this.submittedPasses().filter(p => {
-      if (!term) return true;
-      return (
+      const matchSearch = !term || (
         p.passId.toLowerCase().includes(term)         ||
         p.vehicleNo.toLowerCase().includes(term)      ||
         p.empName.toLowerCase().includes(term)        ||
@@ -71,10 +96,12 @@ export class PassDetails implements OnInit, OnDestroy {
         p.gateNo.toLowerCase().includes(term)         ||
         (p.contractorFirm || '').toLowerCase().includes(term)
       );
+      const matchStatus = status === 'ALL' || (p.workflowStatus ?? 'Submitted') === status;
+      return matchSearch && matchStatus;
     });
   });
 
-  // ── Filtered drafts (existing — unchanged) ────────────────────────────────
+  // ── Filtered drafts (search only) ────────────────────────────────────────
   protected filteredDrafts = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     return this.savedDrafts().filter(p => {
@@ -88,7 +115,7 @@ export class PassDetails implements OnInit, OnDestroy {
     });
   });
 
-  // ── Active list based on tab (existing — unchanged) ───────────────────────
+  // ── Active list based on tab ──────────────────────────────────────────────
   protected activeList = computed(() =>
     this.activeTab() === 'submitted'
       ? this.filteredSubmitted()
@@ -100,7 +127,6 @@ export class PassDetails implements OnInit, OnDestroy {
   // ─────────────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
-    // Immediate sync on page load + auto-refresh every 30s
     interval(REFRESH_INTERVAL_MS)
       .pipe(startWith(0), takeUntil(this.destroy$))
       .subscribe(() => this.syncStatusFromDB());
@@ -112,8 +138,7 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // REAL-TIME DB SYNC — fetches all passes from backend, merges status into
-  // local PassStateService records so badges update without page reload
+  // REAL-TIME DB SYNC
   // ─────────────────────────────────────────────────────────────────────────
 
   protected refreshNow(): void {
@@ -121,7 +146,6 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   private syncStatusFromDB(): void {
-    // Nothing to sync if no submitted passes exist locally
     const localPasses = this.svc.submittedPasses();
     if (!localPasses.length) return;
 
@@ -145,7 +169,6 @@ export class PassDetails implements OnInit, OnDestroy {
           return;
         }
 
-        // For each local submitted pass, find matching DB record and sync status
         for (const local of localPasses) {
           const dbMatch = this.findDbMatch(local, dbPasses);
           if (!dbMatch) continue;
@@ -153,11 +176,9 @@ export class PassDetails implements OnInit, OnDestroy {
           const dbStatus       = dbMatch.status as string;
           const workflowStatus = dbStatusToWorkflow(dbStatus);
 
-          // Build updated record — preserve ALL existing local fields
           const updated: PassRecord = {
             ...local,
             workflowStatus,
-            // Sync confirmer info from DB remarks/enterBy when confirmed/rejected
             ...(
               ['confirmed', 'rejected'].includes(dbStatus.toLowerCase()) && {
                 confirmedBy    : dbMatch.enterBy   || local.confirmedBy,
@@ -165,7 +186,6 @@ export class PassDetails implements OnInit, OnDestroy {
                 confirmerRemark: dbMatch.remarks    || local.confirmerRemark,
               }
             ),
-            // Sync approver info from DB when active (approved)
             ...(
               dbStatus.toLowerCase() === 'active' && {
                 approvedBy    : dbMatch.enterBy  || local.approvedBy,
@@ -186,24 +206,80 @@ export class PassDetails implements OnInit, OnDestroy {
       });
   }
 
-  /**
-   * Match local PassRecord to a DB record.
-   * Strategy: match by numeric DB passId embedded in formatted passId string,
-   * OR fallback match by vehicleNo + employeeNo.
-   */
   private findDbMatch(local: PassRecord, dbPasses: any[]): any | null {
-    // Primary: extract numeric id from "PASS-HEG-0058" → 58
     const numericId = parseInt(local.passId.replace(/\D/g, ''), 10);
     if (!isNaN(numericId)) {
       const byId = dbPasses.find(d => d.passId === numericId);
       if (byId) return byId;
     }
-
-    // Fallback: match by vehicleNo + employeeNo
     return dbPasses.find(d =>
       (d.vehicle?.vehicleNo || '').toUpperCase() === (local.vehicleNo || '').toUpperCase() &&
       (d.employeeNo || '') === (local.ecNo || '')
     ) ?? null;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEW: DOWNLOAD PASS — opens a printable slip in a new tab
+  // ─────────────────────────────────────────────────────────────────────────
+
+  protected downloadPass(pass: PassRecord, event: Event): void {
+    event.stopPropagation();
+
+    const slip = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Vehicle Pass — ${pass.passId}</title>
+  <style>
+    body  { font-family: Arial, sans-serif; padding: 32px; max-width: 640px; margin: auto; color: #1a1a1a; }
+    h2    { text-align: center; margin-bottom: 4px; font-size: 20px; color: #1a237e; }
+    .sub  { text-align: center; color: #666; font-size: 13px; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    td    { padding: 8px 12px; border: 1px solid #ddd; font-size: 13px; }
+    td:first-child { background: #f5f5f5; font-weight: 600; width: 40%; }
+    .status-wrap { text-align: center; margin: 20px 0 8px; }
+    .status { padding: 6px 20px; border-radius: 20px; font-weight: 700;
+              font-size: 14px; background: #22c55e; color: #fff;
+              display: inline-block; letter-spacing: .04em; }
+    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 12px; }
+    @media print { body { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <h2>HEG Limited — Vehicle Pass</h2>
+  <p class="sub">Pass Management System &middot; Official Copy</p>
+  <table>
+    <tr><td>Pass ID</td><td><strong>${pass.passId}</strong></td></tr>
+    <tr><td>Vehicle No</td><td>${pass.vehicleNo}</td></tr>
+    <tr><td>Vehicle Type</td><td>${pass.vehicleType || '—'}</td></tr>
+    <tr><td>Vehicle Class</td><td>${pass.vehicleClass}</td></tr>
+    <tr><td>Brand / Model</td><td>${pass.brandModel || '—'}</td></tr>
+    <tr><td>Employee Name</td><td>${pass.empName || '—'}</td></tr>
+    <tr><td>EC No</td><td>${pass.ecNo || '—'}</td></tr>
+    ${pass.contractorFirm ? `<tr><td>Contractor Firm</td><td>${pass.contractorFirm}</td></tr>` : ''}
+    <tr><td>Department / Agency</td><td>${pass.empDept || '—'}</td></tr>
+    <tr><td>Gate No</td><td>${pass.gateNo}</td></tr>
+    <tr><td>Parking Area</td><td>${pass.parkingArea || '—'}</td></tr>
+    <tr><td>Issue Date</td><td>${this.formatDate(pass.issueDate)}</td></tr>
+    <tr><td>Valid Till</td><td>${this.formatDate(pass.validityDate)}</td></tr>
+    <tr><td>Status</td><td>${this.workflowLabel(pass)}</td></tr>
+    ${pass.remark ? `<tr><td>Remark</td><td>${pass.remark}</td></tr>` : ''}
+  </table>
+  <div class="status-wrap">
+    <span class="status">${this.workflowLabel(pass).toUpperCase()}</span>
+  </div>
+  <div class="footer">
+    Generated on ${new Date().toLocaleString('en-IN')} &middot; HEG Limited Vehicle Pass Management System
+  </div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(slip);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -218,10 +294,16 @@ export class PassDetails implements OnInit, OnDestroy {
     this.searchTerm.set((e.target as HTMLInputElement).value);
   }
 
+  // NEW handler for filter chip clicks
+  protected onFilterStatus(value: string): void {
+    this.filterStatus.set(value);
+  }
+
   protected setTab(tab: 'submitted' | 'drafts'): void {
     this.activeTab.set(tab);
     this.expandedId.set(null);
     this.searchTerm.set('');
+    this.filterStatus.set('ALL'); // reset filter on tab switch
   }
 
   protected resumeDraft(pass: PassRecord): void {
@@ -244,7 +326,7 @@ export class PassDetails implements OnInit, OnDestroy {
     this.confirmDeleteId.set(null);
   }
 
-  // ── Labels (existing — unchanged) ─────────────────────────────────────────
+  // ── Labels ────────────────────────────────────────────────────────────────
   protected classLabel(cls: string): string {
     const map: Record<string, string> = {
       'Two_Wheeler'    : '🏍️ Two Wheeler',
@@ -264,8 +346,7 @@ export class PassDetails implements OnInit, OnDestroy {
     return `${d}/${m}/${y}`;
   }
 
-  // ── Workflow helpers (existing — unchanged) ───────────────────────────────
-
+  // ── Workflow helpers ──────────────────────────────────────────────────────
   protected workflowLabel(p: PassRecord): string {
     return this.svc.getStatusLabel(p.workflowStatus);
   }
@@ -279,7 +360,6 @@ export class PassDetails implements OnInit, OnDestroy {
   }[] {
     const trail: { label: string; by: string; at: string; remark: string }[] = [];
 
-    // Stage 1 — always present
     trail.push({
       label : 'Submitted',
       by    : p.submittedBy  ?? 'REQUESTER',
@@ -287,7 +367,6 @@ export class PassDetails implements OnInit, OnDestroy {
       remark: '',
     });
 
-    // Stage 2 — confirmer acted
     if (p.confirmedAt) {
       trail.push({
         label : p.workflowStatus === 'Confirmation_Rejected'
@@ -299,7 +378,6 @@ export class PassDetails implements OnInit, OnDestroy {
       });
     }
 
-    // Stage 3 — approver acted
     if (p.approvedAt) {
       trail.push({
         label : p.workflowStatus === 'Approval_Rejected'

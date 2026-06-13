@@ -14,7 +14,8 @@
       <span class="pd-count-label">Total Submitted</span>
     </div>
   </div>
-  <!-- Add this just below the page header / above the tabs -->
+
+  <!-- SYNC BAR -->
   <div class="sync-bar">
     <span *ngIf="isSyncing()" class="sync-indicator">
       <i class="bi bi-arrow-repeat spin"></i> Syncing with server...
@@ -48,27 +49,38 @@
     </button>
   </div>
 
-  <!-- SEARCH BAR -->
-  <div class="pd-toolbar">
-    <div class="pd-search-wrap">
-      <i class="bi bi-search pd-search-icon"></i>
-      <input
-        type="text"
-        class="pd-search-input"
-        [placeholder]="activeTab() === 'drafts'
-          ? 'Search drafts by Pass ID, Vehicle No, EC No...'
-          : 'Search by Pass ID, Vehicle No, EC No, Name...'"
-        [value]="searchTerm()"
-        (input)="onSearch($event)"
-      />
-    </div>
-    <span class="pd-result-count">{{ activeList().length }} record(s) found</span>
-  </div>
-
   <!-- ══════════════════════════════════════
        SUBMITTED PASSES TAB
   ══════════════════════════════════════ -->
   @if (activeTab() === 'submitted') {
+
+    <!-- ── STATUS FILTER CHIPS BAR ── -->
+    <div class="pd-status-filter-bar">
+      @for (opt of statusOptions; track opt.value) {
+        <button
+          class="pd-status-filter-chip"
+          [class.pd-status-chip-active]="filterStatus() === opt.value"
+          (click)="onFilterStatus(opt.value)">
+          {{ opt.label }}
+          <span class="pd-chip-count">{{ statusCounts()[opt.value] ?? 0 }}</span>
+        </button>
+      }
+    </div>
+
+    <!-- SEARCH BAR -->
+    <div class="pd-toolbar">
+      <div class="pd-search-wrap">
+        <i class="bi bi-search pd-search-icon"></i>
+        <input
+          type="text"
+          class="pd-search-input"
+          placeholder="Search by Pass ID, Vehicle No, EC No, Name..."
+          [value]="searchTerm()"
+          (input)="onSearch($event)"
+        />
+      </div>
+      <span class="pd-result-count">{{ filteredSubmitted().length }} record(s) found</span>
+    </div>
 
     @if (submittedPasses().length === 0) {
       <div class="pd-empty">
@@ -82,7 +94,7 @@
       <div class="pd-empty">
         <i class="bi bi-search pd-empty-icon"></i>
         <p class="pd-empty-title">No matching records</p>
-        <p class="pd-empty-sub">Try a different search term.</p>
+        <p class="pd-empty-sub">Try a different search term or status filter.</p>
       </div>
     }
 
@@ -110,10 +122,18 @@
                   Valid till: <strong>{{ formatDate(pass.validityDate) }}</strong>
                 </span>
 
-                <!-- ✅ NEW: Dynamic workflow status badge -->
+                <!-- STATUS BADGE -->
                 <span class="pd-status-chip" [ngClass]="workflowClass(pass)">
                   <i class="bi bi-circle-fill"></i> {{ workflowLabel(pass) }}
                 </span>
+
+                <!-- ✅ NEW: DOWNLOAD PASS BUTTON -->
+                <button
+                  class="pd-btn-download"
+                  title="Download / Print this pass as a slip"
+                  (click)="downloadPass(pass, $event)">
+                  <i class="bi bi-download"></i> Download Pass
+                </button>
 
                 <i class="bi pd-chevron"
                    [class.bi-chevron-down]="expandedId() !== pass.passId"
@@ -209,7 +229,7 @@
                   </div>
                 </div>
 
-                <!-- DOCUMENTS -->
+                <!-- ✅ DOCUMENTS — with View PDF + Download PDF buttons -->
                 @if (pass.docs && pass.docs.length > 0) {
                   <div class="pd-detail-section">
                     <div class="pd-detail-section-title">
@@ -221,19 +241,44 @@
                         <span>Type</span>
                         <span>Doc Number</span>
                         <span>Valid Upto</span>
+                        <span>Actions</span>
                       </div>
                       @for (doc of pass.docs; track doc.docType) {
                         <div class="pd-doc-row">
                           <span class="pd-doc-type-badge">{{ doc.docType }}</span>
                           <span>{{ doc.docNo || '—' }}</span>
                           <span>{{ formatDate(doc.validUpto) || '—' }}</span>
+                          <span class="pd-doc-actions">
+                            @if (doc['fileUrl']) {
+                              <a
+                                class="pd-doc-btn pd-doc-btn-view"
+                                [href]="doc['fileUrl']"
+                                target="_blank"
+                                title="View PDF in new tab"
+                                (click)="$event.stopPropagation()">
+                                <i class="bi bi-eye-fill"></i> View
+                              </a>
+                              <a
+                                class="pd-doc-btn pd-doc-btn-dl"
+                                [href]="doc['fileUrl']"
+                                [download]="doc.docType + '_' + doc.docNo + '.pdf'"
+                                title="Download PDF"
+                                (click)="$event.stopPropagation()">
+                                <i class="bi bi-file-earmark-arrow-down-fill"></i> Download
+                              </a>
+                            } @else {
+                              <span class="pd-doc-no-file">
+                                <i class="bi bi-file-earmark-x"></i> No file uploaded
+                              </span>
+                            }
+                          </span>
                         </div>
                       }
                     </div>
                   </div>
                 }
 
-                <!-- ✅ NEW: WORKFLOW TRAIL SECTION -->
+                <!-- WORKFLOW TRAIL -->
                 @if (workflowTrail(pass).length > 0) {
                   <div class="pd-detail-section">
                     <div class="pd-detail-section-title">
@@ -276,6 +321,21 @@
        SAVED DRAFTS TAB
   ══════════════════════════════════════ -->
   @if (activeTab() === 'drafts') {
+
+    <!-- SEARCH BAR (drafts — no status filter) -->
+    <div class="pd-toolbar">
+      <div class="pd-search-wrap">
+        <i class="bi bi-search pd-search-icon"></i>
+        <input
+          type="text"
+          class="pd-search-input"
+          placeholder="Search drafts by Pass ID, Vehicle No, EC No..."
+          [value]="searchTerm()"
+          (input)="onSearch($event)"
+        />
+      </div>
+      <span class="pd-result-count">{{ activeList().length }} record(s) found</span>
+    </div>
 
     @if (savedDrafts().length === 0) {
       <div class="pd-empty">
