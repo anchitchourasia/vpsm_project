@@ -47,6 +47,8 @@ export class PassDetails implements OnInit, OnDestroy {
   protected isSyncing    = signal(false);
   protected lastSyncedAt = signal<string>('');
   protected syncError    = signal('');
+  protected pdfLoading = signal<number | null>(null);
+  protected pdfError   = signal<string>('');
 
   // ── Data sources ──────────────────────────────────────────────────────────
   protected readonly submittedPasses = this.svc.submittedPasses;
@@ -72,7 +74,7 @@ export class PassDetails implements OnInit, OnDestroy {
   ];
 
   // ── Per-status counts for chips ───────────────────────────────────────────
-  protected statusCounts = computed(() => {
+  protected statusCounts = computed<Record<string, number>>(() => {
     const passes = this.submittedPasses();
     const counts: Record<string, number> = { ALL: passes.length };
     for (const p of passes) {
@@ -297,6 +299,39 @@ export class PassDetails implements OnInit, OnDestroy {
   // NEW handler for filter chip clicks
   protected onFilterStatus(value: string): void {
     this.filterStatus.set(value);
+  }
+  protected viewDocumentPdf(
+    doc: { documentId?: number; fileName?: string },
+    event: Event
+  ): void {
+    event.stopPropagation();
+    if (!doc?.documentId || !doc?.fileName) {
+      this.pdfError.set('No file attached to this document.');
+      setTimeout(() => this.pdfError.set(''), 3500);
+      return;
+    }
+    this.pdfLoading.set(doc.documentId);
+    this.pdfError.set('');
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+    this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('[PassDetails] PDF error:', err?.status);
+          this.pdfError.set('Could not load file. It may not have been uploaded yet.');
+          this.pdfLoading.set(null);
+          setTimeout(() => this.pdfError.set(''), 4000);
+          return of(null);
+        })
+      )
+      .subscribe((blob: Blob | null) => {
+        this.pdfLoading.set(null);
+        if (!blob) return;
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+      });
   }
 
   protected setTab(tab: 'submitted' | 'drafts'): void {

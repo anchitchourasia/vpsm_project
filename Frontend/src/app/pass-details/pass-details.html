@@ -62,7 +62,7 @@
           [class.pd-status-chip-active]="filterStatus() === opt.value"
           (click)="onFilterStatus(opt.value)">
           {{ opt.label }}
-          <span class="pd-chip-count">{{ statusCounts()[opt.value] ?? 0 }}</span>
+          <span class="pd-chip-count">{{ statusCounts()[opt.value] || 0 }}</span>
         </button>
       }
     </div>
@@ -249,23 +249,23 @@
                           <span>{{ doc.docNo || '—' }}</span>
                           <span>{{ formatDate(doc.validUpto) || '—' }}</span>
                           <span class="pd-doc-actions">
-                            @if (doc['fileUrl']) {
-                              <a
+                            @if (pdfError()) {
+                              <span class="pd-pdf-error">
+                                <i class="bi bi-exclamation-triangle-fill"></i> {{ pdfError() }}
+                              </span>
+                            }
+                            @if (doc.fileName) {
+                              <button
                                 class="pd-doc-btn pd-doc-btn-view"
-                                [href]="doc['fileUrl']"
-                                target="_blank"
-                                title="View PDF in new tab"
-                                (click)="$event.stopPropagation()">
-                                <i class="bi bi-eye-fill"></i> View
-                              </a>
-                              <a
-                                class="pd-doc-btn pd-doc-btn-dl"
-                                [href]="doc['fileUrl']"
-                                [download]="doc.docType + '_' + doc.docNo + '.pdf'"
-                                title="Download PDF"
-                                (click)="$event.stopPropagation()">
-                                <i class="bi bi-file-earmark-arrow-down-fill"></i> Download
-                              </a>
+                                title="View PDF"
+                                [disabled]="pdfLoading() === doc.documentId"
+                                (click)="viewDocumentPdf(doc, $event)">
+                                @if (pdfLoading() === doc.documentId) {
+                                  <i class="bi bi-hourglass-split"></i> Loading...
+                                } @else {
+                                  <i class="bi bi-eye-fill"></i> View PDF
+                                }
+                              </button>
                             } @else {
                               <span class="pd-doc-no-file">
                                 <i class="bi bi-file-earmark-x"></i> No file uploaded
