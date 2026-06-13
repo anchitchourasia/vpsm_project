@@ -149,7 +149,17 @@
       <div class="sb-section-label">AUDIT</div>
 
       <!-- History -->
-      <div class="sb-group" [class.open]="isMenuOpen('history')">
+      <!-- History -->
+      <a
+        routerLink="/history"
+        routerLinkActive="sb-active"
+        class="sb-item"
+        (click)="$event.stopPropagation()"
+      >
+        <i class="bi bi-clock-history sb-icon"></i>
+        <span class="sb-label">History</span>
+      </a>
+      <!-- <div class="sb-group" [class.open]="isMenuOpen('history')">
         <div class="sb-item sb-parent" (click)="toggleMenu('history', $event)">
           <i class="bi bi-clock-history sb-icon"></i>
           <span class="sb-label">History</span>
@@ -172,7 +182,7 @@
             <i class="bi bi-circle-fill sb-child-dot"></i> Gate Movements
           </a>
         </div>
-      </div>
+      </div> -->
 
       <!-- ── SECTION: ADMIN ── -->
       <div class="sb-section-label">ADMIN</div>

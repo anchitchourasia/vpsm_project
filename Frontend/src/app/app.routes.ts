@@ -27,13 +27,8 @@ export const routes: Routes = [
   { path: 'docs/fitness',   loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Fitness' } },
   { path: 'docs/load-test', loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Load_Test' } },
 
-  // AUDIT HISTORY — one component, eventType via route data
-  { path: 'history/all',       loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'ALL' } },
-  { path: 'history/create',    loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'CREATED' } },
-  { path: 'history/approve',   loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'APPROVED' } },
-  { path: 'history/surrender', loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'SURRENDERED'} },
-  { path: 'history/expiry',    loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'EXPIRED' } },
-  { path: 'history/gate',      loadComponent: () => import('./history/history').then(m => m.History), data: { eventType: 'GATE' } },
+  // AUDIT HISTORY — single route, all history in one view
+  { path: 'history', loadComponent: () => import('./history/history').then(m => m.History) },
 
   // ADMIN / AUTHORITY
   { path: 'authority/company',   loadComponent: () => import('./authority/authority').then(m => m.Authority) },
@@ -42,22 +37,9 @@ export const routes: Routes = [
 
   // PASS MANAGEMENT
   { path: 'pass-entry',   loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
-  {
-    path: 'pass-details',
-    loadComponent: () =>
-      import('./pass-details/pass-details').then(m => m.PassDetails),
-  },
-  // FALLBACK
+  { path: 'pass-details', loadComponent: () => import('./pass-details/pass-details').then(m => m.PassDetails) },
+
+  // FALLBACK — must be last
   { path: '**', redirectTo: '' },
-  {
-    path: 'history',
-    children: [
-      { path: 'pass-created',   component: History, data: { historyType: 'pass-created'   } },
-      { path: 'approved',       component: History, data: { historyType: 'approved'        } },
-      { path: 'surrendered',    component: History, data: { historyType: 'surrendered'     } },
-      { path: 'expiry-events',  component: History, data: { historyType: 'expiry-events'   } },
-      { path: 'gate-movements', component: History, data: { historyType: 'gate-movements'  } },
-      { path: '',               redirectTo: 'pass-created', pathMatch: 'full'               },
-    ]
-  }
+
 ];
