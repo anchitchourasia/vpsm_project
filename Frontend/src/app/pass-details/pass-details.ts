@@ -6,6 +6,8 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subject, interval, takeUntil, timeout, catchError, of, startWith } from 'rxjs';
 import { PassStateService, PassRecord, WorkflowStatus } from '../services/pass-state.service';
 import { API_CONFIG } from '../core/api.config';
+import { ActivatedRoute } from '@angular/router';
+
 
 const REFRESH_INTERVAL_MS = 30_000;
 const HTTP_TIMEOUT_MS     = 12_000;
@@ -47,6 +49,7 @@ export class PassDetails implements OnInit, OnDestroy {
   private http   = inject(HttpClient);
 
   private readonly destroy$  = new Subject<void>();
+  
   private readonly HEADERS   = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Accept'      : 'application/json',
@@ -143,12 +146,24 @@ export class PassDetails implements OnInit, OnDestroy {
   // ─────────────────────────────────────────────────────────────────────────
   // LIFECYCLE
   // ─────────────────────────────────────────────────────────────────────────
-
+  private route = inject(ActivatedRoute);
   ngOnInit(): void {
-    interval(REFRESH_INTERVAL_MS)
-      .pipe(startWith(0), takeUntil(this.destroy$))
-      .subscribe(() => this.syncStatusFromDB());
-  }
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+    if (params['tab'] === 'submitted') {
+      this.activeTab.set('submitted');
+    } else if (params['tab'] === 'drafts') {
+      this.activeTab.set('drafts');
+    }
+    if (params['filter']) {
+      this.filterStatus.set(params['filter']);
+    }
+  });
+
+  // ── Auto-sync from DB every 30s (existing logic unchanged) ───────────────
+  interval(REFRESH_INTERVAL_MS)
+    .pipe(startWith(0), takeUntil(this.destroy$))
+    .subscribe(() => this.syncStatusFromDB());
+}
 
   ngOnDestroy(): void {
     this.destroy$.next();

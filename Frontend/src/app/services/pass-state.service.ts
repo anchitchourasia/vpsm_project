@@ -1,3 +1,6 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { catchError, of, timeout } from 'rxjs';
+import { API_CONFIG } from '../core/api.config';
 import { Injectable, signal, computed, NgZone, inject } from '@angular/core';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,6 +197,78 @@ export class PassStateService {
   broadcastDraftChange(): void {
     this.channel.postMessage({ type: 'DRAFT_UPSERT' });
   }
+  private http    = inject(HttpClient);
+private _synced = false;
+
+/**
+ * Fetch all passes from the DB API and merge into the signal.
+ * Called once from AppComponent or Home on load.
+ * This ensures KPI counts reflect real DB data, not just localStorage.
+ */
+syncFromApi(): void {
+  if (this._synced) return;   // only fetch once per app session
+  const headers = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Content-Type': 'application/json',
+  });
+  this.http.get<any[]>(API_CONFIG.PASSES, { headers })
+    .pipe(
+      timeout(12_000),
+      catchError(() => of([]))
+    )
+    .subscribe(dbPasses => {
+      if (!dbPasses?.length) return;
+      this._synced = true;
+      this.zone.run(() => {
+        for (const db of dbPasses) {
+          const passId = `PASS-HEG-${String(db.passId).padStart(4, '0')}`;
+          const existing = this._passes().find(p => p.passId === passId);
+
+          // Map DB status → WorkflowStatus
+          const workflowStatus = this._dbStatusToWorkflow(db.status ?? '');
+
+          // Build a minimal PassRecord from DB row
+          // Merge with existing local record if present (keeps docs/names intact)
+          const merged: PassRecord = {
+            passId,
+            empType       : db.empType        ?? existing?.empType        ?? '',
+            vehicleNo     : db.vehicle?.vehicleNo ?? existing?.vehicleNo  ?? db.typeOfVehicle ?? '',
+            vehicleType   : db.vehicle?.vehicleType ?? existing?.vehicleType ?? db.typeOfVehicle ?? '',
+            vehicleClass  : db.vehicle?.vehicleClass ?? existing?.vehicleClass ?? '',
+            brandModel    : db.vehicle?.brandModel   ?? existing?.brandModel   ?? '',
+            ecNo          : db.employeeNo    ?? existing?.ecNo            ?? '',
+            empName       : db.employeeName  ?? existing?.empName         ?? db.empName ?? '',
+            empDept       : db.dept          ?? existing?.empDept         ?? db.department ?? '',
+            contractorFirm: db.contractorCode ?? existing?.contractorFirm ?? '',
+            issueDate     : db.issueDate     ?? existing?.issueDate       ?? '',
+            validityDate  : db.validityDate  ?? existing?.validityDate    ?? '',
+            gateNo        : db.assignedGate  ?? existing?.gateNo          ?? '',
+            parkingArea   : existing?.parkingArea ?? '',
+            remark        : db.remark        ?? existing?.remark          ?? '',
+            docs          : existing?.docs   ?? [],
+            status        : 'Submitted',
+            createdAt     : db.issueDate     ?? existing?.createdAt       ?? new Date().toISOString(),
+            workflowStatus,
+            confirmedBy   : db.enterBy       ?? existing?.confirmedBy,
+            approvedBy    : db.enterBy       ?? existing?.approvedBy,
+          };
+          this.upsert(merged);
+        }
+      });
+    });
+}
+
+private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
+  switch ((dbStatus || '').toLowerCase()) {
+    case 'submitted'  : return 'Submitted';
+    case 'confirmed'  : return 'Confirmed';
+    case 'active'     : return 'Approved';
+    case 'rejected'   : return 'Confirmation_Rejected';
+    case 'surrendered': return 'Approval_Rejected';
+    case 'expired'    : return 'Approval_Rejected';
+    default           : return 'Submitted';
+  }
+} 
 
   /** Mark a saved pass as submitted — also syncs workflowStatus */
   markSubmitted(passId: string): void {

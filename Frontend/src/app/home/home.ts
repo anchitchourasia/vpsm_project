@@ -10,11 +10,13 @@ import { PassStateService } from '../services/pass-state.service';
   selector   : 'app-home',
   standalone : true,
   imports    : [CommonModule],
-  styleUrl   : './home.css',           //<span class="page-title">HOME</span><span class="page-sub">*CONNECTED REAL-TIME OPERATIONAL DATA LAYER</span> in template area
-  template   : `                          
+  styleUrl   : './home.css',
+  template   : `
 
     <div class="page-header">
       <div class="ph-left">
+        <span class="page-title">HOME</span>
+        <span class="page-sub">*CONNECTED REAL-TIME OPERATIONAL DATA LAYER</span>
       </div>
       <button class="btn-add-pass" (click)="openPassEntry()">
         <i class="bi bi-plus-circle-fill"></i> ADD PASS
@@ -23,15 +25,18 @@ import { PassStateService } from '../services/pass-state.service';
 
     <div class="home-content">
 
-
+      <div *ngIf="isLoading" class="home-state-row info-txt">
+        <i class="bi bi-arrow-repeat spin-icon"></i>&nbsp; Syncing live pass data from server...
+      </div>
       <div *ngIf="hasError && !isLoading" class="home-state-row error-txt">
-        <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; Some modules failed to respond. Showing cached data.
+        <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; Could not reach server. Counts may reflect local data only.
       </div>
 
       <!-- KPI CARDS -->
       <div class="kpi-row">
 
-        <div class="kpi-card kpi-total" (click)="goTo('/pass-details')">
+        <!-- TOTAL PASSES → submitted tab, filter ALL -->
+        <div class="kpi-card kpi-total" (click)="goToFilter('ALL')">
           <div class="kpi-top">
             <span class="kpi-label">TOTAL PASSES</span>
             <span class="kpi-icon-bg kpi-bg-total">
@@ -40,12 +45,13 @@ import { PassStateService } from '../services/pass-state.service';
           </div>
           <div class="kpi-value">{{ totalPasses() }}</div>
           <div class="kpi-footer">
-            <span class="kpi-sub">All submitted requests</span>
-            <span class="kpi-link">View Details <i class="bi bi-arrow-right"></i></span>
+            <span class="kpi-sub">All submitted pass requests</span>
+            <span class="kpi-link">View All <i class="bi bi-arrow-right"></i></span>
           </div>
         </div>
 
-        <div class="kpi-card kpi-approved" (click)="goTo('/pass-details')">
+        <!-- APPROVED → submitted tab, filter Approved -->
+        <div class="kpi-card kpi-approved" (click)="goToFilter('Approved')">
           <div class="kpi-top">
             <span class="kpi-label">APPROVED</span>
             <span class="kpi-icon-bg kpi-bg-approved">
@@ -54,12 +60,13 @@ import { PassStateService } from '../services/pass-state.service';
           </div>
           <div class="kpi-value">{{ approvedPasses() }}</div>
           <div class="kpi-footer">
-            <span class="kpi-sub">Fully approved &amp; active</span>
-            <span class="kpi-link">View Details <i class="bi bi-arrow-right"></i></span>
+            <span class="kpi-sub">Fully approved &amp; active passes</span>
+            <span class="kpi-link">View Approved <i class="bi bi-arrow-right"></i></span>
           </div>
         </div>
 
-        <div class="kpi-card kpi-submitted" (click)="goTo('/pass-details')">
+        <!-- SUBMITTED → submitted tab, filter Submitted (Pending Confirmation) -->
+        <div class="kpi-card kpi-submitted" (click)="goToFilter('Submitted')">
           <div class="kpi-top">
             <span class="kpi-label">SUBMITTED</span>
             <span class="kpi-icon-bg kpi-bg-submitted">
@@ -68,12 +75,13 @@ import { PassStateService } from '../services/pass-state.service';
           </div>
           <div class="kpi-value">{{ submittedPasses() }}</div>
           <div class="kpi-footer">
-            <span class="kpi-sub">Awaiting confirmer review</span>
-            <span class="kpi-link">View Details <i class="bi bi-arrow-right"></i></span>
+            <span class="kpi-sub">Pending confirmation by confirmer</span>
+            <span class="kpi-link">View Pending <i class="bi bi-arrow-right"></i></span>
           </div>
         </div>
 
-        <div class="kpi-card kpi-confirmed" (click)="goTo('/pass-details')">
+        <!-- CONFIRMED → submitted tab, filter Confirmed (Pending Approval) -->
+        <div class="kpi-card kpi-confirmed" (click)="goToFilter('Confirmed')">
           <div class="kpi-top">
             <span class="kpi-label">CONFIRMED</span>
             <span class="kpi-icon-bg kpi-bg-confirmed">
@@ -82,8 +90,8 @@ import { PassStateService } from '../services/pass-state.service';
           </div>
           <div class="kpi-value">{{ confirmedPasses() }}</div>
           <div class="kpi-footer">
-            <span class="kpi-sub">Awaiting final approval</span>
-            <span class="kpi-link">View Details <i class="bi bi-arrow-right"></i></span>
+            <span class="kpi-sub">Confirmed — awaiting final approval</span>
+            <span class="kpi-link">View Confirmed <i class="bi bi-arrow-right"></i></span>
           </div>
         </div>
 
@@ -100,9 +108,9 @@ export class Home implements OnInit, OnDestroy {
   isLoading = true;
   hasError  = false;
 
-  // Live KPI signals — directly from PassStateService (same source as Pass Details)
+  // ── KPI counts — live from service signal (populated via API sync in ngOnInit)
   readonly totalPasses = computed(() =>
-    this.passState.passes().filter(p => p.status === 'Submitted').length
+    this.passState.submittedPasses().length
   );
   readonly approvedPasses = computed(() =>
     this.passState.passes().filter(p => p.workflowStatus === 'Approved').length
@@ -112,12 +120,6 @@ export class Home implements OnInit, OnDestroy {
   );
   readonly confirmedPasses = computed(() =>
     this.passState.passes().filter(p => p.workflowStatus === 'Confirmed').length
-  );
-  readonly rejectedPasses = computed(() =>
-    this.passState.passes().filter(p =>
-      p.workflowStatus === 'Confirmation_Rejected' ||
-      p.workflowStatus === 'Approval_Rejected'
-    ).length
   );
 
   private readonly HEADERS = new HttpHeaders({
@@ -129,15 +131,30 @@ export class Home implements OnInit, OnDestroy {
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    // Trigger PassStateService to load passes into the signal
     this.isLoading = true;
+    this.hasError  = false;
+
+    // Pull fresh pass data from API into the shared signal
+    // This makes KPI numbers real API data — not just localStorage
+    this.passState.syncFromApi();
+
+    // Show loading spinner briefly then clear
     this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
-      .pipe(catchError(() => of([])))
+      .pipe(catchError(() => { this.hasError = true; return of([]); }))
       .subscribe(() => { this.isLoading = false; });
   }
 
   ngOnDestroy() { this.sub?.unsubscribe(); }
 
+  /**
+   * Navigate to pass-details with pre-selected tab + status filter.
+   * Pass Details reads these query params in ngOnInit and sets its signals.
+   */
+  goToFilter(status: string): void {
+    this.router.navigate(['/pass-details'], {
+      queryParams: { tab: 'submitted', filter: status }
+    });
+  }
+
   openPassEntry(): void { window.open('/pass-entry', '_blank'); }
-  goTo(path: string): void { this.router.navigate([path]); }
 }
