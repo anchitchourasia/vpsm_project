@@ -33,7 +33,7 @@ export interface PassRecord {
   gateNo         : string;
   parkingArea    : string;
   remark         : string;
-  docs: { documentId?: number; docType: string; docNo: string; validUpto: string; fileName?: string }[];
+  docs           : { docType: string; docNo: string; validUpto: string }[];
   status         : 'Saved' | 'Submitted';  // kept for backward compat
   createdAt      : string;
 
