@@ -75,14 +75,17 @@ export class PassDetails implements OnInit, OnDestroy {
 
   // ── UI State ──────────────────────────────────────────────────────────────
   protected searchTerm      = signal('');
-  protected activeTab       = signal<'submitted' | 'drafts'>('submitted');
+
+  // ── FIX 1: added 'modification' to the union type ─────────────────────────
+  protected activeTab       = signal<'submitted' | 'drafts' | 'modification'>('submitted');
+
   protected expandedId      = signal<string | null>(null);
   protected confirmDeleteId = signal<string | null>(null);
 
   // ── Status filter signal ──────────────────────────────────────────────────
   protected filterStatus = signal<string>('ALL');
-  // ── MODIFICATION REQUESTS ──────────────────────────────────────────────────
-  // Passes returned by confirmer with status 'Needs_Modification'
+
+  // ── MODIFICATION REQUESTS ─────────────────────────────────────────────────
   modificationPasses = signal<any[]>([]);
   isLoadingMod       = signal(false);
   modLoadError       = signal('');
@@ -152,24 +155,28 @@ export class PassDetails implements OnInit, OnDestroy {
   // LIFECYCLE
   // ─────────────────────────────────────────────────────────────────────────
   private route = inject(ActivatedRoute);
+
   ngOnInit(): void {
     this.loadModificationPasses();
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-    if (params['tab'] === 'submitted') {
-      this.activeTab.set('submitted');
-    } else if (params['tab'] === 'drafts') {
-      this.activeTab.set('drafts');
-    }
-    if (params['filter']) {
-      this.filterStatus.set(params['filter']);
-    }
-  });
+      if (params['tab'] === 'submitted') {
+        this.activeTab.set('submitted');
+      } else if (params['tab'] === 'drafts') {
+        this.activeTab.set('drafts');
+      } else if (params['tab'] === 'modification') {
+        // ── FIX: also handle modification query param if needed ────────────
+        this.activeTab.set('modification');
+      }
+      if (params['filter']) {
+        this.filterStatus.set(params['filter']);
+      }
+    });
 
-  // ── Auto-sync from DB every 30s (existing logic unchanged) ───────────────
-  interval(REFRESH_INTERVAL_MS)
-    .pipe(startWith(0), takeUntil(this.destroy$))
-    .subscribe(() => this.syncStatusFromDB());
-}
+    // ── Auto-sync from DB every 30s (existing logic unchanged) ───────────────
+    interval(REFRESH_INTERVAL_MS)
+      .pipe(startWith(0), takeUntil(this.destroy$))
+      .subscribe(() => this.syncStatusFromDB());
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -256,11 +263,9 @@ export class PassDetails implements OnInit, OnDestroy {
       (d.employeeNo || '') === (local.ecNo || '')
     ) ?? null;
   }
-   
+
   // ─────────────────────────────────────────────────────────────────────────
-  // LIVE DOCUMENT FETCH — same strategy as Confirmer component
-  // Step 1: GET /api/passes/list → find vehicleId for this pass
-  // Step 2: GET /api/documents/list → filter by vehicleId
+  // MODIFICATION REQUESTS LOADER
   // ─────────────────────────────────────────────────────────────────────────
   loadModificationPasses(): void {
     this.isLoadingMod.set(true);
@@ -286,6 +291,10 @@ export class PassDetails implements OnInit, OnDestroy {
         this.isLoadingMod.set(false);
       });
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LIVE DOCUMENT FETCH
+  // ─────────────────────────────────────────────────────────────────────────
   private loadLiveDocs(passId: string): void {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
@@ -337,9 +346,8 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // VIEW DOCUMENT PDF — identical to Confirmer's viewDocument()
+  // VIEW DOCUMENT PDF
   // ─────────────────────────────────────────────────────────────────────────
-
   protected viewDocumentPdf(
     doc: { documentId?: number; fileName?: string },
     event: Event
@@ -375,9 +383,8 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DOWNLOAD PASS — opens a printable slip in a new tab
+  // DOWNLOAD PASS
   // ─────────────────────────────────────────────────────────────────────────
-
   protected downloadPass(pass: PassRecord, event: Event): void {
     event.stopPropagation();
 
@@ -447,7 +454,6 @@ export class PassDetails implements OnInit, OnDestroy {
     this.expandedId.update(cur => cur === passId ? null : passId);
 
     if (isOpening) {
-      // Clear previous doc state and fetch fresh for newly opened card
       this.liveDocuments.set([]);
       this.docLoadError.set('');
       this.docPassId.set(passId);
@@ -463,7 +469,8 @@ export class PassDetails implements OnInit, OnDestroy {
     this.filterStatus.set(value);
   }
 
-  protected setTab(tab: 'submitted' | 'drafts'): void {
+  // ── FIX 2: added 'modification' to the parameter union type ───────────────
+  protected setTab(tab: 'submitted' | 'drafts' | 'modification'): void {
     this.activeTab.set(tab);
     this.expandedId.set(null);
     this.searchTerm.set('');
@@ -472,12 +479,15 @@ export class PassDetails implements OnInit, OnDestroy {
     this.liveDocuments.set([]);
     this.docLoadError.set('');
     this.docPassId.set(null);
+    // Refresh modification list every time user clicks the tab
+    if (tab === 'modification') {
+      this.loadModificationPasses();
+    }
   }
+
   resumeModification(p: any): void {
-  // Store the full pass data + confirmer remark into localStorage
-  // pass-entry.ts will read 'vpsm_resume_modification' on ngOnInit
     const resumeData = {
-      passId         : p.passId,           // real DB passId (number)
+      passId         : p.passId,
       empType        : p.empType || '',
       vehicleNo      : p.vehicle?.vehicleNo || '',
       vehicleType    : p.vehicle?.vehicleType || p.typeOfVehicle || '',
@@ -490,8 +500,8 @@ export class PassDetails implements OnInit, OnDestroy {
       validityDate   : p.validityDate ? p.validityDate.split('T')[0] : '',
       gateNo         : p.gateNo || '',
       parkingArea    : p.parkingToBeUsed || '',
-      remark         : p.remarks || '',    // user's own remark
-      confirmerRemark: p.remarks || '',    // confirmer's modification note
+      remark         : p.remarks || '',
+      confirmerRemark: p.remarks || '',
       docs           : [],
       status         : 'Needs_Modification',
       createdAt      : p.enterDate || '',
@@ -500,6 +510,7 @@ export class PassDetails implements OnInit, OnDestroy {
     localStorage.setItem('vpsm_resume_modification', JSON.stringify(resumeData));
     this.router.navigate(['/pass-entry']);
   }
+
   protected resumeDraft(pass: PassRecord): void {
     try {
       localStorage.setItem('vpsm_resume_draft', JSON.stringify(pass));
