@@ -9,8 +9,6 @@ import { PassStateService, PassRecord } from '../services/pass-state.service';
 
 const HTTP_TIMEOUT_MS = 12000;
 
-// Employee array index positions — matches /api/reports/employee-department
-// Response format: [empNo, name, salary, managerId, email, deptId, deptName]
 const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
 
 function formatPassId(dbPassId: number): string {
@@ -18,11 +16,14 @@ function formatPassId(dbPassId: number): string {
 }
 
 interface DocEntry {
-  id       : string;
-  docType  : string;
-  docNo    : string;
-  validUpto: string;
-  file     : File | null;
+  id          : string;
+  docType     : string;
+  docNo       : string;
+  validUpto   : string;
+  file        : File | null;
+  // ── NEW: set when resuming a modification — doc already exists in DB ──────
+  documentId  ?: number;       // DB documentId — if set, doc is already uploaded
+  existingFile?: string;       // original fileName from DB — shown as "already uploaded"
 }
 
 const ALLOWED_DOC_TYPES = ['RC', 'PUC', 'INSURANCE', 'LICENSE', 'FITNESS'];
@@ -30,7 +31,6 @@ const ALLOWED_DOC_TYPES = ['RC', 'PUC', 'INSURANCE', 'LICENSE', 'FITNESS'];
 function detectVehicleClass(vehicleType: string): string {
   const v = vehicleType.toLowerCase().trim();
   if (!v) return '';
-
   const heavy = [
     'jcb', 'excavator', 'crane', 'dozer', 'bulldozer', 'loader',
     'dumper', 'truck', 'tipper', 'tanker', 'trailer', 'tractor',
@@ -43,10 +43,9 @@ function detectVehicleClass(vehicleType: string): string {
     'bullet', 'bajaj', 'hero', 'tvs', 'honda', 'yamaha', 'ktm',
     'royal enfield', 'suzuki', 'access', 'unicorn', 'shine'
   ];
-
-  if (heavy.some(k => v.includes(k)))       return 'Heavy_Machinery';
-  if (twoWheeler.some(k => v.includes(k)))  return 'Two_Wheeler';
-  if (v.length >= 2)                         return 'Four_Wheeler';
+  if (heavy.some(k => v.includes(k)))      return 'Heavy_Machinery';
+  if (twoWheeler.some(k => v.includes(k))) return 'Two_Wheeler';
+  if (v.length >= 2)                        return 'Four_Wheeler';
   return '';
 }
 
@@ -73,7 +72,6 @@ export class PassEntry implements OnInit, OnDestroy {
   });
   private readonly MULTIPART_HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
-    // DO NOT set Content-Type — browser sets multipart boundary automatically
   });
 
   private passState = inject(PassStateService);
@@ -92,9 +90,10 @@ export class PassEntry implements OnInit, OnDestroy {
   saveSuccess      = signal('');
   saveError        = signal('');
   docs             = signal<DocEntry[]>([]);
-
-  // ── NEW: holds confirmer remark when resuming a modification request ───────
   modificationRemark = signal<string>('');
+
+  // ── NEW: true when form is opened for modification — disables full clear ───
+  isModificationMode = signal(false);
 
   // ── Form fields ────────────────────────────────────────────────────────────
   vehicleNo      = '';
@@ -111,11 +110,8 @@ export class PassEntry implements OnInit, OnDestroy {
   private empData: any = null;
   private savedVehicleId: number | null = null;
   private savedPassRegistryId: number | null = null;
-
-  // Tracks the DRAFT passId assigned at Save time so we can clean it up after Submit
   private draftPassId: string | null = null;
 
-  // ── DATE HELPERS ───────────────────────────────────────────────────────────
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
 
   formatDateDDMMYYYY(isoDate: string): string {
@@ -133,11 +129,16 @@ export class PassEntry implements OnInit, OnDestroy {
     return ALLOWED_DOC_TYPES.filter(t => !used.includes(t));
   };
 
+  // ── Helper: is this doc already uploaded in DB (modification mode) ─────────
+  docAlreadyUploaded(doc: DocEntry): boolean {
+    return !!doc.documentId && !!doc.existingFile && !doc.file;
+  }
+
   constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {
 
-    // ── 1. Resume DRAFT if navigated back from Pass Details → Drafts → Resume ─
+    // ── 1. Resume DRAFT ────────────────────────────────────────────────────────
     try {
       const raw = localStorage.getItem('vpsm_resume_draft');
       if (raw) {
@@ -165,12 +166,11 @@ export class PassEntry implements OnInit, OnDestroy {
         this.saveSuccess.set(
           `Draft resumed — ${draft.passId}. Add all 5 documents and click Submit to register.`
         );
-        return; // ← stop here, don't check modification key
+        return;
       }
     } catch { /* silent */ }
 
-    // ── 2. Resume MODIFICATION REQUEST if returning from Modification tab ──────
-    // ── 2. Resume MODIFICATION REQUEST ──────────────────────────────────────────
+    // ── 2. Resume MODIFICATION REQUEST ────────────────────────────────────────
     try {
       const modRaw = localStorage.getItem('vpsm_resume_modification');
       if (modRaw) {
@@ -191,14 +191,18 @@ export class PassEntry implements OnInit, OnDestroy {
         this.empName.set(modData.empName || '');
         this.empDept.set(modData.empDept || '');
 
-        // Pre-fill documents — metadata visible, file must be re-uploaded
+        // ── Pre-fill docs with DB metadata + mark as already uploaded ──────────
+        // documentId + existingFile = already in DB; file = null (browser can't pre-fill)
+        // validate() treats these as valid — user only re-uploads if they WANT to change
         if (Array.isArray(modData.docs) && modData.docs.length > 0) {
           const prefilledDocs: DocEntry[] = modData.docs.map((d: any) => ({
-            id       : crypto.randomUUID(),
-            docType  : d.docType   || '',
-            docNo    : d.docNo     || '',
-            validUpto: d.validUpto || '',
-            file     : null,          // cannot transfer files across navigation — user re-uploads
+            id          : crypto.randomUUID(),
+            docType     : d.docType    || '',
+            docNo       : d.docNo      || '',
+            validUpto   : d.validUpto  || '',
+            file        : null,
+            documentId  : d.documentId  || null,
+            existingFile: d.fileName    || null,
           }));
           this.docs.set(prefilledDocs);
         }
@@ -209,6 +213,7 @@ export class PassEntry implements OnInit, OnDestroy {
         );
         this.passIdGenerated.set(!!modData.passId);
         this.saved.set(false);
+        this.isModificationMode.set(true);
         this.modificationRemark.set(modData.confirmerRemark || '');
         this.saveSuccess.set('');
         this.saveError.set('');
@@ -218,7 +223,6 @@ export class PassEntry implements OnInit, OnDestroy {
 
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  // ── EMPLOYEE TYPE SWITCH ───────────────────────────────────────────────────
   setEmpType(t: string): void {
     this.empType.set(t);
     this.ecNo = ''; this.contractorCode = '';
@@ -227,7 +231,6 @@ export class PassEntry implements OnInit, OnDestroy {
     this.clearAlerts();
   }
 
-  // ── VEHICLE TYPE INPUT ─────────────────────────────────────────────────────
   onVehicleTypeInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     const val = input.value.toUpperCase();
@@ -250,7 +253,6 @@ export class PassEntry implements OnInit, OnDestroy {
     input.value = doc.docNo;
   }
 
-  // ── EC NO AUTO-FILL ────────────────────────────────────────────────────────
   onEcNoBlur(): void {
     const ecNo = this.ecNo.trim();
     if (!ecNo) return;
@@ -277,14 +279,11 @@ export class PassEntry implements OnInit, OnDestroy {
       )
       .subscribe((rows: any[]) => {
         this.fetchingEmployee.set(false);
-
         if (!rows || rows.length === 0) {
           this.empFetchError.set('Employee list empty — check backend connection.');
           return;
         }
-
         const match = rows.find(r => String(r[EMP_IDX.empNo]) === ecNo);
-
         if (match) {
           this.empData = match;
           this.empName.set(String(match[EMP_IDX.name]    || ''));
@@ -297,7 +296,6 @@ export class PassEntry implements OnInit, OnDestroy {
       });
   }
 
-  // ── DOCUMENTS ──────────────────────────────────────────────────────────────
   addDoc(): void {
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
@@ -319,13 +317,16 @@ export class PassEntry implements OnInit, OnDestroy {
     const file = input.files[0];
     if (file.type !== 'application/pdf') { this.saveError.set('Only PDF files are allowed.'); return; }
     if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.');   return; }
-    this.docs.update(list => list.map(d => d.id === doc.id ? { ...d, file } : d));
+    // Once user picks a new file, clear existingFile — they are replacing it
+    this.docs.update(list => list.map(d =>
+      d.id === doc.id ? { ...d, file, existingFile: undefined } : d
+    ));
     this.clearAlerts();
   }
 
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
 
-  // ── VALIDATION (Save — form fields only, docs not mandatory) ──────────────
+  // ── VALIDATION (Save) ──────────────────────────────────────────────────────
   private validate(): string {
     if (!this.vehicleNo.trim())   return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
@@ -342,12 +343,14 @@ export class PassEntry implements OnInit, OnDestroy {
       if (!doc.docType)       return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())  return `Document No is required for ${doc.docType}.`;
       if (!doc.validUpto)     return `Valid Upto date is required for ${doc.docType}.`;
-      if (!doc.file)          return `Please upload a PDF file for ${doc.docType}.`;
+      // ── FIXED: treat doc as valid if it has a new file OR is already in DB ──
+      if (!doc.file && !this.docAlreadyUploaded(doc))
+                              return `Please upload a PDF file for ${doc.docType}.`;
     }
     return '';
   }
 
-  // ── VALIDATION (Submit — all 5 docs strictly mandatory) ───────────────────
+  // ── VALIDATION (Submit — all 5 docs mandatory) ─────────────────────────────
   private validateSubmit(): string {
     if (this.docs().length < ALLOWED_DOC_TYPES.length) {
       const missing = ALLOWED_DOC_TYPES.filter(
@@ -359,14 +362,16 @@ export class PassEntry implements OnInit, OnDestroy {
       if (!doc.docType)       return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())  return `Document No is required for ${doc.docType}.`;
       if (!doc.validUpto)     return `Valid Upto date is required for ${doc.docType}.`;
-      if (!doc.file)          return `Please upload a PDF file for ${doc.docType}.`;
+      // ── FIXED: already-uploaded docs are valid without re-uploading ──────────
+      if (!doc.file && !this.docAlreadyUploaded(doc))
+                              return `Please upload a PDF file for ${doc.docType}.`;
     }
     return '';
   }
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
-  // ── SAVE — LOCAL ONLY, ZERO API CALLS ─────────────────────────────────────
+  // ── SAVE ───────────────────────────────────────────────────────────────────
   onSave(): void {
     const err = this.validate();
     if (err) { this.saveError.set(err); return; }
@@ -411,7 +416,6 @@ export class PassEntry implements OnInit, OnDestroy {
     this.saveSuccess.set(
       `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
     );
-    // ── Log draft save to history ──
     this.logHistory(
       this.passId(),
       'DRAFT_SAVED',
@@ -420,7 +424,7 @@ export class PassEntry implements OnInit, OnDestroy {
     );
   }
 
-  // ── SUBMIT — ALL 3 API STEPS, ALWAYS ──────────────────────────────────────
+  // ── SUBMIT ─────────────────────────────────────────────────────────────────
   onSubmit(): void {
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
@@ -432,7 +436,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.step1RegisterVehicle();
   }
 
-  // STEP 1 — POST /api/vehicles/register
+  // STEP 1 — register vehicle
   private step1RegisterVehicle(): void {
     const payload = {
       vehicleNo    : this.vehicleNo.trim().toUpperCase(),
@@ -442,7 +446,6 @@ export class PassEntry implements OnInit, OnDestroy {
       isActive     : 'Y',
       isBlacklisted: 'N',
     };
-
     this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, payload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
@@ -455,7 +458,7 @@ export class PassEntry implements OnInit, OnDestroy {
       });
   }
 
-  // STEP 2 — POST /api/passes/issue
+  // STEP 2 — issue pass
   private step2IssuePass(): void {
     const payload = {
       vehicle          : { vehicleId: this.savedVehicleId },
@@ -473,7 +476,6 @@ export class PassEntry implements OnInit, OnDestroy {
       enterDate        : this.todayDate,
       remarks          : this.remark.trim() || null,
     };
-
     this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
@@ -482,21 +484,19 @@ export class PassEntry implements OnInit, OnDestroy {
       .subscribe(pRes => {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
-
         const realId = formatPassId(this.savedPassRegistryId!);
         this.passId.set(realId);
         this.passIdGenerated.set(true);
 
-        if (this.docs().length > 0) { this.step3UploadDocs(); }
-        else                        { this.finaliseSubmit();   }
+        // Only upload docs that have a NEW file selected — skip already-uploaded ones
+        const docsWithNewFile = this.docs().filter(d => d.docType && d.file);
+        if (docsWithNewFile.length > 0) { this.step3UploadDocs(docsWithNewFile); }
+        else                            { this.finaliseSubmit(); }
       });
   }
 
-  // STEP 3 — POST /api/documents/upload
-  private step3UploadDocs(): void {
-    const docsToProcess = this.docs().filter(d => d.docType && d.file);
-    if (docsToProcess.length === 0) { this.finaliseSubmit(); return; }
-
+  // STEP 3 — upload only NEW files (skip docs where user kept existing)
+  private step3UploadDocs(docsToProcess: DocEntry[]): void {
     const fd = new FormData();
     fd.append('vehicleId', String(this.savedVehicleId));
     fd.append('enterBy', localStorage.getItem('vpsm_userName') || 'REQUESTER');
@@ -540,7 +540,7 @@ export class PassEntry implements OnInit, OnDestroy {
       .subscribe(dRes => { if (dRes !== null) this.finaliseSubmit(); });
   }
 
-  // ── FINALISE SUBMIT ────────────────────────────────────────────────────────
+  // ── FINALISE ───────────────────────────────────────────────────────────────
   private finaliseSubmit(docWarn = false): void {
     this.isSaving.set(false);
     this.saved.set(true);
@@ -581,10 +581,8 @@ export class PassEntry implements OnInit, OnDestroy {
       submittedBy   : localStorage.getItem('vpsm_userName') || 'REQUESTER',
       submittedAt   : new Date().toISOString(),
     });
-
     this.passState.markSubmitted(record.passId);
 
-    // ── Log resubmission from modification request ──
     const action = this.modificationRemark() ? 'RESUBMITTED' : 'SUBMITTED';
     this.logHistory(
       this.savedPassRegistryId ?? this.savedVehicleId,
@@ -593,8 +591,8 @@ export class PassEntry implements OnInit, OnDestroy {
       `Pass ${action.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
     );
 
-    // Clear modification remark after successful resubmit
     this.modificationRemark.set('');
+    this.isModificationMode.set(false);
 
     this.saveSuccess.set(
       docWarn
@@ -617,11 +615,11 @@ export class PassEntry implements OnInit, OnDestroy {
     this.saved.set(false);
     this.savedVehicleId = null; this.savedPassRegistryId = null;
     this.draftPassId = null;
-    this.modificationRemark.set('');   // ← also clear modification remark on full clear
+    this.modificationRemark.set('');
+    this.isModificationMode.set(false);
     this.clearAlerts(); this.empFetchError.set('');
   }
 
-  // ── HISTORY LOG — silent, never blocks UI ─────────────────────────────────
   private logHistory(passNo: any, action: string, empCode: string, remark: string): void {
     const payload = {
       passNo     : String(passNo ?? ''),

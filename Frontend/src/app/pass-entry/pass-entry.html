@@ -343,6 +343,14 @@
         <i class="bi bi-file-earmark-check-fill"></i>
         <span>Required Documents</span>
         <span class="pe-doc-count">{{ docs().length }} / 5 added</span>
+
+        <!-- Badge: how many are already-uploaded vs new uploads -->
+        @if (isModificationMode()) {
+          <span class="pe-doc-mod-hint">
+            <i class="bi bi-info-circle"></i>
+            
+          </span>
+        }
       </div>
 
       @if (docs().length > 0) {
@@ -358,6 +366,7 @@
           @for (doc of docs(); track doc.id; let i = $index) {
             <div class="pe-doc-row">
 
+              <!-- DOC TYPE -->
               <div class="pe-doc-cell">
                 <select class="pe-input pe-input-sm" [(ngModel)]="doc.docType"
                   (ngModelChange)="onDocTypeChange(doc)">
@@ -368,6 +377,7 @@
                 </select>
               </div>
 
+              <!-- DOC NO -->
               <div class="pe-doc-cell">
                 <input type="text" class="pe-input pe-input-sm"
                   placeholder="Doc number"
@@ -376,7 +386,7 @@
                   maxlength="60" />
               </div>
 
-              <!-- Doc Valid Upto — dd/mm/yyyy display -->
+              <!-- VALID UPTO -->
               <div class="pe-doc-cell">
                 <div class="pe-date-wrapper">
                   <input type="text" class="pe-input pe-input-sm pe-date-display"
@@ -392,15 +402,73 @@
                 </div>
               </div>
 
+              <!-- ══════════════════════════════════════════════════════════
+                   FILE (PDF) — TWO-MODE CELL
+                   Mode 1: doc already exists in DB (modification resume)
+                           → show green "uploaded" pill + orange Replace btn
+                   Mode 2: user just picked a new file
+                           → show filename + change icon (original behaviour)
+                   Mode 3: no file yet
+                           → original "Upload PDF" button
+              ══════════════════════════════════════════════════════════ -->
               <div class="pe-doc-cell">
-                <label class="pe-file-btn" [class.has-file]="doc.file">
-                  <input type="file" accept=".pdf" class="pe-file-hidden"
-                    (change)="onDocFileSelected($event, doc)" />
-                  <i class="bi" [class]="doc.file ? 'bi-file-earmark-pdf-fill' : 'bi-cloud-upload'"></i>
-                  <span>{{ doc.file ? shortName(doc.file.name) : 'Upload PDF' }}</span>
-                </label>
-              </div>
 
+                @if (docAlreadyUploaded(doc)) {
+                  <!-- ── MODE 1: already in DB, file not re-selected ── -->
+                  <div class="pe-doc-existing-wrap">
+                    <span class="pe-doc-uploaded-pill"
+                          [title]="doc.existingFile">
+                      <i class="bi bi-check-circle-fill"></i>
+                      {{ (doc.existingFile && doc.existingFile.length > 20)
+                          ? doc.existingFile.substring(0, 17) + '...'
+                          : (doc.existingFile || 'Uploaded') }}
+                    </span>
+                    <label class="pe-doc-replace-btn"
+                           [for]="'doc-file-' + doc.id"
+                           title="Upload a new PDF to replace the existing file">
+                      <i class="bi bi-arrow-repeat"></i> Replace
+                      <input type="file"
+                             accept=".pdf"
+                             class="pe-file-hidden"
+                             [id]="'doc-file-' + doc.id"
+                             (change)="onDocFileSelected($event, doc)" />
+                    </label>
+                  </div>
+                }
+
+                @else if (doc.file) {
+                  <!-- ── MODE 2: new file selected ── -->
+                  <label class="pe-file-btn has-file"
+                         [for]="'doc-file-' + doc.id"
+                         title="{{ doc.file.name }}">
+                    <input type="file"
+                           accept=".pdf"
+                           class="pe-file-hidden"
+                           [id]="'doc-file-' + doc.id"
+                           (change)="onDocFileSelected($event, doc)" />
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>{{ shortName(doc.file.name) }}</span>
+                  </label>
+                }
+
+                @else {
+                  <!-- ── MODE 3: no file yet (normal new entry) ── -->
+                  <label class="pe-file-btn"
+                         [for]="'doc-file-' + doc.id">
+                    <input type="file"
+                           accept=".pdf"
+                           class="pe-file-hidden"
+                           [id]="'doc-file-' + doc.id"
+                           (change)="onDocFileSelected($event, doc)" />
+                    <i class="bi bi-cloud-upload"></i>
+                    <span>Upload PDF</span>
+                  </label>
+                }
+
+              </div>
+              <!-- ══════════════════ END FILE CELL ══════════════════ -->
+
+              <!-- REMOVE ROW -->
               <div class="pe-doc-cell">
                 <button class="pe-doc-remove" (click)="removeDoc(i)" title="Remove row">
                   <i class="bi bi-x-circle-fill"></i>
