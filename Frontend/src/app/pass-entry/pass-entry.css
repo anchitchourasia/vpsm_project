@@ -609,28 +609,111 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   cursor   : pointer;
   pointer-events: all;
 }
-/* ── Modification remark banner at top of form ── */
-.mod-banner {
-  background: #fff3e0; border: 1.5px solid #ffb74d;
-  border-left: 5px solid #e65100; border-radius: 8px;
-  padding: 14px 16px; margin-bottom: 20px;
-  animation: hint-fade .25s ease;
+/* ══════════════════════════════════════════════════════════════
+   MODIFICATION REQUEST BANNER — Blue theme (matches form)
+   ══════════════════════════════════════════════════════════════ */
+.pe-mod-banner {
+  background   : #eff6ff;
+  border       : 1.5px solid #93c5fd;
+  border-left  : 5px solid #1d6fd8;
+  border-radius: 12px;
+  padding      : 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow   : 0 3px 12px rgba(29, 111, 216, .12);
+  animation    : pe-mod-banner-in .3s ease both;
 }
-.mod-banner-header {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: #e65100; font-weight: 700; margin-bottom: 8px;
+
+@keyframes pe-mod-banner-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
 }
-.mod-banner-body {
-  display: flex; gap: 8px; align-items: flex-start;
-  font-size: 13px; color: #5d4037; line-height: 1.55;
-  background: #fff8f0; padding: 8px 10px; border-radius: 6px;
+
+/* ── Header row: icon + title ── */
+.pe-mod-banner-header {
+  display       : flex;
+  align-items   : center;
+  gap           : .55rem;
+  font-size     : .85rem;
+  font-weight   : 800;
+  color         : #1e3a6e;
+  margin-bottom : .75rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
-.mod-banner-note {
-  font-size: 11px; color: #999; margin-top: 8px; font-style: italic;
+.pe-mod-banner-header i {
+  font-size : 1.1rem;
+  color     : #1d6fd8;
+  flex-shrink: 0;
 }
-@keyframes hint-fade {
-  from { opacity:0; transform: translateY(-5px); }
-  to   { opacity:1; transform: translateY(0); }
+
+/* ── Body: white card with confirmer note ── */
+.pe-mod-banner-body {
+  display      : flex;
+  align-items  : flex-start;
+  gap          : .65rem;
+  background   : #ffffff;
+  border       : 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding      : .75rem 1rem;
+  margin-bottom: .65rem;
+}
+.pe-mod-banner-icon {
+  font-size  : 1rem;
+  color      : #2563eb;
+  margin-top : 2px;
+  flex-shrink: 0;
+}
+.pe-mod-banner-label {
+  font-size     : .7rem;
+  font-weight   : 700;
+  color         : #1e3a6e;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom : .25rem;
+}
+.pe-mod-banner-text {
+  font-size  : .875rem;
+  font-weight: 500;
+  color      : #1e3a5f;
+  line-height: 1.6;
+  word-break : break-word;
+}
+
+/* ── Footer note ── */
+.pe-mod-banner-note {
+  display    : flex;
+  align-items: flex-start;
+  gap        : .4rem;
+  font-size  : .75rem;
+  color      : #64748b;
+  font-style : italic;
+  line-height: 1.5;
+  padding-top: .1rem;
+}
+.pe-mod-banner-note i {
+  font-size  : .85rem;
+  color      : #3b82f6;
+  margin-top : 1px;
+  flex-shrink: 0;
+}
+.pe-mod-banner-note strong {
+  color     : #1d4ed8;
+  font-style: normal;
+}
+
+/* ── Mod hint badge inside doc section header ── */
+.pe-doc-mod-hint {
+  display      : inline-flex;
+  align-items  : center;
+  gap          : .3rem;
+  font-size    : .68rem;
+  font-weight  : 600;
+  color        : #dbeafe;
+  background   : rgba(255,255,255,.12);
+  border       : 1px solid rgba(255,255,255,.25);
+  border-radius: 999px;
+  padding      : 2px 10px;
+  margin-left  : .5rem;
 }
 /* ── Already-uploaded doc indicator (modification mode) ─────────────────── */
 .pe-doc-existing-file {

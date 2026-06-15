@@ -154,8 +154,8 @@ export class PassDetails implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadModificationPasses();
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      if (params['tab'] === 'submitted')     this.activeTab.set('submitted');
-      else if (params['tab'] === 'drafts')   this.activeTab.set('drafts');
+      if (params['tab'] === 'submitted')         this.activeTab.set('submitted');
+      else if (params['tab'] === 'drafts')       this.activeTab.set('drafts');
       else if (params['tab'] === 'modification') this.activeTab.set('modification');
       if (params['filter']) this.filterStatus.set(params['filter']);
     });
@@ -288,7 +288,6 @@ export class PassDetails implements OnInit, OnDestroy {
     this.modLiveDocuments.set([]);
     this.modDocPassId.set(numericId);
 
-    // If vehicle is nested directly in the pass object, use it
     const vehicleId = p.vehicle?.vehicleId ?? null;
     if (vehicleId) {
       this.fetchDocsByVehicleId(vehicleId,
@@ -463,7 +462,7 @@ export class PassDetails implements OnInit, OnDestroy {
 
   // Toggle for modification cards (numeric passId from DB)
   toggleMod(p: any): void {
-    const key     = String(p.passId);
+    const key       = String(p.passId);
     const isOpening = this.expandedId() !== key;
     this.expandedId.update(cur => cur === key ? null : key);
     if (isOpening) {
@@ -496,6 +495,7 @@ export class PassDetails implements OnInit, OnDestroy {
 
   // ─────────────────────────────────────────────────────────────────────────
   // RESUME MODIFICATION — fetch docs from API, pre-fill metadata, navigate
+  // ── FIX: normalize documentType to UPPERCASE to match ALLOWED_DOC_TYPES ──
   // PDFs cannot be transferred (browser security) — user re-uploads files only
   // ─────────────────────────────────────────────────────────────────────────
   resumeModification(p: any): void {
@@ -504,22 +504,24 @@ export class PassDetails implements OnInit, OnDestroy {
     const vehicleId = p.vehicle?.vehicleId ?? null;
 
     const buildAndNavigate = (docs: LiveDocRecord[]) => {
-      // Map doc metadata (type, number, expiry) — file will be null (user re-uploads)
+      // ── FIXED: .toUpperCase().trim() ensures docType matches ALLOWED_DOC_TYPES
+      // which are all uppercase: ['RC','PUC','INSURANCE','LICENSE','FITNESS']
+      // DB may return mixed-case e.g. "License", "Fitness" — this normalizes them
       const docMeta = docs.map(d => ({
-        docType  : d.documentType  || '',
-        docNo    : d.documentNo    || '',
-        validUpto: d.expiryDate    ? d.expiryDate.split('T')[0] : '',
-        fileName : d.fileName      || '',
+        docType   : (d.documentType || '').toUpperCase().trim(),
+        docNo     : d.documentNo   || '',
+        validUpto : d.expiryDate   ? d.expiryDate.split('T')[0] : '',
+        fileName  : d.fileName     || '',
         documentId: d.documentId,
       }));
 
       const resumeData = {
         passId         : p.passId,
         empType        : p.empType        || '',
-        vehicleNo      : p.vehicle?.vehicleNo   || '',
-        vehicleType    : p.vehicle?.vehicleType  || p.typeOfVehicle || '',
-        vehicleClass   : p.vehicle?.vehicleClass || '',
-        brandModel     : p.vehicle?.brandModel   || '',
+        vehicleNo      : p.vehicle?.vehicleNo    || '',
+        vehicleType    : p.vehicle?.vehicleType   || p.typeOfVehicle || '',
+        vehicleClass   : p.vehicle?.vehicleClass  || '',
+        brandModel     : p.vehicle?.brandModel    || '',
         ecNo           : p.employeeNo     || '',
         empName        : p.empName        || '',
         empDept        : p.dept           || '',
@@ -529,7 +531,7 @@ export class PassDetails implements OnInit, OnDestroy {
         parkingArea    : p.parkingToBeUsed || '',
         remark         : p.remarks        || '',
         confirmerRemark: p.remarks        || '',
-        docs           : docMeta,           // ← pre-filled doc metadata
+        docs           : docMeta,           // ← pre-filled doc metadata with normalized types
         status         : 'Needs_Modification',
         createdAt      : p.enterDate      || '',
         mobileNo       : p.mobileNo       || '',
@@ -567,9 +569,9 @@ export class PassDetails implements OnInit, OnDestroy {
     this.router.navigate(['/pass-entry']);
   }
 
-  protected askDelete(passId: string):    void { this.confirmDeleteId.set(passId); }
-  protected cancelDelete():               void { this.confirmDeleteId.set(null);   }
-  protected confirmDelete(passId: string):void {
+  protected askDelete(passId: string):     void { this.confirmDeleteId.set(passId); }
+  protected cancelDelete():                void { this.confirmDeleteId.set(null);   }
+  protected confirmDelete(passId: string): void {
     this.svc.deleteDraft(passId);
     this.confirmDeleteId.set(null);
   }
