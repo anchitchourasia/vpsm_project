@@ -170,6 +170,7 @@ export class PassEntry implements OnInit, OnDestroy {
     } catch { /* silent */ }
 
     // ── 2. Resume MODIFICATION REQUEST if returning from Modification tab ──────
+    // ── 2. Resume MODIFICATION REQUEST ──────────────────────────────────────────
     try {
       const modRaw = localStorage.getItem('vpsm_resume_modification');
       if (modRaw) {
@@ -190,19 +191,25 @@ export class PassEntry implements OnInit, OnDestroy {
         this.empName.set(modData.empName || '');
         this.empDept.set(modData.empDept || '');
 
-        // Keep original DB passId so history logging links correctly
+        // Pre-fill documents — metadata visible, file must be re-uploaded
+        if (Array.isArray(modData.docs) && modData.docs.length > 0) {
+          const prefilledDocs: DocEntry[] = modData.docs.map((d: any) => ({
+            id       : crypto.randomUUID(),
+            docType  : d.docType   || '',
+            docNo    : d.docNo     || '',
+            validUpto: d.validUpto || '',
+            file     : null,          // cannot transfer files across navigation — user re-uploads
+          }));
+          this.docs.set(prefilledDocs);
+        }
+
         this.savedPassRegistryId = modData.passId ?? null;
         this.passId.set(
-          modData.passId
-            ? formatPassId(Number(modData.passId))
-            : ''
+          modData.passId ? `PASS-HEG-${String(modData.passId).padStart(4, '0')}` : ''
         );
         this.passIdGenerated.set(!!modData.passId);
-        this.saved.set(false); // allow Save + Submit buttons normally
-
-        // Show confirmer's remark in the orange banner
+        this.saved.set(false);
         this.modificationRemark.set(modData.confirmerRemark || '');
-
         this.saveSuccess.set('');
         this.saveError.set('');
       }

@@ -49,7 +49,6 @@
       }
     </button>
 
-    <!-- ── NEW TAB BUTTON ── -->
     <button class="pd-tab" [class.pd-tab-active]="activeTab() === 'modification'"
       (click)="setTab('modification')">
       <i class="bi bi-arrow-return-left"></i>
@@ -114,10 +113,10 @@
         @for (pass of filteredSubmitted(); track pass.passId) {
           <div class="pd-card" [class.pd-card-expanded]="expandedId() === pass.passId">
 
-            <!-- CARD HEADER — 2-row layout -->
+            <!-- CARD HEADER -->
             <div class="pd-card-header" (click)="toggle(pass.passId)">
 
-              <!-- ROW 1: Pass ID + Vehicle No + Class  |  Download + Chevron -->
+              <!-- ROW 1 -->
               <div class="pd-card-header-row1">
                 <div class="pd-card-header-left">
                   <span class="pd-pass-id-chip">
@@ -127,8 +126,6 @@
                   <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
                 </div>
                 <div class="pd-card-header-actions">
-
-                  <!-- Download Pass — only visible for Approved passes -->
                   @if (pass.workflowStatus === 'Approved') {
                     <button
                       class="pd-btn-download"
@@ -141,14 +138,13 @@
                       <i class="bi bi-lock-fill"></i> Download Pass
                     </span>
                   }
-
                   <i class="bi pd-chevron"
                      [class.bi-chevron-down]="expandedId() !== pass.passId"
                      [class.bi-chevron-up]="expandedId() === pass.passId"></i>
                 </div>
               </div>
 
-              <!-- ROW 2: Meta strip — Employee | Gate | Valid Till | Status -->
+              <!-- ROW 2 -->
               <div class="pd-card-header-row2">
                 <span class="pd-emp-badge">{{ empTypeLabel(pass.empType) }}</span>
                 <span class="pd-gate-chip">
@@ -337,7 +333,9 @@
                     <div class="pd-trail">
                       @for (step of workflowTrail(pass); track step.label; let i = $index) {
                         <div class="pd-trail-step">
-                          <div class="pd-trail-dot" [class.pd-trail-dot-last]="i === workflowTrail(pass).length - 1"></div>
+                          <div class="pd-trail-dot"
+                               [class.pd-trail-dot-last]="i === workflowTrail(pass).length - 1">
+                          </div>
                           <div class="pd-trail-content">
                             <span class="pd-trail-label">{{ step.label }}</span>
                             <span class="pd-trail-meta">{{ step.by }} · {{ step.at }}</span>
@@ -426,8 +424,10 @@
                   @if (confirmDeleteId() === pass.passId) {
                     <span class="pd-delete-confirm">
                       Delete?
-                      <button class="pd-btn-confirm-yes" (click)="$event.stopPropagation(); confirmDelete(pass.passId)">Yes</button>
-                      <button class="pd-btn-confirm-no"  (click)="$event.stopPropagation(); cancelDelete()">No</button>
+                      <button class="pd-btn-confirm-yes"
+                        (click)="$event.stopPropagation(); confirmDelete(pass.passId)">Yes</button>
+                      <button class="pd-btn-confirm-no"
+                        (click)="$event.stopPropagation(); cancelDelete()">No</button>
                     </span>
                   } @else {
                     <button class="pd-btn-delete" title="Delete this draft"
@@ -513,11 +513,10 @@
   }
 
   <!-- ══════════════════════════════════════
-       MODIFICATION REQUESTS TAB  ← NEW
+       MODIFICATION REQUESTS TAB
   ══════════════════════════════════════ -->
   @if (activeTab() === 'modification') {
 
-    <!-- Loading -->
     @if (isLoadingMod()) {
       <div class="pd-empty">
         <i class="bi bi-arrow-repeat spin pd-empty-icon"></i>
@@ -525,7 +524,6 @@
       </div>
     }
 
-    <!-- Error -->
     @else if (modLoadError()) {
       <div class="pd-empty">
         <i class="bi bi-exclamation-triangle-fill pd-empty-icon" style="color:#e65100"></i>
@@ -537,23 +535,22 @@
       </div>
     }
 
-    <!-- Empty state -->
     @else if (modificationPasses().length === 0) {
       <div class="pd-empty">
         <i class="bi bi-check2-circle pd-empty-icon" style="color:#bbb"></i>
         <p class="pd-empty-title">No modification requests</p>
-        <p class="pd-empty-sub">Passes returned by the confirmer for correction will appear here. You can open and fix them directly.</p>
+        <p class="pd-empty-sub">Passes returned by the confirmer for correction will appear here.</p>
       </div>
     }
 
-    <!-- Cards list -->
     @else {
       <div class="pd-list">
         @for (p of modificationPasses(); track p.passId) {
           <div class="pd-card pd-card-mod">
 
-            <!-- CARD HEADER -->
-            <div class="pd-card-header" (click)="toggle(p.passId)">
+            <!-- ── CARD HEADER ── -->
+            <!-- FIX: use toggleMod(p) so docs are loaded with the correct numeric passId -->
+            <div class="pd-card-header" (click)="toggleMod(p)">
 
               <!-- ROW 1 -->
               <div class="pd-card-header-row1">
@@ -568,17 +565,26 @@
                   </span>
                 </div>
                 <div class="pd-card-header-actions">
-                  <button class="pd-btn-mod-fix"
-                    title="Open form with pre-filled data to fix and resubmit"
-                    (click)="$event.stopPropagation(); resumeModification(p)">
-                    <i class="bi bi-pencil-square"></i> Open &amp; Fix
-                  </button>
+
+                  <!-- Open & Fix — spinner while resumeModification fetches docs -->
+                  @if (resumingPassId() === p.passId) {
+                    <button class="pd-btn-mod-fix" disabled>
+                      <i class="bi bi-hourglass-split spin"></i> Preparing...
+                    </button>
+                  } @else {
+                    <button class="pd-btn-mod-fix"
+                      title="Open form with pre-filled data to fix and resubmit"
+                      (click)="$event.stopPropagation(); resumeModification(p)">
+                      <i class="bi bi-pencil-square"></i> Open &amp; Fix
+                    </button>
+                  }
+
                   <span class="pd-status-chip pd-status-mod">
                     <i class="bi bi-circle-fill"></i> Needs Modification
                   </span>
                   <i class="bi pd-chevron"
-                     [class.bi-chevron-down]="expandedId() !== p.passId"
-                     [class.bi-chevron-up]="expandedId() === p.passId"></i>
+                     [class.bi-chevron-down]="expandedId() !== p.passId?.toString()"
+                     [class.bi-chevron-up]="expandedId() === p.passId?.toString()"></i>
                 </div>
               </div>
 
@@ -596,7 +602,7 @@
 
             </div>
 
-            <!-- CONFIRMER REMARK BANNER — always visible (no expand needed) -->
+            <!-- ── CONFIRMER REMARK — always visible ── -->
             <div class="mod-remark-banner">
               <i class="bi bi-chat-left-text-fill mod-remark-icon"></i>
               <div>
@@ -605,8 +611,8 @@
               </div>
             </div>
 
-            <!-- EXPANDED BODY -->
-            @if (expandedId() === p.passId) {
+            <!-- ── EXPANDED BODY ── -->
+            @if (expandedId() === p.passId?.toString()) {
               <div class="pd-card-body">
 
                 <!-- Vehicle Details -->
@@ -685,15 +691,97 @@
                   </div>
                 </div>
 
+                <!-- ═══════════════════════════════════════════════════
+                     DOCUMENTS — Live from API (per modification card)
+                ═══════════════════════════════════════════════════ -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title">
+                    <i class="bi bi-file-earmark-check-fill"></i>
+                    Documents
+                    @if (!modIsLoadingDocs() && modLiveDocuments().length > 0) {
+                      <span class="pd-doc-count-badge">({{ modLiveDocuments().length }})</span>
+                    }
+                  </div>
+
+                  @if (modIsLoadingDocs()) {
+                    <div class="pd-doc-loading">
+                      <i class="bi bi-arrow-repeat spin"></i> Loading documents from server...
+                    </div>
+                  }
+
+                  @else if (modDocLoadError() && modLiveDocuments().length === 0) {
+                    <div class="pd-doc-empty-msg">
+                      <i class="bi bi-file-earmark-x"></i> {{ modDocLoadError() }}
+                    </div>
+                  }
+
+                  @else if (modLiveDocuments().length > 0) {
+                    @if (pdfError()) {
+                      <div class="pd-pdf-error">
+                        <i class="bi bi-exclamation-triangle-fill"></i> {{ pdfError() }}
+                      </div>
+                    }
+                    <div class="pd-doc-table">
+                      <div class="pd-doc-header">
+                        <span>Type</span>
+                        <span>Doc Number</span>
+                        <span>Valid Upto</span>
+                        <span>Actions</span>
+                      </div>
+                      @for (doc of modLiveDocuments(); track doc.documentId) {
+                        <div class="pd-doc-row">
+                          <span class="pd-doc-type-badge">{{ doc.documentType }}</span>
+                          <span>{{ doc.documentNo || '—' }}</span>
+                          <span>{{ formatDate(doc.expiryDate) || '—' }}</span>
+                          <span class="pd-doc-actions">
+                            @if (doc.fileName) {
+                              <button
+                                class="pd-doc-btn pd-doc-btn-view"
+                                title="View PDF"
+                                [disabled]="pdfLoading() === doc.documentId"
+                                (click)="viewDocumentPdf(doc, $event)">
+                                @if (pdfLoading() === doc.documentId) {
+                                  <i class="bi bi-hourglass-split"></i> Loading...
+                                } @else {
+                                  <i class="bi bi-eye-fill"></i> View PDF
+                                }
+                              </button>
+                            } @else {
+                              <span class="pd-doc-no-file">
+                                <i class="bi bi-file-earmark-x"></i> No file uploaded
+                              </span>
+                            }
+                          </span>
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @else {
+                    <div class="pd-doc-empty-msg">
+                      <i class="bi bi-file-earmark-x"></i> No documents found for this vehicle.
+                    </div>
+                  }
+
+                </div>
+                <!-- ═══════════════════ END MOD DOCUMENTS ═══════════════════ -->
+
                 <!-- Footer action inside expanded -->
                 <div class="mod-card-footer-action">
-                  <button class="pd-btn-mod-fix" (click)="resumeModification(p)">
-                    <i class="bi bi-pencil-square"></i> Open &amp; Fix this Pass
-                  </button>
+                  @if (resumingPassId() === p.passId) {
+                    <button class="pd-btn-mod-fix" disabled>
+                      <i class="bi bi-hourglass-split spin"></i> Preparing form...
+                    </button>
+                  } @else {
+                    <button class="pd-btn-mod-fix" (click)="resumeModification(p)">
+                      <i class="bi bi-pencil-square"></i> Open &amp; Fix this Pass
+                    </button>
+                  }
                 </div>
 
               </div>
             }
+            <!-- END EXPANDED BODY -->
 
           </div>
         }
