@@ -33,14 +33,13 @@ interface PassRecord {
   } | null;
 }
 
-// ✅ Matches the actual API response from /api/documents/list
 interface DocumentRecord {
   documentId  : number;
   documentType: string;
   documentNo  : string;
   startDate   : string;
   expiryDate  : string;
-  fileName   ?: string;   // ✅ ADD THIS — same field as documents module
+  fileName   ?: string;
   vehicle    ?: { vehicleId: number };
 }
 
@@ -76,6 +75,10 @@ export class Confirmer implements OnInit, OnDestroy {
   actionError   = signal('');
   actionSuccess = signal('');
   isActing      = signal(false);
+
+  // ── NEW: tracks which action is armed in the footer ───────────────────────
+  // null = default state | 'modify' = Send for Modify is armed
+  activeAction = signal<'modify' | null>(null);
 
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments  = signal<DocumentRecord[]>([]);
@@ -134,6 +137,7 @@ export class Confirmer implements OnInit, OnDestroy {
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
+    this.activeAction.set(null);          // ← reset armed state on open
     this.passDocuments.set([]);
     this.docLoadError.set('');
 
@@ -149,11 +153,20 @@ export class Confirmer implements OnInit, OnDestroy {
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
+    this.activeAction.set(null);          // ← reset armed state on close
     this.passDocuments.set([]);
     this.docLoadError.set('');
   }
 
-  // ── GET /api/documents/list → filter by vehicleId (same as vehicles.ts) ──
+  // ── NEW: toggle armed state for Send for Modify button ───────────────────
+  setAction(action: 'modify'): void {
+    // clicking same button again = cancel/disarm
+    this.activeAction.set(this.activeAction() === action ? null : action);
+    this.actionError.set('');
+    this.actionSuccess.set('');
+  }
+
+  // ── GET /api/documents/list → filter by vehicleId ────────────────────────
   private loadDocuments(vehicleId: number): void {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
@@ -179,51 +192,28 @@ export class Confirmer implements OnInit, OnDestroy {
       });
   }
 
-  // ── Open PDF in new tab using download endpoint ───────────────────────────
-  // ── NEW (correct — query param, blob download like documents module) ──
-viewDocument(doc: DocumentRecord): void {
-  if (!doc?.documentId || !doc?.fileName) {
-    alert('No file attached to this document.');
-    return;
-  }
-  const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
-  this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
-    .pipe(
-      timeout(TIMEOUT_MS), takeUntil(this.destroy$),
-      catchError(err => {
-        console.error('❌ PDF download error:', err?.status);
-        alert('Could not load file. It may not have been uploaded yet.');
-        return of(null);
-      })
-    )
-    .subscribe((blob: Blob | null) => {
-      if (!blob) return;
-      // Open PDF in new tab instead of downloading
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
-    });
-}
-
-  // ── Date formatting — same as vehicles.ts ────────────────────────────────
-  formatDocDate(d: string): string {
-    if (!d) return '—';
-    const dt = new Date(d);
-    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
-  }
-
-  getDocStatusClass(expiryDate: string): string {
-    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
-    if (days < 0)   return 'doc-expired';
-    if (days <= 30) return 'doc-expiring';
-    return 'doc-valid';
-  }
-
-  getDocStatusText(expiryDate: string): string {
-    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
-    if (days < 0)   return 'Expired';
-    if (days <= 30) return `${days}d left`;
-    return 'Valid';
+  // ── View PDF in new tab ───────────────────────────────────────────────────
+  viewDocument(doc: DocumentRecord): void {
+    if (!doc?.documentId || !doc?.fileName) {
+      alert('No file attached to this document.');
+      return;
+    }
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+    this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('❌ PDF download error:', err?.status);
+          alert('Could not load file. It may not have been uploaded yet.');
+          return of(null);
+        })
+      )
+      .subscribe((blob: Blob | null) => {
+        if (!blob) return;
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+      });
   }
 
   // ── Confirm Pass ──────────────────────────────────────────────────────────
@@ -292,6 +282,41 @@ viewDocument(doc: DocumentRecord): void {
       });
   }
 
+  // ── NEW: Send for Modify ──────────────────────────────────────────────────
+  sendForModify(pass: PassRecord): void {
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required — describe what needs to be modified.');
+      return;
+    }
+    this.isActing.set(true);
+    this.actionError.set('');
+    const updatePayload = {
+      status  : 'Needs_Modification',
+      enterBy : this.confirmerName(),
+      remarks : `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
+      vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+    };
+    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          this.activeAction.set(null);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.passId, pass.employeeNo, 'SENT_FOR_MODIFICATION',
+          `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`🔄 Pass #${pass.passId} sent back to requester for modification.`);
+        this.isActing.set(false);
+        this.activeAction.set(null);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
+
   private logHistory(passId: number, empCode: string, action: string, remark: string): void {
     const payload = {
       passNo: String(passId), empCode: empCode || 'SYSTEM',
@@ -306,30 +331,52 @@ viewDocument(doc: DocumentRecord): void {
 
   getStatusLabel(status: string): string {
     switch ((status || '').toLowerCase()) {
-      case 'submitted'  : return 'Pending Confirmation';
-      case 'confirmed'  : return 'Pending Approval';
-      case 'active'     : return 'Approved & Active';
-      case 'rejected'   : return 'Rejected';
-      case 'surrendered': return 'Surrendered';
-      case 'expired'    : return 'Expired';
-      default           : return status || '—';
+      case 'submitted'         : return 'Pending Confirmation';
+      case 'confirmed'         : return 'Pending Approval';
+      case 'active'            : return 'Approved & Active';
+      case 'rejected'          : return 'Rejected';
+      case 'surrendered'       : return 'Surrendered';
+      case 'expired'           : return 'Expired';
+      case 'needs_modification': return 'Needs Modification';  // ← NEW
+      default                  : return status || '—';
     }
   }
 
   getStatusClass(status: string): string {
     switch ((status || '').toLowerCase()) {
-      case 'submitted'  : return 'badge-submitted';
-      case 'confirmed'  : return 'badge-confirmed';
-      case 'active'     : return 'badge-active';
-      case 'rejected'   : return 'badge-rejected';
-      case 'surrendered': return 'badge-surrendered';
-      case 'expired'    : return 'badge-expired';
-      default           : return 'badge-default';
+      case 'submitted'         : return 'badge-submitted';
+      case 'confirmed'         : return 'badge-confirmed';
+      case 'active'            : return 'badge-active';
+      case 'rejected'          : return 'badge-rejected';
+      case 'surrendered'       : return 'badge-surrendered';
+      case 'expired'           : return 'badge-expired';
+      case 'needs_modification': return 'badge-modify';         // ← NEW
+      default                  : return 'badge-default';
     }
   }
 
   formatDate(d: string): string {
     if (!d) return '—';
     try { return new Date(d).toLocaleDateString('en-GB'); } catch { return d; }
+  }
+
+  formatDocDate(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  getDocStatusClass(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return 'doc-expired';
+    if (days <= 30) return 'doc-expiring';
+    return 'doc-valid';
+  }
+
+  getDocStatusText(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0)   return 'Expired';
+    if (days <= 30) return `${days}d left`;
+    return 'Valid';
   }
 }

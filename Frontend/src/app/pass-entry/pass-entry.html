@@ -13,6 +13,32 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════════════════════════════
+       MODIFICATION REQUEST BANNER — shown only when user opens
+       a pass returned by the confirmer for correction.
+       Hidden completely for normal new/draft flows.
+  ══════════════════════════════════════════════════════════════ -->
+  @if (modificationRemark()) {
+    <div class="pe-mod-banner">
+      <div class="pe-mod-banner-header">
+        <i class="bi bi-arrow-return-left"></i>
+        <strong>This pass was returned for Modification</strong>
+      </div>
+      <div class="pe-mod-banner-body">
+        <i class="bi bi-chat-left-text-fill pe-mod-banner-icon"></i>
+        <div>
+          <div class="pe-mod-banner-label">Confirmer's Note:</div>
+          <div class="pe-mod-banner-text">{{ modificationRemark() }}</div>
+        </div>
+      </div>
+      <div class="pe-mod-banner-note">
+        <i class="bi bi-info-circle"></i>
+        Review the note above, make the required changes to the form, then click
+        <strong>Submit</strong> to resubmit for confirmation.
+      </div>
+    </div>
+  }
+
   <!-- EMPLOYEE TYPE SELECTOR -->
   <div class="pe-emp-type-row">
     <span class="pe-emp-type-label">Employee Type <span class="req">*</span></span>
@@ -158,7 +184,7 @@
           </div>
         </div>
 
-        <!-- ROW 2 : Department | Salary ✅ NEW -->
+        <!-- ROW 2 : Department | Salary -->
         <div class="pe-grid pe-grid-2">
           <div class="pe-field">
             <label>Department</label>
@@ -244,7 +270,6 @@
 
         <div class="pe-field">
           <label>Issue Date</label>
-          <!-- ✅ dd/mm/yyyy readonly text — no browser locale issue -->
           <input type="text" class="pe-input pe-readonly"
             [value]="formatDateDDMMYYYY(todayDate)"
             readonly />
@@ -253,7 +278,6 @@
 
         <div class="pe-field">
           <label>Validity Date <span class="req">*</span></label>
-          <!-- ✅ Display text shows dd/mm/yyyy, hidden picker holds ISO value -->
           <div class="pe-date-wrapper">
             <input type="text" class="pe-input pe-date-display"
               [value]="validityDate ? formatDateDDMMYYYY(validityDate) : ''"
@@ -352,7 +376,7 @@
                   maxlength="60" />
               </div>
 
-              <!-- ✅ Doc Valid Upto — dd/mm/yyyy display -->
+              <!-- Doc Valid Upto — dd/mm/yyyy display -->
               <div class="pe-doc-cell">
                 <div class="pe-date-wrapper">
                   <input type="text" class="pe-input pe-input-sm pe-date-display"

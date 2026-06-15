@@ -44,9 +44,9 @@ function detectVehicleClass(vehicleType: string): string {
     'royal enfield', 'suzuki', 'access', 'unicorn', 'shine'
   ];
 
-  if (heavy.some(k => v.includes(k))) return 'Heavy_Machinery';
-  if (twoWheeler.some(k => v.includes(k))) return 'Two_Wheeler';
-  if (v.length >= 2) return 'Four_Wheeler';
+  if (heavy.some(k => v.includes(k)))       return 'Heavy_Machinery';
+  if (twoWheeler.some(k => v.includes(k)))  return 'Two_Wheeler';
+  if (v.length >= 2)                         return 'Four_Wheeler';
   return '';
 }
 
@@ -93,6 +93,9 @@ export class PassEntry implements OnInit, OnDestroy {
   saveError        = signal('');
   docs             = signal<DocEntry[]>([]);
 
+  // ── NEW: holds confirmer remark when resuming a modification request ───────
+  modificationRemark = signal<string>('');
+
   // ── Form fields ────────────────────────────────────────────────────────────
   vehicleNo      = '';
   vehicleType    = '';
@@ -133,7 +136,8 @@ export class PassEntry implements OnInit, OnDestroy {
   constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {
-    // Resume draft if user navigated back from Pass Details → Drafts tab → Resume
+
+    // ── 1. Resume DRAFT if navigated back from Pass Details → Drafts → Resume ─
     try {
       const raw = localStorage.getItem('vpsm_resume_draft');
       if (raw) {
@@ -161,10 +165,48 @@ export class PassEntry implements OnInit, OnDestroy {
         this.saveSuccess.set(
           `Draft resumed — ${draft.passId}. Add all 5 documents and click Submit to register.`
         );
+        return; // ← stop here, don't check modification key
       }
-    } catch {
-      /* silent */
-    }
+    } catch { /* silent */ }
+
+    // ── 2. Resume MODIFICATION REQUEST if returning from Modification tab ──────
+    try {
+      const modRaw = localStorage.getItem('vpsm_resume_modification');
+      if (modRaw) {
+        const modData = JSON.parse(modRaw);
+        localStorage.removeItem('vpsm_resume_modification');
+
+        this.empType.set(modData.empType || '');
+        this.vehicleNo      = modData.vehicleNo      || '';
+        this.vehicleType    = modData.vehicleType    || '';
+        this.vehicleClass   = modData.vehicleClass   || '';
+        this.brandModel     = modData.brandModel     || '';
+        this.ecNo           = modData.ecNo           || '';
+        this.contractorCode = modData.contractorFirm || '';
+        this.validityDate   = modData.validityDate   || '';
+        this.gateNo         = modData.gateNo         || '';
+        this.parkingArea    = modData.parkingArea     || '';
+        this.remark         = modData.remark         || '';
+        this.empName.set(modData.empName || '');
+        this.empDept.set(modData.empDept || '');
+
+        // Keep original DB passId so history logging links correctly
+        this.savedPassRegistryId = modData.passId ?? null;
+        this.passId.set(
+          modData.passId
+            ? formatPassId(Number(modData.passId))
+            : ''
+        );
+        this.passIdGenerated.set(!!modData.passId);
+        this.saved.set(false); // allow Save + Submit buttons normally
+
+        // Show confirmer's remark in the orange banner
+        this.modificationRemark.set(modData.confirmerRemark || '');
+
+        this.saveSuccess.set('');
+        this.saveError.set('');
+      }
+    } catch { /* silent */ }
   }
 
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
@@ -238,7 +280,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
         if (match) {
           this.empData = match;
-          this.empName.set(String(match[EMP_IDX.name] || ''));
+          this.empName.set(String(match[EMP_IDX.name]    || ''));
           this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
           this.empSalary.set(String(match[EMP_IDX.salary] || ''));
           this.empFetchError.set('');
@@ -269,7 +311,7 @@ export class PassEntry implements OnInit, OnDestroy {
     if (!input.files?.length) return;
     const file = input.files[0];
     if (file.type !== 'application/pdf') { this.saveError.set('Only PDF files are allowed.'); return; }
-    if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.'); return; }
+    if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.');   return; }
     this.docs.update(list => list.map(d => d.id === doc.id ? { ...d, file } : d));
     this.clearAlerts();
   }
@@ -356,15 +398,15 @@ export class PassEntry implements OnInit, OnDestroy {
     };
 
     this.passState.upsert(record);
-    this.passState.broadcastDraftChange();   // ← add this line
-    this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any); // notify other tabs
+    this.passState.broadcastDraftChange();
+    this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
     this.saved.set(true);
     this.saveSuccess.set(
       `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
     );
     // ── Log draft save to history ──
     this.logHistory(
-      this.passId(),              // DRAFT-1234567890
+      this.passId(),
       'DRAFT_SAVED',
       this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
       `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
@@ -376,7 +418,7 @@ export class PassEntry implements OnInit, OnDestroy {
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
     const docErr = this.validateSubmit();
-    if (docErr) { this.saveError.set(docErr); return; }
+    if (docErr)  { this.saveError.set(docErr);  return; }
     if (this.isSaving()) return;
     this.clearAlerts();
     this.isSaving.set(true);
@@ -439,7 +481,7 @@ export class PassEntry implements OnInit, OnDestroy {
         this.passIdGenerated.set(true);
 
         if (this.docs().length > 0) { this.step3UploadDocs(); }
-        else { this.finaliseSubmit(); }
+        else                        { this.finaliseSubmit();   }
       });
   }
 
@@ -453,40 +495,40 @@ export class PassEntry implements OnInit, OnDestroy {
     fd.append('enterBy', localStorage.getItem('vpsm_userName') || 'REQUESTER');
 
     for (const doc of docsToProcess) {
-      const dt = doc.docType.toLowerCase();
+      const dt   = doc.docType.toLowerCase();
       const file = doc.file!;
       if (dt === 'rc') {
-        fd.append('rcNo', doc.docNo);
-        fd.append('rcStart', this.todayDate);
+        fd.append('rcNo',     doc.docNo);
+        fd.append('rcStart',  this.todayDate);
         fd.append('rcExpiry', doc.validUpto);
-        fd.append('rcFile', file, file.name);
+        fd.append('rcFile',   file, file.name);
       } else if (dt === 'puc') {
-        fd.append('pucNo', doc.docNo);
-        fd.append('pucStart', this.todayDate);
+        fd.append('pucNo',     doc.docNo);
+        fd.append('pucStart',  this.todayDate);
         fd.append('pucExpiry', doc.validUpto);
-        fd.append('pucFile', file, file.name);
+        fd.append('pucFile',   file, file.name);
       } else if (dt === 'insurance') {
-        fd.append('insuranceNo', doc.docNo);
-        fd.append('insuranceStart', this.todayDate);
+        fd.append('insuranceNo',     doc.docNo);
+        fd.append('insuranceStart',  this.todayDate);
         fd.append('insuranceExpiry', doc.validUpto);
-        fd.append('insuranceFile', file, file.name);
+        fd.append('insuranceFile',   file, file.name);
       } else if (dt === 'license') {
-        fd.append('loadTestNo', doc.docNo);
-        fd.append('loadTestStart', this.todayDate);
+        fd.append('loadTestNo',     doc.docNo);
+        fd.append('loadTestStart',  this.todayDate);
         fd.append('loadTestExpiry', doc.validUpto);
-        fd.append('loadTestFile', file, file.name);
+        fd.append('loadTestFile',   file, file.name);
       } else if (dt === 'fitness') {
-        fd.append('fitnessNo', doc.docNo);
-        fd.append('fitnessStart', this.todayDate);
+        fd.append('fitnessNo',     doc.docNo);
+        fd.append('fitnessStart',  this.todayDate);
         fd.append('fitnessExpiry', doc.validUpto);
-        fd.append('fitnessFile', file, file.name);
+        fd.append('fitnessFile',   file, file.name);
       }
     }
 
     this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => { this.finaliseSubmit(true); return of(null); })
+        catchError(_err => { this.finaliseSubmit(true); return of(null); })
       )
       .subscribe(dRes => { if (dRes !== null) this.finaliseSubmit(); });
   }
@@ -535,12 +577,17 @@ export class PassEntry implements OnInit, OnDestroy {
 
     this.passState.markSubmitted(record.passId);
 
+    // ── Log resubmission from modification request ──
+    const action = this.modificationRemark() ? 'RESUBMITTED' : 'SUBMITTED';
     this.logHistory(
       this.savedPassRegistryId ?? this.savedVehicleId,
-      'SUBMITTED',
-      this.ecNo.trim(),
-      `Pass submitted — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
+      action,
+      this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+      `Pass ${action.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
     );
+
+    // Clear modification remark after successful resubmit
+    this.modificationRemark.set('');
 
     this.saveSuccess.set(
       docWarn
@@ -563,6 +610,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.saved.set(false);
     this.savedVehicleId = null; this.savedPassRegistryId = null;
     this.draftPassId = null;
+    this.modificationRemark.set('');   // ← also clear modification remark on full clear
     this.clearAlerts(); this.empFetchError.set('');
   }
 
@@ -590,7 +638,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private handleSaveError(err: any, step: string): void {
     const status = err?.status ?? '?';
     const body   = err?.error;
-    let msg     = '';
+    let msg      = '';
     if (body instanceof Blob) {
       body.text().then(t => {
         try { msg = JSON.parse(t)?.message || t; } catch { msg = t; }

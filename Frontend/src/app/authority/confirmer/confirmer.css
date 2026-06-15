@@ -145,3 +145,61 @@
 }
 .btn-view-pdf:hover { background:#dc2626; }
 .btn-view-pdf i     { font-size:13px; }
+/* ── Send for Modify footer button — matches btn-red / btn-blue sizing ── */
+.btn-modify-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid #ffb74d;
+  background: #fff3e0;
+  color: #e65100;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-modify-footer:hover {
+  background: #fb8c00;
+  color: #fff;
+  border-color: #fb8c00;
+}
+/* Armed state — confirmer clicked once, ready to fire */
+.btn-modify-footer.btn-modify-armed {
+  background: #e65100;
+  color: #fff;
+  border-color: #e65100;
+}
+.btn-modify-footer:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Modify hint box above footer ── */
+.modify-hint {
+  font-size: 11.5px;
+  background: #fff8f0;
+  color: #7c4a00;
+  border-left: 3px solid #e65100;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  line-height: 1.5;
+  animation: hint-fade 0.2s ease;
+}
+@keyframes hint-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── badge for Needs_Modification status in table ── */
+.badge-modify {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}

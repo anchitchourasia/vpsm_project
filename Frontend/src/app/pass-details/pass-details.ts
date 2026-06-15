@@ -81,6 +81,11 @@ export class PassDetails implements OnInit, OnDestroy {
 
   // ── Status filter signal ──────────────────────────────────────────────────
   protected filterStatus = signal<string>('ALL');
+  // ── MODIFICATION REQUESTS ──────────────────────────────────────────────────
+  // Passes returned by confirmer with status 'Needs_Modification'
+  modificationPasses = signal<any[]>([]);
+  isLoadingMod       = signal(false);
+  modLoadError       = signal('');
 
   // ── Status filter options shown as chips ─────────────────────────────────
   protected readonly statusOptions: { value: string; label: string }[] = [
@@ -148,6 +153,7 @@ export class PassDetails implements OnInit, OnDestroy {
   // ─────────────────────────────────────────────────────────────────────────
   private route = inject(ActivatedRoute);
   ngOnInit(): void {
+    this.loadModificationPasses();
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
     if (params['tab'] === 'submitted') {
       this.activeTab.set('submitted');
@@ -250,13 +256,36 @@ export class PassDetails implements OnInit, OnDestroy {
       (d.employeeNo || '') === (local.ecNo || '')
     ) ?? null;
   }
-
+   
   // ─────────────────────────────────────────────────────────────────────────
   // LIVE DOCUMENT FETCH — same strategy as Confirmer component
   // Step 1: GET /api/passes/list → find vehicleId for this pass
   // Step 2: GET /api/documents/list → filter by vehicleId
   // ─────────────────────────────────────────────────────────────────────────
+  loadModificationPasses(): void {
+    this.isLoadingMod.set(true);
+    this.modLoadError.set('');
+    const userName = localStorage.getItem('vpsm_userName') || '';
 
+    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      .pipe(
+        timeout(12000),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.modLoadError.set('Could not load modification requests (' + (err?.status || 'network error') + ')');
+          this.isLoadingMod.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(data => {
+        const list = (Array.isArray(data) ? data : []).filter(p =>
+          (p.status || '').toLowerCase() === 'needs_modification' &&
+          (p.enterBy || '').toLowerCase() === userName.toLowerCase()
+        );
+        this.modificationPasses.set(list);
+        this.isLoadingMod.set(false);
+      });
+  }
   private loadLiveDocs(passId: string): void {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
@@ -444,7 +473,33 @@ export class PassDetails implements OnInit, OnDestroy {
     this.docLoadError.set('');
     this.docPassId.set(null);
   }
-
+  resumeModification(p: any): void {
+  // Store the full pass data + confirmer remark into localStorage
+  // pass-entry.ts will read 'vpsm_resume_modification' on ngOnInit
+    const resumeData = {
+      passId         : p.passId,           // real DB passId (number)
+      empType        : p.empType || '',
+      vehicleNo      : p.vehicle?.vehicleNo || '',
+      vehicleType    : p.vehicle?.vehicleType || p.typeOfVehicle || '',
+      vehicleClass   : p.vehicle?.vehicleClass || '',
+      brandModel     : p.vehicle?.brandModel || '',
+      ecNo           : p.employeeNo || '',
+      empName        : '',
+      empDept        : p.dept || '',
+      contractorFirm : p.contractorCode || '',
+      validityDate   : p.validityDate ? p.validityDate.split('T')[0] : '',
+      gateNo         : p.gateNo || '',
+      parkingArea    : p.parkingToBeUsed || '',
+      remark         : p.remarks || '',    // user's own remark
+      confirmerRemark: p.remarks || '',    // confirmer's modification note
+      docs           : [],
+      status         : 'Needs_Modification',
+      createdAt      : p.enterDate || '',
+      mobileNo       : p.mobileNo || '',
+    };
+    localStorage.setItem('vpsm_resume_modification', JSON.stringify(resumeData));
+    this.router.navigate(['/pass-entry']);
+  }
   protected resumeDraft(pass: PassRecord): void {
     try {
       localStorage.setItem('vpsm_resume_draft', JSON.stringify(pass));

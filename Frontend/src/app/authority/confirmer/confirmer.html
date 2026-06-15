@@ -88,6 +88,7 @@
     </div>
   </div>
 
+
   <!-- ── REVIEW MODAL ── -->
   <div class="modal-overlay" *ngIf="selectedPass() as p" (click)="closeDetails()">
     <div class="modal-box" (click)="$event.stopPropagation()">
@@ -135,20 +136,17 @@
           <div class="di"><label>Submitted By</label><span>{{ p.enterBy || '—' }}</span></div>
         </div>
 
-        <!-- ── COMPLIANCE DOCUMENTS ── -->
+        <!-- Compliance Documents -->
         <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
 
-        <!-- Loading -->
         <div class="doc-loading" *ngIf="isLoadingDocs()">
           <i class="bi bi-arrow-repeat spin"></i> Loading documents...
         </div>
 
-        <!-- Error -->
         <div class="doc-error" *ngIf="docLoadError() && !isLoadingDocs()">
           <i class="bi bi-exclamation-triangle-fill"></i> {{ docLoadError() }}
         </div>
 
-        <!-- Documents Table -->
         <div class="doc-table-wrap" *ngIf="!isLoadingDocs() && passDocuments().length > 0">
           <table class="doc-table">
             <thead>
@@ -188,13 +186,12 @@
           </table>
         </div>
 
-        <!-- No docs message (only after load, no error) -->
         <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()"
           class="doc-empty">
           <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
-        <!-- Remark -->
+        <!-- Remark — UNCHANGED -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Confirmer Remark</div>
         <div class="form-group">
           <textarea class="form-textarea" rows="3"
@@ -204,16 +201,45 @@
           </textarea>
         </div>
 
+        <!-- ── Modify hint: appears only after Send for Modify is clicked once ── -->
+        <div class="modify-hint" *ngIf="activeAction() === 'modify'">
+          <i class="bi bi-arrow-return-left"></i>
+          Pass will be returned to requester as <strong>"Needs Modification"</strong>.
+          They will see all their filled details + this remark. Not a rejection — they can fix and resubmit.
+        </div>
+
+        <!-- ══════════════════════════
+             MODAL FOOTER
+             ORDER: Close | Send for Modify | Reject | Confirm & Send to Approver
+             All 4 buttons same height/padding
+             ══════════════════════════ -->
         <div class="modal-footer">
+
           <button class="btn-cancel" (click)="closeDetails()">Close</button>
-          <button class="btn-red" (click)="reject(p)" [disabled]="isActing()">
+
+          <!-- Send for Modify: first click arms it (turns orange), second click fires -->
+          <button class="btn-modify-footer"
+            [class.btn-modify-armed]="activeAction() === 'modify'"
+            (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')"
+            [disabled]="isActing()">
+            <i class="bi bi-pencil-square"></i>
+            {{ activeAction() === 'modify'
+                ? (isActing() ? 'Processing…' : 'Confirm Send for Modify')
+                : 'Send for Modify' }}
+          </button>
+
+          <button class="btn-red"
+            (click)="activeAction() === 'modify' ? setAction('modify') : reject(p)"
+            [disabled]="isActing()">
             <i class="bi bi-x-circle-fill"></i>
             {{ isActing() ? 'Processing…' : 'Reject' }}
           </button>
+
           <button class="btn-blue" (click)="confirm(p)" [disabled]="isActing()">
             <i class="bi bi-check-circle-fill"></i>
             {{ isActing() ? 'Processing…' : 'Confirm & Send to Approver' }}
           </button>
+
         </div>
 
       </div>
