@@ -152,7 +152,7 @@ export class PassDetails implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
 
   ngOnInit(): void {
-    this.loadModificationPasses();
+    
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       if (params['tab'] === 'submitted')         this.activeTab.set('submitted');
       else if (params['tab'] === 'drafts')       this.activeTab.set('drafts');
@@ -162,7 +162,10 @@ export class PassDetails implements OnInit, OnDestroy {
 
     interval(REFRESH_INTERVAL_MS)
       .pipe(startWith(0), takeUntil(this.destroy$))
-      .subscribe(() => this.syncStatusFromDB());
+      .subscribe(() => {
+        this.syncStatusFromDB()
+        this.loadModificationPasses();
+      });
   }
 
   ngOnDestroy(): void {
