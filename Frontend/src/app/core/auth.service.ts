@@ -22,7 +22,6 @@ export interface EmployeeRecord {
   department     ?: string;
   departmentName ?: string;
   companyCode    ?: string;
-  mobileNo       ?: string;
 }
 
 export interface SessionUser {
@@ -60,73 +59,47 @@ export class AuthService {
     'Content-Type': 'application/json',
   });
 
-  private session = signal<SessionUser | null>(null);
-  private _error  = signal<string>('');
+  private _session = signal<SessionUser | null>(null);
+  private _error   = signal<string>('');
 
-  // ✅ true once session API resolves — app.html waits on this
-  readonly sessionReady = signal(false);
-
-  readonly isLoggedIn    = computed(() => !!this.session());
-  readonly currentUser   = computed(() => this.session());
-  readonly primaryRole   = computed(() => this.session()?.primaryRole  ?? 'EMPLOYEE');
-  readonly allRoles      = computed(() => this.session()?.roles        ?? []);
-  readonly assignedGates = computed(() => this.session()?.gates        ?? []);
-  readonly empCode       = computed(() => this.session()?.empCode      ?? '');
-  readonly empName       = computed(() => this.session()?.empName      ?? '');
-  readonly companyCode   = computed(() => this.session()?.companyCode  ?? '');
-  readonly deptCode      = computed(() => this.session()?.deptCode     ?? '');
-  readonly userCategory  = computed(() => this.session()?.userCategory ?? '');
+  readonly sessionReady  = signal(false);
+  readonly isLoggedIn    = computed(() => !!this._session());
+  readonly currentUser   = computed(() => this._session());
+  readonly primaryRole   = computed(() => this._session()?.primaryRole  ?? 'EMPLOYEE');
+  readonly allRoles      = computed(() => this._session()?.roles        ?? []);
+  readonly assignedGates = computed(() => this._session()?.gates        ?? []);
+  readonly empCode       = computed(() => this._session()?.empCode      ?? '');
+  readonly empName       = computed(() => this._session()?.empName      ?? '');
+  readonly companyCode   = computed(() => this._session()?.companyCode  ?? '');
+  readonly deptCode      = computed(() => this._session()?.deptCode     ?? '');
+  readonly userCategory  = computed(() => this._session()?.userCategory ?? '');
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  login(empCode: string): Observable<SessionUser> {
-    return this._resolveFromAuthority(empCode.trim());
-  }
-
   resolveByEmpCode(empCode: string): Observable<SessionUser> {
-    return this._resolveFromAuthority(empCode.trim());
-  }
-
-  tryRestoreSession(): void {
-    localStorage.removeItem('vpsm_session');
-    const empCode = localStorage.getItem(USER_KEY)?.trim();
-    if (!empCode) {
-      this.sessionReady.set(true);
-      return;
-    }
-
-    this._resolveFromAuthority(empCode).pipe(
-      catchError(() => {
-        if (!this.session()) {
-          this.clearSession();
-          this.router.navigate(['/login']);
-        }
-        this.sessionReady.set(true);
-        return throwError(() => new Error('Session restore failed'));
-      })
-    ).subscribe();
-  }
-
-  private _resolveFromAuthority(code: string): Observable<SessionUser> {
     this._error.set('');
-    const url = `${API_CONFIG.AUTHORITY_LOGIN}/${code}`;
+    const code = empCode.trim();
 
-    return this.http.get<AuthorityRecord[]>(url, { headers: this.HEADERS }).pipe(
+    // ── STEP 1: GET /api/authority/{empCode} ──
+    // Backend returns 200+array if found, 404 if not in authority table
+    return this.http.get<AuthorityRecord[]>(
+      `${API_CONFIG.AUTHORITY_BY_EMP}/${code}`,
+      { headers: this.HEADERS }
+    ).pipe(
       timeout(12_000),
       map((records: AuthorityRecord[]) => {
-        if (!Array.isArray(records) || records.length === 0) {
-          throw { status: 404 };
-        }
+        // Extract unique roles from authorityType field
         const roles = [...new Set(
-          records
+          (records || [])
             .map(r => (r.authorityType || '').toUpperCase().trim())
             .filter(r => r.length > 0)
         )];
+
         const first = records[0];
         const session: SessionUser = {
           empCode     : first.empCode        || code,
           empName     : first.empCode        || code,
-          companyCode : first.companyCode    || '',
+          companyCode : first.companyCode    || 'HEG',
           deptCode    : first.departmentCode || '',
           roles,
           primaryRole : resolvePrimaryRole(roles),
@@ -135,14 +108,15 @@ export class AuthService {
           authorities : records,
           source      : 'authority',
         };
-        this.saveSession(session);
+        this._saveSession(session);
         return session;
       }),
       catchError(err => {
         if (err?.status === 404) {
+          // ── Not in authority table → try employee fallback ──
           return this._resolveFromEmployee(code);
         }
-        const msg = err?.error?.message || err?.message || 'Login failed.';
+        const msg = err?.error?.message || 'Login failed. Try again.';
         this._error.set(msg);
         return throwError(() => err);
       })
@@ -150,27 +124,47 @@ export class AuthService {
   }
 
   private _resolveFromEmployee(code: string): Observable<SessionUser> {
-    return this.http.get<EmployeeRecord[]>(
+    // GET /api/reports/employee-department → returns Object[] rows
+    // Each row: [empCode, empName, deptCode, deptName, companyCode, ...]
+    return this.http.get<any[]>(
       API_CONFIG.EMPLOYEE_REPORT,
       { headers: this.HEADERS }
     ).pipe(
       timeout(12_000),
-      map((employees: EmployeeRecord[]) => {
-        const found = (employees || []).find(e => {
-          const ec = (e.empCode || e.employeeCode || '').trim().toLowerCase();
+      map((rows: any[]) => {
+        // rows are Object[] arrays — backend does a JOIN query
+        // Try to find the empCode in the result
+        const found = (rows || []).find(row => {
+          // Row can be an object or array — handle both
+          if (Array.isArray(row)) {
+            return String(row[0] || '').trim().toLowerCase() === code.toLowerCase();
+          }
+          const ec = String(
+            row.empCode || row.employeeCode || row.EMP_CODE || row[0] || ''
+          ).trim().toLowerCase();
           return ec === code.toLowerCase();
         });
+
         if (!found) {
           throw {
             status: 404,
-            error: { message: `Employee code "${code}" not registered. Contact administrator.` }
+            error : {
+              message: `Employee code "${code}" is not registered. Contact administrator.`
+            }
           };
         }
+
+        // Extract fields safely from object or array row
+        const empC  = Array.isArray(found) ? String(found[0]) : (found.empCode || found.EMP_CODE || code);
+        const empN  = Array.isArray(found) ? String(found[1]) : (found.empName || found.EMP_NAME || code);
+        const dept  = Array.isArray(found) ? String(found[2] || '') : (found.departmentCode || found.DEPT_CODE || '');
+        const co    = Array.isArray(found) ? String(found[4] || 'HEG') : (found.companyCode || 'HEG');
+
         const session: SessionUser = {
-          empCode     : found.empCode     || found.employeeCode || code,
-          empName     : found.empName     || found.employeeName || code,
-          companyCode : found.companyCode || 'HEG',
-          deptCode    : found.department  || found.departmentName || '',
+          empCode     : empC,
+          empName     : empN,
+          companyCode : co,
+          deptCode    : dept,
           roles       : ['EMPLOYEE'],
           primaryRole : 'EMPLOYEE',
           gates       : [],
@@ -178,11 +172,11 @@ export class AuthService {
           authorities : [],
           source      : 'employee',
         };
-        this.saveSession(session);
+        this._saveSession(session);
         return session;
       }),
       catchError(err => {
-        const msg = err?.error?.message || err?.message ||
+        const msg = err?.error?.message ||
           `Employee code "${code}" not found. Contact administrator.`;
         this._error.set(msg);
         return throwError(() => err);
@@ -190,50 +184,57 @@ export class AuthService {
     );
   }
 
-  hasRole(role: string): boolean { return this.allRoles().includes(role.toUpperCase()); }
+  tryRestoreSession(): void {
+    const empCode = localStorage.getItem(USER_KEY)?.trim();
+    if (!empCode) { this.sessionReady.set(true); return; }
 
-  isAdmin()    : boolean { return this.hasRole('ADMIN');                        }
-  isUploader() : boolean { return this.hasRole('UPLOADER')  || this.isAdmin(); }
-  isConfirmer(): boolean { return this.hasRole('CONFIRMER') || this.isAdmin(); }
-  isApprover() : boolean { return this.hasRole('APPROVER')  || this.isAdmin(); }
-
-  hasAuthority() : boolean { return this.session()?.source === 'authority'; }
-  isRegularUser(): boolean { return this.session()?.source === 'employee';  }
-
-  role()      : string { return this.primaryRole(); }
-  company()   : string { return this.companyCode(); }
-  department(): string { return this.deptCode();    }
-
-  validTill(): string | null {
-    const auths = this.session()?.authorities ?? [];
-    const dates = auths.map(a => a.validTill || '').filter(Boolean).sort();
-    return dates.length > 0 ? dates[dates.length - 1] : null;
+    this.resolveByEmpCode(empCode).pipe(
+      catchError(() => {
+        this._clearSession();
+        this.sessionReady.set(true);
+        return throwError(() => new Error('Session restore failed'));
+      })
+    ).subscribe();
   }
 
+  // ── Role helpers ──────────────────────────────────
+  hasRole(role: string): boolean  { return this.allRoles().includes(role.toUpperCase()); }
+  isAdmin()    : boolean          { return this.hasRole('ADMIN'); }
+  isUploader() : boolean          { return this.hasRole('UPLOADER')  || this.isAdmin(); }
+  isConfirmer(): boolean          { return this.hasRole('CONFIRMER') || this.isAdmin(); }
+  isApprover() : boolean          { return this.hasRole('APPROVER')  || this.isAdmin(); }
+  hasAuthority() : boolean        { return this._session()?.source === 'authority'; }
+  isRegularUser(): boolean        { return this._session()?.source === 'employee';  }
+
+  role()        : string { return this.primaryRole(); }
+  company()     : string { return this.companyCode(); }
+  department()  : string { return this.deptCode(); }
   resolveError(): string { return this._error(); }
   getUserCode() : string { return this.empCode(); }
   getUserName() : string { return this.empName(); }
+
+  validTill(): string | null {
+    const auths = this._session()?.authorities ?? [];
+    const dates = auths.map((a: any) => a.validTill || '').filter(Boolean).sort();
+    return dates.length > 0 ? dates[dates.length - 1] : null;
+  }
 
   canActOnGate(gate: string): boolean {
     const gates = this.assignedGates();
     return gates.length === 0 || gates.includes(gate.trim());
   }
 
-  logout(): void {
-    this.clearSession();
-    this.router.navigate(['/login']);
-  }
+  logout(): void { this._clearSession(); this.router.navigate(['/login']); }
 
-  private saveSession(user: SessionUser): void {
+  private _saveSession(user: SessionUser): void {
     try { localStorage.setItem(USER_KEY, user.empCode); } catch {}
-    this.session.set(user);
+    this._session.set(user);
     this.sessionReady.set(true);
   }
 
-  private clearSession(): void {
+  private _clearSession(): void {
     localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('vpsm_session');
-    this.session.set(null);
+    this._session.set(null);
     this.sessionReady.set(false);
   }
 }
