@@ -1,0 +1,75 @@
+<!-- Frontend/src/app/my-pass/my-pass.html -->
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <i class="bi bi-card-list" style="color:#2e7d32;font-size:16px"></i>
+    <span class="page-title">My Pass Applications</span>
+    <span class="page-sub">— {{ auth.empCode() }}</span>
+  </div>
+
+  <div style="padding:16px">
+
+    @if (loading()) {
+      <div class="mp-loading">
+        <i class="bi bi-arrow-repeat mp-spin"></i>
+        <span>Loading your passes...</span>
+      </div>
+    }
+
+    @if (errorMsg()) {
+      <div class="mp-error">{{ errorMsg() }}</div>
+    }
+
+    @if (!loading() && passes().length === 0 && !errorMsg()) {
+      <div class="mp-empty">
+        <i class="bi bi-inbox" style="font-size:32px;color:#9ca3af"></i>
+        <p>No pass applications found for your employee code.</p>
+      </div>
+    }
+
+    @if (!loading() && passes().length > 0) {
+      <div class="section">
+        <div class="section-hdr">
+          <i class="bi bi-card-list hdr-icon"></i>
+          Your Pass Applications ({{ passes().length }})
+        </div>
+        <div class="table-scroll">
+          <table class="dtable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vehicle No</th>
+                <th>Pass Type</th>
+                <th>Status</th>
+                <th>Valid From</th>
+                <th>Valid Till</th>
+                <th>Gate</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of passes(); track p.passId || $index) {
+                <tr>
+                  <td>{{ $index + 1 }}</td>
+                  <td><strong>{{ p.vehicleNo || p.vehicle_no || '—' }}</strong></td>
+                  <td>{{ p.passType || p.pass_type || '—' }}</td>
+                  <td>
+                    <span class="badge"
+                      [class.green]="p.passStatus === 'Active'"
+                      [class.yellow]="p.passStatus === 'Pending'"
+                      [class.red]="p.passStatus === 'Expired' || p.passStatus === 'Surrendered'">
+                      {{ p.passStatus || p.pass_status || '—' }}
+                    </span>
+                  </td>
+                  <td>{{ p.issueDate || p.issue_date || '—' }}</td>
+                  <td>{{ p.validityDate || p.validity_date || '—' }}</td>
+                  <td>{{ p.assignedGate || p.assigned_gate || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+  </div>
+</div>

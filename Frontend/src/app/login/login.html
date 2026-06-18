@@ -1,19 +1,45 @@
-<div class="login-page">
-  <div class="card">
-    <div class="brand">VPSM</div>
-    <h2>Login</h2>
-    <p>Select a role to enter the correct workflow screen.</p>
+<!-- Frontend/src/app/login/login.html -->
+<div class="login-wrap">
+  <div class="login-card">
 
-    <label>User Name</label>
-    <input type="text" [(ngModel)]="userName" placeholder="Enter your name" />
+    <div class="login-logo">
+      <img src="assets/heg-logo.png" alt="HEG" width="52" height="52" />
+    </div>
+    <h2 class="login-title">HEG Limited</h2>
+    <p class="login-sub">Vehicle Pass Management System</p>
 
-    <label>Role</label>
-    <select [(ngModel)]="role">
-      <option value="Requester">Requester</option>
-      <option value="Confirmer">Confirmer</option>
-      <option value="Approver">Approver</option>
-    </select>
+    <div class="login-form">
+      <label class="login-label">Employee Code</label>
+      <input
+        class="login-input"
+        type="text"
+        [(ngModel)]="empCodeInput"
+        placeholder="e.g. 70028"
+        (keyup.enter)="onLogin()"
+        [disabled]="isLoading"
+        autocomplete="off"
+      />
 
-    <button type="button" (click)="continue()">Continue</button>
+      @if (errorMsg) {
+        <div class="login-error">{{ errorMsg }}</div>
+      }
+
+      @if (resolvedRole) {
+        <div class="login-success">✅ Logged in as {{ resolvedRole }}</div>
+      }
+
+      <button
+        class="login-btn"
+        (click)="onLogin()"
+        [disabled]="isLoading"
+      >
+        @if (isLoading) {
+          <i class="bi bi-arrow-repeat login-spin"></i> Verifying...
+        } @else {
+          Continue →
+        }
+      </button>
+    </div>
+
   </div>
 </div>

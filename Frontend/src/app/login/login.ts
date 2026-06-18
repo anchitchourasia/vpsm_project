@@ -1,42 +1,71 @@
-import { Component, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Component, inject, ChangeDetectorRef } from '@angular/core';
+import { CommonModule }  from '@angular/common';
+import { FormsModule }   from '@angular/forms';
+import { Router }        from '@angular/router';
+import { AuthService }   from '../core/auth.service';
 
 @Component({
   selector   : 'app-login',
   standalone : true,
   imports    : [CommonModule, FormsModule],
   templateUrl: './login.html',
-  styleUrl   : './login.css'
+  styleUrl   : './login.css',
 })
 export class Login {
 
-  role     = signal('Requester');
-  userName = signal('');
-  errorMsg = signal('');
+  private auth   = inject(AuthService);
+  private router = inject(Router);
+  private cdr    = inject(ChangeDetectorRef);
 
-  constructor(private router: Router) {}
+  empCodeInput = '';
+  isLoading    = false;
+  errorMsg     = '';
+  resolvedRole = '';
 
-  continue(): void {
-    const name = this.userName().trim();
-    if (!name) {
-      this.errorMsg.set('Please enter your name before continuing.');
+  constructor() {
+    if (this.auth.isLoggedIn()) {
+      this.router.navigate(['/']);
+    }
+  }
+
+  onLogin(): void {
+    const code = this.empCodeInput.trim();
+    if (!code) {
+      this.errorMsg = 'Please enter your Employee Code.';
       return;
     }
-    this.errorMsg.set('');
+    this.isLoading    = true;
+    this.errorMsg     = '';
+    this.resolvedRole = '';
 
-    // Store session info — used by all downstream components
-    localStorage.setItem('vpsm_role',     this.role());
-    localStorage.setItem('vpsm_userName', name);
-    localStorage.setItem('vpsm_loginAt',  new Date().toISOString());
-
-    if (this.role() === 'Confirmer') {
-      this.router.navigate(['/authority/confirmer']);
-    } else if (this.role() === 'Approver') {
-      this.router.navigate(['/authority/approval']);
-    } else {
-      this.router.navigate(['/pass-entry']);
-    }
+    this.auth.resolveByEmpCode(code).subscribe({
+      next: () => {
+        this.isLoading = false;
+        if (this.auth.isLoggedIn()) {
+          this.resolvedRole = this.auth.isRegularUser() ? 'Employee' : this.auth.role();
+          this.cdr.detectChanges();
+          this.router.navigate(['/']);
+        } else {
+          this.errorMsg = this.auth.resolveError() || 'Login failed.';
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        this.isLoading = false;
+        if (err?.status === 404) {
+          this.errorMsg = err?.error?.message
+            ? `❌ ${err.error.message}`
+            : `Employee code "${code}" not registered.`;
+        } else if (err?.status === 401) {
+          this.errorMsg = '⚠️ API authentication failed. Contact administrator.';
+        } else if (err?.status === 0) {
+          this.errorMsg = '🔌 Cannot reach server. Check network.';
+        } else {
+          this.errorMsg = this.auth.resolveError() ||
+            `Unexpected error (${err?.status ?? 'unknown'}).`;
+        }
+        this.cdr.detectChanges();
+      }
+    });
   }
 }
