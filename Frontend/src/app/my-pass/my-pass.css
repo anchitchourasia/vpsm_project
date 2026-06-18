@@ -1,34 +1,135 @@
-/* Frontend/src/app/my-pass/my-pass.css */
-.mp-loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 30px;
-  color: #6b7280;
-  font-size: 13px;
+.page-wrapper   { min-height: 100vh; background: #f8f9fa; }
+
+.page-header    {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 20px; background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 15px; font-weight: 600; color: #1a1a1a;
 }
-.mp-spin {
-  font-size: 18px;
-  animation: mp-spin 0.9s linear infinite;
+.page-sub       { color: #6b7280; font-weight: 400; font-size: 13px; }
+
+/* Sync bar */
+.sync-bar       {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+  padding: 8px 14px; margin-bottom: 12px; font-size: 12px; color: #6b7280;
 }
-@keyframes mp-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+.btn-refresh    {
+  background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px;
+  padding: 4px 12px; font-size: 12px; cursor: pointer; color: #374151;
+  display: flex; align-items: center; gap: 4px;
 }
-.mp-error {
-  background: #fee2e2;
-  color: #991b1b;
-  padding: 12px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  border: 1px solid #fca5a5;
+.btn-refresh:hover    { background: #e5e7eb; }
+.btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+.spin-icon { display: inline-block; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Status chips */
+.filter-chips   { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chip           {
+  padding: 4px 12px; border-radius: 20px; border: 1px solid #d1d5db;
+  background: #f9fafb; font-size: 12px; cursor: pointer; color: #374151;
+  display: flex; align-items: center; gap: 5px;
 }
-.mp-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 50px;
-  color: #9ca3af;
-  font-size: 13px;
+.chip:hover     { background: #f3f4f6; }
+.chip-active    { background: #1a237e; color: #fff; border-color: #1a237e; }
+.chip-count     {
+  background: rgba(255,255,255,.25); border-radius: 10px;
+  padding: 1px 7px; font-size: 11px; font-weight: 700;
 }
+.chip-active .chip-count { background: rgba(255,255,255,.3); }
+
+/* Search */
+.search-bar     {
+  position: relative; margin-bottom: 14px;
+}
+.search-icon    {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: #9ca3af; font-size: 14px;
+}
+.search-input   {
+  width: 100%; padding: 8px 12px 8px 34px;
+  border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 13px; box-sizing: border-box; outline: none;
+}
+.search-input:focus { border-color: #1a237e; }
+
+/* Pass card */
+.pass-card      {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  margin-bottom: 10px; overflow: hidden;
+  transition: box-shadow .2s;
+}
+.pass-card:hover        { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.card-expanded          { border-color: #1a237e; box-shadow: 0 2px 12px rgba(26,35,126,.12); }
+
+.card-header    {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; cursor: pointer; user-select: none;
+}
+.card-header:hover      { background: #f9fafb; }
+.card-header-left       { display: flex; align-items: center; gap: 14px; }
+.pass-id        { font-weight: 700; font-size: 13px; color: #1a237e; }
+.vehicle-no     { font-size: 13px; color: #374151; }
+.card-header-right      { display: flex; align-items: center; gap: 10px; }
+.toggle-icon    { color: #9ca3af; font-size: 14px; }
+
+.card-summary   {
+  display: flex; gap: 18px; padding: 4px 16px 10px;
+  font-size: 12px; color: #6b7280;
+}
+.card-summary span      { display: flex; align-items: center; gap: 4px; }
+
+/* Expanded body */
+.card-body      { border-top: 1px solid #e5e7eb; padding: 16px; background: #fafafa; }
+
+.detail-grid    {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+  gap: 16px; margin-bottom: 20px;
+}
+.detail-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+.section-title  {
+  font-size: 12px; font-weight: 700; color: #1a237e;
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 5px;
+}
+.detail-table   { width: 100%; border-collapse: collapse; font-size: 12px; }
+.detail-table td { padding: 5px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+.detail-table td:first-child { color: #6b7280; width: 42%; }
+.detail-table td:last-child  { font-weight: 500; color: #1a1a1a; }
+
+/* Timeline */
+.timeline-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+.timeline         { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
+.tl-step          { display: flex; gap: 12px; padding-bottom: 14px; position: relative; }
+.tl-step:not(:last-child)::before {
+  content: ''; position: absolute; left: 9px; top: 18px;
+  width: 2px; height: calc(100% - 6px); background: #e5e7eb;
+}
+.tl-dot           {
+  width: 20px; height: 20px; border-radius: 50%; border: 2px solid #d1d5db;
+  background: #fff; flex-shrink: 0; margin-top: 2px; z-index: 1;
+}
+.tl-done .tl-dot  { border-color: #22c55e; background: #22c55e; }
+.tl-rejected .tl-dot { border-color: #ef4444; background: #ef4444; }
+.tl-content strong { display: block; font-size: 13px; color: #1a1a1a; }
+.tl-content span   { font-size: 12px; color: #6b7280; }
+
+/* Badges */
+.badge            { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-approved   { background: #dcfce7; color: #15803d; }
+.badge-submitted  { background: #fef9c3; color: #92400e; }
+.badge-confirmed  { background: #dbeafe; color: #1d4ed8; }
+.badge-rejected   { background: #fee2e2; color: #991b1b; }
+.badge-expired    { background: #f3f4f6; color: #6b7280; }
+.badge-default    { background: #f3f4f6; color: #374151; }
+
+/* Error / empty */
+.mp-error  {
+  background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+}
+.mp-empty  {
+  text-align: center; padding: 48px 20px; color: #6b7280;
+}
+.mp-empty p { margin: 8px 0; font-size: 14px; }

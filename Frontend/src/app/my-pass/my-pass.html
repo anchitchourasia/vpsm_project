@@ -1,6 +1,6 @@
-<!-- Frontend/src/app/my-pass/my-pass.html -->
 <div class="page-wrapper">
 
+  <!-- ── Header ── -->
   <div class="page-header">
     <i class="bi bi-card-list" style="color:#2e7d32;font-size:16px"></i>
     <span class="page-title">My Pass Applications</span>
@@ -9,65 +9,219 @@
 
   <div style="padding:16px">
 
-    @if (loading()) {
-      <div class="mp-loading">
-        <i class="bi bi-arrow-repeat mp-spin"></i>
-        <span>Loading your passes...</span>
-      </div>
-    }
+    <!-- ── Sync bar ── -->
+    <div class="sync-bar">
+      <span class="sync-info">
+        @if (loading()) {
+          <i class="bi bi-arrow-repeat spin-icon"></i> Loading...
+        } @else {
+          <i class="bi bi-check-circle-fill" style="color:#22c55e"></i>
+          {{ allMyPasses().length }} pass(es) found
+          @if (lastSyncedAt()) { &nbsp;· Last synced {{ lastSyncedAt() }} }
+        }
+      </span>
+      <button class="btn-refresh" (click)="loadMyPasses()" [disabled]="loading()">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+      </button>
+    </div>
 
+    <!-- ── Error ── -->
     @if (errorMsg()) {
-      <div class="mp-error">{{ errorMsg() }}</div>
-    }
-
-    @if (!loading() && passes().length === 0 && !errorMsg()) {
-      <div class="mp-empty">
-        <i class="bi bi-inbox" style="font-size:32px;color:#9ca3af"></i>
-        <p>No pass applications found for your employee code.</p>
+      <div class="mp-error">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ errorMsg() }}
       </div>
     }
 
-    @if (!loading() && passes().length > 0) {
-      <div class="section">
-        <div class="section-hdr">
-          <i class="bi bi-card-list hdr-icon"></i>
-          Your Pass Applications ({{ passes().length }})
+    <!-- ── Status filter chips ── -->
+    @if (!loading() && allMyPasses().length > 0) {
+      <div class="filter-chips">
+        @for (opt of statusOptions; track opt.value) {
+          @if ((statusCounts()[opt.value] || 0) > 0 || opt.value === 'ALL') {
+            <button
+              class="chip"
+              [class.chip-active]="filterStatus() === opt.value"
+              (click)="setFilter(opt.value)">
+              {{ opt.label }}
+              <span class="chip-count">{{ statusCounts()[opt.value] || 0 }}</span>
+            </button>
+          }
+        }
+      </div>
+    }
+
+    <!-- ── Search ── -->
+    @if (!loading() && allMyPasses().length > 0) {
+      <div class="search-bar">
+        <i class="bi bi-search search-icon"></i>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Search by Pass ID, Vehicle No, Gate..."
+          [value]="searchTerm()"
+          (input)="onSearch($event)" />
+      </div>
+    }
+
+    <!-- ── Empty state ── -->
+    @if (!loading() && allMyPasses().length === 0 && !errorMsg()) {
+      <div class="mp-empty">
+        <i class="bi bi-inbox" style="font-size:40px;color:#9ca3af"></i>
+        <p>No pass applications found for your employee code.</p>
+        <p style="font-size:12px;color:#aaa">Your empCode: {{ auth.empCode() }}</p>
+      </div>
+    }
+
+    <!-- ── Pass cards ── -->
+    @for (p of filteredPasses(); track p.passId) {
+      <div class="pass-card" [class.card-expanded]="expandedId() === p.passId">
+
+        <!-- Card header (always visible) -->
+        <div class="card-header" (click)="toggle(p.passId)">
+          <div class="card-header-left">
+            <span class="pass-id">
+              <i class="bi bi-hash"></i>
+              PASS-HEG-{{ p.passId }}
+            </span>
+            <span class="vehicle-no">
+              <i class="bi bi-truck"></i>
+              {{ p.vehicle?.vehicleNo || '—' }}
+            </span>
+          </div>
+          <div class="card-header-right">
+            <span class="badge {{ statusClass(p.status) }}">
+              {{ statusLabel(p.status) }}
+            </span>
+            <i class="bi {{ expandedId() === p.passId ? 'bi-chevron-up' : 'bi-chevron-down' }} toggle-icon"></i>
+          </div>
         </div>
-        <div class="table-scroll">
-          <table class="dtable">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Vehicle No</th>
-                <th>Pass Type</th>
-                <th>Status</th>
-                <th>Valid From</th>
-                <th>Valid Till</th>
-                <th>Gate</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (p of passes(); track p.passId || $index) {
-                <tr>
-                  <td>{{ $index + 1 }}</td>
-                  <td><strong>{{ p.vehicleNo || p.vehicle_no || '—' }}</strong></td>
-                  <td>{{ p.passType || p.pass_type || '—' }}</td>
-                  <td>
-                    <span class="badge"
-                      [class.green]="p.passStatus === 'Active'"
-                      [class.yellow]="p.passStatus === 'Pending'"
-                      [class.red]="p.passStatus === 'Expired' || p.passStatus === 'Surrendered'">
-                      {{ p.passStatus || p.pass_status || '—' }}
+
+        <!-- Quick summary (always visible under header) -->
+        <div class="card-summary">
+          <span><i class="bi bi-calendar3"></i> {{ fmt(p.issueDate || p.enterDate) }} → {{ fmt(p.validityDate) }}</span>
+          <span><i class="bi bi-door-open"></i> Gate {{ p.gateNo || '—' }}</span>
+          <span><i class="bi bi-car-front"></i> {{ classLabel(p.vehicle?.vehicleClass) }}</span>
+        </div>
+
+        <!-- Expanded detail (only when toggled) -->
+        @if (expandedId() === p.passId) {
+          <div class="card-body">
+
+            <div class="detail-grid">
+
+              <div class="detail-section">
+                <div class="section-title">
+                  <i class="bi bi-person-badge"></i> Employee Details
+                </div>
+                <table class="detail-table">
+                  <tr><td>Employee Name</td><td>{{ p.empName     || '—' }}</td></tr>
+                  <tr><td>Employee Code</td><td>{{ p.employeeNo  || auth.empCode() }}</td></tr>
+                  <tr><td>Department</td>   <td>{{ p.dept        || '—' }}</td></tr>
+                  <tr><td>Employee Type</td><td>{{ empTypeLabel(p.empType) }}</td></tr>
+                  @if (p.contractorCode) {
+                    <tr><td>Contractor Firm</td><td>{{ p.contractorCode }}</td></tr>
+                  }
+                  <tr><td>Mobile</td>       <td>{{ p.mobileNo   || '—' }}</td></tr>
+                </table>
+              </div>
+
+              <div class="detail-section">
+                <div class="section-title">
+                  <i class="bi bi-truck"></i> Vehicle Details
+                </div>
+                <table class="detail-table">
+                  <tr><td>Vehicle No</td>    <td><strong>{{ p.vehicle?.vehicleNo   || '—' }}</strong></td></tr>
+                  <tr><td>Vehicle Type</td>  <td>{{ p.vehicle?.vehicleType  || p.typeOfVehicle || '—' }}</td></tr>
+                  <tr><td>Vehicle Class</td> <td>{{ classLabel(p.vehicle?.vehicleClass) }}</td></tr>
+                  <tr><td>Brand / Model</td> <td>{{ p.vehicle?.brandModel   || '—' }}</td></tr>
+                  <tr><td>Gate No</td>       <td>{{ p.gateNo                || '—' }}</td></tr>
+                  <tr><td>Parking Area</td>  <td>{{ p.parkingToBeUsed       || '—' }}</td></tr>
+                </table>
+              </div>
+
+              <div class="detail-section">
+                <div class="section-title">
+                  <i class="bi bi-calendar-check"></i> Pass Validity
+                </div>
+                <table class="detail-table">
+                  <tr><td>Issue Date</td>    <td>{{ fmt(p.issueDate   || p.enterDate)  }}</td></tr>
+                  <tr><td>Valid Till</td>    <td>{{ fmt(p.validityDate)                }}</td></tr>
+                  <tr><td>Submitted On</td>  <td>{{ fmt(p.enterDate)                  }}</td></tr>
+                  <tr><td>Status</td>        <td>
+                    <span class="badge {{ statusClass(p.status) }}">
+                      {{ statusLabel(p.status) }}
                     </span>
-                  </td>
-                  <td>{{ p.issueDate || p.issue_date || '—' }}</td>
-                  <td>{{ p.validityDate || p.validity_date || '—' }}</td>
-                  <td>{{ p.assignedGate || p.assigned_gate || '—' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+                  </td></tr>
+                  @if (p.remarks) {
+                    <tr><td>Remark</td><td>{{ p.remarks }}</td></tr>
+                  }
+                </table>
+              </div>
+
+            </div>
+
+            <!-- Workflow timeline -->
+            <div class="timeline-section">
+              <div class="section-title">
+                <i class="bi bi-activity"></i> Application Timeline
+              </div>
+              <div class="timeline">
+                <div class="tl-step tl-done">
+                  <div class="tl-dot"></div>
+                  <div class="tl-content">
+                    <strong>Submitted</strong>
+                    <span>by {{ p.enterBy || auth.empCode() }} · {{ fmt(p.enterDate) }}</span>
+                  </div>
+                </div>
+                <div class="tl-step"
+                  [class.tl-done]="['confirmed','active','rejected'].includes((p.status||'').toLowerCase())"
+                  [class.tl-rejected]="(p.status||'').toLowerCase() === 'rejected'">
+                  <div class="tl-dot"></div>
+                  <div class="tl-content">
+                    <strong>Confirmer Review</strong>
+                    <span>
+                      @if (['confirmed','active'].includes((p.status||'').toLowerCase())) {
+                        ✅ Confirmed
+                      } @else if ((p.status||'').toLowerCase() === 'rejected') {
+                        ❌ Returned — {{ p.remarks || 'No remark' }}
+                      } @else {
+                        ⏳ Awaiting confirmation
+                      }
+                    </span>
+                  </div>
+                </div>
+                <div class="tl-step"
+                  [class.tl-done]="(p.status||'').toLowerCase() === 'active'"
+                  [class.tl-rejected]="(p.status||'').toLowerCase() === 'surrendered'">
+                  <div class="tl-dot"></div>
+                  <div class="tl-content">
+                    <strong>Approver Review</strong>
+                    <span>
+                      @if ((p.status||'').toLowerCase() === 'active') {
+                        ✅ Approved — Pass is Active
+                      } @else if ((p.status||'').toLowerCase() === 'surrendered') {
+                        ❌ Returned by Approver
+                      } @else {
+                        ⏳ Awaiting approval
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── No results after filter ── -->
+    @if (!loading() && allMyPasses().length > 0 && filteredPasses().length === 0) {
+      <div class="mp-empty">
+        <i class="bi bi-funnel" style="font-size:32px;color:#9ca3af"></i>
+        <p>No passes match your current filter.</p>
+        <button class="btn-refresh" (click)="setFilter('ALL'); searchTerm.set('')">
+          Clear Filter
+        </button>
       </div>
     }
 
