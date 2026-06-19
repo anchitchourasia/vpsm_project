@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { PassStateService, PassRecord } from '../services/pass-state.service';
+import { AuthService } from '../core/auth.service';           // ✅ NEW IMPORT
 
 const HTTP_TIMEOUT_MS = 12000;
 
@@ -80,6 +81,8 @@ export class PassEntry implements OnInit, OnDestroy {
   });
 
   private passState = inject(PassStateService);
+  // ✅ AuthService injected — replaces all localStorage.getItem('vpsm_userName') calls
+  private auth      = inject(AuthService);
 
   // ── Signals ────────────────────────────────────────────────────────────────
   empType          = signal<string>('');
@@ -134,20 +137,20 @@ export class PassEntry implements OnInit, OnDestroy {
     try { (input as any).showPicker(); } catch { input.click(); }
   }
 
-  // AFTER — always include currentDoc's own type first so ngModel never loses its value:
-availableDocTypes = (currentDoc: DocEntry): string[] => {
-  const used = this.docs()
-    .filter(d => d !== currentDoc)
-    .map(d => d.docType)
-    .filter(Boolean);
-  const available = ALLOWED_DOC_TYPES.filter(t => !used.includes(t));
-  // ── FIX: if currentDoc already has a type set, guarantee it's in the list
-  // even if filtering logic temporarily excludes it during change detection
-  if (currentDoc.docType && !available.includes(currentDoc.docType)) {
-    return [currentDoc.docType, ...available];
-  }
-  return available;
-};
+  // Always include currentDoc's own type first so ngModel never loses its value
+  availableDocTypes = (currentDoc: DocEntry): string[] => {
+    const used = this.docs()
+      .filter(d => d !== currentDoc)
+      .map(d => d.docType)
+      .filter(Boolean);
+    const available = ALLOWED_DOC_TYPES.filter(t => !used.includes(t));
+    // FIX: if currentDoc already has a type set, guarantee it's in the list
+    // even if filtering logic temporarily excludes it during change detection
+    if (currentDoc.docType && !available.includes(currentDoc.docType)) {
+      return [currentDoc.docType, ...available];
+    }
+    return available;
+  };
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -216,7 +219,7 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
         if (Array.isArray(modData.docs) && modData.docs.length > 0) {
           const prefilledDocs: DocEntry[] = modData.docs.map((d: any) => ({
             id          : crypto.randomUUID(),
-            docType     : (d.docType || '').toUpperCase().trim(),  // ← FIX: normalize case
+            docType     : (d.docType || '').toUpperCase().trim(),  // ← normalize case
             docNo       : d.docNo      || '',
             validUpto   : d.validUpto  || '',
             file        : null,
@@ -369,7 +372,7 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
       if (!doc.docType)       return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())  return `Document No is required for ${doc.docType}.`;
       if (!doc.validUpto)     return `Valid Upto date is required for ${doc.docType}.`;
-      // ── FIXED: treat doc as valid if it has a new file OR is already in DB ──
+      // FIXED: treat doc as valid if it has a new file OR is already in DB
       if (!doc.file && !this.docAlreadyUploaded(doc))
                               return `Please upload a PDF file for ${doc.docType}.`;
     }
@@ -388,7 +391,7 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
       if (!doc.docType)       return 'Select Document Type for all document rows.';
       if (!doc.docNo.trim())  return `Document No is required for ${doc.docType}.`;
       if (!doc.validUpto)     return `Valid Upto date is required for ${doc.docType}.`;
-      // ── FIXED: already-uploaded docs are valid without re-uploading ──────────
+      // FIXED: already-uploaded docs are valid without re-uploading
       if (!doc.file && !this.docAlreadyUploaded(doc))
                               return `Please upload a PDF file for ${doc.docType}.`;
     }
@@ -500,7 +503,8 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
       parkingToBeUsed  : this.parkingArea.trim() || null,
       status           : 'Submitted',
       empType          : this.empType(),
-      enterBy          : localStorage.getItem('vpsm_userName') || 'REQUESTER',
+      // ✅ auth.empCode() replaces localStorage.getItem('vpsm_userName') — pure in-memory session
+      enterBy          : this.auth.empCode() || 'REQUESTER',
       enterDate        : this.todayDate,
       remarks          : this.remark.trim() || null,
     };
@@ -518,7 +522,7 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
         this.passId.set(realId);
         this.passIdGenerated.set(true);
 
-        // ── FIXED: only upload docs that have a NEW file — skip already-in-DB docs ──
+        // FIXED: only upload docs that have a NEW file — skip already-in-DB docs
         const docsWithNewFile = this.docs().filter(d => d.docType && d.file);
         if (docsWithNewFile.length > 0) { this.step3UploadDocs(docsWithNewFile); }
         else                            { this.finaliseSubmit(); }
@@ -529,7 +533,8 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
   private step3UploadDocs(docsToProcess: DocEntry[]): void {
     const fd = new FormData();
     fd.append('vehicleId', String(this.savedVehicleId));
-    fd.append('enterBy', localStorage.getItem('vpsm_userName') || 'REQUESTER');
+    // ✅ auth.empCode() replaces localStorage.getItem('vpsm_userName') — pure in-memory session
+    fd.append('enterBy', this.auth.empCode() || 'REQUESTER');
 
     for (const doc of docsToProcess) {
       const dt   = doc.docType.toLowerCase();
@@ -608,7 +613,8 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
     this.passState.upsert({
       ...record,
       workflowStatus: 'Submitted',
-      submittedBy   : localStorage.getItem('vpsm_userName') || 'REQUESTER',
+      // ✅ auth.empCode() replaces localStorage.getItem('vpsm_userName') — pure in-memory session
+      submittedBy   : this.auth.empCode() || 'REQUESTER',
       submittedAt   : new Date().toISOString(),
     });
 
@@ -633,7 +639,16 @@ availableDocTypes = (currentDoc: DocEntry): string[] => {
         : `Pass submitted! ID: ${this.passId()} is now pending confirmer review.`
     );
 
-    setTimeout(() => this.router.navigate(['/pass-details']), 2200);
+    // ✅ Role-based redirect after submit
+    // Regular employee → /my-pass     (they can only see their own passes)
+    // Authority users  → /pass-details (full list view)
+    setTimeout(() => {
+      if (this.auth.isRegularUser()) {
+        this.router.navigate(['/my-pass']);
+      } else {
+        this.router.navigate(['/pass-details']);
+      }
+    }, 2200);
   }
 
   // ── CLEAR ──────────────────────────────────────────────────────────────────
