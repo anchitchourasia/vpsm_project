@@ -1,229 +1,519 @@
-<div class="page-wrapper">
+<div class="pd-wrapper">
 
-  <!-- ── Header ── -->
-  <div class="page-header">
-    <i class="bi bi-card-list" style="color:#2e7d32;font-size:16px"></i>
-    <span class="page-title">My Pass Applications</span>
-    <span class="page-sub">— {{ auth.empCode() }}</span>
+  <!-- HEADER -->
+  <div class="pd-header">
+    <div class="pd-header-left">
+      <i class="bi bi-person-badge pd-header-icon"></i>
+      <div>
+        <h2 class="pd-title">My Pass Applications</h2>
+        <p class="pd-sub">Your submitted passes, saved drafts &amp; modification requests</p>
+      </div>
+    </div>
+    <div class="pd-badge">
+      <span class="pd-count">{{ submittedPasses().length }}</span>
+      <span class="pd-count-label">Your Passes</span>
+    </div>
   </div>
 
-  <div style="padding:16px">
-
-    <!-- ── Sync bar ── -->
-    <div class="sync-bar">
-      <span class="sync-info">
-        @if (loading()) {
-          <i class="bi bi-arrow-repeat spin-icon"></i> Loading...
-        } @else {
-          <i class="bi bi-check-circle-fill" style="color:#22c55e"></i>
-          {{ allMyPasses().length }} pass(es) found
-          @if (lastSyncedAt()) { &nbsp;· Last synced {{ lastSyncedAt() }} }
-        }
+  <!-- SYNC BAR -->
+  <div class="sync-bar">
+    @if (isSyncing()) {
+      <span class="sync-indicator">
+        <i class="bi bi-arrow-repeat spin"></i> Syncing with server...
       </span>
-      <button class="btn-refresh" (click)="loadMyPasses()" [disabled]="loading()">
-        <i class="bi bi-arrow-clockwise"></i> Refresh
-      </button>
+    }
+    @if (!isSyncing() && lastSyncedAt()) {
+      <span class="sync-ok">
+        <i class="bi bi-check-circle-fill"></i> Live — Last synced at {{ lastSyncedAt() }}
+      </span>
+    }
+    @if (syncError()) {
+      <span class="sync-err">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ syncError() }}
+      </span>
+    }
+    <button class="btn-sync-now" (click)="refreshNow()" [disabled]="isSyncing()">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+  </div>
+
+  <!-- TABS -->
+  <div class="pd-tabs">
+    <button class="pd-tab" [class.pd-tab-active]="activeTab() === 'submitted'" (click)="setTab('submitted')">
+      <i class="bi bi-check-circle-fill"></i>
+      Submitted Passes
+      <span class="pd-tab-count">{{ submittedPasses().length }}</span>
+    </button>
+
+    <button class="pd-tab" [class.pd-tab-active]="activeTab() === 'drafts'" (click)="setTab('drafts')">
+      <i class="bi bi-pencil-square"></i>
+      Saved Drafts
+      @if (savedDrafts().length > 0) {
+        <span class="pd-tab-count pd-tab-count-warn">{{ savedDrafts().length }}</span>
+      }
+    </button>
+
+    <button class="pd-tab" [class.pd-tab-active]="activeTab() === 'modification'" (click)="setTab('modification')">
+      <i class="bi bi-arrow-return-left"></i>
+      Modification Requests
+      @if (modificationPasses().length > 0) {
+        <span class="pd-tab-count pd-tab-count-mod">{{ modificationPasses().length }}</span>
+      }
+    </button>
+  </div>
+
+  <!-- ══════════════════ SUBMITTED TAB ══════════════════ -->
+  @if (activeTab() === 'submitted') {
+
+    <div class="pd-status-filter-bar">
+      @for (opt of statusOptions; track opt.value) {
+        <button class="pd-status-filter-chip"
+          [class.pd-status-chip-active]="filterStatus() === opt.value"
+          (click)="onFilterStatus(opt.value)">
+          {{ opt.label }}
+          <span class="pd-chip-count">{{ statusCounts()[opt.value] || 0 }}</span>
+        </button>
+      }
     </div>
 
-    <!-- ── Error ── -->
-    @if (errorMsg()) {
-      <div class="mp-error">
-        <i class="bi bi-exclamation-triangle-fill"></i> {{ errorMsg() }}
+    <div class="pd-toolbar">
+      <div class="pd-search-wrap">
+        <i class="bi bi-search pd-search-icon"></i>
+        <input type="text" class="pd-search-input"
+          placeholder="Search by Pass ID, Vehicle No, EC No, Name..."
+          [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
-    }
+      <span class="pd-result-count">{{ filteredSubmitted().length }} record(s) found</span>
+    </div>
 
-    <!-- ── Status filter chips ── -->
-    @if (!loading() && allMyPasses().length > 0) {
-      <div class="filter-chips">
-        @for (opt of statusOptions; track opt.value) {
-          @if ((statusCounts()[opt.value] || 0) > 0 || opt.value === 'ALL') {
-            <button
-              class="chip"
-              [class.chip-active]="filterStatus() === opt.value"
-              (click)="setFilter(opt.value)">
-              {{ opt.label }}
-              <span class="chip-count">{{ statusCounts()[opt.value] || 0 }}</span>
-            </button>
-          }
-        }
+    @if (submittedPasses().length === 0) {
+      <div class="pd-empty">
+        <i class="bi bi-inbox pd-empty-icon"></i>
+        <p class="pd-empty-title">No passes submitted yet</p>
+        <p class="pd-empty-sub">Passes you submit via the Pass Entry form will appear here automatically.</p>
       </div>
-    }
-
-    <!-- ── Search ── -->
-    @if (!loading() && allMyPasses().length > 0) {
-      <div class="search-bar">
-        <i class="bi bi-search search-icon"></i>
-        <input
-          type="text"
-          class="search-input"
-          placeholder="Search by Pass ID, Vehicle No, Gate..."
-          [value]="searchTerm()"
-          (input)="onSearch($event)" />
+    } @else if (filteredSubmitted().length === 0) {
+      <div class="pd-empty">
+        <i class="bi bi-search pd-empty-icon"></i>
+        <p class="pd-empty-title">No matching records</p>
+        <p class="pd-empty-sub">Try a different search term or status filter.</p>
       </div>
-    }
+    } @else {
+      <div class="pd-list">
+        @for (pass of filteredSubmitted(); track pass.passId) {
+          <div class="pd-card" [class.pd-card-expanded]="expandedId() === pass.passId">
 
-    <!-- ── Empty state ── -->
-    @if (!loading() && allMyPasses().length === 0 && !errorMsg()) {
-      <div class="mp-empty">
-        <i class="bi bi-inbox" style="font-size:40px;color:#9ca3af"></i>
-        <p>No pass applications found for your employee code.</p>
-        <p style="font-size:12px;color:#aaa">Your empCode: {{ auth.empCode() }}</p>
-      </div>
-    }
-
-    <!-- ── Pass cards ── -->
-    @for (p of filteredPasses(); track p.passId) {
-      <div class="pass-card" [class.card-expanded]="expandedId() === p.passId">
-
-        <!-- Card header (always visible) -->
-        <div class="card-header" (click)="toggle(p.passId)">
-          <div class="card-header-left">
-            <span class="pass-id">
-              <i class="bi bi-hash"></i>
-              PASS-HEG-{{ p.passId }}
-            </span>
-            <span class="vehicle-no">
-              <i class="bi bi-truck"></i>
-              {{ p.vehicle?.vehicleNo || '—' }}
-            </span>
-          </div>
-          <div class="card-header-right">
-            <span class="badge {{ statusClass(p.status) }}">
-              {{ statusLabel(p.status) }}
-            </span>
-            <i class="bi {{ expandedId() === p.passId ? 'bi-chevron-up' : 'bi-chevron-down' }} toggle-icon"></i>
-          </div>
-        </div>
-
-        <!-- Quick summary (always visible under header) -->
-        <div class="card-summary">
-          <span><i class="bi bi-calendar3"></i> {{ fmt(p.issueDate || p.enterDate) }} → {{ fmt(p.validityDate) }}</span>
-          <span><i class="bi bi-door-open"></i> Gate {{ p.gateNo || '—' }}</span>
-          <span><i class="bi bi-car-front"></i> {{ classLabel(p.vehicle?.vehicleClass) }}</span>
-        </div>
-
-        <!-- Expanded detail (only when toggled) -->
-        @if (expandedId() === p.passId) {
-          <div class="card-body">
-
-            <div class="detail-grid">
-
-              <div class="detail-section">
-                <div class="section-title">
-                  <i class="bi bi-person-badge"></i> Employee Details
+            <div class="pd-card-header" (click)="toggle(pass.passId)">
+              <div class="pd-card-header-row1">
+                <div class="pd-card-header-left">
+                  <span class="pd-pass-id-chip"><i class="bi bi-qr-code"></i> {{ pass.passId }}</span>
+                  <span class="pd-vehicle-no">{{ pass.vehicleNo }}</span>
+                  <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
                 </div>
-                <table class="detail-table">
-                  <tr><td>Employee Name</td><td>{{ p.empName     || '—' }}</td></tr>
-                  <tr><td>Employee Code</td><td>{{ p.employeeNo  || auth.empCode() }}</td></tr>
-                  <tr><td>Department</td>   <td>{{ p.dept        || '—' }}</td></tr>
-                  <tr><td>Employee Type</td><td>{{ empTypeLabel(p.empType) }}</td></tr>
-                  @if (p.contractorCode) {
-                    <tr><td>Contractor Firm</td><td>{{ p.contractorCode }}</td></tr>
-                  }
-                  <tr><td>Mobile</td>       <td>{{ p.mobileNo   || '—' }}</td></tr>
-                </table>
-              </div>
-
-              <div class="detail-section">
-                <div class="section-title">
-                  <i class="bi bi-truck"></i> Vehicle Details
-                </div>
-                <table class="detail-table">
-                  <tr><td>Vehicle No</td>    <td><strong>{{ p.vehicle?.vehicleNo   || '—' }}</strong></td></tr>
-                  <tr><td>Vehicle Type</td>  <td>{{ p.vehicle?.vehicleType  || p.typeOfVehicle || '—' }}</td></tr>
-                  <tr><td>Vehicle Class</td> <td>{{ classLabel(p.vehicle?.vehicleClass) }}</td></tr>
-                  <tr><td>Brand / Model</td> <td>{{ p.vehicle?.brandModel   || '—' }}</td></tr>
-                  <tr><td>Gate No</td>       <td>{{ p.gateNo                || '—' }}</td></tr>
-                  <tr><td>Parking Area</td>  <td>{{ p.parkingToBeUsed       || '—' }}</td></tr>
-                </table>
-              </div>
-
-              <div class="detail-section">
-                <div class="section-title">
-                  <i class="bi bi-calendar-check"></i> Pass Validity
-                </div>
-                <table class="detail-table">
-                  <tr><td>Issue Date</td>    <td>{{ fmt(p.issueDate   || p.enterDate)  }}</td></tr>
-                  <tr><td>Valid Till</td>    <td>{{ fmt(p.validityDate)                }}</td></tr>
-                  <tr><td>Submitted On</td>  <td>{{ fmt(p.enterDate)                  }}</td></tr>
-                  <tr><td>Status</td>        <td>
-                    <span class="badge {{ statusClass(p.status) }}">
-                      {{ statusLabel(p.status) }}
+                <div class="pd-card-header-actions">
+                  @if (pass.workflowStatus === 'Approved') {
+                    <button class="pd-btn-download" (click)="downloadPass(pass, $event)">
+                      <i class="bi bi-download"></i> Download Pass
+                    </button>
+                  } @else {
+                    <span class="pd-btn-download-locked">
+                      <i class="bi bi-lock-fill"></i> Download Pass
                     </span>
-                  </td></tr>
-                  @if (p.remarks) {
-                    <tr><td>Remark</td><td>{{ p.remarks }}</td></tr>
                   }
-                </table>
+                  <i class="bi pd-chevron"
+                     [class.bi-chevron-down]="expandedId() !== pass.passId"
+                     [class.bi-chevron-up]="expandedId() === pass.passId"></i>
+                </div>
               </div>
-
+              <div class="pd-card-header-row2">
+                <span class="pd-emp-badge">{{ empTypeLabel(pass.empType) }}</span>
+                <span class="pd-gate-chip"><i class="bi bi-door-open"></i> {{ pass.gateNo }}</span>
+                <span class="pd-validity">
+                  <i class="bi bi-calendar-check"></i>
+                  Valid till: <strong>{{ formatDate(pass.validityDate) }}</strong>
+                </span>
+                <span class="pd-status-chip" [ngClass]="workflowClass(pass)">
+                  <i class="bi bi-circle-fill"></i> {{ workflowLabel(pass) }}
+                </span>
+              </div>
             </div>
 
-            <!-- Workflow timeline -->
-            <div class="timeline-section">
-              <div class="section-title">
-                <i class="bi bi-activity"></i> Application Timeline
-              </div>
-              <div class="timeline">
-                <div class="tl-step tl-done">
-                  <div class="tl-dot"></div>
-                  <div class="tl-content">
-                    <strong>Submitted</strong>
-                    <span>by {{ p.enterBy || auth.empCode() }} · {{ fmt(p.enterDate) }}</span>
+            @if (expandedId() === pass.passId) {
+              <div class="pd-card-body">
+
+                <!-- Vehicle Details -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title"><i class="bi bi-truck-front-fill"></i> Vehicle Details</div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle No</span><span class="pd-value">{{ pass.vehicleNo }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle Type</span><span class="pd-value">{{ pass.vehicleType || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle Class</span><span class="pd-value">{{ classLabel(pass.vehicleClass) }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Brand / Model</span><span class="pd-value">{{ pass.brandModel || '—' }}</span></div>
                   </div>
                 </div>
-                <div class="tl-step"
-                  [class.tl-done]="['confirmed','active','rejected'].includes((p.status||'').toLowerCase())"
-                  [class.tl-rejected]="(p.status||'').toLowerCase() === 'rejected'">
-                  <div class="tl-dot"></div>
-                  <div class="tl-content">
-                    <strong>Confirmer Review</strong>
-                    <span>
-                      @if (['confirmed','active'].includes((p.status||'').toLowerCase())) {
-                        ✅ Confirmed
-                      } @else if ((p.status||'').toLowerCase() === 'rejected') {
-                        ❌ Returned — {{ p.remarks || 'No remark' }}
-                      } @else {
-                        ⏳ Awaiting confirmation
+
+                <!-- Employee Details -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title">
+                    <i class="bi bi-person-badge-fill"></i>
+                    {{ pass.empType === 'Contractor' ? 'Contractor Details' : 'Employee Details' }}
+                  </div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">EC No</span><span class="pd-value">{{ pass.ecNo || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Name</span><span class="pd-value">{{ pass.empName || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Department / Agency</span><span class="pd-value">{{ pass.empDept || '—' }}</span></div>
+                    @if (pass.empType === 'Contractor' && pass.contractorFirm) {
+                      <div class="pd-detail-item"><span class="pd-label">Contractor Firm</span><span class="pd-value">{{ pass.contractorFirm }}</span></div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Pass Details -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">Issue Date</span><span class="pd-value">{{ formatDate(pass.issueDate) }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Validity Date</span><span class="pd-value">{{ formatDate(pass.validityDate) }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Gate No</span><span class="pd-value">{{ pass.gateNo }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Parking Area</span><span class="pd-value">{{ pass.parkingArea || '—' }}</span></div>
+                    @if (pass.remark) {
+                      <div class="pd-detail-item pd-detail-item-full"><span class="pd-label">Remark</span><span class="pd-value">{{ pass.remark }}</span></div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Documents -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title">
+                    <i class="bi bi-file-earmark-check-fill"></i> Documents
+                    @if (!isLoadingDocs() && liveDocuments().length > 0) {
+                      <span class="pd-doc-count-badge">({{ liveDocuments().length }})</span>
+                    }
+                  </div>
+                  @if (isLoadingDocs()) {
+                    <div class="pd-doc-loading"><i class="bi bi-arrow-repeat spin"></i> Loading documents...</div>
+                  } @else if (docLoadError() && liveDocuments().length === 0) {
+                    <div class="pd-doc-empty-msg"><i class="bi bi-file-earmark-x"></i> {{ docLoadError() }}</div>
+                  } @else if (liveDocuments().length > 0) {
+                    @if (pdfError()) {
+                      <div class="pd-pdf-error"><i class="bi bi-exclamation-triangle-fill"></i> {{ pdfError() }}</div>
+                    }
+                    <div class="pd-doc-table">
+                      <div class="pd-doc-header"><span>Type</span><span>Doc Number</span><span>Valid Upto</span><span>Actions</span></div>
+                      @for (doc of liveDocuments(); track doc.documentId) {
+                        <div class="pd-doc-row">
+                          <span class="pd-doc-type-badge">{{ doc.documentType }}</span>
+                          <span>{{ doc.documentNo || '—' }}</span>
+                          <span>{{ formatDate(doc.expiryDate) }}</span>
+                          <span class="pd-doc-actions">
+                            @if (doc.fileName) {
+                              <button class="pd-doc-btn pd-doc-btn-view"
+                                [disabled]="pdfLoading() === doc.documentId"
+                                (click)="viewDocumentPdf(doc, $event)">
+                                @if (pdfLoading() === doc.documentId) {
+                                  <i class="bi bi-hourglass-split"></i> Loading...
+                                } @else {
+                                  <i class="bi bi-eye-fill"></i> View PDF
+                                }
+                              </button>
+                            } @else {
+                              <span class="pd-doc-no-file"><i class="bi bi-file-earmark-x"></i> No file uploaded</span>
+                            }
+                          </span>
+                        </div>
                       }
-                    </span>
-                  </div>
+                    </div>
+                  } @else {
+                    <div class="pd-doc-empty-msg"><i class="bi bi-file-earmark-x"></i> No documents found for this vehicle.</div>
+                  }
                 </div>
-                <div class="tl-step"
-                  [class.tl-done]="(p.status||'').toLowerCase() === 'active'"
-                  [class.tl-rejected]="(p.status||'').toLowerCase() === 'surrendered'">
-                  <div class="tl-dot"></div>
-                  <div class="tl-content">
-                    <strong>Approver Review</strong>
-                    <span>
-                      @if ((p.status||'').toLowerCase() === 'active') {
-                        ✅ Approved — Pass is Active
-                      } @else if ((p.status||'').toLowerCase() === 'surrendered') {
-                        ❌ Returned by Approver
-                      } @else {
-                        ⏳ Awaiting approval
+
+                <!-- Workflow Trail -->
+                @if (workflowTrail(pass).length > 0) {
+                  <div class="pd-detail-section">
+                    <div class="pd-detail-section-title"><i class="bi bi-diagram-3-fill"></i> Workflow Trail</div>
+                    <div class="pd-trail">
+                      @for (step of workflowTrail(pass); track step.label; let i = $index) {
+                        <div class="pd-trail-step">
+                          <div class="pd-trail-dot" [class.pd-trail-dot-last]="i === workflowTrail(pass).length - 1"></div>
+                          <div class="pd-trail-content">
+                            <span class="pd-trail-label">{{ step.label }}</span>
+                            <span class="pd-trail-meta">{{ step.by }} · {{ step.at }}</span>
+                            @if (step.remark) { <span class="pd-trail-remark">{{ step.remark }}</span> }
+                          </div>
+                        </div>
                       }
-                    </span>
+                    </div>
                   </div>
+                }
+
+                <div class="pd-created-at">
+                  <i class="bi bi-clock-history"></i> Submitted on: {{ pass.createdAt }}
                 </div>
+
               </div>
-            </div>
+            }
 
           </div>
         }
       </div>
     }
+  }
 
-    <!-- ── No results after filter ── -->
-    @if (!loading() && allMyPasses().length > 0 && filteredPasses().length === 0) {
-      <div class="mp-empty">
-        <i class="bi bi-funnel" style="font-size:32px;color:#9ca3af"></i>
-        <p>No passes match your current filter.</p>
-        <button class="btn-refresh" (click)="setFilter('ALL'); searchTerm.set('')">
-          Clear Filter
+  <!-- ══════════════════ DRAFTS TAB ══════════════════ -->
+  @if (activeTab() === 'drafts') {
+
+    <div class="pd-toolbar">
+      <div class="pd-search-wrap">
+        <i class="bi bi-search pd-search-icon"></i>
+        <input type="text" class="pd-search-input"
+          placeholder="Search drafts by Pass ID, Vehicle No, EC No..."
+          [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <span class="pd-result-count">{{ filteredDrafts().length }} record(s) found</span>
+    </div>
+
+    @if (savedDrafts().length === 0) {
+      <div class="pd-empty">
+        <i class="bi bi-pencil-square pd-empty-icon"></i>
+        <p class="pd-empty-title">No saved drafts</p>
+        <p class="pd-empty-sub">When you save a pass form without submitting, it appears here.</p>
+      </div>
+    } @else if (filteredDrafts().length === 0) {
+      <div class="pd-empty">
+        <i class="bi bi-search pd-empty-icon"></i>
+        <p class="pd-empty-title">No matching drafts</p>
+        <p class="pd-empty-sub">Try a different search term.</p>
+      </div>
+    } @else {
+      <div class="pd-list">
+        @for (pass of filteredDrafts(); track pass.passId) {
+          <div class="pd-card pd-card-draft">
+            <div class="pd-card-header" (click)="toggle(pass.passId)">
+              <div class="pd-card-header-row1">
+                <div class="pd-card-header-left">
+                  <span class="pd-pass-id-chip"><i class="bi bi-qr-code"></i> {{ pass.passId }}</span>
+                  <span class="pd-vehicle-no">{{ pass.vehicleNo }}</span>
+                  <span class="pd-vehicle-class-badge">{{ classLabel(pass.vehicleClass) }}</span>
+                </div>
+                <div class="pd-card-header-actions">
+                  <button class="pd-btn-resume" (click)="$event.stopPropagation(); resumeDraft(pass)">
+                    <i class="bi bi-arrow-repeat"></i> Resume
+                  </button>
+                  @if (confirmDeleteId() === pass.passId) {
+                    <span class="pd-delete-confirm">
+                      Delete?
+                      <button class="pd-btn-confirm-yes" (click)="$event.stopPropagation(); confirmDelete(pass.passId)">Yes</button>
+                      <button class="pd-btn-confirm-no"  (click)="$event.stopPropagation(); cancelDelete()">No</button>
+                    </span>
+                  } @else {
+                    <button class="pd-btn-delete" (click)="$event.stopPropagation(); askDelete(pass.passId)">
+                      <i class="bi bi-trash3-fill"></i>
+                    </button>
+                  }
+                  <i class="bi pd-chevron"
+                     [class.bi-chevron-down]="expandedId() !== pass.passId"
+                     [class.bi-chevron-up]="expandedId() === pass.passId"></i>
+                </div>
+              </div>
+              <div class="pd-card-header-row2">
+                <span class="pd-emp-badge">{{ empTypeLabel(pass.empType) }}</span>
+                <span class="pd-gate-chip"><i class="bi bi-door-open"></i> {{ pass.gateNo }}</span>
+                <span class="pd-validity"><i class="bi bi-calendar-check"></i> Valid till: <strong>{{ formatDate(pass.validityDate) }}</strong></span>
+                <span class="pd-status-chip pd-status-draft"><i class="bi bi-pencil-fill"></i> Draft</span>
+              </div>
+            </div>
+
+            @if (expandedId() === pass.passId) {
+              <div class="pd-card-body">
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title"><i class="bi bi-truck-front-fill"></i> Vehicle Details</div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle No</span><span class="pd-value">{{ pass.vehicleNo }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle Type</span><span class="pd-value">{{ pass.vehicleType || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle Class</span><span class="pd-value">{{ classLabel(pass.vehicleClass) }}</span></div>
+                  </div>
+                </div>
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title"><i class="bi bi-person-badge-fill"></i> Person Details</div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">EC No</span><span class="pd-value">{{ pass.ecNo || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Name</span><span class="pd-value">{{ pass.empName || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Validity Date</span><span class="pd-value">{{ formatDate(pass.validityDate) }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Saved On</span><span class="pd-value">{{ pass.createdAt }}</span></div>
+                  </div>
+                </div>
+              </div>
+            }
+
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <!-- ══════════════════ MODIFICATION TAB ══════════════════ -->
+  @if (activeTab() === 'modification') {
+
+    @if (isLoadingMod()) {
+      <div class="pd-empty">
+        <i class="bi bi-arrow-repeat spin pd-empty-icon"></i>
+        <p class="pd-empty-title">Loading modification requests...</p>
+      </div>
+    } @else if (modLoadError()) {
+      <div class="pd-empty">
+        <i class="bi bi-exclamation-triangle-fill pd-empty-icon" style="color:#e65100"></i>
+        <p class="pd-empty-title">Could not load</p>
+        <p class="pd-empty-sub">{{ modLoadError() }}</p>
+        <button class="pd-btn-resume" style="margin-top:12px" (click)="loadModificationPasses()">
+          <i class="bi bi-arrow-clockwise"></i> Retry
         </button>
       </div>
-    }
+    } @else if (modificationPasses().length === 0) {
+      <div class="pd-empty">
+        <i class="bi bi-check2-circle pd-empty-icon"></i>
+        <p class="pd-empty-title">No modification requests</p>
+        <p class="pd-empty-sub">Passes returned for correction will appear here.</p>
+      </div>
+    } @else {
+      <div class="pd-list">
+        @for (p of modificationPasses(); track p.passId) {
+          <div class="pd-card pd-card-mod">
 
-  </div>
+            <div class="pd-card-header" (click)="toggleMod(p)">
+              <div class="pd-card-header-row1">
+                <div class="pd-card-header-left">
+                  <span class="pd-pass-id-chip mod-id-chip">
+                    <i class="bi bi-arrow-return-left"></i> Pass #{{ p.passId }}
+                  </span>
+                  <span class="pd-vehicle-no">{{ p.vehicle?.vehicleNo || '—' }}</span>
+                  <span class="pd-vehicle-class-badge">{{ p.vehicle?.vehicleClass || '—' }}</span>
+                </div>
+                <div class="pd-card-header-actions">
+                  @if (resumingPassId() === p.passId) {
+                    <button class="pd-btn-mod-fix" disabled>
+                      <i class="bi bi-hourglass-split spin"></i> Preparing...
+                    </button>
+                  } @else {
+                    <button class="pd-btn-mod-fix" (click)="$event.stopPropagation(); resumeModification(p)">
+                      <i class="bi bi-pencil-square"></i> Open &amp; Fix
+                    </button>
+                  }
+                  <span class="pd-status-chip pd-status-mod">
+                    <i class="bi bi-circle-fill"></i> Needs Modification
+                  </span>
+                  <i class="bi pd-chevron"
+                     [class.bi-chevron-down]="expandedId() !== p.passId?.toString()"
+                     [class.bi-chevron-up]="expandedId() === p.passId?.toString()"></i>
+                </div>
+              </div>
+              <div class="pd-card-header-row2">
+                <span class="pd-emp-badge">{{ empTypeLabel(p.empType) }}</span>
+                <span class="pd-gate-chip"><i class="bi bi-door-open"></i> {{ p.gateNo || '—' }}</span>
+                <span class="pd-validity"><i class="bi bi-calendar-check"></i> Valid till: <strong>{{ formatDate(p.validityDate) }}</strong></span>
+              </div>
+            </div>
+
+            <div class="mod-remark-banner">
+              <i class="bi bi-chat-left-text-fill mod-remark-icon"></i>
+              <div>
+                <div class="mod-remark-label">Confirmer's Note:</div>
+                <div class="mod-remark-text">{{ p.remarks || 'No remark provided.' }}</div>
+              </div>
+            </div>
+
+            @if (expandedId() === p.passId?.toString()) {
+              <div class="pd-card-body">
+
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title"><i class="bi bi-truck-front-fill"></i> Vehicle Details</div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle No</span><span class="pd-value">{{ p.vehicle?.vehicleNo || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle Type</span><span class="pd-value">{{ p.vehicle?.vehicleType || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Vehicle Class</span><span class="pd-value">{{ p.vehicle?.vehicleClass || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Brand / Model</span><span class="pd-value">{{ p.vehicle?.brandModel || '—' }}</span></div>
+                  </div>
+                </div>
+
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title">
+                    <i class="bi bi-person-badge-fill"></i>
+                    {{ p.empType === 'Contractor' ? 'Contractor Details' : 'Employee Details' }}
+                  </div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">EC No</span><span class="pd-value">{{ p.employeeNo || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Contractor Code</span><span class="pd-value">{{ p.contractorCode || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Department</span><span class="pd-value">{{ p.dept || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Mobile No</span><span class="pd-value">{{ p.mobileNo || '—' }}</span></div>
+                  </div>
+                </div>
+
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
+                  <div class="pd-detail-grid">
+                    <div class="pd-detail-item"><span class="pd-label">Gate No</span><span class="pd-value">{{ p.gateNo || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Parking Area</span><span class="pd-value">{{ p.parkingToBeUsed || '—' }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Validity Date</span><span class="pd-value">{{ formatDate(p.validityDate) }}</span></div>
+                    <div class="pd-detail-item"><span class="pd-label">Submitted By</span><span class="pd-value">{{ p.enterBy || '—' }}</span></div>
+                  </div>
+                </div>
+
+                <!-- Documents -->
+                <div class="pd-detail-section">
+                  <div class="pd-detail-section-title">
+                    <i class="bi bi-file-earmark-check-fill"></i> Documents
+                    @if (!modIsLoadingDocs() && modLiveDocuments().length > 0) {
+                      <span class="pd-doc-count-badge">({{ modLiveDocuments().length }})</span>
+                    }
+                  </div>
+                  @if (modIsLoadingDocs()) {
+                    <div class="pd-doc-loading"><i class="bi bi-arrow-repeat spin"></i> Loading documents...</div>
+                  } @else if (modDocLoadError() && modLiveDocuments().length === 0) {
+                    <div class="pd-doc-empty-msg"><i class="bi bi-file-earmark-x"></i> {{ modDocLoadError() }}</div>
+                  } @else if (modLiveDocuments().length > 0) {
+                    <div class="pd-doc-table">
+                      <div class="pd-doc-header"><span>Type</span><span>Doc Number</span><span>Valid Upto</span><span>Actions</span></div>
+                      @for (doc of modLiveDocuments(); track doc.documentId) {
+                        <div class="pd-doc-row">
+                          <span class="pd-doc-type-badge">{{ doc.documentType }}</span>
+                          <span>{{ doc.documentNo || '—' }}</span>
+                          <span>{{ formatDate(doc.expiryDate) }}</span>
+                          <span class="pd-doc-actions">
+                            @if (doc.fileName) {
+                              <button class="pd-doc-btn pd-doc-btn-view"
+                                [disabled]="pdfLoading() === doc.documentId"
+                                (click)="viewDocumentPdf(doc, $event)">
+                                @if (pdfLoading() === doc.documentId) {
+                                  <i class="bi bi-hourglass-split"></i> Loading...
+                                } @else {
+                                  <i class="bi bi-eye-fill"></i> View PDF
+                                }
+                              </button>
+                            } @else {
+                              <span class="pd-doc-no-file"><i class="bi bi-file-earmark-x"></i> No file</span>
+                            }
+                          </span>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="pd-doc-empty-msg"><i class="bi bi-file-earmark-x"></i> No documents found.</div>
+                  }
+                </div>
+
+                <div class="mod-card-footer-action">
+                  <button class="pd-btn-mod-fix" (click)="resumeModification(p)">
+                    <i class="bi bi-pencil-square"></i> Open &amp; Fix this Pass
+                  </button>
+                </div>
+
+              </div>
+            }
+
+          </div>
+        }
+      </div>
+    }
+  }
+
 </div>

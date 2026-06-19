@@ -1,28 +1,43 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subject, interval, takeUntil, timeout, catchError, of, startWith } from 'rxjs';
 import { PassStateService, PassRecord, WorkflowStatus } from '../services/pass-state.service';
 import { API_CONFIG } from '../core/api.config';
-import { ActivatedRoute } from '@angular/router';
 
-const REFRESH_INTERVAL_MS = 30_000;
-const HTTP_TIMEOUT_MS     = 12_000;
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// Interview Term: "Magic Numbers" — extract constants so they are easy to change
+// and explain during code review
+// ─────────────────────────────────────────────────────────────────────────────
+const REFRESH_INTERVAL_MS = 30_000;  // Poll DB every 30 seconds
+const HTTP_TIMEOUT_MS     = 12_000;  // Abort HTTP call if > 12 seconds
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PURE FUNCTION — DB Status → Workflow Status mapping
+// Interview Term: "Pure Function" — no side effects, same input = same output
+// Keeps component logic clean and testable
+// ─────────────────────────────────────────────────────────────────────────────
 function dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
   switch ((dbStatus || '').toLowerCase()) {
-    case 'submitted'  : return 'Submitted';
-    case 'confirmed'  : return 'Confirmed';
-    case 'active'     : return 'Approved';
-    case 'rejected'   : return 'Confirmation_Rejected';
-    case 'surrendered': return 'Approval_Rejected';
-    case 'expired'    : return 'Approval_Rejected';
-    default           : return 'Submitted';
+    case 'submitted'         : return 'Submitted';
+    case 'confirmed'         : return 'Confirmed';
+    case 'active'            : return 'Approved';
+    case 'rejected'          : return 'Confirmation_Rejected';
+    case 'surrendered'       : return 'Approval_Rejected';
+    case 'expired'           : return 'Approval_Rejected';
+    case 'needs_modification': return 'Submitted'; // treat as re-submitted
+    default                  : return 'Submitted';
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERFACE — shape of a raw document record from the backend API
+// Interview Term: "Interface / Type Contract" — enforces the shape of data
+// TypeScript uses this at compile-time, not runtime
+// ─────────────────────────────────────────────────────────────────────────────
 interface LiveDocRecord {
   documentId  : number;
   documentType: string;
@@ -32,6 +47,11 @@ interface LiveDocRecord {
   vehicle    ?: { vehicleId: number };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT
+// Interview Term: "Standalone Component" — no NgModule needed, self-contained
+// templateUrl/styleUrl = external files (separation of concerns)
+// ─────────────────────────────────────────────────────────────────────────────
 @Component({
   selector   : 'app-pass-details',
   standalone : true,
@@ -41,56 +61,79 @@ interface LiveDocRecord {
 })
 export class PassDetails implements OnInit, OnDestroy {
 
+  // ── DEPENDENCY INJECTION ──────────────────────────────────────────────────
+  // Interview Term: inject() = function-based DI (Angular 14+)
+  // Alternative is constructor injection — both achieve the same result
   private svc    = inject(PassStateService);
   private router = inject(Router);
+  private route  = inject(ActivatedRoute);
   private http   = inject(HttpClient);
 
-  private readonly destroy$  = new Subject<void>();
+  // Interview Term: "Subject" = RxJS manual trigger
+  // destroy$ is used with takeUntil() to cancel all subscriptions when
+  // component is destroyed — PREVENTS MEMORY LEAKS
+  private readonly destroy$ = new Subject<void>();
 
+  // Interview Term: "HttpHeaders" — sent with every API request
+  // x-api-key is a common API authentication strategy (API Key Auth)
   private readonly HEADERS = new HttpHeaders({
     'x-api-key'   : API_CONFIG.API_KEY,
     'Accept'      : 'application/json',
     'Content-Type': 'application/json',
   });
 
-  // ── Live sync state ───────────────────────────────────────────────────────
+  // ── SYNC STATE SIGNALS ────────────────────────────────────────────────────
+  // Interview Term: "signal()" = Angular Signals (introduced in Angular 17)
+  // Signals are synchronous, fine-grained reactive state — no Zone.js needed
   protected isSyncing    = signal(false);
   protected lastSyncedAt = signal<string>('');
   protected syncError    = signal('');
   protected pdfLoading   = signal<number | null>(null);
   protected pdfError     = signal<string>('');
 
-  // ── Live document state ───────────────────────────────────────────────────
+  // ── LOADING STATE FOR PASSES ──────────────────────────────────────────────
+  protected isLoadingPasses = signal(false);
+  protected passLoadError   = signal('');
+
+  // ── DOCUMENT STATE ────────────────────────────────────────────────────────
   protected liveDocuments = signal<LiveDocRecord[]>([]);
   protected isLoadingDocs = signal(false);
   protected docLoadError  = signal('');
   protected docPassId     = signal<string | null>(null);
 
-  // ── Modification card — separate doc state so it doesn't conflict ─────────
+  // Separate doc state for modification cards — prevents conflict with
+  // submitted tab docs when both tabs are toggled
   protected modLiveDocuments = signal<LiveDocRecord[]>([]);
   protected modIsLoadingDocs = signal(false);
   protected modDocLoadError  = signal('');
   protected modDocPassId     = signal<number | null>(null);
 
-  // ── resumeModification loading state ─────────────────────────────────────
   protected resumingPassId = signal<number | null>(null);
 
-  // ── Data sources ──────────────────────────────────────────────────────────
-  protected readonly submittedPasses = this.svc.submittedPasses;
-  protected readonly savedDrafts     = this.svc.savedDrafts;
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ DB-FIRST DATA SIGNALS
+  // Interview Term: "DB-First Architecture"
+  // Data comes from the API (your Spring Boot backend at 192.168.8.28)
+  // Works on ANY PC on the same network — not tied to browser localStorage
+  // Old: this.svc.submittedPasses  ← localStorage (only works on 1 PC)
+  // New: signal([]) filled by HTTP ← DB (works on all PCs on same network)
+  // ─────────────────────────────────────────────────────────────────────────
+  protected submittedPasses = signal<PassRecord[]>([]);
+  protected savedDrafts     = signal<PassRecord[]>([]);
 
-  // ── UI State ──────────────────────────────────────────────────────────────
+  // Modification passes — already DB-driven, no change needed
+  modificationPasses = signal<any[]>([]);
+  isLoadingMod       = signal(false);
+  modLoadError       = signal('');
+
+  // ── UI STATE ──────────────────────────────────────────────────────────────
   protected searchTerm      = signal('');
   protected activeTab       = signal<'submitted' | 'drafts' | 'modification'>('submitted');
   protected expandedId      = signal<string | null>(null);
   protected confirmDeleteId = signal<string | null>(null);
   protected filterStatus    = signal<string>('ALL');
 
-  // ── Modification Requests ─────────────────────────────────────────────────
-  modificationPasses = signal<any[]>([]);
-  isLoadingMod       = signal(false);
-  modLoadError       = signal('');
-
+  // ── STATUS FILTER OPTIONS ─────────────────────────────────────────────────
   protected readonly statusOptions: { value: string; label: string }[] = [
     { value: 'ALL',                   label: 'All Statuses'          },
     { value: 'Submitted',             label: 'Pending Confirmation'  },
@@ -100,6 +143,10 @@ export class PassDetails implements OnInit, OnDestroy {
     { value: 'Approval_Rejected',     label: 'Returned by Approver'  },
   ];
 
+  // ── COMPUTED SIGNALS ──────────────────────────────────────────────────────
+  // Interview Term: "computed()" = derived state
+  // Recalculates automatically when any signal it reads changes
+  // Zero manual subscriptions needed — Angular tracks dependencies
   protected statusCounts = computed<Record<string, number>>(() => {
     const passes = this.submittedPasses();
     const counts: Record<string, number> = { ALL: passes.length };
@@ -115,11 +162,11 @@ export class PassDetails implements OnInit, OnDestroy {
     const status = this.filterStatus();
     return this.submittedPasses().filter(p => {
       const matchSearch = !term || (
-        p.passId.toLowerCase().includes(term)         ||
-        p.vehicleNo.toLowerCase().includes(term)      ||
-        p.empName.toLowerCase().includes(term)        ||
-        p.ecNo.toLowerCase().includes(term)           ||
-        p.gateNo.toLowerCase().includes(term)         ||
+        p.passId.toLowerCase().includes(term)                    ||
+        p.vehicleNo.toLowerCase().includes(term)                 ||
+        p.empName.toLowerCase().includes(term)                   ||
+        p.ecNo.toLowerCase().includes(term)                      ||
+        p.gateNo.toLowerCase().includes(term)                    ||
         (p.contractorFirm || '').toLowerCase().includes(term)
       );
       const matchStatus = status === 'ALL' || (p.workflowStatus ?? 'Submitted') === status;
@@ -147,77 +194,116 @@ export class PassDetails implements OnInit, OnDestroy {
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // LIFECYCLE
+  // LIFECYCLE HOOKS
+  // Interview Term: "ngOnInit" = runs after component is created & inputs set
+  // Interview Term: "ngOnDestroy" = cleanup before component is removed from DOM
   // ─────────────────────────────────────────────────────────────────────────
-  private route = inject(ActivatedRoute);
-
   ngOnInit(): void {
-    
-    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      if (params['tab'] === 'submitted')         this.activeTab.set('submitted');
-      else if (params['tab'] === 'drafts')       this.activeTab.set('drafts');
-      else if (params['tab'] === 'modification') this.activeTab.set('modification');
-      if (params['filter']) this.filterStatus.set(params['filter']);
-    });
+    // Read query params — e.g. ?tab=modification&filter=Approved
+    // Interview Term: "ActivatedRoute" = gives access to current URL params
+    this.route.queryParams
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        if (params['tab'] === 'submitted')         this.activeTab.set('submitted');
+        else if (params['tab'] === 'drafts')       this.activeTab.set('drafts');
+        else if (params['tab'] === 'modification') this.activeTab.set('modification');
+        if (params['filter']) this.filterStatus.set(params['filter']);
+      });
 
+    // Interview Term: "Polling with interval + startWith(0)"
+    // startWith(0) fires immediately so first load doesn't wait 30 seconds
+    // interval(30_000) then fires every 30s for live updates
+    // takeUntil(destroy$) cancels polling when component is destroyed
     interval(REFRESH_INTERVAL_MS)
       .pipe(startWith(0), takeUntil(this.destroy$))
       .subscribe(() => {
-        this.syncStatusFromDB()
+        this.loadAllPassesFromDB();
         this.loadModificationPasses();
       });
   }
 
   ngOnDestroy(): void {
+    // Interview Term: "Memory Leak Prevention"
+    // next() triggers all takeUntil() operators to unsubscribe
+    // complete() closes the Subject permanently
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DB SYNC
+  // ✅ DB-FIRST PASS LOADER — replaces syncStatusFromDB()
+  // Interview Term: "Single Source of Truth" — only DB has the real data
+  // Loads submitted passes AND drafts from API in one call
+  // Works on any PC that can reach http://192.168.8.28:<port>
   // ─────────────────────────────────────────────────────────────────────────
-  protected refreshNow(): void { this.syncStatusFromDB(); }
-
-  private syncStatusFromDB(): void {
-    const localPasses = this.svc.submittedPasses();
-    if (!localPasses.length) return;
+  private loadAllPassesFromDB(): void {
+    this.isLoadingPasses.set(true);
     this.isSyncing.set(true);
     this.syncError.set('');
 
     this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        // Interview Term: "timeout operator" — RxJS operator that throws
+        // TimeoutError if the observable doesn't emit within given ms
+        timeout(HTTP_TIMEOUT_MS),
+        // Interview Term: "takeUntil" — unsubscribes when destroy$ fires
+        takeUntil(this.destroy$),
+        // Interview Term: "catchError" — intercepts errors, returns safe fallback
+        // of([]) creates an Observable that immediately emits empty array
         catchError(err => {
-          this.syncError.set('Could not reach server. Showing last known status.');
+          this.syncError.set(
+            'Could not reach server (' + (err?.status || 'network error') + '). Retrying in 30s.'
+          );
+          this.isLoadingPasses.set(false);
           this.isSyncing.set(false);
           return of([]);
         })
       )
-      .subscribe(dbPasses => {
-        if (!dbPasses?.length) { this.isSyncing.set(false); return; }
-
-        for (const local of localPasses) {
-          const dbMatch = this.findDbMatch(local, dbPasses);
-          if (!dbMatch) continue;
-          const dbStatus       = dbMatch.status as string;
-          const workflowStatus = dbStatusToWorkflow(dbStatus);
-          const updated: PassRecord = {
-            ...local,
-            workflowStatus,
-            ...(['confirmed', 'rejected'].includes(dbStatus.toLowerCase()) && {
-              confirmedBy    : dbMatch.enterBy  || local.confirmedBy,
-              confirmedAt    : dbMatch.enterDate || local.confirmedAt,
-              confirmerRemark: dbMatch.remarks   || local.confirmerRemark,
-            }),
-            ...(dbStatus.toLowerCase() === 'active' && {
-              approvedBy    : dbMatch.enterBy  || local.approvedBy,
-              approvedAt    : dbMatch.enterDate || local.approvedAt,
-              approverRemark: dbMatch.remarks   || local.approverRemark,
-              confirmedBy   : local.confirmedBy || dbMatch.enterBy,
-            }),
-          };
-          this.svc.upsert(updated);
+      .subscribe(data => {
+        if (!Array.isArray(data)) {
+          this.isLoadingPasses.set(false);
+          this.isSyncing.set(false);
+          return;
         }
+
+        // Interview Term: "Array.filter + Array.map" = functional programming
+        // filter: keeps only matching items
+        // map: transforms each item — here DB row → PassRecord
+        // Interview Term: "Method Chaining" — filter → map → sort in one pipeline
+        // sort((a, b) => b - a) = descending order (latest passId / date at top)
+        const submitted = data
+          .filter(p => {
+            const s = (p.status || '').toLowerCase();
+            return s !== 'draft' && s !== 'needs_modification';
+          })
+          .map(p => this.mapDbPassToRecord(p))
+          // ✅ Sort by passId descending — highest passId = most recently created
+          .sort((a, b) => {
+            const aId = parseInt(a.passId.replace(/\D/g, ''), 10) || 0;
+            const bId = parseInt(b.passId.replace(/\D/g, ''), 10) || 0;
+            return bId - aId; // descending — latest pass at top
+          });
+
+        const drafts = data
+          .filter(p => (p.status || '').toLowerCase() === 'draft')
+          .map(p => this.mapDbPassToRecord(p))
+          // ✅ Same sort for drafts
+          .sort((a, b) => {
+            const aId = parseInt(a.passId.replace(/\D/g, ''), 10) || 0;
+            const bId = parseInt(b.passId.replace(/\D/g, ''), 10) || 0;
+            return bId - aId;
+          });
+
+        this.submittedPasses.set(submitted);
+        this.savedDrafts.set(drafts);
+
+        // Also upsert into PassStateService so other components (KPI cards etc.)
+        // stay in sync — keeps backward compatibility with BroadcastChannel
+        for (const record of submitted) {
+          this.svc.upsert(record);
+        }
+
+        this.isLoadingPasses.set(false);
         this.isSyncing.set(false);
         this.lastSyncedAt.set(
           new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })
@@ -225,20 +311,54 @@ export class PassDetails implements OnInit, OnDestroy {
       });
   }
 
-  private findDbMatch(local: PassRecord, dbPasses: any[]): any | null {
-    const numericId = parseInt(local.passId.replace(/\D/g, ''), 10);
-    if (!isNaN(numericId)) {
-      const byId = dbPasses.find(d => d.passId === numericId);
-      if (byId) return byId;
-    }
-    return dbPasses.find(d =>
-      (d.vehicle?.vehicleNo || '').toUpperCase() === (local.vehicleNo || '').toUpperCase() &&
-      (d.employeeNo || '') === (local.ecNo || '')
-    ) ?? null;
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ DB → PassRecord MAPPER
+  // Interview Term: "DTO Mapping / Data Transformation Layer"
+  // DTO = Data Transfer Object — the raw API response shape
+  // PassRecord = your frontend model shape
+  // Separating this into its own method = Single Responsibility Principle (SRP)
+  // ─────────────────────────────────────────────────────────────────────────
+  private mapDbPassToRecord(p: any): PassRecord {
+    return {
+      passId        : `PASS-HEG-${String(p.passId).padStart(4, '0')}`,
+      empType       : p.empType              ?? 'Company_Employee',
+      vehicleNo     : p.vehicle?.vehicleNo   ?? p.typeOfVehicle   ?? '',
+      vehicleType   : p.vehicle?.vehicleType ?? p.typeOfVehicle   ?? '',
+      vehicleClass  : p.vehicle?.vehicleClass ?? '',
+      brandModel    : p.vehicle?.brandModel   ?? '',
+      ecNo          : p.employeeNo           ?? '',
+      empName       : p.empName              ?? p.employeeName    ?? '',
+      empDept       : p.dept                 ?? p.department      ?? '',
+      contractorFirm: p.contractorCode       ?? '',
+      // issueDate from enterDate (when record was created in DB)
+      issueDate     : p.enterDate            ? p.enterDate.split('T')[0]    : '',
+      validityDate  : p.validityDate         ? p.validityDate.split('T')[0] : '',
+      gateNo        : p.gateNo              ?? p.assignedGate     ?? '',
+      parkingArea   : p.parkingToBeUsed     ?? '',
+      remark        : p.remarks             ?? '',
+      docs          : [],  // docs loaded separately on card expand (lazy load)
+      // status kept for backward compat with PassStateService
+      status        : 'Submitted' as const,
+      createdAt     : p.enterDate
+        ? new Date(p.enterDate).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+        : '',
+      workflowStatus : dbStatusToWorkflow(p.status ?? ''),
+      submittedBy    : p.enterBy    ?? '',
+      submittedAt    : p.enterDate  ?? '',
+      mobileNo       : p.mobileNo   ?? '',
+      // confirmer / approver info from DB
+      confirmedBy    : p.confirmedBy    ?? undefined,
+      confirmedAt    : p.confirmedAt    ?? undefined,
+      confirmerRemark: p.confirmerRemark ?? p.remarks ?? undefined,
+      approvedBy     : p.approvedBy     ?? undefined,
+      approvedAt     : p.approvedAt     ?? undefined,
+      approverRemark : p.approverRemark ?? undefined,
+    } as PassRecord;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // MODIFICATION REQUESTS LOADER
+  // MODIFICATION REQUESTS LOADER — already DB-driven, kept exactly as before
+  // Only fix: use AuthService pattern (localStorage fallback kept for compat)
   // ─────────────────────────────────────────────────────────────────────────
   loadModificationPasses(): void {
     this.isLoadingMod.set(true);
@@ -247,9 +367,12 @@ export class PassDetails implements OnInit, OnDestroy {
 
     this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
       .pipe(
-        timeout(12000), takeUntil(this.destroy$),
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
-          this.modLoadError.set('Could not load modification requests (' + (err?.status || 'network error') + ')');
+          this.modLoadError.set(
+            'Could not load modification requests (' + (err?.status || 'network error') + ')'
+          );
           this.isLoadingMod.set(false);
           return of([]);
         })
@@ -265,41 +388,48 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // LIVE DOCUMENT FETCH — for Submitted tab (uses string passId PASS-HEG-XXXX)
+  // MANUAL REFRESH — called by Refresh button in template
+  // ─────────────────────────────────────────────────────────────────────────
+  protected refreshNow(): void {
+    this.loadAllPassesFromDB();
+    this.loadModificationPasses();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LIVE DOCUMENT FETCH — Submitted tab (string passId e.g. PASS-HEG-0092)
+  // Interview Term: "Lazy Loading" — docs are only fetched when card is opened
+  // not loaded upfront for all passes (saves bandwidth and API calls)
   // ─────────────────────────────────────────────────────────────────────────
   private loadLiveDocs(passId: string): void {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
     this.liveDocuments.set([]);
-
     const numericId = parseInt(passId.replace(/\D/g, ''), 10);
-    this.fetchDocsByNumericPassId(numericId,
+    this.fetchDocsByNumericPassId(
+      numericId,
       (docs) => { this.liveDocuments.set(docs); this.isLoadingDocs.set(false); },
       (err)  => { this.docLoadError.set(err);   this.isLoadingDocs.set(false); }
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // LIVE DOCUMENT FETCH — for Modification tab (numeric passId from DB)
-  // ─────────────────────────────────────────────────────────────────────────
+  // LIVE DOCUMENT FETCH — Modification tab (numeric passId from DB)
   loadModLiveDocs(p: any): void {
     const numericId = Number(p.passId);
-    if (this.modDocPassId() === numericId) return; // already loaded for this card
-
+    if (this.modDocPassId() === numericId) return; // already loaded — skip
     this.modIsLoadingDocs.set(true);
     this.modDocLoadError.set('');
     this.modLiveDocuments.set([]);
     this.modDocPassId.set(numericId);
-
     const vehicleId = p.vehicle?.vehicleId ?? null;
     if (vehicleId) {
-      this.fetchDocsByVehicleId(vehicleId,
+      this.fetchDocsByVehicleId(
+        vehicleId,
         (docs) => { this.modLiveDocuments.set(docs); this.modIsLoadingDocs.set(false); },
         (err)  => { this.modDocLoadError.set(err);   this.modIsLoadingDocs.set(false); }
       );
     } else {
-      // fallback: look up pass first
-      this.fetchDocsByNumericPassId(numericId,
+      this.fetchDocsByNumericPassId(
+        numericId,
         (docs) => { this.modLiveDocuments.set(docs); this.modIsLoadingDocs.set(false); },
         (err)  => { this.modDocLoadError.set(err);   this.modIsLoadingDocs.set(false); }
       );
@@ -307,7 +437,10 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SHARED HELPERS — fetch docs by vehicleId or by passId→vehicleId
+  // SHARED DOCUMENT FETCH HELPERS
+  // Interview Term: "DRY Principle" = Don't Repeat Yourself
+  // Both submitted & modification tabs reuse these private helpers
+  // Callbacks (onSuccess/onError) = "Strategy Pattern" for different handlers
   // ─────────────────────────────────────────────────────────────────────────
   private fetchDocsByVehicleId(
     vehicleId: number,
@@ -316,7 +449,8 @@ export class PassDetails implements OnInit, OnDestroy {
   ): void {
     this.http.get<LiveDocRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
           onError('Could not load documents (' + (err?.status || 'network error') + ')');
           return of([]);
@@ -324,8 +458,9 @@ export class PassDetails implements OnInit, OnDestroy {
       )
       .subscribe(docs => {
         const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
-        if (filtered.length === 0) onError('No documents found for this vehicle.');
-        else onSuccess(filtered);
+        filtered.length
+          ? onSuccess(filtered)
+          : onError('No documents found for this vehicle.');
       });
   }
 
@@ -336,7 +471,8 @@ export class PassDetails implements OnInit, OnDestroy {
   ): void {
     this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
           onError('Could not load documents (' + (err?.status || 'network error') + ')');
           return of([]);
@@ -351,7 +487,9 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // VIEW DOCUMENT PDF
+  // VIEW DOCUMENT PDF — unchanged from original
+  // Interview Term: "Blob + createObjectURL" — downloads binary data from API
+  // and creates a temporary browser URL to open PDF without saving to disk
   // ─────────────────────────────────────────────────────────────────────────
   protected viewDocumentPdf(
     doc: { documentId?: number; fileName?: string },
@@ -368,8 +506,9 @@ export class PassDetails implements OnInit, OnDestroy {
     const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
     this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => {
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => {
           this.pdfError.set('Could not load file. It may not have been uploaded yet.');
           this.pdfLoading.set(null);
           setTimeout(() => this.pdfError.set(''), 4000);
@@ -381,16 +520,19 @@ export class PassDetails implements OnInit, OnDestroy {
         if (!blob) return;
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank');
+        // Interview Term: "setTimeout for cleanup" — revoke URL after 30s
+        // to free browser memory (createObjectURL holds reference in memory)
         setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
       });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DOWNLOAD PASS
+  // DOWNLOAD PASS — unchanged from original
+  // Interview Term: "window.open + document.write" — programmatic print dialog
+  // Generates an HTML slip in memory and opens browser print preview
   // ─────────────────────────────────────────────────────────────────────────
   protected downloadPass(pass: PassRecord, event: Event): void {
     event.stopPropagation();
-
     const slip = `<!DOCTYPE html>
 <html>
 <head>
@@ -406,7 +548,8 @@ export class PassDetails implements OnInit, OnDestroy {
     .status { padding: 6px 20px; border-radius: 20px; font-weight: 700;
               font-size: 14px; background: #22c55e; color: #fff;
               display: inline-block; letter-spacing: .04em; }
-    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 12px; }
+    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #999;
+              border-top: 1px solid #eee; padding-top: 12px; }
     @media print { body { padding: 16px; } }
   </style>
 </head>
@@ -421,7 +564,8 @@ export class PassDetails implements OnInit, OnDestroy {
     <tr><td>Brand / Model</td><td>${pass.brandModel || '—'}</td></tr>
     <tr><td>Employee Name</td><td>${pass.empName || '—'}</td></tr>
     <tr><td>EC No</td><td>${pass.ecNo || '—'}</td></tr>
-    ${pass.contractorFirm ? `<tr><td>Contractor Firm</td><td>${pass.contractorFirm}</td></tr>` : ''}
+    ${pass.contractorFirm
+      ? `<tr><td>Contractor Firm</td><td>${pass.contractorFirm}</td></tr>` : ''}
     <tr><td>Department / Agency</td><td>${pass.empDept || '—'}</td></tr>
     <tr><td>Gate No</td><td>${pass.gateNo}</td></tr>
     <tr><td>Parking Area</td><td>${pass.parkingArea || '—'}</td></tr>
@@ -438,7 +582,6 @@ export class PassDetails implements OnInit, OnDestroy {
   </div>
 </body>
 </html>`;
-
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(slip);
@@ -449,9 +592,8 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // UI HANDLERS
+  // UI HANDLERS — unchanged from original
   // ─────────────────────────────────────────────────────────────────────────
-
   protected toggle(passId: string): void {
     const isOpening = this.expandedId() !== passId;
     this.expandedId.update(cur => cur === passId ? null : passId);
@@ -463,13 +605,12 @@ export class PassDetails implements OnInit, OnDestroy {
     }
   }
 
-  // Toggle for modification cards (numeric passId from DB)
   toggleMod(p: any): void {
     const key       = String(p.passId);
     const isOpening = this.expandedId() !== key;
     this.expandedId.update(cur => cur === key ? null : key);
     if (isOpening) {
-      this.modDocPassId.set(null); // reset so fresh fetch happens
+      this.modDocPassId.set(null);
       this.loadModLiveDocs(p);
     }
   }
@@ -497,19 +638,15 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // RESUME MODIFICATION — fetch docs from API, pre-fill metadata, navigate
-  // ── FIX: normalize documentType to UPPERCASE to match ALLOWED_DOC_TYPES ──
-  // PDFs cannot be transferred (browser security) — user re-uploads files only
+  // RESUME MODIFICATION — unchanged from original
+  // Interview Term: "localStorage as temporary navigation state"
+  // Stores pre-fill data temporarily so pass-entry form can read it on load
   // ─────────────────────────────────────────────────────────────────────────
   resumeModification(p: any): void {
     this.resumingPassId.set(Number(p.passId));
-
     const vehicleId = p.vehicle?.vehicleId ?? null;
 
     const buildAndNavigate = (docs: LiveDocRecord[]) => {
-      // ── FIXED: .toUpperCase().trim() ensures docType matches ALLOWED_DOC_TYPES
-      // which are all uppercase: ['RC','PUC','INSURANCE','LICENSE','FITNESS']
-      // DB may return mixed-case e.g. "License", "Fitness" — this normalizes them
       const docMeta = docs.map(d => ({
         docType   : (d.documentType || '').toUpperCase().trim(),
         docNo     : d.documentNo   || '',
@@ -517,27 +654,26 @@ export class PassDetails implements OnInit, OnDestroy {
         fileName  : d.fileName     || '',
         documentId: d.documentId,
       }));
-
       const resumeData = {
         passId         : p.passId,
-        empType        : p.empType        || '',
-        vehicleNo      : p.vehicle?.vehicleNo    || '',
-        vehicleType    : p.vehicle?.vehicleType   || p.typeOfVehicle || '',
-        vehicleClass   : p.vehicle?.vehicleClass  || '',
-        brandModel     : p.vehicle?.brandModel    || '',
-        ecNo           : p.employeeNo     || '',
-        empName        : p.empName        || '',
-        empDept        : p.dept           || '',
-        contractorFirm : p.contractorCode || '',
-        validityDate   : p.validityDate   ? p.validityDate.split('T')[0] : '',
-        gateNo         : p.gateNo         || '',
-        parkingArea    : p.parkingToBeUsed || '',
-        remark         : p.remarks        || '',
-        confirmerRemark: p.remarks        || '',
-        docs           : docMeta,           // ← pre-filled doc metadata with normalized types
+        empType        : p.empType              || '',
+        vehicleNo      : p.vehicle?.vehicleNo   || '',
+        vehicleType    : p.vehicle?.vehicleType  || p.typeOfVehicle || '',
+        vehicleClass   : p.vehicle?.vehicleClass || '',
+        brandModel     : p.vehicle?.brandModel   || '',
+        ecNo           : p.employeeNo            || '',
+        empName        : p.empName               || '',
+        empDept        : p.dept                  || '',
+        contractorFirm : p.contractorCode        || '',
+        validityDate   : p.validityDate          ? p.validityDate.split('T')[0] : '',
+        gateNo         : p.gateNo                || '',
+        parkingArea    : p.parkingToBeUsed        || '',
+        remark         : p.remarks               || '',
+        confirmerRemark: p.remarks               || '',
+        docs           : docMeta,
         status         : 'Needs_Modification',
-        createdAt      : p.enterDate      || '',
-        mobileNo       : p.mobileNo       || '',
+        createdAt      : p.enterDate             || '',
+        mobileNo       : p.mobileNo              || '',
       };
       localStorage.setItem('vpsm_resume_modification', JSON.stringify(resumeData));
       this.resumingPassId.set(null);
@@ -548,14 +684,13 @@ export class PassDetails implements OnInit, OnDestroy {
       this.fetchDocsByVehicleId(
         vId,
         (docs) => buildAndNavigate(docs),
-        (_err) => buildAndNavigate([])   // navigate even if docs fail — form still pre-fills
+        (_err) => buildAndNavigate([])
       );
     };
 
     if (vehicleId) {
       doFetch(vehicleId);
     } else {
-      // resolve vehicleId first
       this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
         .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(() => of([])))
         .subscribe(dbPasses => {
@@ -568,7 +703,7 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   protected resumeDraft(pass: PassRecord): void {
-    try { localStorage.setItem('vpsm_resume_draft', JSON.stringify(pass)); } catch { }
+    try { localStorage.setItem('vpsm_resume_draft', JSON.stringify(pass)); } catch {}
     this.router.navigate(['/pass-entry']);
   }
 
@@ -576,10 +711,15 @@ export class PassDetails implements OnInit, OnDestroy {
   protected cancelDelete():                void { this.confirmDeleteId.set(null);   }
   protected confirmDelete(passId: string): void {
     this.svc.deleteDraft(passId);
+    // Also remove from local signal so UI updates instantly
+    this.savedDrafts.update(list => list.filter(p => p.passId !== passId));
     this.confirmDeleteId.set(null);
   }
 
-  // ── Labels ────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // LABEL / FORMAT HELPERS — pure functions, unchanged from original
+  // Interview Term: "Helper/Utility Methods" — stateless, reusable, testable
+  // ─────────────────────────────────────────────────────────────────────────
   protected classLabel(cls: string): string {
     const map: Record<string, string> = {
       'Two_Wheeler'    : '🏍️ Two Wheeler',
@@ -599,10 +739,17 @@ export class PassDetails implements OnInit, OnDestroy {
     return `${d}/${m}/${y}`;
   }
 
-  protected workflowLabel(p: PassRecord): string { return this.svc.getStatusLabel(p.workflowStatus); }
-  protected workflowClass(p: PassRecord): string { return this.svc.getStatusClass(p.workflowStatus); }
+  protected workflowLabel(p: PassRecord): string {
+    return this.svc.getStatusLabel(p.workflowStatus);
+  }
 
-  protected workflowTrail(p: PassRecord): { label: string; by: string; at: string; remark: string }[] {
+  protected workflowClass(p: PassRecord): string {
+    return this.svc.getStatusClass(p.workflowStatus);
+  }
+
+  protected workflowTrail(
+    p: PassRecord
+  ): { label: string; by: string; at: string; remark: string }[] {
     const trail: { label: string; by: string; at: string; remark: string }[] = [];
     trail.push({
       label : 'Submitted',
@@ -612,16 +759,18 @@ export class PassDetails implements OnInit, OnDestroy {
     });
     if (p.confirmedAt) {
       trail.push({
-        label : p.workflowStatus === 'Confirmation_Rejected' ? 'Returned by Confirmer' : 'Confirmed',
-        by    : p.confirmedBy  ?? '—',
+        label : p.workflowStatus === 'Confirmation_Rejected'
+                  ? 'Returned by Confirmer' : 'Confirmed',
+        by    : p.confirmedBy    ?? '—',
         at    : this.formatDateTime(p.confirmedAt),
         remark: p.confirmerRemark ?? '',
       });
     }
     if (p.approvedAt) {
       trail.push({
-        label : p.workflowStatus === 'Approval_Rejected' ? 'Returned by Approver' : 'Approved',
-        by    : p.approvedBy   ?? '—',
+        label : p.workflowStatus === 'Approval_Rejected'
+                  ? 'Returned by Approver' : 'Approved',
+        by    : p.approvedBy    ?? '—',
         at    : this.formatDateTime(p.approvedAt),
         remark: p.approverRemark ?? '',
       });
@@ -630,7 +779,10 @@ export class PassDetails implements OnInit, OnDestroy {
   }
 
   private formatDateTime(iso: string): string {
-    try { return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }); }
-    catch { return iso; }
+    try {
+      return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    } catch {
+      return iso;
+    }
   }
 }
