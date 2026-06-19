@@ -126,6 +126,9 @@ export class PassEntry implements OnInit, OnDestroy {
 
   // ── DATE HELPERS ───────────────────────────────────────────────────────────
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
+  get isEcNoLocked(): boolean {
+    return this.auth.isRegularUser();
+  }
 
   formatDateDDMMYYYY(isoDate: string): string {
     if (!isoDate || isoDate.length < 10) return isoDate ?? '';
@@ -160,6 +163,12 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    if (this.auth.isRegularUser() && this.auth.empCode()) {
+      this.empType.set('Company_Employee');
+      this.ecNo = this.auth.empCode()!;
+      // Trigger employee details fetch automatically
+      this.onEcNoBlur();
+    }
 
     // ── 1. Resume DRAFT if navigated back from Pass Details → Drafts → Resume ─
     try {

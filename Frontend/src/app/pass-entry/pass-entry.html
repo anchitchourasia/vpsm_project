@@ -14,9 +14,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       MODIFICATION REQUEST BANNER — shown only when user opens
-       a pass returned by the confirmer for correction.
-       Hidden completely for normal new/draft flows.
+       MODIFICATION REQUEST BANNER
   ══════════════════════════════════════════════════════════════ -->
   @if (modificationRemark()) {
     <div class="pe-mod-banner">
@@ -41,9 +39,21 @@
 
   <!-- EMPLOYEE TYPE SELECTOR -->
   <div class="pe-emp-type-row">
-    <span class="pe-emp-type-label">Employee Type <span class="req">*</span></span>
+    <span class="pe-emp-type-label">
+      Employee Type <span class="req">*</span>
+      <!-- Lock badge shown only for regular employees -->
+      @if (isEcNoLocked) {
+        <span class="pe-field-lock-badge">
+          <i class="bi bi-lock-fill"></i> Locked to your account
+        </span>
+      }
+    </span>
     <div class="pe-emp-type-options">
-      <label class="pe-type-card" [class.selected]="empType() === 'Company_Employee'"
+
+      <!-- Company Employee card -->
+      <label class="pe-type-card"
+             [class.selected]="empType() === 'Company_Employee'"
+             [class.pe-type-card-locked]="isEcNoLocked"
              (click)="setEmpType('Company_Employee')">
         <i class="bi bi-building-fill"></i>
         <span>Company Employee</span>
@@ -51,7 +61,12 @@
           <i class="bi bi-check-circle-fill pe-check"></i>
         }
       </label>
-      <label class="pe-type-card" [class.selected]="empType() === 'Contractor'"
+
+      <!-- Contractor card — visually disabled for regular employees -->
+      <label class="pe-type-card"
+             [class.selected]="empType() === 'Contractor'"
+             [class.pe-type-card-locked]="isEcNoLocked"
+             [class.pe-type-card-disabled]="isEcNoLocked"
              (click)="setEmpType('Contractor')">
         <i class="bi bi-person-workspace"></i>
         <span>Contractor</span>
@@ -59,6 +74,7 @@
           <i class="bi bi-check-circle-fill pe-check"></i>
         }
       </label>
+
     </div>
   </div>
 
@@ -154,30 +170,60 @@
       <div class="pe-section-header">
         <i class="bi bi-person-badge-fill"></i>
         <span>{{ empType() === 'Contractor' ? 'Contractor Details' : 'Employee Details' }}</span>
+        <!-- Section-level lock indicator for regular employees -->
+        @if (isEcNoLocked) {
+          <span class="pe-section-lock-hint">
+            <i class="bi bi-lock-fill"></i> Auto-filled from your login session
+          </span>
+        }
       </div>
 
       @if (empType() === 'Company_Employee') {
 
         <!-- ROW 1 : EC No | Name -->
         <div class="pe-grid pe-grid-2">
+
+          <!-- EC No — LOCKED for regular employees, EDITABLE for authority roles -->
           <div class="pe-field">
             <label>EC No <span class="req">*</span></label>
             <div class="pe-input-group">
               <input type="text" class="pe-input"
                 placeholder="Enter EC / Employee Code"
                 [(ngModel)]="ecNo"
+                [disabled]="isEcNoLocked"
+                [class.field-locked]="isEcNoLocked"
                 (blur)="onEcNoBlur()"
                 (input)="onUpperInput($event, 'ecNo')"
                 maxlength="20" />
               @if (fetchingEmployee()) {
                 <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
               }
+              <!-- Lock icon inside the input group for regular employees -->
+              @if (isEcNoLocked && !fetchingEmployee()) {
+                <span class="pe-input-lock-icon" title="Linked to your login session">
+                  <i class="bi bi-lock-fill"></i>
+                </span>
+              }
             </div>
-            <span class="pe-field-hint">Auto-fills name, dept &amp; salary on blur</span>
+            <!-- Hint changes based on role -->
+            @if (isEcNoLocked) {
+              <span class="pe-field-hint pe-hint-locked">
+                <i class="bi bi-shield-lock-fill"></i>
+                Linked to your login — cannot be changed
+              </span>
+            } @else {
+              <span class="pe-field-hint">Auto-fills name, dept &amp; salary on blur</span>
+            }
           </div>
 
+          <!-- Name — always readonly, lock badge for regular employees -->
           <div class="pe-field">
-            <label>Name</label>
+            <label>
+              Name
+              @if (isEcNoLocked) {
+                <span class="pe-readonly-lock"><i class="bi bi-lock-fill"></i></span>
+              }
+            </label>
             <input type="text" class="pe-input pe-readonly"
               [value]="empName()" readonly
               placeholder="Auto-filled from EC No" />
@@ -186,15 +232,26 @@
 
         <!-- ROW 2 : Department | Salary -->
         <div class="pe-grid pe-grid-2">
+
           <div class="pe-field">
-            <label>Department</label>
+            <label>
+              Department
+              @if (isEcNoLocked) {
+                <span class="pe-readonly-lock"><i class="bi bi-lock-fill"></i></span>
+              }
+            </label>
             <input type="text" class="pe-input pe-readonly"
               [value]="empDept()" readonly
               placeholder="Auto-filled from EC No" />
           </div>
 
           <div class="pe-field">
-            <label>Salary</label>
+            <label>
+              Salary
+              @if (isEcNoLocked) {
+                <span class="pe-readonly-lock"><i class="bi bi-lock-fill"></i></span>
+              }
+            </label>
             <input type="text" class="pe-input pe-readonly"
               [value]="empSalary()" readonly
               placeholder="Auto-filled from EC No" />
@@ -344,11 +401,9 @@
         <span>Required Documents</span>
         <span class="pe-doc-count">{{ docs().length }} / 5 added</span>
 
-        <!-- Badge: how many are already-uploaded vs new uploads -->
         @if (isModificationMode()) {
           <span class="pe-doc-mod-hint">
             <i class="bi bi-info-circle"></i>
-            
           </span>
         }
       </div>
@@ -402,19 +457,11 @@
                 </div>
               </div>
 
-              <!-- ══════════════════════════════════════════════════════════
-                   FILE (PDF) — TWO-MODE CELL
-                   Mode 1: doc already exists in DB (modification resume)
-                           → show green "uploaded" pill + orange Replace btn
-                   Mode 2: user just picked a new file
-                           → show filename + change icon (original behaviour)
-                   Mode 3: no file yet
-                           → original "Upload PDF" button
-              ══════════════════════════════════════════════════════════ -->
+              <!-- FILE (PDF) — THREE-MODE CELL -->
               <div class="pe-doc-cell">
 
                 @if (docAlreadyUploaded(doc)) {
-                  <!-- ── MODE 1: already in DB, file not re-selected ── -->
+                  <!-- MODE 1: already in DB -->
                   <div class="pe-doc-existing-wrap">
                     <span class="pe-doc-uploaded-pill"
                           [title]="doc.existingFile">
@@ -437,7 +484,7 @@
                 }
 
                 @else if (doc.file) {
-                  <!-- ── MODE 2: new file selected ── -->
+                  <!-- MODE 2: new file selected -->
                   <label class="pe-file-btn has-file"
                          [for]="'doc-file-' + doc.id"
                          title="{{ doc.file.name }}">
@@ -452,7 +499,7 @@
                 }
 
                 @else {
-                  <!-- ── MODE 3: no file yet (normal new entry) ── -->
+                  <!-- MODE 3: no file yet -->
                   <label class="pe-file-btn"
                          [for]="'doc-file-' + doc.id">
                     <input type="file"
@@ -466,7 +513,6 @@
                 }
 
               </div>
-              <!-- ══════════════════ END FILE CELL ══════════════════ -->
 
               <!-- REMOVE ROW -->
               <div class="pe-doc-cell">

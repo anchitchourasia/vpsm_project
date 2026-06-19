@@ -760,3 +760,106 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   padding  : 4px 8px;
   font-size: 13px;
 }
+/* ══════════════════════════════════════════════════════════════
+   LOCK INDICATORS — Employee portal auto-fill (read-only session)
+   Synced with: #AC9457 gold accent · Inter font · existing radius/spacing
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Employee Type label: "Locked to your account" badge ──────── */
+.pe-field-lock-badge {
+  font-size     : .68rem;
+  font-weight   : 700;
+  color         : #AC9457;
+  background    : rgba(172, 148, 87, 0.12);
+  border        : 1px solid rgba(172, 148, 87, 0.28);
+  border-radius : 999px;
+  padding       : 2px 9px;
+  margin-left   : 8px;
+  vertical-align: middle;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+/* ── Section header: "Auto-filled from your login session" ─────── */
+.pe-section-lock-hint {
+  margin-left   : auto;
+  font-size     : .68rem;
+  font-weight   : 700;
+  color         : #f0c97a;          /* gold on dark header bg */
+  display       : flex;
+  align-items   : center;
+  gap           : .35rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity       : .92;
+}
+.pe-section-lock-hint i {
+  font-size: .75rem;
+  color    : #f0c97a;
+  opacity  : 1;
+}
+
+/* ── Field label: small lock icon next to Name / Dept / Salary ─── */
+.pe-readonly-lock {
+  font-size     : .72rem;
+  color         : #AC9457;
+  margin-left   : 4px;
+  vertical-align: middle;
+  opacity       : .85;
+}
+
+/* ── Field hint: "Linked to your login — cannot be changed" ─────── */
+.pe-hint-locked {
+  color      : #AC9457 !important;
+  font-weight: 600;
+  font-size  : .7rem;
+  display    : flex;
+  align-items: center;
+  gap        : .3rem;
+  margin-top : .2rem;
+}
+.pe-hint-locked i { font-size: .72rem; }
+
+/* ── Lock icon inside EC No input group (right side) ────────────── */
+.pe-input-lock-icon {
+  position      : absolute;
+  right         : .65rem;
+  top           : 50%;
+  transform     : translateY(-50%);
+  color         : #AC9457;
+  font-size     : .82rem;
+  pointer-events: none;
+  opacity       : .85;
+}
+
+/* ── Employee type cards: locked state (Company Employee card) ──── */
+.pe-type-card-locked {
+  cursor: not-allowed !important;
+}
+
+/* Contractor card: fully dimmed + unclickable for regular employees */
+.pe-type-card-disabled {
+  opacity       : 0.32;
+  pointer-events: none;
+  filter        : grayscale(30%);
+}
+
+/* ── EC No input: locked/disabled visual override ───────────────── */
+.field-locked,
+.field-locked:hover,
+.field-locked:focus {
+  background  : rgba(172, 148, 87, 0.07) !important;
+  border-color: rgba(172, 148, 87, 0.35) !important;
+  color       : #8a7340 !important;
+  cursor      : not-allowed !important;
+  box-shadow  : none !important;
+  border-style: dashed !important;
+}
+/* Placeholder also gets muted gold when locked */
+.field-locked::placeholder { color: rgba(172, 148, 87, 0.5) !important; }
+
+/* ── Responsive: lock badges stack cleanly on mobile ────────────── */
+@media (max-width: 768px) {
+  .pe-section-lock-hint { font-size: .62rem; }
+  .pe-field-lock-badge  { font-size: .63rem; margin-left: 5px; }
+}

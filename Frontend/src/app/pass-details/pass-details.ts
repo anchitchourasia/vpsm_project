@@ -722,9 +722,9 @@ export class PassDetails implements OnInit, OnDestroy {
   // ─────────────────────────────────────────────────────────────────────────
   protected classLabel(cls: string): string {
     const map: Record<string, string> = {
-      'Two_Wheeler'    : '🏍️ Two Wheeler',
-      'Four_Wheeler'   : '🚗 Four Wheeler',
-      'Heavy_Machinery': '🏗️ Heavy Machinery',
+      'Two_Wheeler'    : ' Two Wheeler',
+      'Four_Wheeler'   : ' Four Wheeler',
+      'Heavy_Machinery': ' Heavy Machinery',
     };
     return map[cls] ?? cls;
   }
