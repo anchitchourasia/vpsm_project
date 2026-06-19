@@ -185,16 +185,10 @@ export class AuthService {
   }
 
   tryRestoreSession(): void {
-    const empCode = localStorage.getItem(USER_KEY)?.trim();
-    if (!empCode) { this.sessionReady.set(true); return; }
-
-    this.resolveByEmpCode(empCode).pipe(
-      catchError(() => {
-        this._clearSession();
-        this.sessionReady.set(true);
-        return throwError(() => new Error('Session restore failed'));
-      })
-    ).subscribe();
+    // ✅ Pure API-only / In-Memory session approach
+    // No localStorage read — session signal only lives in RAM
+    // If tab is closed/refreshed → signal is gone → user logs in again
+    this.sessionReady.set(true);
   }
 
   // ── Role helpers ──────────────────────────────────
@@ -227,13 +221,14 @@ export class AuthService {
   logout(): void { this._clearSession(); this.router.navigate(['/login']); }
 
   private _saveSession(user: SessionUser): void {
-    try { localStorage.setItem(USER_KEY, user.empCode); } catch {}
+    // ✅ NO localStorage — session lives only in Angular signal (memory)
+    // On tab reopen, user must log in again (API-only approach)
     this._session.set(user);
     this.sessionReady.set(true);
   }
 
   private _clearSession(): void {
-    localStorage.removeItem(USER_KEY);
+    // ✅ No localStorage to clear — just reset the signal
     this._session.set(null);
     this.sessionReady.set(false);
   }

@@ -1,49 +1,50 @@
 // Frontend/src/app/app.routes.ts
-import { Routes } from '@angular/router';
+import { Routes }    from '@angular/router';
+import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
 
-  // HOME
-  { path: '', loadComponent: () => import('./home/home').then(m => m.Home) },
-
-  // LOGIN
+  // LOGIN — public, no guard
   { path: 'login', loadComponent: () => import('./login/login').then(m => m.Login) },
 
-  // ✅ MY PASS — employee only view
-  { path: 'my-pass', loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
+  // HOME — protected
+  { path: '', canActivate: [authGuard], loadComponent: () => import('./home/home').then(m => m.Home) },
 
-  // VEHICLES MASTER
-  { path: 'vehicles/all',         loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
-  { path: 'vehicles/active',      loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
-  { path: 'vehicles/blacklisted', loadComponent: () => import('./vehicles/blacklisted').then(m => m.Blacklisted) },
+  // MY PASS — protected
+  { path: 'my-pass', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
 
-  // PASS REGISTRY
-  { path: 'passes/all',         loadComponent: () => import('./passes/passes').then(m => m.Passes) },
-  { path: 'passes/active',      loadComponent: () => import('./passes/passes').then(m => m.Passes) },
-  { path: 'passes/expiring',    loadComponent: () => import('./passes/expiring-passes').then(m => m.ExpiringPasses) },
-  { path: 'passes/expired',     loadComponent: () => import('./passes/expired-passes').then(m => m.ExpiredPasses) },
-  { path: 'passes/surrendered', loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
+  // VEHICLES MASTER — protected
+  { path: 'vehicles/all',         canActivate: [authGuard], loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
+  { path: 'vehicles/active',      canActivate: [authGuard], loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
+  { path: 'vehicles/blacklisted', canActivate: [authGuard], loadComponent: () => import('./vehicles/blacklisted').then(m => m.Blacklisted) },
 
-  // COMPLIANCE DOCUMENTS
-  { path: 'docs/all',       loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'ALL' } },
-  { path: 'docs/rc',        loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'RC' } },
-  { path: 'docs/puc',       loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'PUC' } },
-  { path: 'docs/insurance', loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Insurance' } },
-  { path: 'docs/fitness',   loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Fitness' } },
-  { path: 'docs/load-test', loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Load_Test' } },
+  // PASS REGISTRY — protected
+  { path: 'passes/all',         canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
+  { path: 'passes/active',      canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
+  { path: 'passes/expiring',    canActivate: [authGuard], loadComponent: () => import('./passes/expiring-passes').then(m => m.ExpiringPasses) },
+  { path: 'passes/expired',     canActivate: [authGuard], loadComponent: () => import('./passes/expired-passes').then(m => m.ExpiredPasses) },
+  { path: 'passes/surrendered', canActivate: [authGuard], loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
 
-  // AUDIT
-  { path: 'history', loadComponent: () => import('./history/history').then(m => m.History) },
+  // COMPLIANCE DOCUMENTS — protected
+  { path: 'docs/all',       canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'ALL' } },
+  { path: 'docs/rc',        canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'RC' } },
+  { path: 'docs/puc',       canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'PUC' } },
+  { path: 'docs/insurance', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Insurance' } },
+  { path: 'docs/fitness',   canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Fitness' } },
+  { path: 'docs/load-test', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Load_Test' } },
 
-  // ADMIN / AUTHORITY
-  { path: 'authority/company',   loadComponent: () => import('./authority/authority').then(m => m.Authority) },
-  { path: 'authority/confirmer', loadComponent: () => import('./authority/confirmer/confirmer').then(m => m.Confirmer) },
-  { path: 'authority/approval',  loadComponent: () => import('./authority/approval/approval').then(m => m.Approval) },
+  // AUDIT — protected
+  { path: 'history', canActivate: [authGuard], loadComponent: () => import('./history/history').then(m => m.History) },
 
-  // PASS MANAGEMENT
-  { path: 'pass-entry',   loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
-  { path: 'pass-details', loadComponent: () => import('./pass-details/pass-details').then(m => m.PassDetails) },
+  // ADMIN / AUTHORITY — protected
+  { path: 'authority/company',   canActivate: [authGuard], loadComponent: () => import('./authority/authority').then(m => m.Authority) },
+  { path: 'authority/confirmer', canActivate: [authGuard], loadComponent: () => import('./authority/confirmer/confirmer').then(m => m.Confirmer) },
+  { path: 'authority/approval',  canActivate: [authGuard], loadComponent: () => import('./authority/approval/approval').then(m => m.Approval) },
 
-  // FALLBACK
+  // PASS MANAGEMENT — protected
+  { path: 'pass-entry',   canActivate: [authGuard], loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
+  { path: 'pass-details', canActivate: [authGuard], loadComponent: () => import('./pass-details/pass-details').then(m => m.PassDetails) },
+
+  // FALLBACK — redirect to home (guard will catch unauthenticated → login)
   { path: '**', redirectTo: '' },
 ];

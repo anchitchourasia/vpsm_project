@@ -40,17 +40,21 @@ export class App implements OnInit, OnDestroy {
   isMenuOpen(menu: string): boolean { return this.openMenus().has(menu); }
 
   // ── Pass Entry ────────────────────────────────────
-  openPassEntry(): void { window.open('/pass-entry', '_blank'); }
+  // ── Pass Entry ────────────────────────────────────
+  // Interview Term: "SPA Navigation vs window.open"
+  // window.open opens a NEW browser tab — Angular re-bootstraps from scratch
+  // so session signal is lost and authGuard blocks access.
+  // router.navigate stays in the SAME Angular app — session signal is alive.
+  openPassEntry(): void { this.router.navigate(['/pass-entry']); }
 
   isPassEntryMode = false;
 
   private navChannel = new BroadcastChannel('pass_nav_channel');
 
   ngOnInit(): void {
-    // ✅ Only restore on page refresh — skip if already logged in post-login
-    if (!this.auth.isLoggedIn()) {
-      this.auth.tryRestoreSession();
-    }
+    // ✅ sessionReady.set(true) immediately — no localStorage, no API call
+    // authGuard handles redirect to /login if not logged in
+    this.auth.tryRestoreSession();
 
     this.router.events.subscribe(e => {
       if (e instanceof NavigationEnd) {
