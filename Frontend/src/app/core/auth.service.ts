@@ -48,7 +48,8 @@ function resolvePrimaryRole(roles: string[]): string {
   return best;
 }
 
-const USER_KEY = 'vpsm_userName';
+// ✅ sessionStorage key — survives refresh & tab-switch, dies on tab close / logout
+const SESSION_KEY = 'vpsm_session';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -80,15 +81,12 @@ export class AuthService {
     this._error.set('');
     const code = empCode.trim();
 
-    // ── STEP 1: GET /api/authority/{empCode} ──
-    // Backend returns 200+array if found, 404 if not in authority table
     return this.http.get<AuthorityRecord[]>(
       `${API_CONFIG.AUTHORITY_BY_EMP}/${code}`,
       { headers: this.HEADERS }
     ).pipe(
       timeout(12_000),
       map((records: AuthorityRecord[]) => {
-        // Extract unique roles from authorityType field
         const roles = [...new Set(
           (records || [])
             .map(r => (r.authorityType || '').toUpperCase().trim())
@@ -113,7 +111,6 @@ export class AuthService {
       }),
       catchError(err => {
         if (err?.status === 404) {
-          // ── Not in authority table → try employee fallback ──
           return this._resolveFromEmployee(code);
         }
         const msg = err?.error?.message || 'Login failed. Try again.';
@@ -124,18 +121,13 @@ export class AuthService {
   }
 
   private _resolveFromEmployee(code: string): Observable<SessionUser> {
-    // GET /api/reports/employee-department → returns Object[] rows
-    // Each row: [empCode, empName, deptCode, deptName, companyCode, ...]
     return this.http.get<any[]>(
       API_CONFIG.EMPLOYEE_REPORT,
       { headers: this.HEADERS }
     ).pipe(
       timeout(12_000),
       map((rows: any[]) => {
-        // rows are Object[] arrays — backend does a JOIN query
-        // Try to find the empCode in the result
         const found = (rows || []).find(row => {
-          // Row can be an object or array — handle both
           if (Array.isArray(row)) {
             return String(row[0] || '').trim().toLowerCase() === code.toLowerCase();
           }
@@ -154,11 +146,10 @@ export class AuthService {
           };
         }
 
-        // Extract fields safely from object or array row
-        const empC  = Array.isArray(found) ? String(found[0]) : (found.empCode || found.EMP_CODE || code);
-        const empN  = Array.isArray(found) ? String(found[1]) : (found.empName || found.EMP_NAME || code);
-        const dept  = Array.isArray(found) ? String(found[2] || '') : (found.departmentCode || found.DEPT_CODE || '');
-        const co    = Array.isArray(found) ? String(found[4] || 'HEG') : (found.companyCode || 'HEG');
+        const empC = Array.isArray(found) ? String(found[0]) : (found.empCode || found.EMP_CODE || code);
+        const empN = Array.isArray(found) ? String(found[1]) : (found.empName || found.EMP_NAME || code);
+        const dept = Array.isArray(found) ? String(found[2] || '') : (found.departmentCode || found.DEPT_CODE || '');
+        const co   = Array.isArray(found) ? String(found[4] || 'HEG') : (found.companyCode || 'HEG');
 
         const session: SessionUser = {
           empCode     : empC,
@@ -184,21 +175,36 @@ export class AuthService {
     );
   }
 
+  // ✅ FIXED: Reads session from sessionStorage and restores signal
+  // Called once by app.ts ngOnInit on every page load / refresh / tab open
+  // sessionStorage survives refresh — so user stays logged in
+  // sessionStorage dies when tab/browser is closed — so session is naturally limited
   tryRestoreSession(): void {
-    // ✅ Pure API-only / In-Memory session approach
-    // No localStorage read — session signal only lives in RAM
-    // If tab is closed/refreshed → signal is gone → user logs in again
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const stored: SessionUser = JSON.parse(raw);
+        // Validate it's a real session object before trusting it
+        if (stored?.empCode && stored?.primaryRole) {
+          this._session.set(stored);
+        }
+      }
+    } catch {
+      // Corrupted data — silently clear it
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+    // Always set sessionReady = true so authGuard unblocks
     this.sessionReady.set(true);
   }
 
   // ── Role helpers ──────────────────────────────────
-  hasRole(role: string): boolean  { return this.allRoles().includes(role.toUpperCase()); }
-  isAdmin()    : boolean          { return this.hasRole('ADMIN'); }
-  isUploader() : boolean          { return this.hasRole('UPLOADER')  || this.isAdmin(); }
-  isConfirmer(): boolean          { return this.hasRole('CONFIRMER') || this.isAdmin(); }
-  isApprover() : boolean          { return this.hasRole('APPROVER')  || this.isAdmin(); }
-  hasAuthority() : boolean        { return this._session()?.source === 'authority'; }
-  isRegularUser(): boolean        { return this._session()?.source === 'employee';  }
+  hasRole(role: string): boolean { return this.allRoles().includes(role.toUpperCase()); }
+  isAdmin()     : boolean        { return this.hasRole('ADMIN'); }
+  isUploader()  : boolean        { return this.hasRole('UPLOADER')  || this.isAdmin(); }
+  isConfirmer() : boolean        { return this.hasRole('CONFIRMER') || this.isAdmin(); }
+  isApprover()  : boolean        { return this.hasRole('APPROVER')  || this.isAdmin(); }
+  hasAuthority()  : boolean      { return this._session()?.source === 'authority'; }
+  isRegularUser() : boolean      { return this._session()?.source === 'employee';  }
 
   role()        : string { return this.primaryRole(); }
   company()     : string { return this.companyCode(); }
@@ -221,14 +227,17 @@ export class AuthService {
   logout(): void { this._clearSession(); this.router.navigate(['/login']); }
 
   private _saveSession(user: SessionUser): void {
-    // ✅ NO localStorage — session lives only in Angular signal (memory)
-    // On tab reopen, user must log in again (API-only approach)
+    // ✅ Write to sessionStorage — survives refresh, dies on tab close
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    } catch { /* storage full — silent */ }
     this._session.set(user);
     this.sessionReady.set(true);
   }
 
   private _clearSession(): void {
-    // ✅ No localStorage to clear — just reset the signal
+    // ✅ Remove from sessionStorage on logout
+    sessionStorage.removeItem(SESSION_KEY);
     this._session.set(null);
     this.sessionReady.set(false);
   }
