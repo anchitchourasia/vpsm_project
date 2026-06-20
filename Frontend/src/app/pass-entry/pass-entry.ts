@@ -8,6 +8,7 @@ import { API_CONFIG } from '../core/api.config';
 import { PassStateService, PassRecord } from '../services/pass-state.service';
 import { AuthService } from '../core/auth.service';
 
+
 const HTTP_TIMEOUT_MS = 12000;
 
 const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
@@ -148,8 +149,7 @@ export class PassEntry implements OnInit, OnDestroy {
       this.onEcNoBlur();
     }
 
-    // ── 1. Resume DRAFT — reads from PassStateService signal (NO localStorage) ──
-    // setResumeDraft() was called in pass-details / my-pass before navigating here
+    // ── 1. Resume DRAFT ──
     const draft = this.passState.resumeDraftData();
     if (draft) {
       this.passState.clearResumeDraft();
@@ -175,11 +175,10 @@ export class PassEntry implements OnInit, OnDestroy {
       this.saveSuccess.set(
         `Draft resumed — ${draft.passId}. Add all 5 documents and click Submit to register.`
       );
-      return; // ← stop here, don't check modification key
+      return;
     }
 
-    // ── 2. Resume MODIFICATION — reads from PassStateService signal (NO localStorage) ──
-    // setResumeMod() was called in pass-details / my-pass before navigating here
+    // ── 2. Resume MODIFICATION ──
     const modData = this.passState.resumeModData();
     if (modData) {
       this.passState.clearResumeMod();
@@ -368,6 +367,9 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
+  // ── YOUR ORIGINAL onSave FULLY RESTORED ──
+  // DRAFT-timestamp generated locally → user sees it instantly on screen
+  // persistDraftToDB() silently syncs to DB in background → same draft visible on any PC
   onSave(): void {
     const err = this.validate();
     if (err) { this.saveError.set(err); return; }
@@ -405,22 +407,24 @@ export class PassEntry implements OnInit, OnDestroy {
       createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     };
 
+    // ── YOUR ORIGINAL LINES — FULLY RESTORED ──
     this.passState.upsert(record);
-    // this.passState.broadcastDraftChange();
-    // this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-    // this.saved.set(true);
-    // this.saveSuccess.set(
-    //   `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
-    // );
-    // this.logHistory(
-    //   this.passId(),
-    //   'DRAFT_SAVED',
-    //   this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
-    //   `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
-    // );
-    // ── Save draft to DB (same vehicle registration + pass issue, status: Draft) ──
-    this.isSaving.set(true);
-    this.step1RegisterVehicleAsDraft(record);
+    this.passState.broadcastDraftChange();
+    this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+    this.saved.set(true);
+    this.saveSuccess.set(
+      `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
+    );
+    this.logHistory(
+      this.passId(),
+      'DRAFT_SAVED',
+      this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+      `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
+    );
+
+    // ── NEW: silent background DB sync ──
+    // DRAFT-timestamp stored in remarks field so my-pass & pass-details display same ID on any PC
+    this.persistDraftToDB(record);
   }
 
   onSubmit(): void {
@@ -433,75 +437,61 @@ export class PassEntry implements OnInit, OnDestroy {
     this.isSaving.set(true);
     this.step1RegisterVehicle();
   }
-  private step1RegisterVehicleAsDraft(record: PassRecord): void {
-  const payload = {
-    vehicleNo    : this.vehicleNo.trim().toUpperCase(),
-    vehicleType  : this.vehicleType.trim(),
-    vehicleClass : this.vehicleClass,
-    brandModel   : this.brandModel.trim() || null,
-    isActive     : 'Y',
-    isBlacklisted: 'N',
-  };
-  this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, payload, { headers: this.HEADERS })
-    .pipe(
-      timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-      catchError(err => { this.handleSaveError(err, 'Draft Step 1 — Vehicle'); return of(null); })
-    )
-    .subscribe(vRes => {
-      if (!vRes) return;
-      this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
-      this.step2IssuePassAsDraft(record);
-    });
-}
 
-private step2IssuePassAsDraft(record: PassRecord): void {
-  const payload = {
-    vehicle          : { vehicleId: this.savedVehicleId },
-    issueDate        : this.todayDate,
-    validityDate     : this.validityDate,
-    employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
-    employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
-    dept             : this.empDept() || null,
-    contractorCode   : this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
-    gateNo           : this.gateNo,
-    parkingToBeUsed  : this.parkingArea.trim() || null,
-    status           : 'Draft',
-    empType          : this.empType(),
-    enterBy          : this.auth.empCode() || 'REQUESTER',
-    enterDate        : this.todayDate,
-    remarks          : this.remark.trim() || null,
-  };
-  this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })
-    .pipe(
-      timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-      catchError(err => { this.handleSaveError(err, 'Draft Step 2 — Pass'); return of(null); })
-    )
-    .subscribe(pRes => {
-      if (!pRes) return;
-      this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
-      const realId = `PASS-HEG-${String(this.savedPassRegistryId).padStart(4, '0')}`;
-      this.passId.set(realId);
-      this.passIdGenerated.set(true);
-      this.draftPassId = realId;
+  // ── Silent background draft persistence to DB ──
+  // Does NOT set isSaving, does NOT show any loading state
+  // User experience is unchanged — draft ID appears instantly
+  private persistDraftToDB(record: PassRecord): void {
+    const vehiclePayload = {
+      vehicleNo    : this.vehicleNo.trim().toUpperCase(),
+      vehicleType  : this.vehicleType.trim(),
+      vehicleClass : this.vehicleClass,
+      brandModel   : this.brandModel.trim() || null,
+      isActive     : 'Y',
+      isBlacklisted: 'N',
+    };
 
-      // Update service signal with real DB id
-      const updated = { ...record, passId: realId, status: 'Saved' as const };
-      this.passState.upsert(updated);
-      this.passState.broadcastDraftChange();
+    this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, vehiclePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => of(null))  // silent — user already sees DRAFT-id locally
+      )
+      .subscribe(vRes => {
+        if (!vRes) return;
+        this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
 
-      this.isSaving.set(false);
-      this.saved.set(true);
-      this.saveSuccess.set(
-        `Draft saved — ${realId}. Add all 5 documents then click Submit to register.`
-      );
-      this.logHistory(
-        this.savedPassRegistryId,
-        'DRAFT_SAVED',
-        this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
-        `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
-      );
-    });
-}
+        const passPayload = {
+          vehicle          : { vehicleId: this.savedVehicleId },
+          issueDate        : this.todayDate,
+          validityDate     : this.validityDate,
+          employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+          employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+          dept             : this.empDept() || null,
+          contractorCode   : this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
+          gateNo           : this.gateNo,
+          parkingToBeUsed  : this.parkingArea.trim() || null,
+          status           : 'Draft',
+          empType          : this.empType(),
+          enterBy          : this.auth.empCode() || 'REQUESTER',
+          enterDate        : this.todayDate,
+          // DRAFT-timestamp stored in remarks — my-pass & pass-details read this to show DRAFT-id
+          remarks          : record.passId,
+        };
+
+        this.http.post<any>(API_CONFIG.PASSES_ISSUE, passPayload, { headers: this.HEADERS })
+          .pipe(
+            timeout(HTTP_TIMEOUT_MS),
+            takeUntil(this.destroy$),
+            catchError(() => of(null))  // silent
+          )
+          .subscribe(pRes => {
+            if (!pRes) return;
+            // Store DB numeric id — reused by step1RegisterVehicle on Submit
+            this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
+          });
+      });
+  }
 
   private step1RegisterVehicle(): void {
     const payload = {

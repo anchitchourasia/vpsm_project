@@ -199,11 +199,7 @@ export class MyPass implements OnInit, OnDestroy {
         const drafts = mine
           .filter(p => (p.status || '').toLowerCase() === 'draft')
           .map(p => this.mapDbPassToRecord(p))
-          .sort((a, b) => {
-            const aId = parseInt(a.passId.replace(/\D/g, ''), 10) || 0;
-            const bId = parseInt(b.passId.replace(/\D/g, ''), 10) || 0;
-            return bId - aId;
-          });
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
         this.submittedPasses.set(submitted);
         this.savedDrafts.set(drafts);
@@ -216,7 +212,9 @@ export class MyPass implements OnInit, OnDestroy {
 
   private mapDbPassToRecord(p: any): PassRecord {
     return {
-      passId        : `PASS-HEG-${String(p.passId).padStart(4, '0')}`,
+      passId        : (p.remarks && String(p.remarks).startsWith('DRAFT-'))
+                        ? String(p.remarks)
+                        : `PASS-HEG-${String(p.passId).padStart(4, '0')}`,
       empType       : p.empType              ?? 'Company_Employee',
       vehicleNo     : p.vehicle?.vehicleNo   ?? p.typeOfVehicle   ?? '',
       vehicleType   : p.vehicle?.vehicleType ?? p.typeOfVehicle   ?? '',
@@ -286,6 +284,12 @@ export class MyPass implements OnInit, OnDestroy {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
     this.liveDocuments.set([]);
+    // DRAFT-ids have no real DB passId yet — skip doc fetch for drafts
+    if (passId.startsWith('DRAFT-')) {
+      this.docLoadError.set('Documents will be available after submission.');
+      this.isLoadingDocs.set(false);
+      return;
+    }
     const numericId = parseInt(passId.replace(/\D/g, ''), 10);
     this.fetchDocsByNumericPassId(numericId,
       (docs) => { this.liveDocuments.set(docs); this.isLoadingDocs.set(false); },
