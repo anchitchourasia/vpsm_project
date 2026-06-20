@@ -406,18 +406,21 @@ export class PassEntry implements OnInit, OnDestroy {
     };
 
     this.passState.upsert(record);
-    this.passState.broadcastDraftChange();
-    this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-    this.saved.set(true);
-    this.saveSuccess.set(
-      `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
-    );
-    this.logHistory(
-      this.passId(),
-      'DRAFT_SAVED',
-      this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
-      `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
-    );
+    // this.passState.broadcastDraftChange();
+    // this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+    // this.saved.set(true);
+    // this.saveSuccess.set(
+    //   `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
+    // );
+    // this.logHistory(
+    //   this.passId(),
+    //   'DRAFT_SAVED',
+    //   this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+    //   `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
+    // );
+    // ── Save draft to DB (same vehicle registration + pass issue, status: Draft) ──
+    this.isSaving.set(true);
+    this.step1RegisterVehicleAsDraft(record);
   }
 
   onSubmit(): void {
@@ -430,6 +433,75 @@ export class PassEntry implements OnInit, OnDestroy {
     this.isSaving.set(true);
     this.step1RegisterVehicle();
   }
+  private step1RegisterVehicleAsDraft(record: PassRecord): void {
+  const payload = {
+    vehicleNo    : this.vehicleNo.trim().toUpperCase(),
+    vehicleType  : this.vehicleType.trim(),
+    vehicleClass : this.vehicleClass,
+    brandModel   : this.brandModel.trim() || null,
+    isActive     : 'Y',
+    isBlacklisted: 'N',
+  };
+  this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, payload, { headers: this.HEADERS })
+    .pipe(
+      timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+      catchError(err => { this.handleSaveError(err, 'Draft Step 1 — Vehicle'); return of(null); })
+    )
+    .subscribe(vRes => {
+      if (!vRes) return;
+      this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
+      this.step2IssuePassAsDraft(record);
+    });
+}
+
+private step2IssuePassAsDraft(record: PassRecord): void {
+  const payload = {
+    vehicle          : { vehicleId: this.savedVehicleId },
+    issueDate        : this.todayDate,
+    validityDate     : this.validityDate,
+    employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+    employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+    dept             : this.empDept() || null,
+    contractorCode   : this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
+    gateNo           : this.gateNo,
+    parkingToBeUsed  : this.parkingArea.trim() || null,
+    status           : 'Draft',
+    empType          : this.empType(),
+    enterBy          : this.auth.empCode() || 'REQUESTER',
+    enterDate        : this.todayDate,
+    remarks          : this.remark.trim() || null,
+  };
+  this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })
+    .pipe(
+      timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+      catchError(err => { this.handleSaveError(err, 'Draft Step 2 — Pass'); return of(null); })
+    )
+    .subscribe(pRes => {
+      if (!pRes) return;
+      this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
+      const realId = `PASS-HEG-${String(this.savedPassRegistryId).padStart(4, '0')}`;
+      this.passId.set(realId);
+      this.passIdGenerated.set(true);
+      this.draftPassId = realId;
+
+      // Update service signal with real DB id
+      const updated = { ...record, passId: realId, status: 'Saved' as const };
+      this.passState.upsert(updated);
+      this.passState.broadcastDraftChange();
+
+      this.isSaving.set(false);
+      this.saved.set(true);
+      this.saveSuccess.set(
+        `Draft saved — ${realId}. Add all 5 documents then click Submit to register.`
+      );
+      this.logHistory(
+        this.savedPassRegistryId,
+        'DRAFT_SAVED',
+        this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+        `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
+      );
+    });
+}
 
   private step1RegisterVehicle(): void {
     const payload = {

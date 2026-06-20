@@ -268,7 +268,8 @@ export class PassDetails implements OnInit, OnDestroy {
   loadModificationPasses(): void {
     this.isLoadingMod.set(true);
     this.modLoadError.set('');
-    const myCode = this.auth.empCode().trim().toLowerCase();
+    // const myCode = this.auth.empCode().trim().toLowerCase();
+    
 
     this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
       .pipe(
@@ -284,8 +285,7 @@ export class PassDetails implements OnInit, OnDestroy {
       )
       .subscribe(data => {
         const list = (Array.isArray(data) ? data : []).filter(p =>
-          (p.status || '').toLowerCase() === 'needs_modification' &&
-          (p.enterBy || '').toLowerCase() === myCode
+          (p.status || '').toLowerCase() === 'needs_modification'
         );
         this.modificationPasses.set(list);
         this.isLoadingMod.set(false);

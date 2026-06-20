@@ -267,7 +267,10 @@ export class MyPass implements OnInit, OnDestroy {
       .subscribe(data => {
         const list = (Array.isArray(data) ? data : []).filter(p =>
           (p.status || '').toLowerCase() === 'needs_modification' &&
-          (p.enterBy || '').toLowerCase() === myCode
+          (
+            (p.employeeNo  || '').toLowerCase() === myCode ||
+            (p.enterBy     || '').toLowerCase() === myCode
+          )
         );
         this.modificationPasses.set(list);
         this.isLoadingMod.set(false);
