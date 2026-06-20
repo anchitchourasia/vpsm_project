@@ -150,9 +150,9 @@ export class Passes implements OnInit, OnDestroy {
       )
       .subscribe((response: HttpResponse<any[]> | null) => {
         if (!response) return;
-        this.allPassesRaw.set(
-          response.status === 204 || !response.body ? [] : response.body
-        );
+        const raw = (response.status === 204 || !response.body) ? [] : response.body;
+        // ✅ Exclude Draft rows from Pass Registry table — drafts belong in pass-details/my-pass Drafts tab only
+        this.allPassesRaw.set(raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft'));
         this.isLoading.set(false);
       });
   }
@@ -171,10 +171,10 @@ export class Passes implements OnInit, OnDestroy {
       )
       .subscribe((response: HttpResponse<any[]> | null) => {
         if (!response) return;
-        this.allPassesRaw.set(
-          response.status === 204 || !response.body ? [] : response.body
-        );
+        const raw = (response.status === 204 || !response.body) ? [] : response.body;
+        this.allPassesRaw.set(raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft'));
       });
+
   }
 
   onVehicleIdBlur() {
@@ -232,8 +232,9 @@ export class Passes implements OnInit, OnDestroy {
   goToPage       (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
 
   // formats DB integer passId → "PASS-HEG-0047"
-  formatPassId(dbPassId: number | null | undefined): string {
+  formatPassId(dbPassId: number | null | undefined, remarks?: string): string {
     if (!dbPassId && dbPassId !== 0) return '—';
+    if (remarks && String(remarks).startsWith('DRAFT-')) return String(remarks);
     return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
   }
 
@@ -249,6 +250,9 @@ export class Passes implements OnInit, OnDestroy {
       case 'expiring'   : return 'badge badge-expiring';
       case 'expired'    : return 'badge badge-expired';
       case 'surrendered': return 'badge badge-surrendered';
+      case 'draft'      : return 'badge badge-draft';      // ← add this
+      case 'submitted'  : return 'badge badge-submitted';  // ← add this
+      case 'confirmed'  : return 'badge badge-confirmed';  // ← add this
       default           : return 'badge badge-surrendered';
     }
   }
