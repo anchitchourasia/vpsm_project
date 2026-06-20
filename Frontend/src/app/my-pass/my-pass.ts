@@ -498,7 +498,7 @@ td:first-child{background:#f5f5f5;font-weight:600;width:40%}
 
   protected classLabel(cls: string): string {
     const map: Record<string, string> = {
-      'Two_Wheeler': '🏍️ Two Wheeler', 'Four_Wheeler': '🚗 Four Wheeler', 'Heavy_Machinery': '🏗️ Heavy Machinery',
+      'Two_Wheeler': ' Two Wheeler', 'Four_Wheeler': ' Four Wheeler', 'Heavy_Machinery': ' Heavy Machinery',
     };
     return map[cls] ?? cls;
   }
