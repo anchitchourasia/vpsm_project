@@ -145,3 +145,54 @@
 }
 .btn-view-pdf:hover { background:#dc2626; }
 .btn-view-pdf i     { font-size:13px; }
+/* ── Send for Modify Button ── */
+.btn-modify {
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  padding: 9px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background .15s;
+}
+.btn-modify:hover    { background: #6d28d9; }
+.btn-modify:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Armed state — button turns amber when first-clicked (waiting for confirm) */
+.btn-modify.armed {
+  background: #5b21b6;
+  box-shadow: 0 0 0 3px rgba(217,119,6,.25);
+}
+.btn-modify.armed:hover { background: #5b21b6; }
+
+/* ── Modify Confirm Warning Box ── */
+.modify-confirm-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #92400e;
+  margin-bottom: 12px;
+}
+.modify-confirm-box i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+
+/* ── Needs Modification Badge ── */
+.badge-modify {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+/* ── Responsive: stack modify button on small screens ── */
+@media(max-width:580px) {
+  .btn-modify { justify-content: center; }
+}

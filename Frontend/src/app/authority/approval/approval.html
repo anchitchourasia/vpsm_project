@@ -207,8 +207,26 @@
           </textarea>
         </div>
 
+        <div class="modify-confirm-box" *ngIf="activeAction() === 'modify'">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b"></i>
+          <span>This will send the pass back to the <strong>original requester</strong>
+          for modification. Make sure your remark explains what needs to change.</span>
+        </div>
+
         <div class="modal-footer">
           <button class="btn-cancel" (click)="closeDetails()">Close</button>
+          <button class="btn-modify"
+            [class.armed]="activeAction() === 'modify'"
+            (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')"
+            [disabled]="isActing()">
+            <i class="bi bi-pencil-square"></i>
+            <ng-container *ngIf="activeAction() !== 'modify'">
+              {{ isActing() ? 'Processing…' : 'Send for Modify' }}
+            </ng-container>
+            <ng-container *ngIf="activeAction() === 'modify'">
+              {{ isActing() ? 'Processing…' : '✓ Confirm Send for Modify' }}
+            </ng-container>
+          </button>
           <button class="btn-orange" (click)="returnToConfirmer(p)" [disabled]="isActing()">
             <i class="bi bi-arrow-return-left"></i>
             {{ isActing() ? 'Processing…' : 'Return to Confirmer' }}
@@ -218,6 +236,7 @@
             {{ isActing() ? 'Processing…' : 'Approve & Activate Pass' }}
           </button>
         </div>
+
 
       </div>
     </div>

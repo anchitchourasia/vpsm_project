@@ -76,7 +76,7 @@ export class Approval implements OnInit, OnDestroy {
   actionError   = signal('');
   actionSuccess = signal('');
   isActing      = signal(false);
-
+  activeAction = signal<'modify' | null>(null);
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments  = signal<DocumentRecord[]>([]);
   isLoadingDocs  = signal(false);
@@ -134,6 +134,7 @@ export class Approval implements OnInit, OnDestroy {
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
+    this.activeAction.set(null);
     this.passDocuments.set([]);
     this.docLoadError.set('');
 
@@ -149,11 +150,51 @@ export class Approval implements OnInit, OnDestroy {
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
+    this.activeAction.set(null);     // ← NEW
     this.passDocuments.set([]);
     this.docLoadError.set('');
   }
+  setAction(action: 'modify'): void {
+    this.activeAction.set(this.activeAction() === action ? null : action);
+    this.actionError.set('');
+    this.actionSuccess.set('');
+  }
 
+  sendForModify(pass: PassRecord): void {
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required — describe what needs to be modified.');
+      return;
+    }
+    this.isActing.set(true);
+    this.actionError.set('');
+    const updatePayload = {
+      status  : 'Needs_Modification',
+      enterBy : this.approverName(),
+      remarks : `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
+      vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+    };
+    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          this.activeAction.set(null);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.passId, pass.employeeNo, 'SENT_FOR_MODIFICATION',
+          `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`🔄 Pass #${pass.passId} sent back to requester for modification.`);
+        this.isActing.set(false);
+        this.activeAction.set(null);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
   // ── GET /api/documents/list → filter by vehicleId ────────────────────────
+
   private loadDocuments(vehicleId: number): void {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
@@ -309,6 +350,7 @@ export class Approval implements OnInit, OnDestroy {
       case 'rejected'   : return 'Rejected';
       case 'surrendered': return 'Surrendered';
       case 'expired'    : return 'Expired';
+      case 'needs_modification': return 'Needs Modification';   // ← NEW
       default           : return status || '—';
     }
   }
@@ -321,6 +363,7 @@ export class Approval implements OnInit, OnDestroy {
       case 'rejected'   : return 'badge-rejected';
       case 'surrendered': return 'badge-surrendered';
       case 'expired'    : return 'badge-expired';
+      case 'needs_modification': return 'badge-modify';
       default           : return 'badge-default';
     }
   }
