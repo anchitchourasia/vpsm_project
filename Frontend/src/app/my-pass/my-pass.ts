@@ -1,13 +1,12 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subject, interval, takeUntil, timeout, catchError, of, startWith } from 'rxjs';
 import { PassStateService, PassRecord, WorkflowStatus } from '../services/pass-state.service';
 import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
-import { ActivatedRoute } from '@angular/router';
 
 const REFRESH_INTERVAL_MS = 30_000;
 const HTTP_TIMEOUT_MS     = 12_000;
@@ -56,20 +55,17 @@ export class MyPass implements OnInit, OnDestroy {
     'Content-Type': 'application/json',
   });
 
-  // ── Live sync state ────────────────────────────────────────────────
   protected isSyncing    = signal(false);
   protected lastSyncedAt = signal<string>('');
   protected syncError    = signal('');
   protected pdfLoading   = signal<number | null>(null);
   protected pdfError     = signal<string>('');
 
-  // ── Live document state ────────────────────────────────────────────
   protected liveDocuments = signal<LiveDocRecord[]>([]);
   protected isLoadingDocs = signal(false);
   protected docLoadError  = signal('');
   protected docPassId     = signal<string | null>(null);
 
-  // ── Modification card doc state ────────────────────────────────────
   protected modLiveDocuments = signal<LiveDocRecord[]>([]);
   protected modIsLoadingDocs = signal(false);
   protected modDocLoadError  = signal('');
@@ -77,30 +73,14 @@ export class MyPass implements OnInit, OnDestroy {
 
   protected resumingPassId = signal<number | null>(null);
 
-  // ── Logged-in empCode helper ───────────────────────────────────────
-  protected myCode = computed(() => this.auth.empCode().trim().toLowerCase());
+  // ✅ DB-first signals — own data only, filtered by auth.empCode()
+  protected submittedPasses = signal<PassRecord[]>([]);
+  protected savedDrafts     = signal<PassRecord[]>([]);
 
-  // ── Data sources filtered to logged-in user ────────────────────────
-  protected readonly submittedPasses = computed(() =>
-    this.svc.submittedPasses().filter(p =>
-      (p.ecNo || '').toLowerCase() === this.myCode() ||
-      (p.submittedBy || '').toLowerCase() === this.myCode()
-    )
-  );
-
-  protected readonly savedDrafts = computed(() =>
-    this.svc.savedDrafts().filter(p =>
-      (p.ecNo || '').toLowerCase() === this.myCode() ||
-      (p.submittedBy || '').toLowerCase() === this.myCode()
-    )
-  );
-
-  // ── Modification passes from DB ─────────────────────────────────────
   modificationPasses = signal<any[]>([]);
   isLoadingMod       = signal(false);
   modLoadError       = signal('');
 
-  // ── UI State ───────────────────────────────────────────────────────
   protected searchTerm      = signal('');
   protected activeTab       = signal<'submitted' | 'drafts' | 'modification'>('submitted');
   protected expandedId      = signal<string | null>(null);
@@ -156,7 +136,6 @@ export class MyPass implements OnInit, OnDestroy {
     });
   });
 
-  // ── Lifecycle ──────────────────────────────────────────────────────
   ngOnInit(): void {
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       if (params['tab'] === 'submitted')         this.activeTab.set('submitted');
@@ -168,7 +147,7 @@ export class MyPass implements OnInit, OnDestroy {
     interval(REFRESH_INTERVAL_MS)
       .pipe(startWith(0), takeUntil(this.destroy$))
       .subscribe(() => {
-        this.syncStatusFromDB();
+        this.loadMyPassesFromDB();
         this.loadModificationPasses();
       });
   }
@@ -178,35 +157,56 @@ export class MyPass implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ── DB Sync ────────────────────────────────────────────────────────
-  protected refreshNow(): void { this.syncStatusFromDB(); }
-
-  private syncStatusFromDB(): void {
-    const localPasses = this.submittedPasses();
-    if (!localPasses.length) { this.isSyncing.set(false); return; }
+  // ✅ DB-first loader filtered by auth.empCode() — no localStorage at all
+  private loadMyPassesFromDB(): void {
     this.isSyncing.set(true);
     this.syncError.set('');
+    const myCode = this.auth.empCode().trim().toLowerCase();
 
     this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
       .pipe(
-        timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
-          this.syncError.set('Could not reach server. Showing last known status.');
+          this.syncError.set(
+            'Could not reach server (' + (err?.status || 'network error') + '). Retrying in 30s.'
+          );
           this.isSyncing.set(false);
           return of([]);
         })
       )
-      .subscribe(dbPasses => {
-        if (!dbPasses?.length) { this.isSyncing.set(false); return; }
-        for (const local of localPasses) {
-          const dbMatch = this.findDbMatch(local, dbPasses);
-          if (!dbMatch) continue;
-          const updated: PassRecord = {
-            ...local,
-            workflowStatus: dbStatusToWorkflow(dbMatch.status),
-          };
-          this.svc.upsert(updated);
-        }
+      .subscribe(data => {
+        if (!Array.isArray(data)) { this.isSyncing.set(false); return; }
+
+        // Filter to only THIS employee's records
+        const mine = data.filter(p =>
+          (p.enterBy       || '').toLowerCase() === myCode ||
+          (p.employeeNo    || '').toLowerCase() === myCode
+        );
+
+        const submitted = mine
+          .filter(p => {
+            const s = (p.status || '').toLowerCase();
+            return s !== 'draft' && s !== 'needs_modification';
+          })
+          .map(p => this.mapDbPassToRecord(p))
+          .sort((a, b) => {
+            const aId = parseInt(a.passId.replace(/\D/g, ''), 10) || 0;
+            const bId = parseInt(b.passId.replace(/\D/g, ''), 10) || 0;
+            return bId - aId;
+          });
+
+        const drafts = mine
+          .filter(p => (p.status || '').toLowerCase() === 'draft')
+          .map(p => this.mapDbPassToRecord(p))
+          .sort((a, b) => {
+            const aId = parseInt(a.passId.replace(/\D/g, ''), 10) || 0;
+            const bId = parseInt(b.passId.replace(/\D/g, ''), 10) || 0;
+            return bId - aId;
+          });
+
+        this.submittedPasses.set(submitted);
+        this.savedDrafts.set(drafts);
         this.isSyncing.set(false);
         this.lastSyncedAt.set(
           new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })
@@ -214,19 +214,42 @@ export class MyPass implements OnInit, OnDestroy {
       });
   }
 
-  private findDbMatch(local: PassRecord, dbPasses: any[]): any | null {
-    const numericId = parseInt(local.passId.replace(/\D/g, ''), 10);
-    if (!isNaN(numericId)) {
-      const byId = dbPasses.find(d => d.passId === numericId);
-      if (byId) return byId;
-    }
-    return dbPasses.find(d =>
-      (d.vehicle?.vehicleNo || '').toUpperCase() === (local.vehicleNo || '').toUpperCase() &&
-      (d.employeeNo || '') === (local.ecNo || '')
-    ) ?? null;
+  private mapDbPassToRecord(p: any): PassRecord {
+    return {
+      passId        : `PASS-HEG-${String(p.passId).padStart(4, '0')}`,
+      empType       : p.empType              ?? 'Company_Employee',
+      vehicleNo     : p.vehicle?.vehicleNo   ?? p.typeOfVehicle   ?? '',
+      vehicleType   : p.vehicle?.vehicleType ?? p.typeOfVehicle   ?? '',
+      vehicleClass  : p.vehicle?.vehicleClass ?? '',
+      brandModel    : p.vehicle?.brandModel   ?? '',
+      ecNo          : p.employeeNo           ?? '',
+      empName       : p.empName              ?? p.employeeName    ?? '',
+      empDept       : p.dept                 ?? p.department      ?? '',
+      contractorFirm: p.contractorCode       ?? '',
+      issueDate     : p.enterDate            ? p.enterDate.split('T')[0]    : '',
+      validityDate  : p.validityDate         ? p.validityDate.split('T')[0] : '',
+      gateNo        : p.gateNo              ?? p.assignedGate     ?? '',
+      parkingArea   : p.parkingToBeUsed     ?? '',
+      remark        : p.remarks             ?? '',
+      docs          : [],
+      status        : 'Submitted' as const,
+      createdAt     : p.enterDate
+        ? new Date(p.enterDate).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+        : '',
+      workflowStatus : dbStatusToWorkflow(p.status ?? ''),
+      submittedBy    : p.enterBy    ?? '',
+      submittedAt    : p.enterDate  ?? '',
+      mobileNo       : p.mobileNo   ?? '',
+      confirmedBy    : p.confirmedBy    ?? undefined,
+      confirmedAt    : p.confirmedAt    ?? undefined,
+      confirmerRemark: p.confirmerRemark ?? p.remarks ?? undefined,
+      approvedBy     : p.approvedBy     ?? undefined,
+      approvedAt     : p.approvedAt     ?? undefined,
+      approverRemark : p.approverRemark ?? undefined,
+    } as PassRecord;
   }
 
-  // ── Modification Passes ────────────────────────────────────────────
+  // ✅ Uses auth.empCode() — no localStorage
   loadModificationPasses(): void {
     this.isLoadingMod.set(true);
     this.modLoadError.set('');
@@ -251,7 +274,11 @@ export class MyPass implements OnInit, OnDestroy {
       });
   }
 
-  // ── Live Document Fetch ────────────────────────────────────────────
+  protected refreshNow(): void {
+    this.loadMyPassesFromDB();
+    this.loadModificationPasses();
+  }
+
   private loadLiveDocs(passId: string): void {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
@@ -318,7 +345,6 @@ export class MyPass implements OnInit, OnDestroy {
       });
   }
 
-  // ── View PDF ───────────────────────────────────────────────────────
   protected viewDocumentPdf(doc: { documentId?: number; fileName?: string }, event: Event): void {
     event.stopPropagation();
     if (!doc?.documentId || !doc?.fileName) {
@@ -346,7 +372,6 @@ export class MyPass implements OnInit, OnDestroy {
       });
   }
 
-  // ── Download Pass ──────────────────────────────────────────────────
   protected downloadPass(pass: PassRecord, event: Event): void {
     event.stopPropagation();
     const slip = `<!DOCTYPE html><html><head><title>Pass ${pass.passId}</title>
@@ -376,7 +401,6 @@ td:first-child{background:#f5f5f5;font-weight:600;width:40%}
     if (win) { win.document.write(slip); win.document.close(); setTimeout(() => win.print(), 500); }
   }
 
-  // ── UI Handlers ────────────────────────────────────────────────────
   protected toggle(passId: string): void {
     const isOpening = this.expandedId() !== passId;
     this.expandedId.update(cur => cur === passId ? null : passId);
@@ -412,6 +436,7 @@ td:first-child{background:#f5f5f5;font-weight:600;width:40%}
     if (tab === 'modification') this.loadModificationPasses();
   }
 
+  // ✅ resumeModification — localStorage REMOVED, uses PassStateService signal
   resumeModification(p: any): void {
     this.resumingPassId.set(Number(p.passId));
     const vehicleId = p.vehicle?.vehicleId ?? null;
@@ -432,7 +457,8 @@ td:first-child{background:#f5f5f5;font-weight:600;width:40%}
         })),
         status: 'Needs_Modification', createdAt: p.enterDate || '', mobileNo: p.mobileNo || '',
       };
-      localStorage.setItem('vpsm_resume_modification', JSON.stringify(resumeData));
+      // ✅ Store in service signal — no localStorage
+      this.svc.setResumeMod(resumeData);
       this.resumingPassId.set(null);
       this.router.navigate(['/pass-entry']);
     };
@@ -449,16 +475,20 @@ td:first-child{background:#f5f5f5;font-weight:600;width:40%}
     }
   }
 
+  // ✅ resumeDraft — localStorage REMOVED, uses PassStateService signal
   protected resumeDraft(pass: PassRecord): void {
-    try { localStorage.setItem('vpsm_resume_draft', JSON.stringify(pass)); } catch {}
+    this.svc.setResumeDraft(pass);
     this.router.navigate(['/pass-entry']);
   }
 
   protected askDelete(passId: string):     void { this.confirmDeleteId.set(passId); }
   protected cancelDelete():                void { this.confirmDeleteId.set(null);   }
-  protected confirmDelete(passId: string): void { this.svc.deleteDraft(passId); this.confirmDeleteId.set(null); }
+  protected confirmDelete(passId: string): void {
+    this.svc.deleteDraft(passId);
+    this.savedDrafts.update(list => list.filter(p => p.passId !== passId));
+    this.confirmDeleteId.set(null);
+  }
 
-  // ── Label helpers ──────────────────────────────────────────────────
   protected classLabel(cls: string): string {
     const map: Record<string, string> = {
       'Two_Wheeler': '🏍️ Two Wheeler', 'Four_Wheeler': '🚗 Four Wheeler', 'Heavy_Machinery': '🏗️ Heavy Machinery',

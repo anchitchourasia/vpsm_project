@@ -424,6 +424,19 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
    * Human-readable label for workflow status badges.
    * Usage in template: {{ passState.getStatusLabel(p.workflowStatus) }}
    */
+  // ── NAVIGATION STATE — replaces localStorage for resume draft/modification ──
+  // In-memory only. Works on any PC. Dies on page refresh (correct behaviour —
+  // user should not land on pass-entry with stale pre-fill data after refresh).
+  private _resumeDraftData        = signal<PassRecord | null>(null);
+  private _resumeModData          = signal<any | null>(null);
+
+  readonly resumeDraftData        = this._resumeDraftData.asReadonly();
+  readonly resumeModData          = this._resumeModData.asReadonly();
+
+  setResumeDraft(data: PassRecord): void { this._resumeDraftData.set(data); }
+  clearResumeDraft():               void { this._resumeDraftData.set(null); }
+  setResumeMod(data: any):          void { this._resumeModData.set(data);   }
+  clearResumeMod():                 void { this._resumeModData.set(null);   }
   getStatusLabel(ws: WorkflowStatus | undefined): string {
     switch (ws) {
       case 'Draft'                 : return 'Draft';
