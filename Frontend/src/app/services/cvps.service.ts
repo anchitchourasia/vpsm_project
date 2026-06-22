@@ -1,25 +1,8 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// CVPS Service — Contractor Vehicle Permission System
-// All 12 backend endpoints fully wired.
-//
-// Role mapping (matches your existing AuthService ROLE_PRIORITY):
-//   UPLOADER   → can submit new requests (Step 1,2,3) + replace documents
-//   CONFIRMER  → can do workflow action: CONFIRM  → status becomes CONFIRMED
-//   APPROVER   → can do workflow action: APPROVE  → status becomes APPROVED
-//                                        REJECT   → status becomes REJECTED
-//                                        HOLD     → status becomes HOLD
-//   ADMIN      → all of the above
-//   EMPLOYEE   → read-only (getAllRequests, getByVehicleNo, getByStatus)
-//
-// NOTE: There is NO VERIFIER role. VERIFY action is not used.
-// Workflow flow:  CREATED → CONFIRMED → APPROVED (or REJECTED / HOLD)
-// ═══════════════════════════════════════════════════════════════════════════
-
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { API_CONFIG, CVPS_URLS } from '../core/api.config';
-import { AuthService } from './auth.service';   // for role-guard helpers
+import { AuthService } from '../core/auth.service';   // ✅ FIXED: ../core/ not ./
 
 // ─────────────────────────────────────────────────────────────────────────
 // INTERFACES — exactly mirror Java entity fields
@@ -55,8 +38,8 @@ export interface CvpsVehicleDoc {
   documentType  : string;    // RC | Insurance | PUC | Fitness | Load Test | AADHAAR | DL
   documentNo    : string;
   validFrom     : string;    // "YYYY-MM-DD"
-  validTill    ?: string;    // "YYYY-MM-DD" — optional (backend @RequestParam required=false)
-  filename     ?: string;    // absolute path stored on server — read-only from frontend
+  validTill    ?: string;    // "YYYY-MM-DD" — optional
+  filename     ?: string;
 }
 
 /**
@@ -68,24 +51,27 @@ export interface CvpsPersonnel {
   empJob   : string;    // DRIVER | HELPER | SUPERVISOR | TECHNICIAN | LABORER | OTHER
   empType  : string;    // CONTRACTOR (always for this system)
   empNo   ?: number;
-  aadharNo?: string;    // ← "aadhar" not "aadhaar" — must match Java field name
+  aadharNo?: string;    // ← "aadhar" (single a) — must match Java field name
   name     : string;
 }
 
 /**
- * WorkflowActionRequest — inner DTO class in CvpsApiController.java
- * action values handled by backend switch: CONFIRM | APPROVE | REJECT | HOLD
- * NOTE: VERIFY is NOT used — no VERIFIER role in your system
+ * WorkflowActionRequest — inner DTO in CvpsApiController.java
+ * CONFIRM → CONFIRMED  (CONFIRMER role)
+ * APPROVE → APPROVED   (APPROVER role)
+ * REJECT  → REJECTED   (APPROVER role)
+ * HOLD    → HOLD       (APPROVER role)
+ * NOTE: VERIFY / VERIFIER role does NOT exist in this system
  */
 export interface WorkflowAction {
   action  : 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD';
-  empNo   : string;    // String (CHAR 9) — the acting employee's code
+  empNo   : string;    // acting employee code — CHAR(9)
   remarks : string;
 }
 
 /**
  * Mirrors CvpsRequestHistory.java
- * field is "actionTaken" (not "action") — matches Java getter exactly
+ * field is "actionTaken" — matches Java getter exactly
  */
 export interface CvpsHistory {
   historyId   ?: number;
@@ -97,15 +83,14 @@ export interface CvpsHistory {
 
 // ─────────────────────────────────────────────────────────────────────────
 // WORKFLOW STATUS CONSTANTS
-// These are the exact reqStatus values stored in DB after each action
-// Use these when calling getByStatus() to filter queues
+// Pass these to getByStatus() for type-safe queue filtering
 // ─────────────────────────────────────────────────────────────────────────
 export const CVPS_STATUS = {
-  CREATED  : 'CREATED',    // Just submitted by UPLOADER — awaiting CONFIRMER
-  CONFIRMED: 'CONFIRMED',  // CONFIRMER approved — awaiting APPROVER
-  APPROVED : 'APPROVED',   // APPROVER approved — gate pass is ACTIVE
-  REJECTED : 'REJECTED',   // APPROVER rejected
-  HOLD     : 'HOLD',       // APPROVER put on hold — can be modified + re-submitted
+  CREATED  : 'CREATED',    // Submitted by UPLOADER — awaiting CONFIRMER
+  CONFIRMED: 'CONFIRMED',  // Confirmed — awaiting APPROVER
+  APPROVED : 'APPROVED',   // Gate pass is ACTIVE
+  REJECTED : 'REJECTED',   // Rejected by APPROVER
+  HOLD     : 'HOLD',       // On hold — can be modified and re-submitted
 } as const;
 
 export type CvpsStatusType = typeof CVPS_STATUS[keyof typeof CVPS_STATUS];
@@ -121,8 +106,7 @@ export class CvpsService {
 
   // ── 1. POST /api/v1/permissions ────────────────────────────────────────
   // Register a fresh contractor vehicle permission request.
-  // ROLE REQUIRED: UPLOADER or ADMIN
-  // Backend returns the full saved CvpsRequest with auto-generated requestNo.
+  // ROLE: UPLOADER or ADMIN
   createRequest(payload: CvpsRequest): Observable<CvpsRequest> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required to submit requests.'));
@@ -131,10 +115,9 @@ export class CvpsService {
   }
 
   // ── 2. POST /{requestNo}/upload-all-documents ─────────────────────────
-  // Upload vehicle documents as parallel FormData arrays.
   // Backend iterates files[i] with documentType[i], documentNo[i], validFrom[i], validTill[i]
-  // validFrom / validTill must be "YYYY-MM-DD" (LocalDate.parse on backend)
-  // ROLE REQUIRED: UPLOADER or ADMIN
+  // validFrom / validTill MUST be "YYYY-MM-DD" — LocalDate.parse() on backend
+  // ROLE: UPLOADER or ADMIN
   uploadAllDocuments(
     requestNo : number,
     docs      : { docType: string; docNo: string; validFrom: string; validTo: string; file: File }[]
@@ -146,8 +129,8 @@ export class CvpsService {
     docs.forEach(d => {
       fd.append('documentType', d.docType);
       fd.append('documentNo',   d.docNo);
-      fd.append('validFrom',    d.validFrom);         // "YYYY-MM-DD"
-      fd.append('validTill',    d.validTo || '');     // "YYYY-MM-DD" — empty string if not set
+      fd.append('validFrom',    d.validFrom);
+      fd.append('validTill',    d.validTo || '');
       fd.append('files',        d.file, d.file.name);
     });
     return this.http.post<string>(
@@ -157,9 +140,8 @@ export class CvpsService {
   }
 
   // ── 3. POST /{requestNo}/add-personnel ────────────────────────────────
-  // Register one driver or helper person against a request.
-  // Call once per person — use forkJoin in component for multiple persons.
-  // ROLE REQUIRED: UPLOADER or ADMIN
+  // Call once per person — use forkJoin in component for multiple persons
+  // ROLE: UPLOADER or ADMIN
   addPersonnel(requestNo: number, payload: CvpsPersonnel): Observable<CvpsPersonnel> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required to add personnel.'));
@@ -168,31 +150,26 @@ export class CvpsService {
   }
 
   // ── 4. POST /{requestNo}/workflow-action ──────────────────────────────
-  // Push the request through the workflow gate.
-  // Allowed actions and their role requirements:
-  //   CONFIRM  → CONFIRMER or ADMIN  → reqStatus becomes "CONFIRMED"
-  //   APPROVE  → APPROVER  or ADMIN  → reqStatus becomes "APPROVED"
-  //   REJECT   → APPROVER  or ADMIN  → reqStatus becomes "REJECTED"
-  //   HOLD     → APPROVER  or ADMIN  → reqStatus becomes "HOLD"
-  // Each call also writes an immutable row to CVPS_REQUESTS_HISTORY.
+  // CONFIRM → CONFIRMER role   → reqStatus = "CONFIRMED"
+  // APPROVE → APPROVER  role   → reqStatus = "APPROVED"
+  // REJECT  → APPROVER  role   → reqStatus = "REJECTED"
+  // HOLD    → APPROVER  role   → reqStatus = "HOLD"
+  // Each call writes an immutable row to CVPS_REQUESTS_HISTORY
   doWorkflowAction(requestNo: number, payload: WorkflowAction): Observable<CvpsRequest> {
     const action = payload.action.toUpperCase();
-
     if (action === 'CONFIRM' && !this.auth.isConfirmer()) {
-      return throwError(() => new Error('Access Denied: CONFIRMER role required to confirm requests.'));
+      return throwError(() => new Error('Access Denied: CONFIRMER role required.'));
     }
-    if (['APPROVE','REJECT','HOLD'].includes(action) && !this.auth.isApprover()) {
-      return throwError(() => new Error('Access Denied: APPROVER role required to approve/reject/hold.'));
+    if (['APPROVE', 'REJECT', 'HOLD'].includes(action) && !this.auth.isApprover()) {
+      return throwError(() => new Error('Access Denied: APPROVER role required.'));
     }
-
     return this.http.post<CvpsRequest>(CVPS_URLS.workflowAction(requestNo), payload);
   }
 
   // ── 5. PUT /{requestNo}/modify ────────────────────────────────────────
-  // Edit text fields of an existing request.
-  // Backend enforces: only allowed when reqStatus = "CREATED" or "HOLD".
-  // If status was "HOLD", backend auto-resets it back to "CREATED" after save.
-  // ROLE REQUIRED: UPLOADER or ADMIN
+  // Only allowed when reqStatus = "CREATED" or "HOLD" (backend enforces)
+  // If status was "HOLD", backend resets it back to "CREATED" after save
+  // ROLE: UPLOADER or ADMIN
   modifyRequest(requestNo: number, payload: CvpsRequest): Observable<CvpsRequest> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required to modify requests.'));
@@ -201,11 +178,9 @@ export class CvpsService {
   }
 
   // ── 6. POST /{requestNo}/replace-document ────────────────────────────
-  // Replace one vehicle document file.
-  // Backend checks if a document of same documentType exists under requestNo:
-  //   - If YES: deletes old physical file, overwrites DB row with new file
-  //   - If NO:  treats as fresh upload (fallback to uploadVehicleDocument)
-  // ROLE REQUIRED: UPLOADER or ADMIN
+  // If same documentType exists → deletes old file, overwrites DB row
+  // If documentType not found   → treated as fresh upload (backend fallback)
+  // ROLE: UPLOADER or ADMIN
   replaceDocument(
     requestNo : number,
     doc       : { docType: string; docNo: string; validFrom: string; validTo: string; file: File }
@@ -218,7 +193,7 @@ export class CvpsService {
     fd.append('documentNo',   doc.docNo);
     fd.append('validFrom',    doc.validFrom);
     fd.append('validTill',    doc.validTo || '');
-    fd.append('file',         doc.file, doc.file.name);   // singular "file" — backend @RequestParam("file")
+    fd.append('file',         doc.file, doc.file.name);  // singular "file" per backend @RequestParam
     return this.http.post<string>(
       CVPS_URLS.replaceDoc(requestNo), fd,
       { responseType: 'text' as 'json' }
@@ -226,40 +201,38 @@ export class CvpsService {
   }
 
   // ── 7. GET /{vehicleNo} ───────────────────────────────────────────────
-  // Get a single vehicle's latest permission request record.
-  // Returns 404 NoSuchElementException if vehicle has no request on file.
-  // ROLE REQUIRED: All roles (read-only)
+  // Get a vehicle's latest permission request record
+  // Returns 404 if vehicle has no request on file
+  // ROLE: All roles (read-only)
   getByVehicleNo(vehicleNo: string): Observable<CvpsRequest> {
-    return this.http.get<CvpsRequest>(CVPS_URLS.getByVehicle(vehicleNo.trim().toUpperCase()));
+    return this.http.get<CvpsRequest>(
+      CVPS_URLS.getByVehicle(vehicleNo.trim().toUpperCase())
+    );
   }
 
   // ── 8. GET / ──────────────────────────────────────────────────────────
-  // Get ALL requests from the database — no filter.
-  // ROLE REQUIRED: CONFIRMER, APPROVER, ADMIN (admin-level list view)
+  // Get ALL requests — no filter
+  // ROLE: All roles
   getAllRequests(): Observable<CvpsRequest[]> {
     return this.http.get<CvpsRequest[]>(API_CONFIG.CVPS_GET_ALL);
   }
 
   // ── 9. GET /summary/filter?status={status} ────────────────────────────
-  // Filter requests by workflow status queue.
-  // Pass a CVPS_STATUS constant for type safety — e.g. CVPS_STATUS.CONFIRMED
-  //
-  // Typical queue usage by role:
-  //   CONFIRMER  → getByStatus(CVPS_STATUS.CREATED)    — inbox of new requests to confirm
-  //   APPROVER   → getByStatus(CVPS_STATUS.CONFIRMED)  — inbox of confirmed requests to approve
-  //   UPLOADER   → getByStatus(CVPS_STATUS.HOLD)       — requests put on hold needing re-edit
-  //   ADMIN      → any status
-  // ROLE REQUIRED: All roles
+  // Filter requests by workflow queue status
+  // Typical usage:
+  //   CONFIRMER → getByStatus(CVPS_STATUS.CREATED)    — new requests to confirm
+  //   APPROVER  → getByStatus(CVPS_STATUS.CONFIRMED)  — confirmed requests to approve
+  //   UPLOADER  → getByStatus(CVPS_STATUS.HOLD)       — held requests to re-edit
+  // ROLE: All roles
   getByStatus(status: CvpsStatusType | string): Observable<CvpsRequest[]> {
     const params = new HttpParams().set('status', status.toString().toUpperCase());
     return this.http.get<CvpsRequest[]>(API_CONFIG.CVPS_FILTER, { params });
   }
 
   // ── 10. GET /summary/validate-gate/{vehicleNo} ───────────────────────
-  // Security gate terminal check.
-  // Returns 200 + full CvpsRequest if reqStatus = "APPROVED".
-  // Returns 404 "Access Denied" if not approved — show red alert at gate.
-  // ROLE REQUIRED: All roles (gate terminal is public-facing)
+  // Gate terminal check — returns 200 only if reqStatus = "APPROVED"
+  // Returns 404 "Access Denied" if not approved
+  // ROLE: All roles
   validateGatePass(vehicleNo: string): Observable<CvpsRequest> {
     return this.http.get<CvpsRequest>(
       CVPS_URLS.validateGate(vehicleNo.trim().toUpperCase())
@@ -267,9 +240,9 @@ export class CvpsService {
   }
 
   // ── 11. GET /documents/{documentId}/download ─────────────────────────
-  // Streams physical PDF binary from server path (F:/CVPS/uploaded_documents/).
-  // Returns Blob — use triggerBlobDownload() helper below to open in browser.
-  // ROLE REQUIRED: CONFIRMER, APPROVER, ADMIN (for Level-2 review)
+  // Streams PDF binary from server (F:/CVPS/uploaded_documents/)
+  // Use triggerBlobDownload() helper to open in browser
+  // ROLE: CONFIRMER, APPROVER, ADMIN
   downloadDocument(documentId: number): Observable<Blob> {
     return this.http.get(
       CVPS_URLS.downloadDoc(documentId),
@@ -278,18 +251,21 @@ export class CvpsService {
   }
 
   // ── 12. GET /summary/download-excel ──────────────────────────────────
-  // Generates cvps_master_report.xlsx on the fly from Oracle — triggers download.
-  // Returns Blob — use triggerBlobDownload() helper below.
-  // ROLE REQUIRED: APPROVER or ADMIN
+  // Generates cvps_master_report.xlsx from Oracle on the fly
+  // Use triggerBlobDownload() helper to trigger file save dialog
+  // ROLE: APPROVER or ADMIN
   downloadExcelReport(): Observable<Blob> {
     return this.http.get(API_CONFIG.CVPS_DOWNLOAD_EXCEL, { responseType: 'blob' });
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // UTILITY HELPER — call this after any Blob Observable to trigger download
+  // UTILITY — triggers browser file download from a Blob response
   // Usage:
   //   this.cvps.downloadDocument(id).subscribe(blob =>
   //     this.cvps.triggerBlobDownload(blob, 'document.pdf')
+  //   );
+  //   this.cvps.downloadExcelReport().subscribe(blob =>
+  //     this.cvps.triggerBlobDownload(blob, 'cvps_master_report.xlsx')
   //   );
   // ─────────────────────────────────────────────────────────────────────
   triggerBlobDownload(blob: Blob, filename: string): void {

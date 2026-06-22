@@ -9,62 +9,111 @@
         <p class="vpl-sub">All vendor / contractor vehicle permission requests</p>
       </div>
     </div>
-    <button class="vpl-btn-add" (click)="addNew()">
-      <i class="bi bi-plus-circle-fill"></i> New Permission
-    </button>
+    <div class="vpl-header-actions">
+      <button class="vpl-btn-gate" (click)="toggleGatePanel()">
+        <i class="bi bi-shield-check"></i> Gate Check
+      </button>
+      <button class="vpl-btn-excel" (click)="downloadExcel()" [disabled]="excelLoading()">
+        @if (excelLoading()) { <i class="bi bi-hourglass-split"></i> Generating... }
+        @else { <i class="bi bi-file-earmark-excel-fill"></i> Export Excel }
+      </button>
+      <button class="vpl-btn-add" (click)="addNew()">
+        <i class="bi bi-plus-circle-fill"></i> New Permission
+      </button>
+    </div>
   </div>
+
+  <!-- ── PHASE C: GATE VALIDATION PANEL ── -->
+  @if (showGatePanel()) {
+    <div class="vpl-gate-panel">
+      <div class="vpl-gate-header">
+        <i class="bi bi-shield-lock-fill"></i>
+        <span>Security Gate — Vehicle Pass Validation</span>
+        <button class="vpl-gate-close" (click)="toggleGatePanel()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="vpl-gate-body">
+        <div class="vpl-gate-input-row">
+          <input class="vpl-gate-input" type="text" placeholder="Enter Vehicle Number e.g. MP04AB1234"
+                 [value]="gateVehicleNo()"
+                 (input)="gateVehicleNo.set($any($event.target).value.toUpperCase())"
+                 (keyup.enter)="checkGatePass()" />
+          <button class="vpl-gate-check-btn" (click)="checkGatePass()" [disabled]="gateChecking()">
+            @if (gateChecking()) { <i class="bi bi-hourglass-split"></i> Checking... }
+            @else { <i class="bi bi-search"></i> Check Pass }
+          </button>
+        </div>
+
+        @if (gateError()) {
+          <div class="vpl-gate-denied">
+            <i class="bi bi-x-circle-fill"></i> {{ gateError() }}
+          </div>
+        }
+
+        @if (gateResult()) {
+          <div class="vpl-gate-approved">
+            <div class="vpl-gate-approved-title"><i class="bi bi-check-circle-fill"></i> GATE PASS APPROVED</div>
+            <div class="vpl-gate-info-grid">
+              <div><span>Request No.</span><strong>#{{ gateResult()!.requestNo }}</strong></div>
+              <div><span>Vehicle No.</span><strong>{{ gateResult()!.vehicleNo }}</strong></div>
+              <div><span>Vehicle Type</span><strong>{{ gateResult()!.vehicleType }}</strong></div>
+              <div><span>Contractor</span><strong>{{ gateResult()!.contractorId }}</strong></div>
+              <div><span>Valid From</span><strong>{{ formatDate(gateResult()!.permissionFrom) }}</strong></div>
+              <div><span>Valid To</span><strong>{{ formatDate(gateResult()!.permissionTo) }}</strong></div>
+              <div class="vpl-gate-span2"><span>Nature of Job</span><strong>{{ gateResult()!.natureOfJob }}</strong></div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
 
   <!-- ── FILTERS ── -->
   <div class="vpl-filters">
     <div class="vpl-search-wrap">
       <i class="bi bi-search vpl-search-icon"></i>
-      <input
-        class="vpl-search"
-        type="text"
-        placeholder="Search contractor, vehicle, job, driver..."
-        [value]="searchText()"
-        (input)="onSearch($any($event.target).value)"
-      />
+      <input class="vpl-search" type="text" placeholder="Search contractor, vehicle, job, driver..."
+             [value]="searchText()"
+             (input)="onSearch($any($event.target).value)" />
     </div>
-    <select
-      class="vpl-filter-select"
-      [value]="statusFilter()"
-      (change)="statusFilter.set($any($event.target).value); currentPage.set(1)"
-    >
+    <select class="vpl-filter-select" [value]="statusFilter()"
+            (change)="onStatusFilterChange($any($event.target).value)">
       @for (opt of statusOptions; track opt.value) {
         <option [value]="opt.value">{{ opt.label }}</option>
       }
     </select>
+    <button class="vpl-btn-refresh" (click)="loadRecords()" title="Refresh">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
   </div>
+
+  @if (errorMsg()) {
+    <div class="vpl-alert-error"><i class="bi bi-exclamation-circle"></i> {{ errorMsg() }}</div>
+  }
 
   <!-- ── TABLE CARD ── -->
   <div class="vpl-card">
-
     @if (isLoading()) {
       <div class="vpl-loading">
         <i class="bi bi-arrow-repeat vpl-spin"></i> Loading records...
       </div>
-
     } @else {
-
       <div class="vpl-table-wrap">
         <table class="vpl-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Contractor Name</th>
+              <th>Req No.</th>
+              <th>Contractor ID</th>
               <th>Vehicle No.</th>
               <th>Vehicle Type</th>
               <th>Nature of Job</th>
               <th>Permission Period</th>
               <th>Driver</th>
               <th>Status</th>
-              <th>Submitted By</th>
-              <th>Date</th>
+              <th>Created By</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-
             @if (pagedRecords().length === 0) {
               <tr>
                 <td colspan="10" class="vpl-empty">
@@ -73,69 +122,196 @@
                 </td>
               </tr>
             }
-
-            @for (r of pagedRecords(); track r.id) {
+            @for (r of pagedRecords(); track r.requestNo) {
               <tr class="vpl-row">
-                <td class="vpl-id">{{ r.id }}</td>
-                <td class="vpl-name">{{ r.contractorName }}</td>
-                <td><span class="vpl-vehicle-no">{{ r.vehicleNumber }}</span></td>
+                <td class="vpl-id">#{{ r.requestNo }}</td>
+                <td class="vpl-name">{{ r.contractorId }}</td>
+                <td><span class="vpl-vehicle-no">{{ r.vehicleNo }}</span></td>
                 <td>{{ r.vehicleType }}</td>
                 <td>{{ r.natureOfJob }}</td>
                 <td class="vpl-date-range">
                   {{ formatDate(r.permissionFrom) }}&nbsp;–&nbsp;{{ formatDate(r.permissionTo) }}
                 </td>
-                <td>{{ r.driverName }}</td>
+                <td>{{ getDriverName(r) }}</td>
                 <td>
-                  <span class="vpl-badge" [ngClass]="getStatusClass(r.status)">
-                    {{ r.status }}
+                  <span class="vpl-badge" [ngClass]="getStatusClass(r.reqStatus)">
+                    {{ getStatusLabel(r.reqStatus) }}
                   </span>
                 </td>
-                <td>{{ r.submittedBy }}</td>
-                <td>{{ formatDate(r.submittedDate) }}</td>
+                <td>{{ r.createdBy }}</td>
+                <td>
+                  <button class="vpl-btn-view" (click)="openPanel(r)">
+                    <i class="bi bi-eye-fill"></i> View
+                  </button>
+                </td>
               </tr>
             }
-
           </tbody>
         </table>
       </div>
 
-      <!-- ── PAGINATION ── -->
+      <!-- Pagination -->
       @if (totalPages > 1) {
         <div class="vpl-pagination">
-          <button
-            class="vpl-page-btn"
-            (click)="goToPage(currentPage() - 1)"
-            [disabled]="currentPage() === 1"
-          >
+          <button class="vpl-page-btn" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1">
             <i class="bi bi-chevron-left"></i>
           </button>
-
           @for (p of totalPagesArr; track p) {
-            <button
-              class="vpl-page-btn"
-              [class.active]="p === currentPage()"
-              (click)="goToPage(p)"
-            >
-              {{ p }}
-            </button>
+            <button class="vpl-page-btn" [class.active]="p === currentPage()" (click)="goToPage(p)">{{ p }}</button>
           }
-
-          <button
-            class="vpl-page-btn"
-            (click)="goToPage(currentPage() + 1)"
-            [disabled]="currentPage() === totalPages"
-          >
+          <button class="vpl-page-btn" (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === totalPages">
             <i class="bi bi-chevron-right"></i>
           </button>
         </div>
       }
 
-      <!-- ── FOOTER COUNT ── -->
       <div class="vpl-footer-count">
         Showing {{ pagedRecords().length }} of {{ filteredRecords().length }} record(s)
       </div>
-
     }
   </div>
+
+  <!-- ── PHASE B: ACTION SIDE PANEL ── -->
+  @if (panelOpen() && selectedRecord()) {
+    <div class="vpl-overlay" (click)="closePanel()"></div>
+    <div class="vpl-side-panel">
+
+      <div class="vpl-panel-header">
+        <div>
+          <div class="vpl-panel-title">Request #{{ selectedRecord()!.requestNo }}</div>
+          <span class="vpl-badge" [ngClass]="getStatusClass(selectedRecord()!.reqStatus)">
+            {{ getStatusLabel(selectedRecord()!.reqStatus) }}
+          </span>
+        </div>
+        <button class="vpl-panel-close" (click)="closePanel()"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <!-- Request Details -->
+      <div class="vpl-panel-section">
+        <div class="vpl-panel-section-title">Request Details</div>
+        <div class="vpl-panel-grid">
+          <div><span>Contractor ID</span><strong>{{ selectedRecord()!.contractorId }}</strong></div>
+          <div><span>Vehicle No.</span><strong class="vpl-vehicle-no">{{ selectedRecord()!.vehicleNo }}</strong></div>
+          <div><span>Vehicle Type</span><strong>{{ selectedRecord()!.vehicleType }}</strong></div>
+          <div><span>Nature of Job</span><strong>{{ selectedRecord()!.natureOfJob }}</strong></div>
+          <div><span>Valid From</span><strong>{{ formatDate(selectedRecord()!.permissionFrom) }}</strong></div>
+          <div><span>Valid To</span><strong>{{ formatDate(selectedRecord()!.permissionTo) }}</strong></div>
+          <div><span>Created By</span><strong>{{ selectedRecord()!.createdBy }}</strong></div>
+          <div><span>Created On</span><strong>{{ formatDate(selectedRecord()!.createdDate) }}</strong></div>
+        </div>
+      </div>
+
+      <!-- Personnel -->
+      @if (selectedRecord()!.employeeDetails && selectedRecord()!.employeeDetails!.length > 0) {
+        <div class="vpl-panel-section">
+          <div class="vpl-panel-section-title">Personnel</div>
+          @for (p of selectedRecord()!.employeeDetails!; track p.id) {
+            <div class="vpl-personnel-row">
+              <span class="vpl-personnel-job">{{ p.empJob }}</span>
+              <span>{{ p.name }}</span>
+              @if (p.aadharNo) { <span class="vpl-personnel-aadhaar">Aadhaar: {{ p.aadharNo }}</span> }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Documents -->
+      @if (selectedRecord()!.vehicleDocuments && selectedRecord()!.vehicleDocuments!.length > 0) {
+        <div class="vpl-panel-section">
+          <div class="vpl-panel-section-title">Vehicle Documents</div>
+          @for (d of selectedRecord()!.vehicleDocuments!; track d.id) {
+            <div class="vpl-doc-row">
+              <div>
+                <span class="vpl-doc-type">{{ d.documentType }}</span>
+                <span class="vpl-doc-no">{{ d.documentNo }}</span>
+                <span class="vpl-doc-validity">{{ formatDate(d.validFrom) }} – {{ formatDate(d.validTill) }}</span>
+              </div>
+              @if (d.id) {
+                <button class="vpl-btn-dl" (click)="downloadDoc(d.id, d.documentType + '_' + d.documentNo + '.pdf')">
+                  <i class="bi bi-download"></i>
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Workflow History -->
+      @if (selectedRecord()!.requestHistories && selectedRecord()!.requestHistories!.length > 0) {
+        <div class="vpl-panel-section">
+          <div class="vpl-panel-section-title">Workflow History</div>
+          @for (h of selectedRecord()!.requestHistories!; track h.historyId) {
+            <div class="vpl-history-row">
+              <span class="vpl-badge" [ngClass]="getStatusClass(h.actionTaken)">{{ h.actionTaken }}</span>
+              <span>{{ h.empNo }}</span>
+              <span class="vpl-history-remark">{{ h.remarks }}</span>
+              <span class="vpl-history-date">{{ formatDate(h.actionDate) }}</span>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ── WORKFLOW ACTION AREA (role-based) ── -->
+      <div class="vpl-panel-section">
+        <div class="vpl-panel-section-title">Take Action</div>
+
+        @if (workflowMsg()) {
+          <div class="vpl-alert-success">{{ workflowMsg() }}</div>
+        }
+        @if (workflowError()) {
+          <div class="vpl-alert-error"><i class="bi bi-exclamation-circle"></i> {{ workflowError() }}</div>
+        }
+
+        <div class="vpl-field-group">
+          <label class="vpl-panel-label">Remarks <span class="vpl-required">*</span></label>
+          <textarea class="vpl-remarks-input" rows="3" placeholder="Enter remarks before taking action..."
+                    [value]="workflowRemarks()"
+                    (input)="workflowRemarks.set($any($event.target).value)"></textarea>
+        </div>
+
+        <div class="vpl-action-btns">
+
+          <!-- CONFIRMER: can CONFIRM when status = CREATED -->
+          @if (isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') {
+            <button class="vpl-action-btn vpl-action-confirm" (click)="doAction('CONFIRM')"
+                    [disabled]="workflowLoading()">
+              <i class="bi bi-check2-circle"></i>
+              {{ workflowLoading() ? 'Processing...' : 'Confirm' }}
+            </button>
+          }
+
+          <!-- APPROVER: can APPROVE / REJECT / HOLD when status = CONFIRMED -->
+          @if (isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED') {
+            <button class="vpl-action-btn vpl-action-approve" (click)="doAction('APPROVE')"
+                    [disabled]="workflowLoading()">
+              <i class="bi bi-shield-check"></i>
+              {{ workflowLoading() ? 'Processing...' : 'Approve' }}
+            </button>
+            <button class="vpl-action-btn vpl-action-hold" (click)="doAction('HOLD')"
+                    [disabled]="workflowLoading()">
+              <i class="bi bi-pause-circle"></i> Hold
+            </button>
+            <button class="vpl-action-btn vpl-action-reject" (click)="doAction('REJECT')"
+                    [disabled]="workflowLoading()">
+              <i class="bi bi-x-circle"></i> Reject
+            </button>
+          }
+
+          <!-- No action available message -->
+          @if (
+            !(isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') &&
+            !(isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED')
+          ) {
+            <div class="vpl-no-action">
+              <i class="bi bi-info-circle"></i>
+              No action available for your role on this request's current status.
+            </div>
+          }
+
+        </div>
+      </div>
+
+    </div>
+  }
 
 </div>
