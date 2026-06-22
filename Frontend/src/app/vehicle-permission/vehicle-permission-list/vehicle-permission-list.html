@@ -1,0 +1,141 @@
+<div class="vpl-shell">
+
+  <!-- ── PAGE HEADER ── -->
+  <div class="vpl-page-header">
+    <div class="vpl-header-left">
+      <i class="bi bi-truck-front-fill vpl-header-icon"></i>
+      <div>
+        <h1 class="vpl-title">Contractor Vehicle Permissions</h1>
+        <p class="vpl-sub">All vendor / contractor vehicle permission requests</p>
+      </div>
+    </div>
+    <button class="vpl-btn-add" (click)="addNew()">
+      <i class="bi bi-plus-circle-fill"></i> New Permission
+    </button>
+  </div>
+
+  <!-- ── FILTERS ── -->
+  <div class="vpl-filters">
+    <div class="vpl-search-wrap">
+      <i class="bi bi-search vpl-search-icon"></i>
+      <input
+        class="vpl-search"
+        type="text"
+        placeholder="Search contractor, vehicle, job, driver..."
+        [value]="searchText()"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </div>
+    <select
+      class="vpl-filter-select"
+      [value]="statusFilter()"
+      (change)="statusFilter.set($any($event.target).value); currentPage.set(1)"
+    >
+      @for (opt of statusOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- ── TABLE CARD ── -->
+  <div class="vpl-card">
+
+    @if (isLoading()) {
+      <div class="vpl-loading">
+        <i class="bi bi-arrow-repeat vpl-spin"></i> Loading records...
+      </div>
+
+    } @else {
+
+      <div class="vpl-table-wrap">
+        <table class="vpl-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Contractor Name</th>
+              <th>Vehicle No.</th>
+              <th>Vehicle Type</th>
+              <th>Nature of Job</th>
+              <th>Permission Period</th>
+              <th>Driver</th>
+              <th>Status</th>
+              <th>Submitted By</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            @if (pagedRecords().length === 0) {
+              <tr>
+                <td colspan="10" class="vpl-empty">
+                  <i class="bi bi-inbox vpl-empty-icon"></i>
+                  <div>No records found</div>
+                </td>
+              </tr>
+            }
+
+            @for (r of pagedRecords(); track r.id) {
+              <tr class="vpl-row">
+                <td class="vpl-id">{{ r.id }}</td>
+                <td class="vpl-name">{{ r.contractorName }}</td>
+                <td><span class="vpl-vehicle-no">{{ r.vehicleNumber }}</span></td>
+                <td>{{ r.vehicleType }}</td>
+                <td>{{ r.natureOfJob }}</td>
+                <td class="vpl-date-range">
+                  {{ formatDate(r.permissionFrom) }}&nbsp;–&nbsp;{{ formatDate(r.permissionTo) }}
+                </td>
+                <td>{{ r.driverName }}</td>
+                <td>
+                  <span class="vpl-badge" [ngClass]="getStatusClass(r.status)">
+                    {{ r.status }}
+                  </span>
+                </td>
+                <td>{{ r.submittedBy }}</td>
+                <td>{{ formatDate(r.submittedDate) }}</td>
+              </tr>
+            }
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── PAGINATION ── -->
+      @if (totalPages > 1) {
+        <div class="vpl-pagination">
+          <button
+            class="vpl-page-btn"
+            (click)="goToPage(currentPage() - 1)"
+            [disabled]="currentPage() === 1"
+          >
+            <i class="bi bi-chevron-left"></i>
+          </button>
+
+          @for (p of totalPagesArr; track p) {
+            <button
+              class="vpl-page-btn"
+              [class.active]="p === currentPage()"
+              (click)="goToPage(p)"
+            >
+              {{ p }}
+            </button>
+          }
+
+          <button
+            class="vpl-page-btn"
+            (click)="goToPage(currentPage() + 1)"
+            [disabled]="currentPage() === totalPages"
+          >
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+      }
+
+      <!-- ── FOOTER COUNT ── -->
+      <div class="vpl-footer-count">
+        Showing {{ pagedRecords().length }} of {{ filteredRecords().length }} record(s)
+      </div>
+
+    }
+  </div>
+
+</div>

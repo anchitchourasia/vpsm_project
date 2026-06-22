@@ -44,7 +44,10 @@ export const routes: Routes = [
   // PASS MANAGEMENT — protected
   { path: 'pass-entry',   canActivate: [authGuard], loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
   { path: 'pass-details', canActivate: [authGuard], loadComponent: () => import('./pass-details/pass-details').then(m => m.PassDetails) },
-
+  
+  // VEHICLE PERMISSION — protected
+  { path: 'vehicle-permission/add',  canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-form/vehicle-permission-form').then(m => m.VehiclePermissionForm) },
+  { path: 'vehicle-permission/list', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-list/vehicle-permission-list').then(m => m.VehiclePermissionList) },
   // FALLBACK — redirect to home (guard will catch unauthenticated → login)
   { path: '**', redirectTo: '' },
 ];

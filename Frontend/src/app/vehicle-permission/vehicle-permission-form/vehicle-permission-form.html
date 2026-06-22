@@ -1,0 +1,284 @@
+<div class="vp-shell">
+
+  <!-- HEADER CARD -->
+  <div class="vp-header-card">
+    <div class="vp-header-left">
+      <i class="bi bi-truck vp-header-icon"></i>
+      <div>
+        <h1 class="vp-header-title">Vendor Vehicle / Contractor Permission Form</h1>
+        <p class="vp-header-sub">{{ companyName }}</p>
+      </div>
+    </div>
+    <div class="vp-form-no">{{ formNo }}</div>
+  </div>
+
+  <!-- META CHIPS -->
+  <div class="vp-meta-row">
+    <div class="vp-meta-chip">
+      <i class="bi bi-calendar-event"></i>
+      <div><span class="vp-meta-label">Request Date</span><span class="vp-meta-value">{{ requestDate() }}</span></div>
+    </div>
+    <div class="vp-meta-chip">
+      <i class="bi bi-building"></i>
+      <div><span class="vp-meta-label">Department</span><span class="vp-meta-value">{{ department() }}</span></div>
+    </div>
+    <div class="vp-meta-chip">
+      <i class="bi bi-shield-check"></i>
+      <div><span class="vp-meta-label">Status</span><span class="vp-meta-value">{{ status() }}</span></div>
+    </div>
+    <div class="vp-meta-chip">
+      <i class="bi bi-truck-front"></i>
+      <div><span class="vp-meta-label">Category</span><span class="vp-meta-value">{{ category }}</span></div>
+    </div>
+  </div>
+
+  @if (saveMsg())  { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
+  @if (errorMsg()) { <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div> }
+
+  <!-- SECTION 1: GENERAL INFORMATION -->
+  <div class="vp-section">
+    <div class="vp-section-title">General Information</div>
+    <div class="vp-grid-2">
+      <div class="vp-field">
+        <label class="vp-label">Contractor Name</label>
+        <input class="vp-input" type="text" placeholder="Enter contractor / vendor name"
+               [value]="contractorName()" (input)="contractorName.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Request Date</label>
+        <input class="vp-input" type="date"
+               [value]="reqDate()" (input)="reqDate.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Nature of Job</label>
+        <input class="vp-input" type="text" placeholder="Describe the work / job"
+               [value]="natureOfJob()" (input)="natureOfJob.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field"></div>
+      <div class="vp-field">
+        <label class="vp-label">Permission Date From</label>
+        <input class="vp-input" type="date"
+               [value]="permissionDateFrom()" (input)="permissionDateFrom.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Permission Date To</label>
+        <input class="vp-input" type="date"
+               [value]="permissionDateTo()" (input)="permissionDateTo.set($any($event.target).value)" />
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: VEHICLE INFORMATION -->
+  <div class="vp-section">
+    <div class="vp-section-title">Vehicle Information</div>
+    <div class="vp-grid-2">
+      <div class="vp-field">
+        <label class="vp-label">Vehicle Number</label>
+        <input class="vp-input" type="text" placeholder="e.g. MP04 AB 1234"
+               [value]="vehicleNumber()" (input)="vehicleNumber.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Vehicle Type</label>
+        <select class="vp-select" [value]="vehicleType()" (change)="vehicleType.set($any($event.target).value)">
+          <option value="">Select Vehicle</option>
+          @for (opt of vehicleTypeOptions; track opt) {
+            <option [value]="opt">{{ opt }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: VEHICLE DOCUMENTS -->
+  <div class="vp-section">
+    <div class="vp-section-title-row">
+      <span class="vp-section-title">Vehicle Documents</span>
+      <button class="vp-btn-add" (click)="addVehicleDoc()">
+        <i class="bi bi-plus-circle-fill"></i> Add Document
+      </button>
+    </div>
+    <div class="vp-table-wrap">
+      <table class="vp-table">
+        <thead>
+          <tr>
+            <th>Document Type</th><th>Document No.</th>
+            <th>Valid From</th><th>Valid To</th>
+            <th>Upload File</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (doc of vehicleDocs(); track $index) {
+            <tr>
+              <td>
+                <select class="vp-cell-select" [value]="doc.docType"
+                        (change)="doc.docType = $any($event.target).value">
+                  <option value="">Select</option>
+                  @for (o of docTypeOptions; track o) { <option [value]="o">{{ o }}</option> }
+                </select>
+              </td>
+              <td><input class="vp-cell-input" type="text" placeholder="Doc number"
+                         [value]="doc.docNo" (input)="doc.docNo = $any($event.target).value" /></td>
+              <td><input class="vp-cell-input" type="date"
+                         [value]="doc.validFrom" (input)="doc.validFrom = $any($event.target).value" /></td>
+              <td><input class="vp-cell-input" type="date"
+                         [value]="doc.validTo" (input)="doc.validTo = $any($event.target).value" /></td>
+              <td>
+                <div class="vp-file-cell">
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onVehicleDocFile($event, $index)" />
+                  @if (doc.fileName) { <span class="vp-filename">{{ doc.fileName }}</span> }
+                </div>
+              </td>
+              <td>
+                <button class="vp-btn-del" (click)="removeVehicleDoc($index)"
+                        [disabled]="vehicleDocs().length === 1">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 4: DRIVER INFORMATION -->
+  <div class="vp-section">
+    <div class="vp-section-title">Driver Information</div>
+    <div class="vp-grid-2">
+      <div class="vp-field">
+        <label class="vp-label">Driver Name</label>
+        <input class="vp-input" type="text" placeholder="Full name"
+               [value]="driverName()" (input)="driverName.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Contact Number</label>
+        <input class="vp-input" type="tel" placeholder="10-digit mobile"
+               [value]="contactNumber()" (input)="contactNumber.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Aadhaar Number</label>
+        <input class="vp-input" type="text" placeholder="12-digit Aadhaar"
+               [value]="aadhaarNumber()" (input)="aadhaarNumber.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Aadhaar Copy</label>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onAadhaarFile($event)" />
+        @if (aadhaarCopyName()) { <span class="vp-filename">{{ aadhaarCopyName() }}</span> }
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">License Number</label>
+        <input class="vp-input" type="text" placeholder="DL number"
+               [value]="licenseNumber()" (input)="licenseNumber.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">License Type</label>
+        <input class="vp-input" type="text" placeholder="e.g. LMV, HMV"
+               [value]="licenseType()" (input)="licenseType.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">License Valid From</label>
+        <input class="vp-input" type="date"
+               [value]="licenseValidFrom()" (input)="licenseValidFrom.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">License Valid To</label>
+        <input class="vp-input" type="date"
+               [value]="licenseValidTo()" (input)="licenseValidTo.set($any($event.target).value)" />
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Driving License Copy</label>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDrivingLicFile($event)" />
+        @if (drivingLicName()) { <span class="vp-filename">{{ drivingLicName() }}</span> }
+      </div>
+      <div class="vp-field">
+        <label class="vp-label">Driver Photograph</label>
+        <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event)" />
+        @if (driverPhotoName()) { <span class="vp-filename">{{ driverPhotoName() }}</span> }
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: ADDITIONAL HELPER DETAILS -->
+  <div class="vp-section">
+    <div class="vp-section-title-row">
+      <span class="vp-section-title">Additional Driver / Helper Details</span>
+      <button class="vp-btn-add" (click)="addHelper()">
+        <i class="bi bi-plus-circle-fill"></i> Add Person
+      </button>
+    </div>
+    <div class="vp-table-wrap">
+      <table class="vp-table">
+        <thead>
+          <tr><th>#</th><th>Job Type</th><th>Name</th><th>Mobile No.</th><th>Aadhaar No.</th><th>Documents</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          @if (helpers().length === 0) {
+            <tr><td colspan="7" class="vp-empty-row">No Additional Driver / Helper Added</td></tr>
+          }
+          @for (h of helpers(); track $index) {
+            <tr>
+              <td>{{ $index + 1 }}</td>
+              <td>
+                <select class="vp-cell-select" [value]="h.jobType" (change)="h.jobType = $any($event.target).value">
+                  <option value="">Select</option>
+                  @for (j of jobTypeOptions; track j) { <option [value]="j">{{ j }}</option> }
+                </select>
+              </td>
+              <td><input class="vp-cell-input" type="text" placeholder="Full name"
+                         [value]="h.name" (input)="h.name = $any($event.target).value" /></td>
+              <td><input class="vp-cell-input" type="tel" placeholder="Mobile"
+                         [value]="h.mobileNo" (input)="h.mobileNo = $any($event.target).value" /></td>
+              <td><input class="vp-cell-input" type="text" placeholder="Aadhaar"
+                         [value]="h.aadhaarNo" (input)="h.aadhaarNo = $any($event.target).value" /></td>
+              <td>
+                <div class="vp-file-cell">
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onHelperFile($event, $index)" />
+                  @if (h.fileName) { <span class="vp-filename">{{ h.fileName }}</span> }
+                </div>
+              </td>
+              <td><button class="vp-btn-del" (click)="removeHelper($index)"><i class="bi bi-trash-fill"></i></button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="vp-notice">
+      They are being allowed only for above referred work and they would work under our department's supervision and follow all safety rules.
+    </div>
+  </div>
+
+  <!-- SECTION 6: APPROVAL WORKFLOW -->
+  <div class="vp-section">
+    <div class="vp-section-title">Approval Workflow</div>
+    <div class="vp-table-wrap">
+      <table class="vp-table">
+        <thead>
+          <tr><th>#</th><th>Approval Level</th><th>Approver Name</th><th>Status</th><th>Remarks</th><th>Action Date</th></tr>
+        </thead>
+        <tbody>
+          @for (row of workflowRows(); track $index) {
+            <tr>
+              <td>{{ $index + 1 }}</td>
+              <td>{{ row.level }}</td>
+              <td>{{ row.approver }}</td>
+              <td><span class="wf-badge" [ngClass]="getStatusClass(row.status)">{{ row.status }}</span></td>
+              <td>{{ row.remark }}</td>
+              <td>{{ row.date }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="vp-actions">
+    <button class="vp-btn-secondary" (click)="saveDraft()"><i class="bi bi-floppy-fill"></i> Save Draft</button>
+    <button class="vp-btn-primary"   (click)="submitForm()" [disabled]="isSubmitting()">
+      @if (isSubmitting()) { <i class="bi bi-hourglass-split"></i> Submitting... }
+      @else { <i class="bi bi-send-fill"></i> Submit }
+    </button>
+    <button class="vp-btn-ghost" (click)="reset()">Reset</button>
+  </div>
+
+</div>

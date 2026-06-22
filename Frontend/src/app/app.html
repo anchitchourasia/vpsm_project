@@ -146,7 +146,27 @@
             </span>
           </a>
         }
+        <!-- PASTE THIS BLOCK right before the line:  @if (auth.hasAuthority()) { -->
 
+        <!-- ══ VEHICLE PERMISSION MENU ══ -->
+        @if (auth.hasAuthority()) {
+          <div class="sb-section-label">VEHICLE PERMISSION</div>
+          <div class="sb-group" [class.open]="isMenuOpen('vp')">
+            <div class="sb-item sb-parent" (click)="toggleMenu('vp', $event)">
+              <i class="bi bi-truck-front-fill sb-icon" style="color:#7c3aed"></i>
+              <span class="sb-label">Vehicle Permission</span>
+              <i class="bi bi-chevron-down sb-arrow"></i>
+            </div>
+            <div class="sb-children">
+              <a routerLink="/vehicle-permission/add" class="sb-child" (click)="$event.stopPropagation()">
+                <i class="bi bi-circle-fill sb-child-dot"></i> Add Form
+              </a>
+              <a routerLink="/vehicle-permission/list" class="sb-child" (click)="$event.stopPropagation()">
+                <i class="bi bi-circle-fill sb-child-dot"></i> Contractor Details
+              </a>
+            </div>
+          </div>
+        }
         <!-- Authority-only sections -->
         @if (auth.hasAuthority()) {
 
