@@ -137,6 +137,7 @@ export class MyPass implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.svc.loadEmployeeNames();   // ← ADD THIS as first line
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       if (params['tab'] === 'submitted')         this.activeTab.set('submitted');
       else if (params['tab'] === 'drafts')       this.activeTab.set('drafts');
@@ -221,7 +222,9 @@ export class MyPass implements OnInit, OnDestroy {
       vehicleClass  : p.vehicle?.vehicleClass ?? '',
       brandModel    : p.vehicle?.brandModel   ?? '',
       ecNo          : p.employeeNo           ?? '',
-      empName : p.empName ?? p.employeeName ?? p.name ?? '',
+      empName : p.empName ?? p.employeeName ?? p.name
+                ?? this.svc.resolveEmpName(p.employeeNo ?? '')
+                ?? '',
       empDept       : p.dept                 ?? p.department      ?? '',
       contractorFirm: p.contractorCode       ?? '',
       issueDate     : p.enterDate            ? p.enterDate.split('T')[0]    : '',

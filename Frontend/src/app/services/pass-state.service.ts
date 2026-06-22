@@ -199,6 +199,38 @@ export class PassStateService {
   }
   private http    = inject(HttpClient);
 private _synced = false;
+// ── PASTE THIS BLOCK after private _synced = false; ──────────────────────
+
+private _empNameMap = signal<Record<string, string>>({});
+
+/** Call once on app start. Fetches EMPLOYEE_REPORT and builds EC→Name lookup. */
+loadEmployeeNames(): void {
+  if (Object.keys(this._empNameMap()).length > 0) return; // guard: load only once
+  const headers = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Content-Type': 'application/json',
+  });
+  this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers })
+    .pipe(timeout(12_000), catchError(() => of([])))
+    .subscribe(employees => {
+      const map: Record<string, string> = {};
+      (employees || []).forEach(emp => {
+        // covers all possible field names your backend might return
+        const code = (emp.employeeCode ?? emp.empCode ?? emp.ec_no ?? emp.employeeNo ?? '')
+                       .toString().trim().toLowerCase();
+        const name = (emp.name ?? emp.employeeName ?? emp.emp_name ?? '')
+                       .toString().trim().toUpperCase();
+        if (code && name) map[code] = name;
+      });
+      this._empNameMap.set(map);
+    });
+}
+
+/** Resolve employee name from EC code. Returns '' if not found. */
+resolveEmpName(ecCode: string): string {
+  if (!ecCode) return '';
+  return this._empNameMap()[(ecCode).toString().trim().toLowerCase()] ?? '';
+}
 
 /**
  * Fetch all passes from the DB API and merge into the signal.

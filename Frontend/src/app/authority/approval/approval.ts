@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed ,inject} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../../core/api.config';
+import { PassStateService } from '../../services/pass-state.service';
 
 const TIMEOUT_MS = 15000;
 
@@ -108,9 +109,14 @@ export class Approval implements OnInit, OnDestroy {
   get totalPages()    { return Math.max(1, Math.ceil(this.pendingList().length / this.pageSize)); }
   get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
+  private svc = inject(PassStateService);
   constructor(private http: HttpClient) {}
 
-  ngOnInit()    { this.loadPasses(); }
+  ngOnInit(): void {
+    this.svc.loadEmployeeNames();
+    this.loadPasses();
+  }
+
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadPasses(): void {
@@ -127,9 +133,15 @@ export class Approval implements OnInit, OnDestroy {
         })
       )
       .subscribe(data => {
-        this.allPasses.set(Array.isArray(data) ? data : []);
+        const enriched = (Array.isArray(data) ? data : []).map(p => ({
+          ...p,
+          employeeName: p.employeeName ?? p.empName ?? p.name
+                        ?? this.svc.resolveEmpName(p.employeeNo ?? '')
+        }));
+        this.allPasses.set(enriched);
         this.isLoading.set(false);
       });
+
   }
 
   openDetails(p: PassRecord): void {
