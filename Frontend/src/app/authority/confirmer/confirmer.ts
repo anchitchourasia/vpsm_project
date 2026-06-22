@@ -11,7 +11,9 @@ interface PassRecord {
   passId           : number;
   employeeNo       : string;
   employeeCompanyNo: string;
-  employeeName     : string; 
+  employeeName     : string;
+  empName         ?: string;   // ← ADD THIS
+  name            ?: string;   // ← ADD THIS 
   dept             : string;
   contractorCode   : string;
   gateNo           : string;

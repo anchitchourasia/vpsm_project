@@ -115,7 +115,7 @@
         <div class="dg">
           <div class="di"><label>Employee No</label><span>{{ p.employeeNo || '—' }}</span></div>
           <div class="di"><label>Company No</label><span>{{ p.employeeCompanyNo || '—' }}</span></div>
-          <div class="di"><label>Name</label><span>{{ p.employeeName || '—' }}</span></div>
+          <div class="di"><label>Name</label><span>{{ p.employeeName || p.empName || p.name || '—' }}</span></div>
           <div class="di"><label>Emp Type</label><span>{{ p.empType || '—' }}</span></div>
           <div class="di"><label>Department</label><span>{{ p.dept || '—' }}</span></div>
           <div class="di"><label>Contractor Code</label><span>{{ p.contractorCode || '—' }}</span></div>

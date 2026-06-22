@@ -221,7 +221,7 @@ export class MyPass implements OnInit, OnDestroy {
       vehicleClass  : p.vehicle?.vehicleClass ?? '',
       brandModel    : p.vehicle?.brandModel   ?? '',
       ecNo          : p.employeeNo           ?? '',
-      empName       : p.empName              ?? p.employeeName    ?? '',
+      empName : p.empName ?? p.employeeName ?? p.name ?? '',
       empDept       : p.dept                 ?? p.department      ?? '',
       contractorFirm: p.contractorCode       ?? '',
       issueDate     : p.enterDate            ? p.enterDate.split('T')[0]    : '',
