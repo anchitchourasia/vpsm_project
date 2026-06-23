@@ -1,10 +1,12 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 // ✅ CHANGE 1: Added interval, switchMap
 import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
+import { AuthService } from '../core/auth.service';
+
 
 const USE_DUMMY_DATA = false;
 const HTTP_TIMEOUT_MS = 12000;
@@ -62,6 +64,7 @@ const EMPTY_FORM = (): PassForm => ({
 export class Passes implements OnInit, OnDestroy {
 
   private readonly HEADERS = new HttpHeaders({
+    private auth = inject(AuthService);  // ✅ ADD THIS LINE
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
@@ -165,8 +168,21 @@ export class Passes implements OnInit, OnDestroy {
       .subscribe((response: HttpResponse<any[]> | null) => {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
-        // ✅ Exclude Draft rows from Pass Registry table — drafts belong in pass-details/my-pass Drafts tab only
-        this.allPassesRaw.set(raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft'));
+
+        // Exclude drafts — same as before
+        let filtered = raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft');
+
+        // ✅ NEW — if regular EMPLOYEE logged in, show only their own passes
+        // ADMIN / CONFIRMER / APPROVER / UPLOADER see all passes
+        if (this.auth.isRegularUser()) {
+          const myCode = this.auth.empCode().trim().toLowerCase();
+          filtered = filtered.filter((p: any) =>
+            (p.enterBy    || '').toLowerCase() === myCode ||
+            (p.employeeNo || '').toLowerCase() === myCode
+          );
+        }
+
+        this.allPassesRaw.set(filtered);
         this.isLoading.set(false);
       });
   }
@@ -186,7 +202,19 @@ export class Passes implements OnInit, OnDestroy {
       .subscribe((response: HttpResponse<any[]> | null) => {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
-        this.allPassesRaw.set(raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft'));
+
+        let filtered = raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft');
+
+        // ✅ Same employee filter applied on every 30s background poll
+        if (this.auth.isRegularUser()) {
+          const myCode = this.auth.empCode().trim().toLowerCase();
+          filtered = filtered.filter((p: any) =>
+            (p.enterBy    || '').toLowerCase() === myCode ||
+            (p.employeeNo || '').toLowerCase() === myCode
+          );
+        }
+
+        this.allPassesRaw.set(filtered);
       });
 
   }
