@@ -87,6 +87,11 @@ export class PassEntry implements OnInit, OnDestroy {
   empDept          = signal('');
   empSalary        = signal('');
   empAadhar        = ''; 
+  empContractorCode  = '';   // for Company_Employee form
+  empContractorName  = '';
+  empContractorEmail = '';
+  contractorName     = '';   // for Contractor form
+  contractorEmail    = '';
   isSaving         = signal(false);
   saved            = signal(false);
   saveSuccess      = signal('');
@@ -670,6 +675,11 @@ export class PassEntry implements OnInit, OnDestroy {
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empAadhar = '';
+    this.empContractorCode  = '';
+    this.empContractorName  = '';
+    this.empContractorEmail = '';
+    this.contractorName     = '';
+    this.contractorEmail    = '';
     this.empData = null;
     this.docs.set([]);
     this.passId.set(''); this.passIdGenerated.set(false);
