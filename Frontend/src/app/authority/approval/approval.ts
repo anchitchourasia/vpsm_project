@@ -401,7 +401,7 @@ export class Approval implements OnInit, OnDestroy {
     switch ((status || '').toLowerCase()) {
       case 'submitted'  : return 'Pending Confirmation';
       case 'confirmed'  : return 'Pending Approval';
-      case 'active'     : return 'Approved & Active';
+      case 'active'     : return 'Approved';
       case 'rejected'   : return 'Rejected';
       case 'surrendered': return 'Surrendered';
       case 'expired'    : return 'Expired';

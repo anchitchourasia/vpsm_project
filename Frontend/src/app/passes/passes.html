@@ -112,10 +112,16 @@
               </td>
               <td>
                 <div class="action-btns">
+                  <!-- View is always shown for all statuses -->
                   <button class="btn-icon-view" title="View" (click)="openViewModal(p)">
                     <i class="bi bi-eye"></i> View
                   </button>
-                  <button class="btn-icon-edit" title="Edit" (click)="openEditModal(p)">
+                  <!-- ✅ CHANGE 2 — Edit hidden when status is Active -->
+                  <button
+                    *ngIf="(p.status || p.passStatus || '').toLowerCase() !== 'active'"
+                    class="btn-icon-edit"
+                    title="Edit"
+                    (click)="openEditModal(p)">
                     <i class="bi bi-pencil-square"></i> Edit
                   </button>
                 </div>
@@ -354,13 +360,14 @@
 </div>
 
 
-<!-- ══════════════════════════════════════════════════ -->
-<!--  VIEW DETAIL MODAL                                 -->
-<!-- ══════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!--  VIEW DETAIL MODAL — rich confirmer/approver-style pass detail    -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" *ngIf="showViewModal()" (click)="closeViewModal()"></div>
-<div class="modal-box modal-lg" *ngIf="showViewModal() && viewPass()">
+<div class="modal-box modal-lg view-rich-modal" *ngIf="showViewModal() && viewPass()">
+
+  <!-- ── HEADER ── -->
   <div class="modal-header modal-header-view">
-    <!-- ✅ CHANGE 3 — formatted Pass ID in view modal title -->
     <h3>🪪 Pass Detail — {{ formatPassId(viewPass().passId) }}</h3>
     <button class="modal-close" (click)="closeViewModal()">
       <i class="bi bi-x-lg"></i>
@@ -368,122 +375,179 @@
   </div>
 
   <div class="modal-body">
-    <div class="detail-grid">
 
-      <!-- PERSON -->
-      <div class="detail-section">
-        <div class="detail-section-title">PERSON</div>
-        <div class="detail-row">
-          <span class="detail-label">Emp Type</span>
-          <span [class]="getEmpTypeBadgeClass(viewPass().empType)">
-            {{ viewPass().empType === 'Company_Employee' ? 'Company Employee' : 'Contractor' }}
-          </span>
-        </div>
-        <ng-container *ngIf="viewPass().empType === 'Company_Employee'">
-          <div class="detail-row">
-            <span class="detail-label">Employee No</span>
-            <strong class="detail-value">{{ viewPass().employeeNo || '—' }}</strong>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">EC No</span>
-            <strong class="detail-value">{{ viewPass().employeeCompanyNo || '—' }}</strong>
-          </div>
-        </ng-container>
-        <ng-container *ngIf="viewPass().empType === 'Contractor'">
-          <div class="detail-row">
-            <span class="detail-label">Contractor Code</span>
-            <strong class="detail-value">{{ viewPass().contractorCode || '—' }}</strong>
-          </div>
-        </ng-container>
-        <div class="detail-row">
-          <span class="detail-label">Department / Work Area</span>
-          <strong class="detail-value">{{ viewPass().dept || '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Mobile</span>
-          <strong class="detail-value">{{ viewPass().mobileNo || '—' }}</strong>
-        </div>
+    <!-- ── Vehicle Section ── -->
+    <div class="vr-section-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
+    <div class="vr-grid">
+      <div class="vr-item">
+        <label>Vehicle ID (FK)</label>
+        <span>{{ viewPass().vehicle?.vehicleId ?? '—' }}</span>
       </div>
-
-      <!-- VEHICLE -->
-      <div class="detail-section">
-        <div class="detail-section-title">VEHICLE</div>
-        <div class="detail-row">
-          <span class="detail-label">Vehicle ID (FK)</span>
-          <strong class="detail-value">{{ viewPass().vehicle?.vehicleId ?? '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Vehicle No</span>
-          <strong class="detail-value">{{ viewPass().vehicle?.vehicleNo ?? '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Type of Vehicle</span>
-          <strong class="detail-value">
-            {{ viewPass().typeOfVehicle || viewPass().vehicle?.vehicleType || '—' }}
-          </strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Vehicle Class</span>
-          <strong class="detail-value">{{ viewPass().vehicle?.vehicleClass ?? '—' }}</strong>
-        </div>
+      <div class="vr-item">
+        <label>Vehicle No</label>
+        <span><strong>{{ viewPass().vehicle?.vehicleNo || '—' }}</strong></span>
       </div>
-
-      <!-- PASS INFO -->
-      <div class="detail-section">
-        <div class="detail-section-title">PASS INFO</div>
-
-        <!-- ✅ CHANGE 4 — Pass ID row added as first item in PASS INFO section -->
-        <div class="detail-row">
-          <span class="detail-label">Pass ID</span>
-          <strong class="detail-value">{{ formatPassId(viewPass().passId) }}</strong>
-        </div>
-
-        <div class="detail-row">
-          <span class="detail-label">Issue Date</span>
-          <strong class="detail-value">{{ formatDate(viewPass().issueDate) }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Valid Till</span>
-          <strong class="detail-value">{{ formatDate(viewPass().validityDate) }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Gate No</span>
-          <strong class="detail-value">{{ viewPass().gateNo || '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Parking</span>
-          <strong class="detail-value">{{ viewPass().parkingToBeUsed || '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Status</span>
-          <span [class]="getStatusClass(viewPass().status || viewPass().passStatus)">
-            {{ viewPass().status || viewPass().passStatus || '—' }}
-          </span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Is Active</span>
-          <strong class="detail-value">{{ viewPass().isActive === 'Y' ? 'Yes' : 'No' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Entered By</span>
-          <strong class="detail-value">{{ viewPass().enterBy || '—' }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Enter Date</span>
-          <strong class="detail-value">{{ formatDate(viewPass().enterDate) }}</strong>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Remarks</span>
-          <strong class="detail-value">{{ viewPass().remarks || '—' }}</strong>
-        </div>
+      <div class="vr-item">
+        <label>Type of Vehicle</label>
+        <span>{{ viewPass().vehicle?.vehicleType || viewPass().typeOfVehicle || '—' }}</span>
       </div>
-
+      <div class="vr-item">
+        <label>Vehicle Class</label>
+        <span>{{ viewPass().vehicle?.vehicleClass || '—' }}</span>
+      </div>
     </div>
-  </div>
+
+    <!-- ── Employee / Requester Section ── -->
+    <div class="vr-section-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
+    <div class="vr-grid">
+      <div class="vr-item">
+        <label>Emp Type</label>
+        <span [class]="getEmpTypeBadgeClass(viewPass().empType)">
+          {{ viewPass().empType === 'Company_Employee' ? 'Company Employee' : 'Contractor' }}
+        </span>
+      </div>
+      <div class="vr-item" *ngIf="viewPass().empType === 'Company_Employee'">
+        <label>Employee No</label>
+        <span><strong>{{ viewPass().employeeNo || '—' }}</strong></span>
+      </div>
+      <div class="vr-item" *ngIf="viewPass().empType === 'Company_Employee'">
+        <label>EC No (Company No)</label>
+        <span>{{ viewPass().employeeCompanyNo || '—' }}</span>
+      </div>
+      <div class="vr-item" *ngIf="viewPass().empType === 'Contractor'">
+        <label>Contractor Code</label>
+        <span><strong>{{ viewPass().contractorCode || '—' }}</strong></span>
+      </div>
+      <div class="vr-item">
+        <label>Department / Work Area</label>
+        <span>{{ viewPass().dept || '—' }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Mobile</label>
+        <span>{{ viewPass().mobileNo || '—' }}</span>
+      </div>
+    </div>
+
+    <!-- ── Pass Details Section ── -->
+    <div class="vr-section-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
+    <div class="vr-grid">
+      <div class="vr-item">
+        <label>Pass ID</label>
+        <span><strong>{{ formatPassId(viewPass().passId) }}</strong></span>
+      </div>
+      <div class="vr-item">
+        <label>Gate No</label>
+        <span>{{ viewPass().gateNo || '—' }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Parking To Be Used</label>
+        <span>{{ viewPass().parkingToBeUsed || '—' }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Issue Date</label>
+        <span>{{ formatDate(viewPass().issueDate) }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Valid Till</label>
+        <span>{{ formatDate(viewPass().validityDate) }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Status</label>
+        <span [class]="getStatusClass(viewPass().status || viewPass().passStatus)">
+          {{ viewPass().status || viewPass().passStatus || '—' }}
+        </span>
+      </div>
+      <div class="vr-item">
+        <label>Is Active</label>
+        <span>{{ viewPass().isActive === 'Y' ? 'Yes' : 'No' }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Entered By</label>
+        <span>{{ viewPass().enterBy || '—' }}</span>
+      </div>
+      <div class="vr-item">
+        <label>Enter Date</label>
+        <span>{{ formatDate(viewPass().enterDate) }}</span>
+      </div>
+      <div class="vr-item" *ngIf="viewPass().remarks">
+        <label>Remarks</label>
+        <span>{{ viewPass().remarks }}</span>
+      </div>
+    </div>
+
+    <!-- ── Compliance Documents Section ── -->
+    <div class="vr-section-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
+
+    <!-- Loading state -->
+    <div class="vr-doc-loading" *ngIf="isLoadingViewDocs()">
+      <i class="bi bi-arrow-repeat spin-icon"></i> Loading documents...
+    </div>
+
+    <!-- Error state -->
+    <div class="vr-doc-error" *ngIf="viewDocLoadError() && !isLoadingViewDocs()">
+      <i class="bi bi-exclamation-triangle-fill"></i> {{ viewDocLoadError() }}
+    </div>
+
+    <!-- Documents table -->
+    <div class="vr-doc-table-wrap" *ngIf="!isLoadingViewDocs() && viewPassDocs().length > 0">
+      <table class="vr-doc-table">
+        <thead>
+          <tr>
+            <th>DOC TYPE</th>
+            <th>DOC NO</th>
+            <th>EXPIRY DATE</th>
+            <th>STATUS</th>
+            <th>FILE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let doc of viewPassDocs()">
+            <td><span class="vr-doc-type-badge">{{ doc.documentType }}</span></td>
+            <td><strong>{{ doc.documentNo || '—' }}</strong></td>
+            <td>{{ formatDate(doc.expiryDate) }}</td>
+            <td>
+              <span class="vr-doc-status" [ngClass]="getDocStatusClass(doc.expiryDate)">
+                {{ getDocStatusText(doc.expiryDate) }}
+              </span>
+            </td>
+            <td>
+              <button
+                class="btn-view-pdf"
+                (click)="viewDocumentPdf(doc)"
+                [disabled]="!doc.fileName || viewPdfLoading() === doc.documentId"
+                [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
+                [style.opacity]="doc.fileName ? '1' : '0.4'"
+                [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
+                <i class="bi"
+                   [ngClass]="viewPdfLoading() === doc.documentId ? 'bi-hourglass-split' : 'bi-file-earmark-pdf-fill'"></i>
+                {{ viewPdfLoading() === doc.documentId ? 'Loading...' : (doc.fileName ? 'View' : '—') }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty state -->
+    <div class="vr-doc-empty"
+         *ngIf="!isLoadingViewDocs() && viewPassDocs().length === 0 && !viewDocLoadError()">
+      <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
+    </div>
+
+    <!-- PDF load error banner -->
+    <div class="vr-doc-error" *ngIf="viewPdfError()">
+      <i class="bi bi-exclamation-circle-fill"></i> {{ viewPdfError() }}
+    </div>
+
+  </div><!-- /modal-body -->
 
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <button class="btn-save" (click)="closeViewModal(); openEditModal(viewPass())">
+    <!-- ✅ Edit in View footer also hidden when Active -->
+    <button
+      *ngIf="(viewPass().status || viewPass().passStatus || '').toLowerCase() !== 'active'"
+      class="btn-save"
+      (click)="closeViewModal(); openEditModal(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>
   </div>

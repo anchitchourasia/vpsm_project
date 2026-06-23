@@ -85,7 +85,10 @@
     </div>
   </div>
 
-  <!-- ── REVIEW MODAL ── -->
+
+  <!-- ══════════════════════════════════════════════
+       REVIEW MODAL — all old logic 100% preserved
+  ══════════════════════════════════════════════ -->
   <div class="modal-overlay" *ngIf="selectedPass() as p" (click)="closeDetails()">
     <div class="modal-box" (click)="$event.stopPropagation()">
 
@@ -96,12 +99,13 @@
 
       <div class="modal-body">
 
+        <!-- Alerts -->
         <div class="alert success-alert" *ngIf="actionSuccess()">{{ actionSuccess() }}</div>
-        <div class="alert error-alert"   *ngIf="actionError()">
+        <div class="alert error-alert" *ngIf="actionError()">
           <i class="bi bi-exclamation-circle-fill"></i> {{ actionError() }}
         </div>
 
-        <!-- Vehicle -->
+        <!-- ── Vehicle ── -->
         <div class="sec-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
         <div class="dg">
           <div class="di"><label>Vehicle No</label><span>{{ p.vehicle?.vehicleNo || '—' }}</span></div>
@@ -110,7 +114,7 @@
           <div class="di"><label>Brand/Model</label><span>{{ p.vehicle?.brandModel || '—' }}</span></div>
         </div>
 
-        <!-- Employee -->
+        <!-- ── Employee ── -->
         <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
         <div class="dg">
           <div class="di"><label>Employee No</label><span>{{ p.employeeNo || '—' }}</span></div>
@@ -122,7 +126,7 @@
           <div class="di"><label>Mobile</label><span>{{ p.mobileNo || '—' }}</span></div>
         </div>
 
-        <!-- Pass Details -->
+        <!-- ── Pass Details ── -->
         <div class="sec-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
         <div class="dg">
           <div class="di"><label>Pass ID</label><span>{{ p.passId }}</span></div>
@@ -132,20 +136,17 @@
           <div class="di"><label>Valid Till</label><span>{{ formatDate(p.validityDate) }}</span></div>
         </div>
 
-        <!-- ── COMPLIANCE DOCUMENTS ── -->
+        <!-- ── Compliance Documents ── -->
         <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
 
-        <!-- Loading -->
         <div class="doc-loading" *ngIf="isLoadingDocs()">
           <i class="bi bi-arrow-repeat spin"></i> Loading documents...
         </div>
 
-        <!-- Error -->
         <div class="doc-error" *ngIf="docLoadError() && !isLoadingDocs()">
           <i class="bi bi-exclamation-triangle-fill"></i> {{ docLoadError() }}
         </div>
 
-        <!-- Documents Table -->
         <div class="doc-table-wrap" *ngIf="!isLoadingDocs() && passDocuments().length > 0">
           <table class="doc-table">
             <thead>
@@ -185,20 +186,19 @@
           </table>
         </div>
 
-        <!-- No docs -->
         <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()"
           class="doc-empty">
           <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
-        <!-- Confirmer's Decision -->
+        <!-- ── Confirmer's Decision ── -->
         <div class="sec-title"><i class="bi bi-person-check-fill"></i> Confirmer's Decision</div>
         <div class="confirmer-box">
           <div class="trail-row"><span class="tl">Confirmed By</span><span class="tv">{{ p.enterBy || '—' }}</span></div>
           <div class="trail-row"><span class="tl">Confirmer Remark</span><span class="tv">{{ p.remarks || '—' }}</span></div>
         </div>
 
-        <!-- Approver Decision -->
+        <!-- ── Approver Decision ── -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Approver Decision</div>
         <div class="form-group">
           <textarea class="form-textarea" rows="3"
@@ -208,16 +208,16 @@
           </textarea>
         </div>
 
+        <!-- Modify confirm hint -->
         <div class="modify-confirm-box" *ngIf="activeAction() === 'modify'">
           <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b"></i>
           <span>This will send the pass back to the <strong>original requester</strong>
           for modification. Make sure your remark explains what needs to change.</span>
         </div>
 
-        <div class="modal-footer">
-                  <!-- ══════════════════════════════════════════════
+        <!-- ══════════════════════════════════════════════
              EMPLOYEE PASS HISTORY TOGGLE
-             Placed ABOVE footer — outside flex row
+             OUTSIDE modal-footer — full width block
         ══════════════════════════════════════════════ -->
         <div class="hist-toggle-row">
           <button class="btn-hist-toggle"
@@ -245,7 +245,7 @@
             <i class="bi bi-exclamation-triangle-fill"></i> {{ historyLoadError() }}
           </div>
 
-          <div class="doc-table-wrap hist-table-wrap"
+          <div class="hist-table-wrap"
                *ngIf="!isLoadingHistory() && empPassHistory().length > 0">
             <table class="doc-table hist-table">
               <thead>
@@ -265,7 +265,7 @@
                     [class.hist-row-current]="h.passId === p.passId">
                   <td class="muted">{{ hi + 1 }}</td>
                   <td>
-                    <strong [class.blue]="h.passId === p.passId">{{ h.passId }}</strong>
+                    <strong [class.green]="h.passId === p.passId">{{ h.passId }}</strong>
                     <span *ngIf="h.passId === p.passId" class="hist-current-badge">← current</span>
                   </td>
                   <td>{{ h.vehicle?.vehicleNo || '—' }}</td>
@@ -290,31 +290,40 @@
 
         </div>
         <!-- ── end history panel ── -->
-          <button class="btn-cancel" (click)="closeDetails()">Close</button>
-          <button class="btn-modify"
+
+        <!-- ══════════════════════════════════════════════
+             MODAL FOOTER — all 4 buttons equal size
+        ══════════════════════════════════════════════ -->
+        <div class="modal-footer">
+
+          <button class="footer-btn btn-cancel" (click)="closeDetails()">
+            <i class="bi bi-x-circle"></i> Close
+          </button>
+
+          <button class="footer-btn btn-modify"
             [class.armed]="activeAction() === 'modify'"
             (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')"
             [disabled]="isActing()">
             <i class="bi bi-pencil-square"></i>
-            <ng-container *ngIf="activeAction() !== 'modify'">
-              {{ isActing() ? 'Processing…' : 'Send for Modify' }}
-            </ng-container>
-            <ng-container *ngIf="activeAction() === 'modify'">
-              {{ isActing() ? 'Processing…' : '✓ Confirm Send for Modify' }}
-            </ng-container>
+            {{ activeAction() === 'modify'
+                ? (isActing() ? 'Processing…' : '✓ Confirm Send for Modify')
+                : 'Send for Modify' }}
           </button>
-          <button class="btn-orange" (click)="returnToConfirmer(p)" [disabled]="isActing()">
+
+          <button class="footer-btn btn-orange" (click)="returnToConfirmer(p)" [disabled]="isActing()">
             <i class="bi bi-arrow-return-left"></i>
             {{ isActing() ? 'Processing…' : 'Return to Confirmer' }}
           </button>
-          <button class="btn-green" (click)="approve(p)" [disabled]="isActing()">
+
+          <button class="footer-btn btn-green" (click)="approve(p)" [disabled]="isActing()">
             <i class="bi bi-patch-check-fill"></i>
             {{ isActing() ? 'Processing…' : 'Approve & Activate Pass' }}
           </button>
-        </div>
 
+        </div>
 
       </div>
     </div>
   </div>
+
 </div>

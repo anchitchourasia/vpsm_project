@@ -35,6 +35,15 @@ interface PassForm {
   remarks          : string;
   isActive         : string;
 }
+interface DocRecord {
+  documentId  : number;
+  documentType: string;
+  documentNo  : string;
+  expiryDate  : string;
+  startDate  ?: string;
+  fileName   ?: string;
+  vehicle    ?: { vehicleId: number };
+}
 
 const EMPTY_FORM = (): PassForm => ({
   issueDate:'', validityDate:'', employeeNo:'', employeeCompanyNo:'',
@@ -118,8 +127,13 @@ export class Passes implements OnInit, OnDestroy {
   vehicleLookupSuccess = signal('');
   isLookingUp          = signal(false);
 
-  showViewModal = signal(false);
-  viewPass      = signal<any>(null);
+  showViewModal     = signal(false);
+  viewPass          = signal<any>(null);
+  viewPassDocs      = signal<DocRecord[]>([]);
+  isLoadingViewDocs = signal(false);
+  viewDocLoadError  = signal('');
+  viewPdfLoading    = signal<number | null>(null);
+  viewPdfError      = signal('');
 
   constructor(private http: HttpClient) {}
 
@@ -307,8 +321,81 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   closeModal()          { this.showModal.set(false); }
-  openViewModal(p: any) { this.viewPass.set(p); this.showViewModal.set(true); }
-  closeViewModal()      { this.showViewModal.set(false); }
+  openViewModal(p: any): void {
+    this.viewPass.set(p);
+    this.viewPassDocs.set([]);
+    this.viewDocLoadError.set('');
+    this.viewPdfError.set('');
+    this.viewPdfLoading.set(null);
+    this.showViewModal.set(true);
+    this.loadViewDocs(p);
+  }
+
+  closeViewModal(): void {
+    this.showViewModal.set(false);
+    this.viewPass.set(null);
+    this.viewPassDocs.set([]);
+    this.viewDocLoadError.set('');
+    this.viewPdfError.set('');
+  }
+
+  private loadViewDocs(p: any): void {
+    const vehicleId: number | null = p.vehicle?.vehicleId ?? null;
+    if (!vehicleId) {
+      this.isLoadingViewDocs.set(true);
+      this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+        .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(() => of([])))
+        .subscribe(list => {
+          const vid = (list || []).find((x: any) => x.passId === p.passId)?.vehicle?.vehicleId ?? null;
+          if (vid) this.fetchViewDocsByVehicleId(vid);
+          else { this.viewDocLoadError.set('No vehicle linked — cannot load documents.'); this.isLoadingViewDocs.set(false); }
+        });
+      return;
+    }
+    this.fetchViewDocsByVehicleId(vehicleId);
+  }
+
+  private fetchViewDocsByVehicleId(vehicleId: number): void {
+    this.isLoadingViewDocs.set(true);
+    this.viewDocLoadError.set('');
+    this.http.get<DocRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
+      .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => { this.viewDocLoadError.set('Could not load documents (' + (err?.status || 'network error') + ').'); this.isLoadingViewDocs.set(false); return of([]); }))
+      .subscribe(docs => {
+        const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
+        this.viewPassDocs.set(filtered);
+        if (!filtered.length) this.viewDocLoadError.set('No documents found for this vehicle.');
+        this.isLoadingViewDocs.set(false);
+      });
+  }
+
+  viewDocumentPdf(doc: DocRecord): void {
+    if (!doc?.documentId || !doc?.fileName) { this.viewPdfError.set('No file attached.'); setTimeout(() => this.viewPdfError.set(''), 3500); return; }
+    this.viewPdfLoading.set(doc.documentId);
+    this.viewPdfError.set('');
+    this.http.get(`${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`, { responseType: 'blob', headers: this.HEADERS })
+      .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(() => { this.viewPdfError.set('Could not load file.'); this.viewPdfLoading.set(null); setTimeout(() => this.viewPdfError.set(''), 4000); return of(null); }))
+      .subscribe((blob: Blob | null) => {
+        this.viewPdfLoading.set(null);
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      });
+  }
+
+  getDocStatusClass(exp: string): string {
+    if (!exp) return 'doc-status-unknown';
+    const days = Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000);
+    return days < 0 ? 'doc-status-expired' : days <= 30 ? 'doc-status-expiring' : 'doc-status-valid';
+  }
+
+getDocStatusText(exp: string): string {
+  if (!exp) return 'Unknown';
+  const days = Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000);
+  return days < 0 ? 'Expired' : days <= 30 ? `Expiring in ${days}d` : 'Valid';
+}
 
   savePass() {
     if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.');                            return; }

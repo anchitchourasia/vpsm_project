@@ -329,3 +329,24 @@ textarea.form-input { resize: vertical; }
   background-color: #f5f5f5 !important;
   cursor: not-allowed; color: #555;
 }
+/* ── View Rich Modal ── */
+.vr-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #555; letter-spacing: .06em; padding: 14px 0 6px; border-bottom: 1px solid #eee; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.vr-grid          { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 16px; margin-bottom: 12px; }
+.vr-item          { display: flex; flex-direction: column; gap: 2px; }
+.vr-item label    { font-size: 11px; color: #888; font-weight: 600; }
+.vr-item span     { font-size: 13px; color: #1a1a2e; }
+.vr-doc-table-wrap{ overflow-x: auto; margin-top: 8px; }
+.vr-doc-table     { width: 100%; border-collapse: collapse; font-size: 13px; }
+.vr-doc-table th  { background: #f5f5f5; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; color: #666; border-bottom: 1px solid #ddd; }
+.vr-doc-table td  { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+.vr-doc-type-badge{ background: #e8f4fd; color: #1565c0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.vr-doc-status    { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.doc-status-valid    { background: #e8f5e9; color: #2e7d32; }
+.doc-status-expiring { background: #fff8e1; color: #f57f17; }
+.doc-status-expired  { background: #ffebee; color: #c62828; }
+.doc-status-unknown  { background: #f5f5f5; color: #888; }
+.vr-doc-empty     { text-align: center; padding: 20px; color: #aaa; font-size: 13px; }
+.vr-doc-loading   { padding: 12px; color: #666; font-size: 13px; }
+.vr-doc-error     { padding: 10px 12px; background: #fff3e0; border-left: 3px solid #f57c00; color: #bf360c; font-size: 13px; border-radius: 4px; margin: 8px 0; }
+.btn-view-pdf     { background: #fff; border: 1px solid #1976d2; color: #1976d2; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.btn-view-pdf:hover:not(:disabled) { background: #1976d2; color: #fff; }
