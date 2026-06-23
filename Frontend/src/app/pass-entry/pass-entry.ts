@@ -86,6 +86,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empName          = signal('');
   empDept          = signal('');
   empSalary        = signal('');
+  empEmail         = signal('');   // ← NEW
   empAadhar        = ''; 
   empContractorCode  = '';   // for Company_Employee form
   empContractorName  = '';
@@ -236,6 +237,9 @@ export class PassEntry implements OnInit, OnDestroy {
     this.ecNo = ''; this.contractorCode = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empAadhar = '';
+    this.empEmail.set('');
+    this.contractorName  = '';
+    this.contractorEmail = '';
     this.empFetchError.set(''); this.empData = null;
     this.clearAlerts();
   }
@@ -269,6 +273,9 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empName.set('');
     this.empDept.set('');
     this.empSalary.set('');
+    this.empEmail.set('');
+    this.contractorName  = '';
+    this.contractorEmail = '';
     this.empData = null;
     this.fetchingEmployee.set(true);
 
@@ -297,6 +304,10 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empName.set(String(match[EMP_IDX.name]    || ''));
           this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
           this.empSalary.set(String(match[EMP_IDX.salary] || ''));
+          this.empEmail.set(String(match[EMP_IDX.email]   || ''));
+          // ── Contractor form: auto-fill name & email from employee API ──
+          this.contractorName  = String(match[EMP_IDX.name]  || '');
+          this.contractorEmail = String(match[EMP_IDX.email] || '');
           this.empFetchError.set('');
         } else {
           this.empFetchError.set(`No employee found for EC No: ${ecNo}`);
