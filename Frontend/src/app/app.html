@@ -1,6 +1,5 @@
-@if (!isPassEntryMode) {
 <!-- ════════════════════════════════════════
-     FULL APP SHELL
+     FULL APP SHELL — sidebar always visible
      ════════════════════════════════════════ -->
 <div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
 
@@ -146,7 +145,6 @@
             </span>
           </a>
         }
-        <!-- PASTE THIS BLOCK right before the line:  @if (auth.hasAuthority()) { -->
 
         <!-- ══ VEHICLE PERMISSION MENU ══ -->
         @if (auth.hasAuthority()) {
@@ -167,6 +165,7 @@
             </div>
           </div>
         }
+
         <!-- Authority-only sections -->
         @if (auth.hasAuthority()) {
 
@@ -375,7 +374,3 @@
   </div>
 
 </div>
-
-} @else {
-<router-outlet></router-outlet>
-}
