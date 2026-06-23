@@ -108,6 +108,7 @@ export class PassEntry implements OnInit, OnDestroy {
   vehicleClass   = '';
   ecNo           = '';
   contractorCode = '';
+  issueDate      = '';
   validityDate   = '';
   gateNo         = '';
   parkingArea    = '';
@@ -349,11 +350,12 @@ export class PassEntry implements OnInit, OnDestroy {
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
     if (!this.vehicleClass)       return 'Vehicle Class is required.';
     if (this.empType() === 'Company_Employee' && !this.ecNo.trim())
-                                return 'EC No is required.';
+                                  return 'EC No is required.';
     if (this.empType() === 'Contractor' && !this.contractorCode.trim())
-                                return 'Contractor Code is required.';
-    // ✅ validityDate & issueDate no longer mandatory from user
-    // They are silently set to todayDate in onSave/onSubmit before calling this
+                                  return 'Contractor Code is required.';
+    // ✅ validityDate is optional — but if entered, must NOT be a past date
+    if (this.validityDate && this.validityDate < this.todayDate)
+                                  return 'Validity Date cannot be a past date.';
     if (!this.gateNo)             return 'Gate No is required.';
     for (const doc of this.docs()) {
       if (!doc.docType)       return 'Select Document Type for all document rows.';
@@ -389,6 +391,8 @@ export class PassEntry implements OnInit, OnDestroy {
   // persistDraftToDB() silently syncs to DB in background → same draft visible on any PC
   onSave(): void {
      if (!this.validityDate) this.validityDate = this.todayDate;
+     this.issueDate = this.todayDate;                          // ✅ always locked to system date
+     if (!this.validityDate) this.validityDate = this.todayDate; // ✅ fallback if user left it blank
      const err = this.validate();
      if (err) { this.saveError.set(err); return; }
 
@@ -447,6 +451,8 @@ export class PassEntry implements OnInit, OnDestroy {
 
   onSubmit(): void {
     if (!this.validityDate) this.validityDate = this.todayDate;
+    this.issueDate = this.todayDate;                          // ✅ always locked to system date
+    if (!this.validityDate) this.validityDate = this.todayDate; // ✅ fallback if user left it blank
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
     const docErr = this.validateSubmit();
