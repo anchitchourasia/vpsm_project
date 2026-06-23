@@ -183,7 +183,10 @@
         }
 
         <!-- Authority-only sections -->
-        @if (auth.hasAuthority()) {
+        <!-- ══ ADMIN ONLY — Pass Details, Vehicles Master, Pass Registry,
+        Documents, History, Authority
+        Uploader / Confirmer / Approver do NOT see these ══ -->
+        @if (auth.isAdmin()) {
 
           <a routerLink="/pass-details" routerLinkActive="sb-active"
              class="sb-item" (click)="$event.stopPropagation()">
