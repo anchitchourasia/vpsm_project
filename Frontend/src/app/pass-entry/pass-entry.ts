@@ -349,12 +349,11 @@ export class PassEntry implements OnInit, OnDestroy {
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
     if (!this.vehicleClass)       return 'Vehicle Class is required.';
     if (this.empType() === 'Company_Employee' && !this.ecNo.trim())
-                                  return 'EC No is required.';
+                                return 'EC No is required.';
     if (this.empType() === 'Contractor' && !this.contractorCode.trim())
-                                  return 'Contractor Code is required.';
-    if (!this.validityDate)       return 'Validity Date is required.';
-    if (this.validityDate <= this.todayDate)
-                                  return 'Validity Date must be in the future.';
+                                return 'Contractor Code is required.';
+    // ✅ validityDate & issueDate no longer mandatory from user
+    // They are silently set to todayDate in onSave/onSubmit before calling this
     if (!this.gateNo)             return 'Gate No is required.';
     for (const doc of this.docs()) {
       if (!doc.docType)       return 'Select Document Type for all document rows.';
@@ -389,9 +388,10 @@ export class PassEntry implements OnInit, OnDestroy {
   // DRAFT-timestamp generated locally → user sees it instantly on screen
   // persistDraftToDB() silently syncs to DB in background → same draft visible on any PC
   onSave(): void {
-    const err = this.validate();
-    if (err) { this.saveError.set(err); return; }
-    this.clearAlerts();
+     if (!this.validityDate) this.validityDate = this.todayDate;
+     const err = this.validate();
+     if (err) { this.saveError.set(err); return; }
+
 
     if (!this.passIdGenerated()) {
       const draftId = `DRAFT-${Date.now()}`;
@@ -446,6 +446,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
+    if (!this.validityDate) this.validityDate = this.todayDate;
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
     const docErr = this.validateSubmit();
