@@ -89,7 +89,9 @@
   </div>
 
 
-  <!-- ── REVIEW MODAL ── -->
+  <!-- ══════════════════════════════════════════════
+       REVIEW MODAL — all old logic 100% preserved
+  ══════════════════════════════════════════════ -->
   <div class="modal-overlay" *ngIf="selectedPass() as p" (click)="closeDetails()">
     <div class="modal-box" (click)="$event.stopPropagation()">
 
@@ -100,12 +102,13 @@
 
       <div class="modal-body">
 
+        <!-- Alerts -->
         <div class="alert success-alert" *ngIf="actionSuccess()">{{ actionSuccess() }}</div>
-        <div class="alert error-alert"   *ngIf="actionError()">
+        <div class="alert error-alert" *ngIf="actionError()">
           <i class="bi bi-exclamation-circle-fill"></i> {{ actionError() }}
         </div>
 
-        <!-- Vehicle -->
+        <!-- ── Vehicle ── -->
         <div class="sec-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
         <div class="dg">
           <div class="di"><label>Vehicle No</label><span>{{ p.vehicle?.vehicleNo || '—' }}</span></div>
@@ -114,7 +117,7 @@
           <div class="di"><label>Brand/Model</label><span>{{ p.vehicle?.brandModel || '—' }}</span></div>
         </div>
 
-        <!-- Employee -->
+        <!-- ── Employee ── -->
         <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
         <div class="dg">
           <div class="di"><label>Employee No</label><span>{{ p.employeeNo || '—' }}</span></div>
@@ -126,7 +129,7 @@
           <div class="di"><label>Mobile</label><span>{{ p.mobileNo || '—' }}</span></div>
         </div>
 
-        <!-- Pass Details -->
+        <!-- ── Pass Details ── -->
         <div class="sec-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
         <div class="dg">
           <div class="di"><label>Pass ID</label><span>{{ p.passId }}</span></div>
@@ -137,7 +140,7 @@
           <div class="di"><label>Submitted By</label><span>{{ p.enterBy || '—' }}</span></div>
         </div>
 
-        <!-- Compliance Documents -->
+        <!-- ── Compliance Documents ── -->
         <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
 
         <div class="doc-loading" *ngIf="isLoadingDocs()">
@@ -187,12 +190,11 @@
           </table>
         </div>
 
-        <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()"
-          class="doc-empty">
+        <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()" class="doc-empty">
           <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
-        <!-- Remark — UNCHANGED -->
+        <!-- ── Confirmer Remark ── -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Confirmer Remark</div>
         <div class="form-group">
           <textarea class="form-textarea" rows="3"
@@ -202,112 +204,97 @@
           </textarea>
         </div>
 
-        <!-- ── Modify hint: appears only after Send for Modify is clicked once ── -->
+        <!-- ── Modify hint: appears only after Send for Modify is armed ── -->
         <div class="modify-hint" *ngIf="activeAction() === 'modify'">
           <i class="bi bi-arrow-return-left"></i>
           Pass will be returned to requester as <strong>"Needs Modification"</strong>.
           They will see all their filled details + this remark. Not a rejection — they can fix and resubmit.
         </div>
 
-        <!-- ══════════════════════════
+        <!-- ══════════════════════════════════════════════
+             EMPLOYEE PASS HISTORY TOGGLE
+             Placed ABOVE footer — outside flex row
+        ══════════════════════════════════════════════ -->
+        <div class="hist-toggle-row">
+          <button class="btn-hist-toggle"
+            (click)="showHistory.set(!showHistory())"
+            [class.btn-hist-active]="showHistory()">
+            <i class="bi bi-clock-history"></i>
+            {{ showHistory() ? 'Hide Pass History' : 'Show Full Pass History' }}
+            <i class="bi" [ngClass]="showHistory() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          </button>
+        </div>
+
+        <!-- History panel — hidden until button pressed -->
+        <div *ngIf="showHistory()" class="hist-panel">
+
+          <div class="sec-title hist-title">
+            <i class="bi bi-clock-history"></i>
+            All Pass History — <strong>{{ p.employeeNo }}</strong>
+          </div>
+
+          <div class="doc-loading" *ngIf="isLoadingHistory()">
+            <i class="bi bi-arrow-repeat spin"></i> Loading pass history...
+          </div>
+
+          <div class="doc-error" *ngIf="historyLoadError() && !isLoadingHistory()">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ historyLoadError() }}
+          </div>
+
+          <div class="doc-table-wrap hist-table-wrap"
+               *ngIf="!isLoadingHistory() && empPassHistory().length > 0">
+            <table class="doc-table hist-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>PASS ID</th>
+                  <th>VEHICLE NO</th>
+                  <th>GATE</th>
+                  <th>ISSUE DATE</th>
+                  <th>VALID TILL</th>
+                  <th>EMP TYPE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let h of empPassHistory(); let hi = index"
+                    [class.hist-row-current]="h.passId === p.passId">
+                  <td class="muted">{{ hi + 1 }}</td>
+                  <td>
+                    <strong [class.blue]="h.passId === p.passId">{{ h.passId }}</strong>
+                    <span *ngIf="h.passId === p.passId" class="hist-current-badge">← current</span>
+                  </td>
+                  <td>{{ h.vehicle?.vehicleNo || '—' }}</td>
+                  <td>{{ h.gateNo || '—' }}</td>
+                  <td>{{ formatDate(h.issueDate) }}</td>
+                  <td>{{ formatDate(h.validityDate) }}</td>
+                  <td>{{ h.empType || '—' }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="getStatusClass(h.status)">
+                      {{ getStatusLabel(h.status) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+        <!-- ── end history panel ── -->
+
+        <!-- ══════════════════════════════════════════════
              MODAL FOOTER
              ORDER: Close | Send for Modify | Reject | Confirm & Send to Approver
-             All 4 buttons same height/padding
-             ══════════════════════════ -->
+             All 4 buttons equal height, padding, flex-grow
+        ══════════════════════════════════════════════ -->
         <div class="modal-footer">
-                    <!-- ══════════════════════════════════
-                         EMPLOYEE PASS HISTORY
-                    ══════════════════════════════════ -->
-                    <div class="sec-title hist-title">
-                      <i class="bi bi-clock-history"></i>
-                      All Pass History —
-                      <strong>{{ p.employeeNo }}</strong>
-                    </div>
 
-                    <!-- Loading -->
-                    <div class="doc-loading" *ngIf="isLoadingHistory()">
-                      <i class="bi bi-arrow-repeat spin"></i> Loading pass history...
-                    </div>
+          <button class="footer-btn btn-cancel" (click)="closeDetails()">
+            <i class="bi bi-x-circle"></i> Close
+          </button>
 
-                    <!-- Error -->
-                    <div class="doc-error" *ngIf="historyLoadError() && !isLoadingHistory()">
-                      <i class="bi bi-exclamation-triangle-fill"></i> {{ historyLoadError() }}
-                    </div>
-
-                    <!-- History Table -->
-                    <div class="hist-toggle-row">
-                      <button class="btn-hist-toggle"
-                        (click)="showHistory.set(!showHistory())"
-                        [class.btn-hist-active]="showHistory()">
-                        <i class="bi bi-clock-history"></i>
-                        {{ showHistory() ? 'Hide Pass History' : 'Show Full Pass History' }}
-                        <i class="bi" [ngClass]="showHistory() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
-                      </button>
-                    </div>
-
-                    <!-- ── HISTORY PANEL (shown only when toggled) ── -->
-                    <div *ngIf="showHistory()">
-
-                      <div class="sec-title hist-title">
-                        <i class="bi bi-clock-history"></i>
-                        All Pass History —
-                        <strong>{{ p.employeeNo }}</strong>
-                      </div>
-
-                      <div class="doc-loading" *ngIf="isLoadingHistory()">
-                        <i class="bi bi-arrow-repeat spin"></i> Loading pass history...
-                      </div>
-
-                      <div class="doc-error" *ngIf="historyLoadError() && !isLoadingHistory()">
-                        <i class="bi bi-exclamation-triangle-fill"></i> {{ historyLoadError() }}
-                      </div>
-
-                      <div class="doc-table-wrap hist-table-wrap"
-                           *ngIf="!isLoadingHistory() && empPassHistory().length > 0">
-                        <table class="doc-table hist-table">
-                          <thead>
-                            <tr>
-                              <th>#</th>
-                              <th>PASS ID</th>
-                              <th>VEHICLE NO</th>
-                              <th>GATE</th>
-                              <th>ISSUE DATE</th>
-                              <th>VALID TILL</th>
-                              <th>EMP TYPE</th>
-                              <th>STATUS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr *ngFor="let h of empPassHistory(); let hi = index"
-                                [class.hist-row-current]="h.passId === p.passId">
-                              <td class="muted">{{ hi + 1 }}</td>
-                              <td>
-                                <strong [class.blue]="h.passId === p.passId">
-                                  {{ h.passId }}
-                                </strong>
-                                <span *ngIf="h.passId === p.passId"
-                                      class="hist-current-badge">← current</span>
-                              </td>
-                              <td>{{ h.vehicle?.vehicleNo || '—' }}</td>
-                              <td>{{ h.gateNo || '—' }}</td>
-                              <td>{{ formatDate(h.issueDate) }}</td>
-                              <td>{{ formatDate(h.validityDate) }}</td>
-                              <td>{{ h.empType || '—' }}</td>
-                              <td>
-                                <span class="badge" [ngClass]="getStatusClass(h.status)">
-                                  {{ getStatusLabel(h.status) }}
-                                </span>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-          <button class="btn-cancel" (click)="closeDetails()">Close</button>
-
-          <!-- Send for Modify: first click arms it (turns orange), second click fires -->
-          <button class="btn-modify-footer"
+          <!-- Send for Modify: first click arms (orange), second click fires -->
+          <button class="footer-btn btn-modify-footer"
             [class.btn-modify-armed]="activeAction() === 'modify'"
             (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')"
             [disabled]="isActing()">
@@ -317,14 +304,14 @@
                 : 'Send for Modify' }}
           </button>
 
-          <button class="btn-red"
+          <button class="footer-btn btn-red"
             (click)="activeAction() === 'modify' ? setAction('modify') : reject(p)"
             [disabled]="isActing()">
             <i class="bi bi-x-circle-fill"></i>
             {{ isActing() ? 'Processing…' : 'Reject' }}
           </button>
 
-          <button class="btn-blue" (click)="confirm(p)" [disabled]="isActing()">
+          <button class="footer-btn btn-blue" (click)="confirm(p)" [disabled]="isActing()">
             <i class="bi bi-check-circle-fill"></i>
             {{ isActing() ? 'Processing…' : 'Confirm & Send to Approver' }}
           </button>
@@ -334,4 +321,5 @@
       </div>
     </div>
   </div>
+
 </div>

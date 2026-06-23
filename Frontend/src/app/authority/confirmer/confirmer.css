@@ -240,3 +240,73 @@
   background   : #1d6fd8 !important;
   color        : #fff    !important;
 }
+/* ── History toggle row ── */
+.hist-toggle-row {
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+  border-top: 2px dashed #cbd5e1;
+}
+.btn-hist-toggle {
+  display      : inline-flex;
+  align-items  : center;
+  gap          : .5rem;
+  padding      : .55rem 1.25rem;
+  background   : #f1f5f9;
+  border       : 2px solid #1d6fd8;
+  border-radius: 8px;
+  color        : #1d6fd8;
+  font-weight  : 600;
+  font-size    : .85rem;
+  cursor       : pointer;
+  transition   : all .2s;
+  white-space  : nowrap;
+}
+.btn-hist-toggle:hover,
+.btn-hist-active {
+  background: #1d6fd8 !important;
+  color     : #fff    !important;
+}
+
+/* ── History panel ── */
+.hist-panel        { margin-top: 1rem; }
+.hist-title        { color: #1d4ed8; margin-top: .5rem; }
+.hist-table-wrap   { overflow-x: auto; margin-top: .5rem; }
+.hist-table        { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.hist-table th     { background: #1e3a5f; color: #fff; padding: 8px 10px; font-size: .75rem; text-align: left; }
+.hist-table td     { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+.hist-row-current  { background: #dbeafe !important; font-weight: 600; }
+.hist-current-badge {
+  display: inline-block;
+  background: #1d6fd8; color: #fff;
+  font-size: .68rem; padding: 1px 6px;
+  border-radius: 10px; margin-left: 5px;
+}
+
+/* ── Equal-size footer buttons ── */
+.modal-footer {
+  display        : flex;
+  flex-wrap      : wrap;
+  gap            : .6rem;
+  margin-top     : 1.25rem;
+  padding-top    : 1rem;
+  border-top     : 1px solid #e2e8f0;
+  justify-content: flex-end;
+}
+.footer-btn {
+  flex           : 1 1 auto;
+  min-width      : 130px;
+  max-width      : 220px;
+  padding        : .6rem 1rem;
+  font-size      : .875rem;
+  font-weight    : 600;
+  border-radius  : 8px;
+  border         : none;
+  cursor         : pointer;
+  display        : inline-flex;
+  align-items    : center;
+  justify-content: center;
+  gap            : .4rem;
+  white-space    : nowrap;
+  transition     : opacity .2s;
+}
+.footer-btn:disabled { opacity: .55; cursor: not-allowed; }
