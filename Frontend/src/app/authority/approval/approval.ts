@@ -85,6 +85,11 @@ export class Approval implements OnInit, OnDestroy {
   passDocuments  = signal<DocumentRecord[]>([]);
   isLoadingDocs  = signal(false);
   docLoadError   = signal('');
+  // ── Pass History State ──────────────────────────────────────────────────────
+  empPassHistory   = signal<PassRecord[]>([]);
+  isLoadingHistory = signal(false);
+  historyLoadError = signal('');
+  showHistory      = signal(false);
 
   pendingList = computed(() => {
     const q    = this.searchText().toLowerCase().trim();
@@ -152,11 +157,19 @@ export class Approval implements OnInit, OnDestroy {
     this.activeAction.set(null);
     this.passDocuments.set([]);
     this.docLoadError.set('');
+    // ── reset history on each open ──
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.showHistory.set(false);
 
     if (p.vehicle?.vehicleId) {
       this.loadDocuments(p.vehicle.vehicleId);
     } else {
       this.docLoadError.set('No vehicle linked — cannot load documents.');
+    }
+    // ── load pass history for this employee ──
+    if (p.employeeNo) {
+      this.loadEmpPassHistory(p.employeeNo);
     }
   }
 
@@ -168,7 +181,11 @@ export class Approval implements OnInit, OnDestroy {
     this.activeAction.set(null);     // ← NEW
     this.passDocuments.set([]);
     this.docLoadError.set('');
-  }
+    // ── reset history ──
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.showHistory.set(false);
+    }
   setAction(action: 'modify'): void {
     this.activeAction.set(this.activeAction() === action ? null : action);
     this.actionError.set('');
@@ -233,6 +250,29 @@ export class Approval implements OnInit, OnDestroy {
         }
         this.isLoadingDocs.set(false);
       });
+  }
+  private loadEmpPassHistory(employeeNo: string): void {
+    this.isLoadingHistory.set(true);
+  this.historyLoadError.set('');
+
+  this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    .pipe(
+      timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+      catchError(err => {
+        this.historyLoadError.set(
+          'Could not load pass history (' + (err?.status || 'network error') + ')'
+        );
+        this.isLoadingHistory.set(false);
+        return of([]);
+      })
+    )
+    .subscribe(all => {
+      const history = (all || []).filter(
+        p => (p.employeeNo || '').toLowerCase() === employeeNo.toLowerCase()
+      );
+      this.empPassHistory.set(history);
+      this.isLoadingHistory.set(false);
+    });
   }
 
   // ── Open PDF in new tab using /api/documents/download/{id} ───────────────
