@@ -77,6 +77,7 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
   readonly isUploader  = computed(() => this.auth.isUploader());
   readonly isConfirmer = computed(() => this.auth.isConfirmer());
   readonly isApprover  = computed(() => this.auth.isApprover());
+  readonly isEmployee  = computed(() => this.auth.isRegularUser()); // ← NEW
   readonly empCode     = computed(() => this.auth.empCode());
 
   // ── Phase C — Gate Validation State ────────────────────────────
@@ -92,7 +93,7 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
   ngOnInit(): void { this.loadRecords(); }
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  // ── Load all records from backend ─────────────────────────────
+  // ── Load records — filtered by contractorId for non-authority users ──
   loadRecords(): void {
     this.isLoading.set(true);
     this.errorMsg.set('');
@@ -103,7 +104,20 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
         this.errorMsg.set(err?.error?.message || 'Failed to load records. Check network connection.');
         return of([]);
       })
-    ).subscribe(records => this.allRecords.set(records));
+    ).subscribe(records => {
+      // ── CONTRACTOR SCOPE FILTER ─────────────────────────────
+      // UPLOADER / CONFIRMER / APPROVER / ADMIN → see ALL records
+      // EMPLOYEE (Regular)                      → see ONLY their own contractorId records
+      const canSeeAll = this.auth.isConfirmer() || this.auth.isApprover() || this.auth.isUploader();
+      if (canSeeAll) {
+        this.allRecords.set(records);
+      } else {
+        const myCode = this.auth.empCode().trim().toUpperCase();
+        this.allRecords.set(
+          records.filter(r => r.contractorId.trim().toUpperCase() === myCode)
+        );
+      }
+    });
   }
 
   // ── Navigation ─────────────────────────────────────────────────
@@ -220,13 +234,11 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
   }
 
   // ── Helpers ────────────────────────────────────────────────────
-  // Extract driver name from employeeDetails array
   getDriverName(r: CvpsRequest): string {
     const driver = r.employeeDetails?.find(e => e.empJob?.toUpperCase() === 'DRIVER');
     return driver?.name || '—';
   }
 
-  // Format ISO datetime or date string → DD/MM/YYYY
   formatDate(d: string | undefined): string {
     if (!d || d.length < 10) return d ?? '—';
     const dateOnly = d.split('T')[0];
@@ -234,7 +246,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     return `${day}/${m}/${y}`;
   }
 
-  // Status → badge CSS class
   getStatusClass(s: string | undefined): string {
     switch ((s || '').toUpperCase()) {
       case 'APPROVED' : return 'vpl-badge-approved';
@@ -246,7 +257,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     }
   }
 
-  // Status → human-readable label
   getStatusLabel(s: string | undefined): string {
     switch ((s || '').toUpperCase()) {
       case 'CREATED'  : return 'Created';
@@ -258,7 +268,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     }
   }
 
-  // Check if modify is allowed (only CREATED or HOLD status)
   canModify(r: CvpsRequest): boolean {
     const s = (r.reqStatus || '').toUpperCase();
     return this.isUploader() && (s === 'CREATED' || s === 'HOLD');

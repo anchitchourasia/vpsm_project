@@ -5,32 +5,14 @@
     <div class="vp-header-left">
       <i class="bi bi-truck vp-header-icon"></i>
       <div>
-        <h1 class="vp-header-title">Vendor Vehicle / Contractor Permission Form</h1>
+        <h1 class="vp-header-title">Contractor Vehicle Permission Form</h1>
         <p class="vp-header-sub">{{ companyName }}</p>
       </div>
     </div>
     <div class="vp-form-no">{{ formNo }}</div>
   </div>
 
-  <!-- META CHIPS -->
-  <div class="vp-meta-row">
-    <div class="vp-meta-chip">
-      <i class="bi bi-calendar-event"></i>
-      <div><span class="vp-meta-label">Request Date</span><span class="vp-meta-value">{{ requestDate() }}</span></div>
-    </div>
-    <div class="vp-meta-chip">
-      <i class="bi bi-building"></i>
-      <div><span class="vp-meta-label">Department</span><span class="vp-meta-value">{{ department() }}</span></div>
-    </div>
-    <div class="vp-meta-chip">
-      <i class="bi bi-shield-check"></i>
-      <div><span class="vp-meta-label">Status</span><span class="vp-meta-value">{{ status() }}</span></div>
-    </div>
-    <div class="vp-meta-chip">
-      <i class="bi bi-truck-front"></i>
-      <div><span class="vp-meta-label">Category</span><span class="vp-meta-value">{{ category }}</span></div>
-    </div>
-  </div>
+  
 
   @if (saveMsg())  { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
   @if (errorMsg()) { <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div> }
@@ -39,6 +21,11 @@
   <div class="vp-section">
     <div class="vp-section-title">General Information</div>
     <div class="vp-grid-2">
+      <div class="vp-field">
+        <label class="vp-label">Contractor Code</label>
+        <input class="vp-input" type="text" placeholder="Enter contractor / vendor name"
+               [value]="contractorName()" (input)="contractorName.set($any($event.target).value)" />
+      </div>
       <div class="vp-field">
         <label class="vp-label">Contractor Name</label>
         <input class="vp-input" type="text" placeholder="Enter contractor / vendor name"
@@ -57,8 +44,7 @@
       <div class="vp-field"></div>
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
-        <input class="vp-input" type="date"
-               [value]="permissionDateFrom()" (input)="permissionDateFrom.set($any($event.target).value)" />
+        <input class="vp-input" type="date"[value]="permissionDateFrom()" (input)="permissionDateFrom.set($any($event.target).value)" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Permission Date To</label>
