@@ -41,12 +41,6 @@
   <div class="pe-emp-type-row">
     <span class="pe-emp-type-label">
       Employee Type <span class="req">*</span>
-      <!-- Lock badge shown only for regular employees -->
-      @if (isEcNoLocked) {
-        <span class="pe-field-lock-badge">
-          <i class="bi bi-lock-fill"></i> Locked to your account
-        </span>
-      }
     </span>
     <div class="pe-emp-type-options">
 
@@ -171,11 +165,6 @@
         <i class="bi bi-person-badge-fill"></i>
         <span>{{ empType() === 'Contractor' ? 'Contractor Details' : 'Employee Details' }}</span>
         <!-- Section-level lock indicator for regular employees -->
-        @if (isEcNoLocked) {
-          <span class="pe-section-lock-hint">
-            <i class="bi bi-lock-fill"></i> Auto-filled from your login session
-          </span>
-        }
       </div>
 
       @if (empType() === 'Company_Employee') {
@@ -245,7 +234,7 @@
               placeholder="Auto-filled from EC No" />
           </div>
 
-          <div class="pe-field">
+          <!-- <div class="pe-field">
             <label>
               Salary
               @if (isEcNoLocked) {
@@ -255,6 +244,14 @@
             <input type="text" class="pe-input pe-readonly"
               [value]="empSalary()" readonly
               placeholder="Auto-filled from EC No" />
+          </div> -->
+          <div class="pe-field">
+            <label>Aadhar Number</label>
+            <input type="text" class="pe-input"
+              placeholder="Enter 12-digit Aadhar No"
+              [(ngModel)]="empAadhar"
+              maxlength="12"
+              pattern="[0-9]{12}" />
           </div>
         </div>
       }

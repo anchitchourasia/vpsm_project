@@ -86,6 +86,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empName          = signal('');
   empDept          = signal('');
   empSalary        = signal('');
+  empAadhar        = ''; 
   isSaving         = signal(false);
   saved            = signal(false);
   saveSuccess      = signal('');
@@ -112,7 +113,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private draftPassId: string | null = null;
 
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
-  get isEcNoLocked(): boolean { return this.auth.isRegularUser(); }
+  get isEcNoLocked(): boolean { return false; }
 
   formatDateDDMMYYYY(isoDate: string): string {
     if (!isoDate || isoDate.length < 10) return isoDate ?? '';
@@ -229,6 +230,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empType.set(t);
     this.ecNo = ''; this.contractorCode = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
+    this.empAadhar = '';
     this.empFetchError.set(''); this.empData = null;
     this.clearAlerts();
   }
@@ -667,6 +669,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
+    this.empAadhar = '';
     this.empData = null;
     this.docs.set([]);
     this.passId.set(''); this.passIdGenerated.set(false);
