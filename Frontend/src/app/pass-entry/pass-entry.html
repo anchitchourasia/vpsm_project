@@ -288,7 +288,8 @@
       @if (empType() === 'Contractor') {
 
         <!-- ROW 1 : Contractor Code | EC No -->
-        <div class="pe-grid pe-grid-1">
+        <div class="pe-grid pe-grid-2">
+
           <div class="pe-field">
             <label>Contractor Code <span class="req">*</span></label>
             <div class="pe-input-group">
@@ -302,38 +303,39 @@
                 <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
               }
             </div>
-            <span class="pe-field-hint">Auto-fills Contractor Name, Email &amp; Agency on blur</span>
+            <span class="pe-field-hint">Auto-fills Name, Email &amp; Agency on blur</span>
           </div>
-        </div>
 
-        <!-- ROW 2 : Contractor Name | Email -->
-        <div class="pe-grid pe-grid-2">
           <div class="pe-field">
             <label>Contractor Name <span class="req">*</span></label>
             <input type="text" class="pe-input"
-              placeholder="Auto-filled from EC No or enter manually"
+              placeholder="Auto-filled or enter manually"
               [(ngModel)]="contractorName"
               maxlength="80" />
           </div>
 
+        </div>
+
+        <!-- ROW 2 : Email | Company / Agency -->
+        <div class="pe-grid pe-grid-2">
+
           <div class="pe-field">
             <label>Email</label>
             <input type="email" class="pe-input"
-              placeholder="Auto-filled from EC No or enter manually"
+              placeholder="Auto-filled or enter manually"
               [(ngModel)]="contractorEmail"
               maxlength="100" />
           </div>
-        </div>
 
-        <!-- ROW 3 : Company / Agency (full width) -->
-        <div class="pe-grid pe-grid-1">
           <div class="pe-field">
             <label>Company / Agency</label>
             <input type="text" class="pe-input pe-readonly"
               [value]="empDept()" readonly
-              placeholder="Auto-filled from EC No" />
+              placeholder="Auto-filled from Contractor Code" />
           </div>
+
         </div>
+
       }
 
       @if (empFetchError()) {

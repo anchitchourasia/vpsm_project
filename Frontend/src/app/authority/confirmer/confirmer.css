@@ -203,3 +203,40 @@
   color: #e65100;
   border: 1px solid #ffcc80;
 }
+/* ── Employee Pass History section ── */
+.hist-title          { margin-top: 2rem; border-top: 2px dashed #cbd5e1; padding-top: 1rem; color: #1d4ed8; }
+.hist-table-wrap     { margin-top: .75rem; overflow-x: auto; }
+.hist-table          { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.hist-table th       { background: #1e3a5f; color: #fff; padding: 8px 10px; text-align: left; font-size: .75rem; }
+.hist-table td       { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+.hist-row-current    { background: #dbeafe !important; font-weight: 600; }
+.hist-current-badge  {
+  display      : inline-block;
+  background   : #1d6fd8;
+  color        : #fff;
+  font-size    : .68rem;
+  padding      : 1px 6px;
+  border-radius: 10px;
+  margin-left  : 5px;
+}
+/* ── History toggle button ── */
+.hist-toggle-row     { margin: 1.5rem 0 0; }
+.btn-hist-toggle {
+  display      : inline-flex;
+  align-items  : center;
+  gap          : .5rem;
+  padding      : .5rem 1.25rem;
+  background   : #f1f5f9;
+  border       : 2px solid #1d6fd8;
+  border-radius: 8px;
+  color        : #1d6fd8;
+  font-weight  : 600;
+  font-size    : .85rem;
+  cursor       : pointer;
+  transition   : all .2s;
+}
+.btn-hist-toggle:hover,
+.btn-hist-active {
+  background   : #1d6fd8 !important;
+  color        : #fff    !important;
+}

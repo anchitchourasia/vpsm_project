@@ -89,6 +89,11 @@ export class Confirmer implements OnInit, OnDestroy {
   passDocuments  = signal<DocumentRecord[]>([]);
   isLoadingDocs  = signal(false);
   docLoadError   = signal('');
+  // ── Employee Pass History ─────────────────────────────────────────────────
+  empPassHistory    = signal<PassRecord[]>([]);
+  isLoadingHistory  = signal(false);
+  historyLoadError  = signal('');
+  showHistory = signal(false);
 
   pendingList = computed(() => {
     const q    = this.searchText().toLowerCase().trim();
@@ -154,12 +159,16 @@ export class Confirmer implements OnInit, OnDestroy {
     this.activeAction.set(null);          // ← reset armed state on open
     this.passDocuments.set([]);
     this.docLoadError.set('');
+    this.showHistory.set(false);
 
     if (p.vehicle?.vehicleId) {
       this.loadDocuments(p.vehicle.vehicleId);
     } else {
       this.docLoadError.set('No vehicle linked — cannot load documents.');
     }
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.loadEmpPassHistory(p.employeeNo);
   }
 
   closeDetails(): void {
@@ -170,6 +179,11 @@ export class Confirmer implements OnInit, OnDestroy {
     this.activeAction.set(null);          // ← reset armed state on close
     this.passDocuments.set([]);
     this.docLoadError.set('');
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.showHistory.set(false);
+
+    
   }
 
   // ── NEW: toggle armed state for Send for Modify button ───────────────────
@@ -330,7 +344,37 @@ export class Confirmer implements OnInit, OnDestroy {
         setTimeout(() => this.closeDetails(), 2000);
       });
   }
+  private loadEmpPassHistory(employeeNo: string): void {
+    if (!employeeNo) {
+    this.historyLoadError.set('No employee code linked to this pass.');
+    return;
+  }
+  this.isLoadingHistory.set(true);
+  this.historyLoadError.set('');
+  this.empPassHistory.set([]);
 
+  this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    .pipe(
+      timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+      catchError(err => {
+        this.historyLoadError.set(
+          'Could not load pass history (' + (err?.status || 'network error') + ')'
+        );
+        this.isLoadingHistory.set(false);
+        return of([]);
+      })
+    )
+    .subscribe(data => {
+      const history = (Array.isArray(data) ? data : [])
+        .filter(p => (p.employeeNo || '').toLowerCase() === employeeNo.toLowerCase())
+        .sort((a: any, b: any) => b.passId - a.passId);   // newest first
+      this.empPassHistory.set(history as any);
+      if (history.length === 0) {
+        this.historyLoadError.set('No pass history found for this employee.');
+      }
+      this.isLoadingHistory.set(false);
+    });
+  }
   private logHistory(passId: number, empCode: string, action: string, remark: string): void {
     const payload = {
       passNo: String(passId), empCode: empCode || 'SYSTEM',
