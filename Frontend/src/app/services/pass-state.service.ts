@@ -102,6 +102,7 @@ export class PassStateService {
 
   private zone    = inject(NgZone);
   private channel = new BroadcastChannel('pass_submitted_channel');
+  private http    = inject(HttpClient);
 
   // Initialize from localStorage — survives refresh & tab close
   private _passes = signal<PassRecord[]>(loadFromStorage());
@@ -149,27 +150,26 @@ export class PassStateService {
   );
 
   constructor() {
-  // Cross-tab sync — BroadcastChannel for submitted passes
-  this.channel.onmessage = (event) => {
-    if (event.data?.type === 'PASS_SUBMITTED') {
-      this.zone.run(() => this.upsert(event.data.record as PassRecord));
-    }
-    // ── NEW: draft saved or deleted in pass-entry tab → reload signal ──
-    if (event.data?.type === 'DRAFT_UPSERT' || event.data?.type === 'DRAFT_DELETED') {
-      this.zone.run(() => this._passes.set(loadFromStorage()));
-    }
-  };
-
-  // ── NEW: localStorage storage event — fires in OTHER tabs when localStorage changes ──
-  // This is the key fix: pass-entry tab writes localStorage → pass-details tab reloads signal
-  if (typeof window !== 'undefined') {
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'vpsm_pass_records') {
+    // Cross-tab sync — BroadcastChannel for submitted passes
+    this.channel.onmessage = (event) => {
+      if (event.data?.type === 'PASS_SUBMITTED') {
+        this.zone.run(() => this.upsert(event.data.record as PassRecord));
+      }
+      // ── NEW: draft saved or deleted in pass-entry tab → reload signal ──
+      if (event.data?.type === 'DRAFT_UPSERT' || event.data?.type === 'DRAFT_DELETED') {
         this.zone.run(() => this._passes.set(loadFromStorage()));
       }
-    });
+    };
+
+    // ── NEW: localStorage storage event — fires in OTHER tabs when localStorage changes ──
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'vpsm_pass_records') {
+          this.zone.run(() => this._passes.set(loadFromStorage()));
+        }
+      });
+    }
   }
-}
 
   // ── EXISTING METHODS (unchanged) ──────────────────────────────────────────
 
@@ -193,114 +193,43 @@ export class PassStateService {
   broadcast(record: PassRecord): void {
     this.channel.postMessage({ type: 'PASS_SUBMITTED', record });
   }
+
   /** Notify other tabs that a draft was saved/deleted so they reload */
   broadcastDraftChange(): void {
     this.channel.postMessage({ type: 'DRAFT_UPSERT' });
   }
-  private http    = inject(HttpClient);
-private _synced = false;
-// ── PASTE THIS BLOCK after private _synced = false; ──────────────────────
 
-private _empNameMap = signal<Record<string, string>>({});
+  // ── EMPLOYEE NAME LOOKUP ──────────────────────────────────────────────────
 
-/** Call once on app start. Fetches EMPLOYEE_REPORT and builds EC→Name lookup. */
-loadEmployeeNames(): void {
-  if (Object.keys(this._empNameMap()).length > 0) return; // guard: load only once
-  const headers = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
-    'Content-Type': 'application/json',
-  });
-  this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers })
-    .pipe(timeout(12_000), catchError(() => of([])))
-    .subscribe(employees => {
-      const map: Record<string, string> = {};
-      (employees || []).forEach(emp => {
-        // covers all possible field names your backend might return
-        const code = (emp.employeeCode ?? emp.empCode ?? emp.ec_no ?? emp.employeeNo ?? '')
-                       .toString().trim().toLowerCase();
-        const name = (emp.name ?? emp.employeeName ?? emp.emp_name ?? '')
-                       .toString().trim().toUpperCase();
-        if (code && name) map[code] = name;
-      });
-      this._empNameMap.set(map);
+  private _empNameMap = signal<Record<string, string>>({});
+
+  /** Call once on app start. Fetches EMPLOYEE_REPORT and builds EC→Name lookup. */
+  loadEmployeeNames(): void {
+    if (Object.keys(this._empNameMap()).length > 0) return;
+    const headers = new HttpHeaders({
+      'x-api-key'   : API_CONFIG.API_KEY,
+      'Content-Type': 'application/json',
     });
-}
-
-/** Resolve employee name from EC code. Returns '' if not found. */
-resolveEmpName(ecCode: string): string {
-  if (!ecCode) return '';
-  return this._empNameMap()[(ecCode).toString().trim().toLowerCase()] ?? '';
-}
-
-/**
- * Fetch all passes from the DB API and merge into the signal.
- * Called once from AppComponent or Home on load.
- * This ensures KPI counts reflect real DB data, not just localStorage.
- */
-syncFromApi(): void {
-  if (this._synced) return;   // only fetch once per app session
-  const headers = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
-    'Content-Type': 'application/json',
-  });
-  this.http.get<any[]>(API_CONFIG.PASSES, { headers })
-    .pipe(
-      timeout(12_000),
-      catchError(() => of([]))
-    )
-    .subscribe(dbPasses => {
-      if (!dbPasses?.length) return;
-      this._synced = true;
-      this.zone.run(() => {
-        for (const db of dbPasses) {
-          const passId = `PASS-HEG-${String(db.passId).padStart(4, '0')}`;
-          const existing = this._passes().find(p => p.passId === passId);
-
-          // Map DB status → WorkflowStatus
-          const workflowStatus = this._dbStatusToWorkflow(db.status ?? '');
-
-          // Build a minimal PassRecord from DB row
-          // Merge with existing local record if present (keeps docs/names intact)
-          const merged: PassRecord = {
-            passId,
-            empType       : db.empType        ?? existing?.empType        ?? '',
-            vehicleNo     : db.vehicle?.vehicleNo ?? existing?.vehicleNo  ?? db.typeOfVehicle ?? '',
-            vehicleType   : db.vehicle?.vehicleType ?? existing?.vehicleType ?? db.typeOfVehicle ?? '',
-            vehicleClass  : db.vehicle?.vehicleClass ?? existing?.vehicleClass ?? '',
-            brandModel    : db.vehicle?.brandModel   ?? existing?.brandModel   ?? '',
-            ecNo          : db.employeeNo    ?? existing?.ecNo            ?? '',
-            empName       : db.employeeName  ?? existing?.empName         ?? db.empName ?? '',
-            empDept       : db.dept          ?? existing?.empDept         ?? db.department ?? '',
-            contractorFirm: db.contractorCode ?? existing?.contractorFirm ?? '',
-            issueDate     : db.issueDate     ?? existing?.issueDate       ?? '',
-            validityDate  : db.validityDate  ?? existing?.validityDate    ?? '',
-            gateNo        : db.assignedGate  ?? existing?.gateNo          ?? '',
-            parkingArea   : existing?.parkingArea ?? '',
-            remark        : db.remark        ?? existing?.remark          ?? '',
-            docs          : existing?.docs   ?? [],
-            status        : 'Submitted',
-            createdAt     : db.issueDate     ?? existing?.createdAt       ?? new Date().toISOString(),
-            workflowStatus,
-            confirmedBy   : db.enterBy       ?? existing?.confirmedBy,
-            approvedBy    : db.enterBy       ?? existing?.approvedBy,
-          };
-          this.upsert(merged);
-        }
+    this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers })
+      .pipe(timeout(12_000), catchError(() => of([])))
+      .subscribe(employees => {
+        const map: Record<string, string> = {};
+        (employees || []).forEach(emp => {
+          const code = (emp.employeeCode ?? emp.empCode ?? emp.ec_no ?? emp.employeeNo ?? '')
+                         .toString().trim().toLowerCase();
+          const name = (emp.name ?? emp.employeeName ?? emp.emp_name ?? '')
+                         .toString().trim().toUpperCase();
+          if (code && name) map[code] = name;
+        });
+        this._empNameMap.set(map);
       });
-    });
-}
-
-private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
-  switch ((dbStatus || '').toLowerCase()) {
-    case 'submitted'  : return 'Submitted';
-    case 'confirmed'  : return 'Confirmed';
-    case 'active'     : return 'Approved';
-    case 'rejected'   : return 'Confirmation_Rejected';
-    case 'surrendered': return 'Approval_Rejected';
-    case 'expired'    : return 'Approval_Rejected';
-    default           : return 'Submitted';
   }
-} 
+
+  /** Resolve employee name from EC code. Returns '' if not found. */
+  resolveEmpName(ecCode: string): string {
+    if (!ecCode) return '';
+    return this._empNameMap()[(ecCode).toString().trim().toLowerCase()] ?? '';
+  }
 
   /** Mark a saved pass as submitted — also syncs workflowStatus */
   markSubmitted(passId: string): void {
@@ -339,21 +268,11 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
 
   // ── NEW WORKFLOW TRANSITION METHODS ───────────────────────────────────────
 
-  /**
-   * CONFIRMER — Confirm a submitted request.
-   * Transition: Submitted → Confirmed
-   */
   confirmRequest(passId: string, confirmedBy: string, remark: string): void {
     this._passes.update(list => {
       const updated = list.map(p =>
         p.passId === passId && p.workflowStatus === 'Submitted'
-          ? {
-              ...p,
-              workflowStatus : 'Confirmed' as WorkflowStatus,
-              confirmedBy,
-              confirmedAt    : new Date().toISOString(),
-              confirmerRemark: remark
-            }
+          ? { ...p, workflowStatus: 'Confirmed' as WorkflowStatus, confirmedBy, confirmedAt: new Date().toISOString(), confirmerRemark: remark }
           : p
       );
       saveToStorage(updated);
@@ -361,21 +280,11 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     });
   }
 
-  /**
-   * CONFIRMER — Reject a submitted request.
-   * Transition: Submitted → Confirmation_Rejected
-   */
   rejectByConfirmer(passId: string, confirmedBy: string, remark: string): void {
     this._passes.update(list => {
       const updated = list.map(p =>
         p.passId === passId && p.workflowStatus === 'Submitted'
-          ? {
-              ...p,
-              workflowStatus : 'Confirmation_Rejected' as WorkflowStatus,
-              confirmedBy,
-              confirmedAt    : new Date().toISOString(),
-              confirmerRemark: remark
-            }
+          ? { ...p, workflowStatus: 'Confirmation_Rejected' as WorkflowStatus, confirmedBy, confirmedAt: new Date().toISOString(), confirmerRemark: remark }
           : p
       );
       saveToStorage(updated);
@@ -383,22 +292,11 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     });
   }
 
-  /**
-   * APPROVER — Approve a confirmed request.
-   * Transition: Confirmed → Approved
-   * Record now appears in approvedPasses → Active Pass list.
-   */
   approveRequest(passId: string, approvedBy: string, remark: string): void {
     this._passes.update(list => {
       const updated = list.map(p =>
         p.passId === passId && p.workflowStatus === 'Confirmed'
-          ? {
-              ...p,
-              workflowStatus: 'Approved' as WorkflowStatus,
-              approvedBy,
-              approvedAt    : new Date().toISOString(),
-              approverRemark: remark
-            }
+          ? { ...p, workflowStatus: 'Approved' as WorkflowStatus, approvedBy, approvedAt: new Date().toISOString(), approverRemark: remark }
           : p
       );
       saveToStorage(updated);
@@ -406,21 +304,11 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     });
   }
 
-  /**
-   * APPROVER — Reject a confirmed request.
-   * Transition: Confirmed → Approval_Rejected
-   */
   rejectByApprover(passId: string, approvedBy: string, remark: string): void {
     this._passes.update(list => {
       const updated = list.map(p =>
         p.passId === passId && p.workflowStatus === 'Confirmed'
-          ? {
-              ...p,
-              workflowStatus: 'Approval_Rejected' as WorkflowStatus,
-              approvedBy,
-              approvedAt    : new Date().toISOString(),
-              approverRemark: remark
-            }
+          ? { ...p, workflowStatus: 'Approval_Rejected' as WorkflowStatus, approvedBy, approvedAt: new Date().toISOString(), approverRemark: remark }
           : p
       );
       saveToStorage(updated);
@@ -428,21 +316,11 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     });
   }
 
-  /**
-   * Return a confirmation-rejected record back to Submitted
-   * (user re-submits after confirmer sends it back)
-   */
   returnToSubmitted(passId: string): void {
     this._passes.update(list => {
       const updated = list.map(p =>
         p.passId === passId && p.workflowStatus === 'Confirmation_Rejected'
-          ? {
-              ...p,
-              workflowStatus : 'Submitted' as WorkflowStatus,
-              confirmedBy    : undefined,
-              confirmedAt    : undefined,
-              confirmerRemark: undefined
-            }
+          ? { ...p, workflowStatus: 'Submitted' as WorkflowStatus, confirmedBy: undefined, confirmedAt: undefined, confirmerRemark: undefined }
           : p
       );
       saveToStorage(updated);
@@ -450,25 +328,20 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     });
   }
 
-  // ── TEMPLATE HELPERS ──────────────────────────────────────────────────────
+  // ── NAVIGATION STATE ──────────────────────────────────────────────────────
+  private _resumeDraftData = signal<PassRecord | null>(null);
+  private _resumeModData   = signal<any | null>(null);
 
-  /**
-   * Human-readable label for workflow status badges.
-   * Usage in template: {{ passState.getStatusLabel(p.workflowStatus) }}
-   */
-  // ── NAVIGATION STATE — replaces localStorage for resume draft/modification ──
-  // In-memory only. Works on any PC. Dies on page refresh (correct behaviour —
-  // user should not land on pass-entry with stale pre-fill data after refresh).
-  private _resumeDraftData        = signal<PassRecord | null>(null);
-  private _resumeModData          = signal<any | null>(null);
-
-  readonly resumeDraftData        = this._resumeDraftData.asReadonly();
-  readonly resumeModData          = this._resumeModData.asReadonly();
+  readonly resumeDraftData = this._resumeDraftData.asReadonly();
+  readonly resumeModData   = this._resumeModData.asReadonly();
 
   setResumeDraft(data: PassRecord): void { this._resumeDraftData.set(data); }
   clearResumeDraft():               void { this._resumeDraftData.set(null); }
   setResumeMod(data: any):          void { this._resumeModData.set(data);   }
   clearResumeMod():                 void { this._resumeModData.set(null);   }
+
+  // ── TEMPLATE HELPERS ──────────────────────────────────────────────────────
+
   getStatusLabel(ws: WorkflowStatus | undefined): string {
     switch (ws) {
       case 'Draft'                 : return 'Draft';
@@ -481,17 +354,6 @@ private _dbStatusToWorkflow(dbStatus: string): WorkflowStatus {
     }
   }
 
-  /**
-   * CSS badge class for workflow status.
-   * Usage in template: [ngClass]="passState.getStatusClass(p.workflowStatus)"
-   *
-   * Add these to your global styles.css:
-   *   .badge-draft      { background:#94a3b8; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; }
-   *   .badge-submitted  { background:#3b82f6; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; }
-   *   .badge-confirmed  { background:#f59e0b; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; }
-   *   .badge-approved   { background:#22c55e; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; }
-   *   .badge-rejected   { background:#ef4444; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; }
-   */
   getStatusClass(ws: WorkflowStatus | undefined): string {
     switch (ws) {
       case 'Draft'                 : return 'badge-draft';

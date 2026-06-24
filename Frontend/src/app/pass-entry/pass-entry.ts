@@ -664,14 +664,14 @@ export class PassEntry implements OnInit, OnDestroy {
     }
     this.draftPassId = null;
 
-    this.passState.upsert({
-      ...record,
-      workflowStatus: 'Submitted',
-      submittedBy   : this.auth.empCode() || 'REQUESTER',
-      submittedAt   : new Date().toISOString(),
-    });
+    // this.passState.upsert({
+    //   ...record,
+    //   workflowStatus: 'Submitted',
+    //   submittedBy   : this.auth.empCode() || 'REQUESTER',
+    //   submittedAt   : new Date().toISOString(),
+    // });
 
-    this.passState.markSubmitted(record.passId);
+    // this.passState.markSubmitted(record.passId);
 
     const action = this.modificationRemark() ? 'RESUBMITTED' : 'SUBMITTED';
     this.logHistory(

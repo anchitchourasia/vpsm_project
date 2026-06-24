@@ -6,8 +6,6 @@ import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
-import { PassStateService, PassRecord } from '../services/pass-state.service';
-import { Router } from '@angular/router';
 
 const USE_DUMMY_DATA = false;
 const HTTP_TIMEOUT_MS = 12000;
@@ -64,8 +62,6 @@ const EMPTY_FORM = (): PassForm => ({
 })
 export class Passes implements OnInit, OnDestroy {
   private auth = inject(AuthService);
-  private passState = inject(PassStateService);
-  private router = inject(Router);
   private readonly HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
@@ -181,31 +177,8 @@ export class Passes implements OnInit, OnDestroy {
           );
         }
 
-        // ✅ NEW — merge localStorage drafts + saved records so they show in registry
-        const localRecords: any[] = this.passState.passes()
-          .filter(r => r.status === 'Saved' || r.status === 'Submitted')
-          .map(r => ({
-            passId: r.passId,          // already the numeric string from DB
-            employeeNo: r.ecNo,
-            contractorCode: r.contractorFirm,
-            dept: r.empDept,
-            empType: r.empType,
-            vehicle: { vehicleNo: r.vehicleNo, vehicleType: r.vehicleType, vehicleClass: r.vehicleClass },
-            gateNo: r.gateNo,
-            issueDate: r.issueDate,
-            validityDate: r.validityDate,
-            parkingToBeUsed: r.parkingArea,
-            remarks: r.remark,
-            status: r.status === 'Saved' ? 'Draft' : 'Submitted',
-            empName: r.empName,
-            _localRecord: r,   // keep full PassRecord for edit resume
-          }));
-
-        // Deduplicate — DB record wins over local if same passId
-        const dbIds = new Set(filtered.map((p: any) => String(p.passId)));
-        const onlyLocal = localRecords.filter(r => !dbIds.has(String(r.passId)));
-
-        this.allPassesRaw.set([...filtered, ...onlyLocal]);
+        // ✅ Only DB data — no localStorage merge
+        this.allPassesRaw.set(filtered);
         this.isLoading.set(false);
       });
   }
@@ -314,9 +287,9 @@ export class Passes implements OnInit, OnDestroy {
       case 'expiring': return 'badge badge-expiring';
       case 'expired': return 'badge badge-expired';
       case 'surrendered': return 'badge badge-surrendered';
-      case 'draft': return 'badge badge-draft';      // ← add this
-      case 'submitted': return 'badge badge-submitted';  // ← add this
-      case 'confirmed': return 'badge badge-confirmed';  // ← add this
+      case 'draft': return 'badge badge-draft';
+      case 'submitted': return 'badge badge-submitted';
+      case 'confirmed': return 'badge badge-confirmed';
       default: return 'badge badge-surrendered';
     }
   }
@@ -371,6 +344,7 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   closeModal() { this.showModal.set(false); }
+
   openViewModal(p: any): void {
     this.viewPass.set(p);
     this.viewPassDocs.set([]);
@@ -604,6 +578,7 @@ export class Passes implements OnInit, OnDestroy {
         }
       });
   }
+
   // ✅ Download pass — only enabled for Active status
   downloadPass(p: any): void {
     const passId = String(p.passId);
@@ -640,16 +615,8 @@ export class Passes implements OnInit, OnDestroy {
     URL.revokeObjectURL(url);
   }
 
-  // ✅ Edit — for DB records: opens edit modal (existing behaviour)
-  //         for local draft records: resumes pass-entry form
+  // ✅ Edit — always opens the inline DB edit modal
   openEditInPassEntry(p: any): void {
-    if (p._localRecord) {
-      // It's a local draft — resume in pass-entry form
-      this.passState.setResumeDraft(p._localRecord);
-      this.router.navigate(['/pass-entry']);
-    } else {
-      // It's a DB record — open the existing inline edit modal
-      this.openEditModal(p);
-    }
+    this.openEditModal(p);
   }
 }
