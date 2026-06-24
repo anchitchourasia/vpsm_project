@@ -167,10 +167,17 @@ export class Passes implements OnInit, OnDestroy {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
 
-        let filtered = raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft');
+        // ✅ Drafts visible only to their creator — all other statuses pass through
+        const myCode = this.auth.empCode().trim().toLowerCase();
+        let filtered = raw.filter((p: any) => {
+          const st = (p.status || '').toLowerCase();
+          if (st === 'draft') {
+            return (p.enterBy || '').toLowerCase() === myCode;
+          }
+          return true;
+        });
 
         if (this.auth.isRegularUser()) {
-          const myCode = this.auth.empCode().trim().toLowerCase();
           filtered = filtered.filter((p: any) =>
             (p.enterBy || '').toLowerCase() === myCode ||
             (p.employeeNo || '').toLowerCase() === myCode
@@ -199,11 +206,18 @@ export class Passes implements OnInit, OnDestroy {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
 
-        let filtered = raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft');
+        // ✅ Same draft-owner filter on every 30s background poll
+        const myCode = this.auth.empCode().trim().toLowerCase();
+        let filtered = raw.filter((p: any) => {
+          const st = (p.status || '').toLowerCase();
+          if (st === 'draft') {
+            return (p.enterBy || '').toLowerCase() === myCode;
+          }
+          return true;
+        });
 
         // ✅ Same employee filter applied on every 30s background poll
         if (this.auth.isRegularUser()) {
-          const myCode = this.auth.empCode().trim().toLowerCase();
           filtered = filtered.filter((p: any) =>
             (p.enterBy || '').toLowerCase() === myCode ||
             (p.employeeNo || '').toLowerCase() === myCode
@@ -212,7 +226,6 @@ export class Passes implements OnInit, OnDestroy {
 
         this.allPassesRaw.set(filtered);
       });
-
   }
 
   onVehicleIdBlur() {
