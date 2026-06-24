@@ -44,6 +44,7 @@ export const routes: Routes = [
   // PASS MANAGEMENT — protected
   { path: 'pass-entry',   canActivate: [authGuard], loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
   { path: 'pass-details', canActivate: [authGuard], loadComponent: () => import('./pass-details/pass-details').then(m => m.PassDetails) },
+  { path: 'pass-list',    canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
   
   // VEHICLE PERMISSION — protected
   { path: 'vehicle-permission/add',  canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-form/vehicle-permission-form').then(m => m.VehiclePermissionForm) },
