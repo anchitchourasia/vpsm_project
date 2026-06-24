@@ -8,14 +8,14 @@ import { API_CONFIG } from '../core/api.config';
 import { PassStateService, PassRecord } from '../services/pass-state.service';
 import { AuthService } from '../core/auth.service';
 
-
 const HTTP_TIMEOUT_MS = 12000;
 
-// ✅ index 3 = aadhar (between salary[2] and email[4])
-const EMP_IDX = { empNo: 0, name: 1, salary: 2, aadhar: 3, email: 4, deptName: 6 };
+// ✅ API now returns named-key objects — EMP_IDX array approach removed
+// API shape: { id, name, deptCode, deptName, contractorCode, contractorNo, aadhaarNo, empType }
 
 function formatPassId(dbPassId: number): string {
-  return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
+  // ✅ ACTUAL DB id shown as-is — no PASS-HEG prefix, no padding
+  return String(dbPassId);
 }
 
 interface DocEntry {
@@ -91,7 +91,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empType_display  = signal('');
   empDeptCode      = signal('');
 
-  // ✅ NOW a signal — auto-filled from employee API, readonly in the form
+  // ✅ Aadhar — signal, auto-filled readonly from employee API
   empAadhar        = signal('');
 
   empContractorCode  = '';
@@ -99,11 +99,11 @@ export class PassEntry implements OnInit, OnDestroy {
   empContractorEmail = '';
   contractorName     = '';
   contractorEmail    = '';
-  isSaving         = signal(false);
-  saved            = signal(false);
-  saveSuccess      = signal('');
-  saveError        = signal('');
-  docs             = signal<DocEntry[]>([]);
+  isSaving           = signal(false);
+  saved              = signal(false);
+  saveSuccess        = signal('');
+  saveError          = signal('');
+  docs               = signal<DocEntry[]>([]);
 
   modificationRemark = signal<string>('');
   isModificationMode = signal(false);
@@ -123,6 +123,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private empData: any = null;
   private savedVehicleId: number | null = null;
   private savedPassRegistryId: number | null = null;
+  // ✅ draftPassId now stores the real numeric DB pass id (as string) — no DRAFT- prefix
   private draftPassId: string | null = null;
 
   get todayDate(): string { return new Date().toISOString().split('T')[0]; }
@@ -187,7 +188,7 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passIdGenerated.set(true);
       this.saved.set(true);
       this.saveSuccess.set(
-        `Draft resumed — ${draft.passId}. Add all 5 documents and click Submit to register.`
+        `Draft resumed — Pass ID: ${draft.passId}. Add all 5 documents and click Submit to register.`
       );
       return;
     }
@@ -226,7 +227,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
       this.savedPassRegistryId = modData.passId ?? null;
       this.passId.set(
-        modData.passId ? `PASS-HEG-${String(modData.passId).padStart(4, '0')}` : ''
+        modData.passId ? String(modData.passId) : ''
       );
       this.passIdGenerated.set(!!modData.passId);
       this.saved.set(false);
@@ -243,7 +244,6 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empType.set(t);
     this.ecNo = ''; this.contractorCode = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
-    // ✅ reset aadhar signal
     this.empAadhar.set('');
     this.empEmail.set('');
     this.contractorName  = '';
@@ -279,12 +279,12 @@ export class PassEntry implements OnInit, OnDestroy {
   onEcNoBlur(): void {
     const ecNo = this.ecNo.trim();
     if (!ecNo) return;
+
     this.empFetchError.set('');
     this.empName.set('');
     this.empDept.set('');
     this.empSalary.set('');
     this.empEmail.set('');
-    // ✅ reset aadhar on new lookup
     this.empAadhar.set('');
     this.contractorName  = '';
     this.contractorEmail = '';
@@ -310,29 +310,43 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empFetchError.set('Employee list empty — check backend connection.');
           return;
         }
-        const match = rows.find(r => String(r[EMP_IDX.empNo]) === ecNo);
+
+        // ✅ API is now named-key objects — match by:
+        //    Company_Employee → r.id  (numeric employee id)
+        //    Contractor       → r.contractorNo  (e.g. "C1001")
+        let match: any;
+        if (this.empType() === 'Contractor') {
+          match = rows.find(r =>
+            r.contractorNo && String(r.contractorNo).toUpperCase() === ecNo.toUpperCase()
+          );
+        } else {
+          match = rows.find(r => String(r.id) === ecNo);
+        }
+
         if (match) {
           this.empData = match;
-          this.empName.set(String(match[EMP_IDX.name]    || ''));
-          this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
-          this.empSalary.set(String(match[EMP_IDX.salary] || ''));
-          this.empEmail.set(String(match[EMP_IDX.email]   || ''));
-          // ✅ auto-fill Aadhar from API index 3 (or named key fallback)
-          this.empAadhar.set(String(
-            match[EMP_IDX.aadhar] ||
-            match['aadhar'] ||
-            match['aadharNo'] ||
-            match['aadhaarNo'] ||
-            match['aadharNumber'] ||
-            ''
-          ));
-          this.empDeptCode.set(String(match[5] || match['deptCode'] || match['departmentCode'] || ''));
-          this.empType_display.set(this.empType() === 'Company_Employee' ? 'Company Employee' : 'Contractor');
-          this.contractorName  = String(match[EMP_IDX.name]  || '');
-          this.contractorEmail = String(match[EMP_IDX.email] || '');
+          // ✅ All fields from named keys
+          this.empName.set(String(match.name     || ''));
+          this.empDept.set(String(match.deptName || '').toUpperCase());
+          this.empDeptCode.set(String(match.deptCode || ''));
+          this.empSalary.set('');   // salary not in new API — keep blank
+          this.empEmail.set('');    // email not in new API — keep blank
+          // ✅ Aadhar from named key aadhaarNo
+          this.empAadhar.set(String(match.aadhaarNo || match.aadharNo || match.aadhar || ''));
+          // ✅ For contractor form
+          this.empContractorCode = String(match.contractorCode || '');
+          this.contractorName    = String(match.name || '');
+          this.contractorEmail   = '';
+          this.empType_display.set(
+            this.empType() === 'Company_Employee' ? 'Company Employee' : 'Contractor'
+          );
           this.empFetchError.set('');
         } else {
-          this.empFetchError.set(`No employee found for EC No: ${ecNo}`);
+          this.empFetchError.set(
+            this.empType() === 'Contractor'
+              ? `No contractor found for Code: ${ecNo}`
+              : `No employee found for ID: ${ecNo}`
+          );
         }
       });
   }
@@ -406,66 +420,40 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // onSave — DRAFT logic:
+  //   ✅ Calls persistDraftToDB() FIRST
+  //   ✅ Waits for real DB passId → sets passId signal to actual numeric id
+  //   ✅ No more DRAFT-timestamp shown — user sees real DB id like 126, 127
+  //   ✅ No two saves can get same id — DB auto-increment guarantees uniqueness
+  // ══════════════════════════════════════════════════════════════════════
   onSave(): void {
-     if (!this.validityDate) this.validityDate = this.todayDate;
-     this.issueDate = this.todayDate;
-     if (!this.validityDate) this.validityDate = this.todayDate;
-     const err = this.validate();
-     if (err) { this.saveError.set(err); return; }
+    if (!this.validityDate) this.validityDate = this.todayDate;
+    this.issueDate = this.todayDate;
+    const err = this.validate();
+    if (err) { this.saveError.set(err); return; }
 
-    if (!this.passIdGenerated()) {
-      const draftId = `DRAFT-${Date.now()}`;
-      this.passId.set(draftId);
-      this.passIdGenerated.set(true);
-      this.draftPassId = draftId;
+    // ✅ If already saved once (has a real DB id), just update local state — no duplicate DB entry
+    if (this.passIdGenerated() && this.savedPassRegistryId) {
+      const record = this._buildRecord('Saved');
+      this.passState.upsert(record);
+      this.passState.broadcastDraftChange();
+      this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+      this.saved.set(true);
+      this.saveSuccess.set(
+        `Draft updated — Pass ID: ${this.passId()}. Add all 5 documents then click Submit to register.`
+      );
+      return;
     }
 
-    const record: PassRecord = {
-      passId        : this.passId(),
-      empType       : this.empType(),
-      vehicleNo     : this.vehicleNo,
-      vehicleType   : this.vehicleType,
-      vehicleClass  : this.vehicleClass,
-      brandModel    : this.brandModel,
-      ecNo          : this.ecNo,
-      empName       : this.empName(),
-      empDept       : this.empDept(),
-      contractorFirm: this.contractorCode,
-      issueDate     : this.todayDate,
-      validityDate  : this.validityDate,
-      gateNo        : this.gateNo,
-      parkingArea   : this.parkingArea,
-      remark        : this.remark,
-      docs          : this.docs().map(d => ({
-        docType  : d.docType,
-        docNo    : d.docNo,
-        validUpto: d.validUpto,
-      })),
-      status   : 'Saved',
-      createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-    };
-
-    this.passState.upsert(record);
-    this.passState.broadcastDraftChange();
-    this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-    this.saved.set(true);
-    this.saveSuccess.set(
-      `Draft saved — ${this.passId()}. Add all 5 documents then click Submit to register.`
-    );
-    this.logHistory(
-      this.passId(),
-      'DRAFT_SAVED',
-      this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
-      `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
-    );
-
-    this.persistDraftToDB(record);
+    // ✅ First save → persist to DB, get real id, then show it
+    this.isSaving.set(true);
+    this.persistDraftToDB();
   }
 
   onSubmit(): void {
     if (!this.validityDate) this.validityDate = this.todayDate;
     this.issueDate = this.todayDate;
-    if (!this.validityDate) this.validityDate = this.todayDate;
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
     const docErr = this.validateSubmit();
@@ -476,7 +464,13 @@ export class PassEntry implements OnInit, OnDestroy {
     this.step1RegisterVehicle();
   }
 
-  private persistDraftToDB(record: PassRecord): void {
+  // ══════════════════════════════════════════════════════════════════════
+  // persistDraftToDB — saves vehicle + pass (status=Draft) to DB
+  //   ✅ On success: sets this.passId to actual DB numeric id
+  //   ✅ Shows that id to user immediately — fully trackable in DB
+  //   ✅ isSaving spinner shown during this call (unlike old silent version)
+  // ══════════════════════════════════════════════════════════════════════
+  private persistDraftToDB(): void {
     const vehiclePayload = {
       vehicleNo    : this.vehicleNo.trim().toUpperCase(),
       vehicleType  : this.vehicleType.trim(),
@@ -490,10 +484,13 @@ export class PassEntry implements OnInit, OnDestroy {
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(() => of(null))
+        catchError(err => {
+          this.handleSaveError(err, 'Draft — Vehicle');
+          return of(null);
+        })
       )
       .subscribe(vRes => {
-        if (!vRes) return;
+        if (!vRes) { this.isSaving.set(false); return; }
         this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
 
         const passPayload = {
@@ -511,18 +508,47 @@ export class PassEntry implements OnInit, OnDestroy {
           empType          : this.empType(),
           enterBy          : this.auth.empCode() || 'REQUESTER',
           enterDate        : this.todayDate,
-          remarks          : record.passId,
+          remarks          : this.remark.trim() || null,
         };
 
         this.http.post<any>(API_CONFIG.PASSES_ISSUE, passPayload, { headers: this.HEADERS })
           .pipe(
             timeout(HTTP_TIMEOUT_MS),
             takeUntil(this.destroy$),
-            catchError(() => of(null))
+            catchError(err => {
+              this.handleSaveError(err, 'Draft — Pass');
+              return of(null);
+            })
           )
           .subscribe(pRes => {
+            this.isSaving.set(false);
             if (!pRes) return;
-            this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
+
+            // ✅ Real DB numeric pass id — no DRAFT prefix, no template
+            const realDbId = pRes.passId ?? pRes.id ?? null;
+            this.savedPassRegistryId = realDbId;
+
+            const realIdStr = realDbId ? String(realDbId) : `PENDING-${Date.now()}`;
+            this.passId.set(realIdStr);
+            this.passIdGenerated.set(true);
+            this.draftPassId = realIdStr;
+
+            const record = this._buildRecord('Saved');
+            this.passState.upsert(record);
+            this.passState.broadcastDraftChange();
+            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+            this.saved.set(true);
+
+            this.logHistory(
+              realDbId,
+              'DRAFT_SAVED',
+              this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+              `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
+            );
+
+            this.saveSuccess.set(
+              `Draft saved — Pass ID: ${realIdStr}. Add all 5 documents then click Submit to register.`
+            );
           });
       });
   }
@@ -574,6 +600,7 @@ export class PassEntry implements OnInit, OnDestroy {
       .subscribe(pRes => {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
+        // ✅ Actual DB numeric id
         const realId = formatPassId(this.savedPassRegistryId!);
         this.passId.set(realId);
         this.passIdGenerated.set(true);
@@ -630,30 +657,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.isSaving.set(false);
     this.saved.set(true);
 
-    const record: PassRecord = {
-      passId        : this.passId(),
-      empType       : this.empType(),
-      vehicleNo     : this.vehicleNo,
-      vehicleType   : this.vehicleType,
-      vehicleClass  : this.vehicleClass,
-      brandModel    : this.brandModel,
-      ecNo          : this.ecNo,
-      empName       : this.empName(),
-      empDept       : this.empDept(),
-      contractorFirm: this.contractorCode,
-      issueDate     : this.todayDate,
-      validityDate  : this.validityDate,
-      gateNo        : this.gateNo,
-      parkingArea   : this.parkingArea,
-      remark        : this.remark,
-      docs          : this.docs().map(d => ({
-        docType  : d.docType,
-        docNo    : d.docNo,
-        validUpto: d.validUpto,
-      })),
-      status   : 'Submitted',
-      createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-    };
+    const record = this._buildRecord('Submitted');
 
     if (this.draftPassId && this.draftPassId !== this.passId()) {
       this.passState.deleteDraft(this.draftPassId);
@@ -695,12 +699,39 @@ export class PassEntry implements OnInit, OnDestroy {
     }, 2200);
   }
 
+  // ✅ Shared helper to build PassRecord — avoids duplication
+  private _buildRecord(status: 'Saved' | 'Submitted'): PassRecord {
+    return {
+      passId        : this.passId(),
+      empType       : this.empType(),
+      vehicleNo     : this.vehicleNo,
+      vehicleType   : this.vehicleType,
+      vehicleClass  : this.vehicleClass,
+      brandModel    : this.brandModel,
+      ecNo          : this.ecNo,
+      empName       : this.empName(),
+      empDept       : this.empDept(),
+      contractorFirm: this.contractorCode,
+      issueDate     : this.todayDate,
+      validityDate  : this.validityDate,
+      gateNo        : this.gateNo,
+      parkingArea   : this.parkingArea,
+      remark        : this.remark,
+      docs          : this.docs().map(d => ({
+        docType  : d.docType,
+        docNo    : d.docNo,
+        validUpto: d.validUpto,
+      })),
+      status   : status,
+      createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    };
+  }
+
   clearForm(): void {
     this.vehicleNo = ''; this.vehicleType = ''; this.brandModel = ''; this.vehicleClass = '';
     this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
-    // ✅ reset aadhar signal
     this.empAadhar.set('');
     this.empDeptCode.set('');
     this.empType_display.set('');
