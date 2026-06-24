@@ -105,22 +105,25 @@
                   {{ p.status || p.passStatus || '—' }}
                 </span>
               </td>
-              <td>
-                <div class="action-btns">
-                  <!-- View is always shown for all statuses -->
-                  <!-- <button class="btn-icon-view" title="View" (click)="openViewModal(p)">
-                    <i class="bi bi-eye"></i> View
-                  </button> -->
-                  <!-- ✅ CHANGE 2 — Edit hidden when status is Active -->
               <td class="actions-cell">
 
-                <!-- View button — unchanged -->
+                <!-- View button — always visible for all roles -->
                 <button class="btn-view" (click)="openViewModal(p)" title="View">
                   👁 View
                 </button>
 
-                <!-- ✅ Edit — resumes pass-entry for drafts, inline modal for DB records -->
-                <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume">
+                <!--
+                  ✅ Edit button visibility rules:
+                  - UPLOADER : hide when status is Confirmed OR Active
+                               (pass has moved past their stage — confirmer/approver owns it)
+                  - CONFIRMER: hide when status is Confirmed
+                               (already confirmed — no re-edit from confirmer side)
+                  - APPROVER : hide when status is Active
+                               (already approved/activated — no re-edit from approver side)
+                  - ADMIN    : always visible (admin can edit anything)
+                -->
+                <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume"
+                  *ngIf="canEditPass(p)">
                   ✏ Edit
                 </button>
 
@@ -133,23 +136,21 @@
                 </button>
 
               </td>
+            </tr>
+            <tr *ngIf="pagedPasses().length === 0">
+              <td colspan="12" class="no-data">No passes found.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      </td>
-      </tr>
-      <tr *ngIf="pagedPasses().length === 0">
-        <td colspan="12" class="no-data">No passes found.</td>
-      </tr>
-      </tbody>
-      </table>
-    </div>
 
-    <!-- PAGINATION -->
-    <div class="pagination-bar">
-      <span class="page-info">
-        Showing
-        {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() <
-          filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{ filteredPasses().length
-          }} </span>
+      <!-- PAGINATION -->
+      <div class="pagination-bar">
+        <span class="page-info">
+          Showing
+          {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() <
+            filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{ filteredPasses().length
+            }} </span>
           <div class="page-btns">
             <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
               <i class="bi bi-chevron-left"></i>
@@ -162,9 +163,9 @@
               <i class="bi bi-chevron-right"></i>
             </button>
           </div>
+      </div>
     </div>
   </div>
-</div>
 </div>
 
 
@@ -521,8 +522,8 @@
 
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <!-- ✅ Edit in View footer also hidden when Active -->
-    <button *ngIf="(viewPass().status || viewPass().passStatus || '').toLowerCase() !== 'active'" class="btn-save"
+    <!-- ✅ Edit in View modal footer — same canEditPass() guard -->
+    <button *ngIf="canEditPass(viewPass())" class="btn-save"
       (click)="closeViewModal(); openEditModal(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>

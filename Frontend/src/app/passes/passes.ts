@@ -632,4 +632,30 @@ export class Passes implements OnInit, OnDestroy {
   openEditInPassEntry(p: any): void {
     this.openEditModal(p);
   }
+  // ✅ Centralised Edit visibility guard — used by both table row and View modal footer
+  // ✅ Controls Edit button visibility per role + pass status
+  canEditPass(p: any): boolean {
+    const status = (p?.status || p?.passStatus || '').toLowerCase();
+
+    // ADMIN can always edit
+    if (this.auth.isAdmin()) return true;
+
+    // APPROVER: hide Edit once pass is Active (they approved it — done)
+    if (this.auth.isApprover() && !this.auth.isAdmin()) {
+      return status !== 'active';
+    }
+
+    // CONFIRMER: hide Edit once pass is Confirmed (they confirmed it — done)
+    if (this.auth.isConfirmer() && !this.auth.isAdmin()) {
+      return status !== 'confirmed' && status !== 'active';
+    }
+
+    // UPLOADER: hide Edit once Confirmed or Active (out of their hands)
+    if (this.auth.isUploader() && !this.auth.isAdmin()) {
+      return status !== 'confirmed' && status !== 'active';
+    }
+
+    // Regular employee — no edit
+    return false;
+  }
 }
