@@ -165,7 +165,7 @@
   opacity  : .9;
 }
 
-/* Badge pill inside header (e.g. "0 / 5 added") */
+/* Badge pill inside header */
 .pe-section-header .pe-doc-count {
   margin-left  : auto;
   font-size    : .7rem;
@@ -177,9 +177,22 @@
   padding      : 2px 12px;
 }
 
-/* ── Grid — proper spacing between all fields ────────────────── */
-.pe-grid   { display: grid; gap: 1rem 1.5rem; padding: 1.25rem 1.6rem; }
-.pe-grid-3 { grid-template-columns: repeat(3, minmax(0, 280px)); }
+/* ══════════════════════════════════════════════════════════════
+   ✅ GRID — FIXED: increased gap & column sizing for breathing room
+   ══════════════════════════════════════════════════════════════ */
+.pe-grid   { display: grid; gap: 1.2rem 2rem; padding: 1.25rem 1.6rem; }
+
+.pe-grid-1 {
+  grid-template-columns: minmax(0, 400px);
+}
+.pe-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 340px));
+  gap: 1.2rem 2.4rem;   /* ← wider column gap */
+}
+.pe-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 260px));
+  gap: 1.2rem 2rem;     /* ← comfortable gap between all 3 columns */
+}
 
 /* ── Field ───────────────────────────────────────────────────── */
 .pe-field      { display: flex; flex-direction: column; gap: .45rem; }
@@ -263,7 +276,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
 
 /* ═══════════════════════════════════════════════════════════════
    VEHICLE CLASS — Clean auto-detect badge + manual dropdown
-   Never both visible at the same time
    ═══════════════════════════════════════════════════════════════ */
 .pe-class-field {
   display       : flex;
@@ -271,7 +283,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   gap           : .45rem;
 }
 
-/* Auto-detected display box */
 .pe-class-display {
   display      : flex;
   align-items  : center;
@@ -291,7 +302,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   gap        : .35rem;
 }
 
-/* Coloured badge pill */
 .pe-class-badge {
   display      : inline-flex;
   align-items  : center;
@@ -306,7 +316,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
 .pe-class-four  { background: #f0fdf4; color: #15803d; border: 1.5px solid #86efac; }
 .pe-class-heavy { background: #fffbeb; color: #92400e; border: 1.5px solid #fcd34d; }
 
-/* Clear × button */
 .pe-class-clear {
   background : none;
   border     : none;
@@ -320,7 +329,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
 }
 .pe-class-clear:hover { color: #ef4444; }
 
-/* Manual dropdown — shown only when class is empty / cleared */
 .pe-class-manual {
   padding      : .58rem .85rem;
   border       : 1.5px solid #c8d6e8;
@@ -492,7 +500,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   position     : relative;
   overflow     : hidden;
 }
-/* Shimmer sweep */
 .pe-btn::after {
   content   : '';
   position  : absolute;
@@ -575,13 +582,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   .pe-actions  { flex-direction: column; padding: 1rem; }
   .pe-btn      { justify-content: center; }
 }
-/* ── Grid variants ───────────────────────────────────────────── */
-.pe-grid-2 {
-  grid-template-columns: repeat(2, minmax(0, 340px));
-}
-.pe-grid-1 {
-  grid-template-columns: minmax(0, 340px);
-}
 
 /* ── Date wrapper — dd/mm/yyyy display trick ─────────────────── */
 .pe-date-wrapper {
@@ -610,6 +610,7 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   cursor   : pointer;
   pointer-events: all;
 }
+
 /* ══════════════════════════════════════════════════════════════
    MODIFICATION REQUEST BANNER — Blue theme (matches form)
    ══════════════════════════════════════════════════════════════ */
@@ -629,7 +630,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   to   { opacity: 1; transform: none; }
 }
 
-/* ── Header row: icon + title ── */
 .pe-mod-banner-header {
   display       : flex;
   align-items   : center;
@@ -647,7 +647,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   flex-shrink: 0;
 }
 
-/* ── Body: white card with confirmer note ── */
 .pe-mod-banner-body {
   display      : flex;
   align-items  : flex-start;
@@ -680,7 +679,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   word-break : break-word;
 }
 
-/* ── Footer note ── */
 .pe-mod-banner-note {
   display    : flex;
   align-items: flex-start;
@@ -702,7 +700,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   font-style: normal;
 }
 
-/* ── Mod hint badge inside doc section header ── */
 .pe-doc-mod-hint {
   display      : inline-flex;
   align-items  : center;
@@ -716,6 +713,7 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   padding      : 2px 10px;
   margin-left  : .5rem;
 }
+
 /* ── Already-uploaded doc indicator (modification mode) ─────────────────── */
 .pe-doc-existing-file {
   display    : flex;
@@ -761,12 +759,11 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   padding  : 4px 8px;
   font-size: 13px;
 }
+
 /* ══════════════════════════════════════════════════════════════
    LOCK INDICATORS — Employee portal auto-fill (read-only session)
-   Synced with: #AC9457 gold accent · Inter font · existing radius/spacing
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Employee Type label: "Locked to your account" badge ──────── */
 .pe-field-lock-badge {
   font-size     : .68rem;
   font-weight   : 700;
@@ -781,12 +778,11 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   text-transform: none;
 }
 
-/* ── Section header: "Auto-filled from your login session" ─────── */
 .pe-section-lock-hint {
   margin-left   : auto;
   font-size     : .68rem;
   font-weight   : 700;
-  color         : #f0c97a;          /* gold on dark header bg */
+  color         : #f0c97a;
   display       : flex;
   align-items   : center;
   gap           : .35rem;
@@ -800,7 +796,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   opacity  : 1;
 }
 
-/* ── Field label: small lock icon next to Name / Dept / Salary ─── */
 .pe-readonly-lock {
   font-size     : .72rem;
   color         : #AC9457;
@@ -809,7 +804,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   opacity       : .85;
 }
 
-/* ── Field hint: "Linked to your login — cannot be changed" ─────── */
 .pe-hint-locked {
   color      : #AC9457 !important;
   font-weight: 600;
@@ -821,7 +815,6 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
 }
 .pe-hint-locked i { font-size: .72rem; }
 
-/* ── Lock icon inside EC No input group (right side) ────────────── */
 .pe-input-lock-icon {
   position      : absolute;
   right         : .65rem;
@@ -833,19 +826,16 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   opacity       : .85;
 }
 
-/* ── Employee type cards: locked state (Company Employee card) ──── */
 .pe-type-card-locked {
   cursor: not-allowed !important;
 }
 
-/* Contractor card: fully dimmed + unclickable for regular employees */
 .pe-type-card-disabled {
   opacity       : 0.32;
   pointer-events: none;
   filter        : grayscale(30%);
 }
 
-/* ── EC No input: locked/disabled visual override ───────────────── */
 .field-locked,
 .field-locked:hover,
 .field-locked:focus {
@@ -856,10 +846,8 @@ textarea.pe-input { resize: vertical; min-height: 76px; line-height: 1.6; }
   box-shadow  : none !important;
   border-style: dashed !important;
 }
-/* Placeholder also gets muted gold when locked */
 .field-locked::placeholder { color: rgba(172, 148, 87, 0.5) !important; }
 
-/* ── Responsive: lock badges stack cleanly on mobile ────────────── */
 @media (max-width: 768px) {
   .pe-section-lock-hint { font-size: .62rem; }
   .pe-field-lock-badge  { font-size: .63rem; margin-left: 5px; }

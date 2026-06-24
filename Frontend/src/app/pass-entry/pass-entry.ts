@@ -87,6 +87,8 @@ export class PassEntry implements OnInit, OnDestroy {
   empDept          = signal('');
   empSalary        = signal('');
   empEmail         = signal('');   // ← NEW
+  empType_display = signal('');   // "Company Employee" or "Contractor" label
+  empDeptCode     = signal('');   // department code from API index 5 (or object key)
   empAadhar        = ''; 
   empContractorCode  = '';   // for Company_Employee form
   empContractorName  = '';
@@ -241,6 +243,8 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empEmail.set('');
     this.contractorName  = '';
     this.contractorEmail = '';
+    this.empDeptCode.set('');
+    this.empType_display.set('');
     this.empFetchError.set(''); this.empData = null;
     this.clearAlerts();
   }
@@ -306,6 +310,8 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
           this.empSalary.set(String(match[EMP_IDX.salary] || ''));
           this.empEmail.set(String(match[EMP_IDX.email]   || ''));
+          this.empDeptCode.set(String(match[5] || match['deptCode'] || match['departmentCode'] || ''));
+          this.empType_display.set(this.empType() === 'Company_Employee' ? 'Company Employee' : 'Contractor');
           // ── Contractor form: auto-fill name & email from employee API ──
           this.contractorName  = String(match[EMP_IDX.name]  || '');
           this.contractorEmail = String(match[EMP_IDX.email] || '');
@@ -693,6 +699,8 @@ export class PassEntry implements OnInit, OnDestroy {
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empAadhar = '';
+    this.empDeptCode.set('');
+    this.empType_display.set('');
     this.empContractorCode  = '';
     this.empContractorName  = '';
     this.empContractorEmail = '';

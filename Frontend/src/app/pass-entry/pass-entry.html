@@ -56,7 +56,7 @@
         }
       </label>
 
-      <!-- Contractor card — visually disabled for regular employees -->
+      <!-- Contractor card -->
       <label class="pe-type-card"
              [class.selected]="empType() === 'Contractor'"
              [class.pe-type-card-locked]="isEcNoLocked"
@@ -164,15 +164,14 @@
       <div class="pe-section-header">
         <i class="bi bi-person-badge-fill"></i>
         <span>{{ empType() === 'Contractor' ? 'Contractor Details' : 'Employee Details' }}</span>
-        <!-- Section-level lock indicator for regular employees -->
       </div>
 
       @if (empType() === 'Company_Employee') {
 
-        <!-- ROW 1 : EC No | Name -->
-        <div class="pe-grid pe-grid-2">
+        <!-- ── ROW 1 : EC No | Employee Type | Name ── -->
+        <div class="pe-grid pe-grid-3">
 
-          <!-- EC No — LOCKED for regular employees, EDITABLE for authority roles -->
+          <!-- EC No -->
           <div class="pe-field">
             <label>EC No <span class="req">*</span></label>
             <div class="pe-input-group">
@@ -187,14 +186,12 @@
               @if (fetchingEmployee()) {
                 <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
               }
-              <!-- Lock icon inside the input group for regular employees -->
               @if (isEcNoLocked && !fetchingEmployee()) {
                 <span class="pe-input-lock-icon" title="Linked to your login session">
                   <i class="bi bi-lock-fill"></i>
                 </span>
               }
             </div>
-            <!-- Hint changes based on role -->
             @if (isEcNoLocked) {
               <span class="pe-field-hint pe-hint-locked">
                 <i class="bi bi-shield-lock-fill"></i>
@@ -205,7 +202,17 @@
             }
           </div>
 
-          <!-- Name — always readonly, lock badge for regular employees -->
+          <!-- ✅ NEW: Employee Type — auto-filled from API -->
+          <div class="pe-field">
+            <label>Employee Type</label>
+            <input type="text" class="pe-input pe-readonly"
+              [value]="empType_display()"
+              readonly
+              placeholder="Auto-filled from EC No" />
+            <span class="pe-field-hint">Filled from employee record</span>
+          </div>
+
+          <!-- Name -->
           <div class="pe-field">
             <label>
               Name
@@ -217,11 +224,13 @@
               [value]="empName()" readonly
               placeholder="Auto-filled from EC No" />
           </div>
+
         </div>
 
-        <!-- ROW 2 : Department | Salary -->
-        <div class="pe-grid pe-grid-2">
+        <!-- ── ROW 2 : Department | Department Code | Aadhar Number ── -->
+        <div class="pe-grid pe-grid-3">
 
+          <!-- Department -->
           <div class="pe-field">
             <label>
               Department
@@ -234,7 +243,17 @@
               placeholder="Auto-filled from EC No" />
           </div>
 
-       
+          <!-- ✅ NEW: Department Code — auto-filled from API -->
+          <div class="pe-field">
+            <label>Department Code</label>
+            <input type="text" class="pe-input pe-readonly"
+              [value]="empDeptCode()"
+              readonly
+              placeholder="Auto-filled from EC No" />
+            <span class="pe-field-hint">Filled from employee record</span>
+          </div>
+
+          <!-- Aadhar Number -->
           <div class="pe-field">
             <label>Aadhar Number</label>
             <input type="text" class="pe-input"
@@ -243,37 +262,34 @@
               maxlength="12"
               pattern="[0-9]{12}" />
           </div>
+
         </div>
 
-         <!-- ROW 2 : Contractor code  | Contractor Name -->
+        <!-- ROW 3 : Contractor Code | Contractor Name (unchanged) -->
         <div class="pe-grid pe-grid-2">
 
           <div class="pe-field">
-         
             <label>Contractor Code</label>
             <input type="text" class="pe-input"
               placeholder="Enter Contractor Code"
               [(ngModel)]="empContractorCode"
-              (input)="onUpperInput($event, 'empContractorCode')"
-               />
+              (input)="onUpperInput($event, 'empContractorCode')" />
           </div>
 
-       
           <div class="pe-field">
             <label>Contractor Name</label>
             <input type="text" class="pe-input"
               placeholder="Enter Contractor Name"
-              [(ngModel)]="empContractorName"
-               />
+              [(ngModel)]="empContractorName" />
           </div>
+
         </div>
 
-            
       }
 
       @if (empType() === 'Contractor') {
 
-        <!-- ROW 1 : Contractor Code | EC No -->
+        <!-- ROW 1 : Contractor Code | EC No (unchanged) -->
         <div class="pe-grid pe-grid-2">
 
           <div class="pe-field">
@@ -302,7 +318,7 @@
 
         </div>
 
-        <!-- ROW 2 : Email | Company / Agency -->
+        <!-- ROW 2 : Email | Company / Agency (unchanged) -->
         <div class="pe-grid pe-grid-2">
 
           <div class="pe-field">
@@ -402,18 +418,6 @@
 
       </div>
 
-      <!-- ROW 3 : Remark (full width)
-      <div class="pe-grid pe-grid-1">
-        <div class="pe-field">
-          <label>Remark</label>
-          <textarea class="pe-input" rows="2"
-            placeholder="Optional notes..."
-            [(ngModel)]="remark"
-            maxlength="250"></textarea>
-          <span class="pe-char-count">{{ remark.length }}/250</span>
-        </div>
-      </div> -->
-
     </div>
 
     <!-- ══════════════════════════════════════
@@ -485,7 +489,6 @@
               <div class="pe-doc-cell">
 
                 @if (docAlreadyUploaded(doc)) {
-                  <!-- MODE 1: already in DB -->
                   <div class="pe-doc-existing-wrap">
                     <span class="pe-doc-uploaded-pill"
                           [title]="doc.existingFile">
@@ -508,7 +511,6 @@
                 }
 
                 @else if (doc.file) {
-                  <!-- MODE 2: new file selected -->
                   <label class="pe-file-btn has-file"
                          [for]="'doc-file-' + doc.id"
                          title="{{ doc.file.name }}">
@@ -523,7 +525,6 @@
                 }
 
                 @else {
-                  <!-- MODE 3: no file yet -->
                   <label class="pe-file-btn"
                          [for]="'doc-file-' + doc.id">
                     <input type="file"
