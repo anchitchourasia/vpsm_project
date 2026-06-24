@@ -495,8 +495,10 @@ export class PassEntry implements OnInit, OnDestroy {
 
         const passPayload = {
           vehicle          : { vehicleId: this.savedVehicleId },
-          issueDate        : this.todayDate,
-          validityDate     : this.validityDate,
+          // issueDate and validityDate intentionally OMITTED —
+          // backend sets them null on new record anyway;
+          // DB constraint requires NOT NULL → backend bug, but confirmed workflow
+          // is that Conformer PUT /update/{id} sets them automatically on approval
           employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
           employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
           employeeName     : this.empName() || null,
@@ -507,7 +509,7 @@ export class PassEntry implements OnInit, OnDestroy {
           status           : 'Draft',
           empType          : this.empType(),
           enterBy          : this.auth.empCode() || 'REQUESTER',
-          enterDate        : this.todayDate,
+          // enterDate OMITTED — LocalDate field, backend handles it
           remarks          : this.remark.trim() || null,
         };
 
@@ -577,8 +579,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private step2IssuePass(): void {
     const payload = {
       vehicle          : { vehicleId: this.savedVehicleId },
-      issueDate        : this.todayDate,
-      validityDate     : this.validityDate,
+      // issueDate, validityDate, enterDate intentionally OMITTED
       employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
       employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
       employeeName     : this.empName() || null,
@@ -589,7 +590,6 @@ export class PassEntry implements OnInit, OnDestroy {
       status           : 'Submitted',
       empType          : this.empType(),
       enterBy          : this.auth.empCode() || 'REQUESTER',
-      enterDate        : this.todayDate,
       remarks          : this.remark.trim() || null,
     };
     this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })

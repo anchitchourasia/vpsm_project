@@ -6,104 +6,107 @@ import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
-
+import { PassStateService, PassRecord } from '../services/pass-state.service';
+import { Router } from '@angular/router';
 
 const USE_DUMMY_DATA = false;
 const HTTP_TIMEOUT_MS = 12000;
 
 const DUMMY_PASSES: any[] = [
-  { passId:1, issueDate:'2024-01-10', validityDate:'2025-01-10', employeeNo:'EMP001', employeeCompanyNo:'HEG001', dept:'Mechanical',  contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'P-Block',    vehicle:{ vehicleId:1, vehicleNo:'MP04HEG1111', vehicleType:'Car',          vehicleClass:'Four_Wheeler'    }, typeOfVehicle:'Car',          mobileNo:'9876543210', status:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-01-10', remarks:'' },
-  { passId:2, issueDate:'2024-02-01', validityDate:'2025-02-01', employeeNo:'EMP002', employeeCompanyNo:'HEG002', dept:'Electrical',   contractorCode:null,    gateNo:'GATE_02', parkingToBeUsed:'A-Block',    vehicle:{ vehicleId:2, vehicleNo:'MP04HEG2222', vehicleType:'Bike',         vehicleClass:'Two_Wheeler'     }, typeOfVehicle:'Bike',         mobileNo:'9876500001', status:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-02-01', remarks:'' },
-  { passId:3, issueDate:'2023-06-01', validityDate:'2024-06-01', employeeNo:null,     employeeCompanyNo:null,     dept:'Construction', contractorCode:'CON001', gateNo:'GATE_03', parkingToBeUsed:'Heavy Yard', vehicle:{ vehicleId:3, vehicleNo:'MP04HEG3333', vehicleType:'Dumper Truck', vehicleClass:'Heavy_Machinery' }, typeOfVehicle:'Dumper Truck', mobileNo:'9988776655', status:'Expired',     empType:'Contractor',       isActive:'N', enterBy:'ADMIN', enterDate:'2023-06-01', remarks:'Load permit required' },
-  { passId:4, issueDate:'2024-03-15', validityDate:'2025-03-15', employeeNo:'EMP004', employeeCompanyNo:'HEG004', dept:'Civil',        contractorCode:null,    gateNo:'GATE_01', parkingToBeUsed:'B-Block',    vehicle:{ vehicleId:5, vehicleNo:'MP04HEG5555', vehicleType:'SUV',          vehicleClass:'Four_Wheeler'    }, typeOfVehicle:'SUV',          mobileNo:'9800001234', status:'Active',      empType:'Company_Employee', isActive:'Y', enterBy:'ADMIN', enterDate:'2024-03-15', remarks:'' },
-  { passId:5, issueDate:'2024-04-01', validityDate:'2024-12-31', employeeNo:null,     employeeCompanyNo:null,     dept:null,           contractorCode:'CON002', gateNo:'GATE_02', parkingToBeUsed:'Heavy Yard', vehicle:{ vehicleId:8, vehicleNo:'MP04HEG8888', vehicleType:'Truck',        vehicleClass:'Heavy_Machinery' }, typeOfVehicle:'Truck',        mobileNo:'9700001111', status:'Surrendered', empType:'Contractor',       isActive:'N', enterBy:'ADMIN', enterDate:'2024-04-01', remarks:'Surrendered early' },
+  { passId: 1, issueDate: '2024-01-10', validityDate: '2025-01-10', employeeNo: 'EMP001', employeeCompanyNo: 'HEG001', dept: 'Mechanical', contractorCode: null, gateNo: 'GATE_01', parkingToBeUsed: 'P-Block', vehicle: { vehicleId: 1, vehicleNo: 'MP04HEG1111', vehicleType: 'Car', vehicleClass: 'Four_Wheeler' }, typeOfVehicle: 'Car', mobileNo: '9876543210', status: 'Active', empType: 'Company_Employee', isActive: 'Y', enterBy: 'ADMIN', enterDate: '2024-01-10', remarks: '' },
+  { passId: 2, issueDate: '2024-02-01', validityDate: '2025-02-01', employeeNo: 'EMP002', employeeCompanyNo: 'HEG002', dept: 'Electrical', contractorCode: null, gateNo: 'GATE_02', parkingToBeUsed: 'A-Block', vehicle: { vehicleId: 2, vehicleNo: 'MP04HEG2222', vehicleType: 'Bike', vehicleClass: 'Two_Wheeler' }, typeOfVehicle: 'Bike', mobileNo: '9876500001', status: 'Active', empType: 'Company_Employee', isActive: 'Y', enterBy: 'ADMIN', enterDate: '2024-02-01', remarks: '' },
+  { passId: 3, issueDate: '2023-06-01', validityDate: '2024-06-01', employeeNo: null, employeeCompanyNo: null, dept: 'Construction', contractorCode: 'CON001', gateNo: 'GATE_03', parkingToBeUsed: 'Heavy Yard', vehicle: { vehicleId: 3, vehicleNo: 'MP04HEG3333', vehicleType: 'Dumper Truck', vehicleClass: 'Heavy_Machinery' }, typeOfVehicle: 'Dumper Truck', mobileNo: '9988776655', status: 'Expired', empType: 'Contractor', isActive: 'N', enterBy: 'ADMIN', enterDate: '2023-06-01', remarks: 'Load permit required' },
+  { passId: 4, issueDate: '2024-03-15', validityDate: '2025-03-15', employeeNo: 'EMP004', employeeCompanyNo: 'HEG004', dept: 'Civil', contractorCode: null, gateNo: 'GATE_01', parkingToBeUsed: 'B-Block', vehicle: { vehicleId: 5, vehicleNo: 'MP04HEG5555', vehicleType: 'SUV', vehicleClass: 'Four_Wheeler' }, typeOfVehicle: 'SUV', mobileNo: '9800001234', status: 'Active', empType: 'Company_Employee', isActive: 'Y', enterBy: 'ADMIN', enterDate: '2024-03-15', remarks: '' },
+  { passId: 5, issueDate: '2024-04-01', validityDate: '2024-12-31', employeeNo: null, employeeCompanyNo: null, dept: null, contractorCode: 'CON002', gateNo: 'GATE_02', parkingToBeUsed: 'Heavy Yard', vehicle: { vehicleId: 8, vehicleNo: 'MP04HEG8888', vehicleType: 'Truck', vehicleClass: 'Heavy_Machinery' }, typeOfVehicle: 'Truck', mobileNo: '9700001111', status: 'Surrendered', empType: 'Contractor', isActive: 'N', enterBy: 'ADMIN', enterDate: '2024-04-01', remarks: 'Surrendered early' },
 ];
 
 // ── All form fields camelCase — matching PassRegistry.java getters exactly ──
 interface PassForm {
-  issueDate        : string;
-  validityDate     : string;
-  employeeNo       : string;
+  issueDate: string;
+  validityDate: string;
+  employeeNo: string;
   employeeCompanyNo: string;
-  dept             : string;
-  contractorCode   : string;
-  gateNo           : string;
-  parkingToBeUsed  : string;
-  vehicleId        : string;
-  typeOfVehicle    : string;
-  mobileNo         : string;
-  passStatus       : string;
-  empType          : string;
-  remarks          : string;
-  isActive         : string;
+  dept: string;
+  contractorCode: string;
+  gateNo: string;
+  parkingToBeUsed: string;
+  vehicleId: string;
+  typeOfVehicle: string;
+  mobileNo: string;
+  passStatus: string;
+  empType: string;
+  remarks: string;
+  isActive: string;
 }
 interface DocRecord {
-  documentId  : number;
+  documentId: number;
   documentType: string;
-  documentNo  : string;
-  expiryDate  : string;
-  startDate  ?: string;
-  fileName   ?: string;
-  vehicle    ?: { vehicleId: number };
+  documentNo: string;
+  expiryDate: string;
+  startDate?: string;
+  fileName?: string;
+  vehicle?: { vehicleId: number };
 }
 
 const EMPTY_FORM = (): PassForm => ({
-  issueDate:'', validityDate:'', employeeNo:'', employeeCompanyNo:'',
-  dept:'', contractorCode:'', gateNo:'', parkingToBeUsed:'',
-  vehicleId:'', typeOfVehicle:'', mobileNo:'',
-  passStatus:'Active', empType:'Company_Employee', remarks:'', isActive:'Y',
+  issueDate: '', validityDate: '', employeeNo: '', employeeCompanyNo: '',
+  dept: '', contractorCode: '', gateNo: '', parkingToBeUsed: '',
+  vehicleId: '', typeOfVehicle: '', mobileNo: '',
+  passStatus: 'Active', empType: 'Company_Employee', remarks: '', isActive: 'Y',
 });
 
 @Component({
-  selector   : 'app-passes',
-  standalone : true,
-  imports    : [CommonModule, FormsModule],
+  selector: 'app-passes',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './passes.html',
-  styleUrl   : './passes.css',
+  styleUrl: './passes.css',
 })
 export class Passes implements OnInit, OnDestroy {
   private auth = inject(AuthService);
+  private passState = inject(PassStateService);
+  private router = inject(Router);
   private readonly HEADERS = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
+    'x-api-key': API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
 
   private readonly POST_HEADERS = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
+    'x-api-key': API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
-    'Accept'      : 'application/json',
+    'Accept': 'application/json',
   });
 
   private readonly destroy$ = new Subject<void>();
 
   private allPassesRaw = signal<any[]>([]);
-  isLoading  = signal(true);
-  hasError   = signal(false);
-  isDummy    = USE_DUMMY_DATA;
+  isLoading = signal(true);
+  hasError = signal(false);
+  isDummy = USE_DUMMY_DATA;
 
-  searchText    = signal('');
-  filterStatus  = signal('ALL');
+  searchText = signal('');
+  filterStatus = signal('ALL');
   filterEmpType = signal('ALL');
-  currentPage   = signal(1);
-  pageSize      = signal(10);
+  currentPage = signal(1);
+  pageSize = signal(10);
 
   filteredPasses = computed(() => {
-    const q  = this.searchText().toLowerCase();
+    const q = this.searchText().toLowerCase();
     const st = this.filterStatus();
     const et = this.filterEmpType();
     return this.allPassesRaw().filter(p => {
       const matchSearch =
         !q ||
-        (p.employeeNo             || '').toLowerCase().includes(q) ||
-        (p.contractorCode         || '').toLowerCase().includes(q) ||
-        (p.dept                   || '').toLowerCase().includes(q) ||
-        (p.mobileNo               || '').toLowerCase().includes(q) ||
-        (p.vehicle?.vehicleNo     || '').toLowerCase().includes(q) ||
-        String(p.passId           || '').includes(q)              ||
+        (p.employeeNo || '').toLowerCase().includes(q) ||
+        (p.contractorCode || '').toLowerCase().includes(q) ||
+        (p.dept || '').toLowerCase().includes(q) ||
+        (p.mobileNo || '').toLowerCase().includes(q) ||
+        (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
+        String(p.passId || '').includes(q) ||
         // search also matches formatted ID e.g. "PASS-HEG-0047"
         this.formatPassId(p.passId).toLowerCase().includes(q);
-      const rowStatus    = p.status || p.passStatus || '';
-      const matchStatus  = st === 'ALL' || rowStatus === st;
+      const rowStatus = p.status || p.passStatus || '';
+      const matchStatus = st === 'ALL' || rowStatus === st;
       const matchEmpType = et === 'ALL' || (p.empType || '') === et;
       return matchSearch && matchStatus && matchEmpType;
     });
@@ -114,33 +117,33 @@ export class Passes implements OnInit, OnDestroy {
     return this.filteredPasses().slice(start, start + this.pageSize());
   });
 
-  get totalPages(): number      { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
+  get totalPages(): number { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
   get totalPagesArr(): number[] { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
-  showModal   = signal(false);
-  isEditMode  = signal(false);
-  isSaving    = signal(false);
-  saveError   = signal('');
+  showModal = signal(false);
+  isEditMode = signal(false);
+  isSaving = signal(false);
+  saveError = signal('');
   saveSuccess = signal('');
-  editId      = signal<number | null>(null);
+  editId = signal<number | null>(null);
   form: PassForm = EMPTY_FORM();
 
-  vehicleLookupError   = signal('');
+  vehicleLookupError = signal('');
   vehicleLookupSuccess = signal('');
-  isLookingUp          = signal(false);
+  isLookingUp = signal(false);
 
-  showViewModal     = signal(false);
-  viewPass          = signal<any>(null);
-  viewPassDocs      = signal<DocRecord[]>([]);
+  showViewModal = signal(false);
+  viewPass = signal<any>(null);
+  viewPassDocs = signal<DocRecord[]>([]);
   isLoadingViewDocs = signal(false);
-  viewDocLoadError  = signal('');
-  viewPdfLoading    = signal<number | null>(null);
-  viewPdfError      = signal('');
+  viewDocLoadError = signal('');
+  viewPdfLoading = signal<number | null>(null);
+  viewPdfError = signal('');
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   // ✅ CHANGE 2: startPolling() added
-  ngOnInit()    { this.loadPasses(); this.startPolling(); }
+  ngOnInit() { this.loadPasses(); this.startPolling(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadPasses() {
@@ -168,20 +171,41 @@ export class Passes implements OnInit, OnDestroy {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
 
-        // Exclude drafts — same as before
         let filtered = raw.filter((p: any) => (p.status || '').toLowerCase() !== 'draft');
 
-        // ✅ NEW — if regular EMPLOYEE logged in, show only their own passes
-        // ADMIN / CONFIRMER / APPROVER / UPLOADER see all passes
         if (this.auth.isRegularUser()) {
           const myCode = this.auth.empCode().trim().toLowerCase();
           filtered = filtered.filter((p: any) =>
-            (p.enterBy    || '').toLowerCase() === myCode ||
+            (p.enterBy || '').toLowerCase() === myCode ||
             (p.employeeNo || '').toLowerCase() === myCode
           );
         }
 
-        this.allPassesRaw.set(filtered);
+        // ✅ NEW — merge localStorage drafts + saved records so they show in registry
+        const localRecords: any[] = this.passState.passes()
+          .filter(r => r.status === 'Saved' || r.status === 'Submitted')
+          .map(r => ({
+            passId: r.passId,          // already the numeric string from DB
+            employeeNo: r.ecNo,
+            contractorCode: r.contractorFirm,
+            dept: r.empDept,
+            empType: r.empType,
+            vehicle: { vehicleNo: r.vehicleNo, vehicleType: r.vehicleType, vehicleClass: r.vehicleClass },
+            gateNo: r.gateNo,
+            issueDate: r.issueDate,
+            validityDate: r.validityDate,
+            parkingToBeUsed: r.parkingArea,
+            remarks: r.remark,
+            status: r.status === 'Saved' ? 'Draft' : 'Submitted',
+            empName: r.empName,
+            _localRecord: r,   // keep full PassRecord for edit resume
+          }));
+
+        // Deduplicate — DB record wins over local if same passId
+        const dbIds = new Set(filtered.map((p: any) => String(p.passId)));
+        const onlyLocal = localRecords.filter(r => !dbIds.has(String(r.passId)));
+
+        this.allPassesRaw.set([...filtered, ...onlyLocal]);
         this.isLoading.set(false);
       });
   }
@@ -208,7 +232,7 @@ export class Passes implements OnInit, OnDestroy {
         if (this.auth.isRegularUser()) {
           const myCode = this.auth.empCode().trim().toLowerCase();
           filtered = filtered.filter((p: any) =>
-            (p.enterBy    || '').toLowerCase() === myCode ||
+            (p.enterBy || '').toLowerCase() === myCode ||
             (p.employeeNo || '').toLowerCase() === myCode
           );
         }
@@ -266,35 +290,34 @@ export class Passes implements OnInit, OnDestroy {
       });
   }
 
-  onSearch       (v: string) { this.searchText.set(v);    this.currentPage.set(1); }
-  onFilterStatus (v: string) { this.filterStatus.set(v);  this.currentPage.set(1); }
+  onSearch(v: string) { this.searchText.set(v); this.currentPage.set(1); }
+  onFilterStatus(v: string) { this.filterStatus.set(v); this.currentPage.set(1); }
   onFilterEmpType(v: string) { this.filterEmpType.set(v); this.currentPage.set(1); }
-  onPageSize     (v: string) { this.pageSize.set(+v);     this.currentPage.set(1); }
-  goToPage       (p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
+  onPageSize(v: string) { this.pageSize.set(+v); this.currentPage.set(1); }
+  goToPage(p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
 
   // formats DB integer passId → "PASS-HEG-0047"
   formatPassId(dbPassId: number | null | undefined, remarks?: string): string {
     if (!dbPassId && dbPassId !== 0) return '—';
-    if (remarks && String(remarks).startsWith('DRAFT-')) return String(remarks);
-    return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
+    return String(dbPassId);
   }
 
   formatDate(d: string): string {
     if (!d) return '—';
     const dt = new Date(d);
-    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   getStatusClass(s: string): string {
     switch ((s || '').toLowerCase()) {
-      case 'active'     : return 'badge badge-active';
-      case 'expiring'   : return 'badge badge-expiring';
-      case 'expired'    : return 'badge badge-expired';
+      case 'active': return 'badge badge-active';
+      case 'expiring': return 'badge badge-expiring';
+      case 'expired': return 'badge badge-expired';
       case 'surrendered': return 'badge badge-surrendered';
-      case 'draft'      : return 'badge badge-draft';      // ← add this
-      case 'submitted'  : return 'badge badge-submitted';  // ← add this
-      case 'confirmed'  : return 'badge badge-confirmed';  // ← add this
-      default           : return 'badge badge-surrendered';
+      case 'draft': return 'badge badge-draft';      // ← add this
+      case 'submitted': return 'badge badge-submitted';  // ← add this
+      case 'confirmed': return 'badge badge-confirmed';  // ← add this
+      default: return 'badge badge-surrendered';
     }
   }
 
@@ -316,21 +339,21 @@ export class Passes implements OnInit, OnDestroy {
 
   openEditModal(p: any) {
     this.form = {
-      issueDate        : p.issueDate         || '',
-      validityDate     : p.validityDate      || '',
-      employeeNo       : p.employeeNo        || '',
+      issueDate: p.issueDate || '',
+      validityDate: p.validityDate || '',
+      employeeNo: p.employeeNo || '',
       employeeCompanyNo: p.employeeCompanyNo || '',
-      dept             : p.dept              || '',
-      contractorCode   : p.contractorCode    || '',
-      gateNo           : p.gateNo            || '',
-      parkingToBeUsed  : p.parkingToBeUsed   || '',
-      vehicleId        : String(p.vehicle?.vehicleId ?? ''),
-      typeOfVehicle    : p.typeOfVehicle || p.vehicle?.vehicleType || '',
-      mobileNo         : p.mobileNo          || '',
-      passStatus       : p.status || p.passStatus || 'Active',
-      empType          : p.empType           || 'Company_Employee',
-      remarks          : p.remarks           || '',
-      isActive         : p.isActive          || 'Y',
+      dept: p.dept || '',
+      contractorCode: p.contractorCode || '',
+      gateNo: p.gateNo || '',
+      parkingToBeUsed: p.parkingToBeUsed || '',
+      vehicleId: String(p.vehicle?.vehicleId ?? ''),
+      typeOfVehicle: p.typeOfVehicle || p.vehicle?.vehicleType || '',
+      mobileNo: p.mobileNo || '',
+      passStatus: p.status || p.passStatus || 'Active',
+      empType: p.empType || 'Company_Employee',
+      remarks: p.remarks || '',
+      isActive: p.isActive || 'Y',
     };
     this.isEditMode.set(true);
     this.editId.set(p.passId);
@@ -347,7 +370,7 @@ export class Passes implements OnInit, OnDestroy {
     this.showModal.set(true);
   }
 
-  closeModal()          { this.showModal.set(false); }
+  closeModal() { this.showModal.set(false); }
   openViewModal(p: any): void {
     this.viewPass.set(p);
     this.viewPassDocs.set([]);
@@ -418,19 +441,19 @@ export class Passes implements OnInit, OnDestroy {
     return days < 0 ? 'doc-status-expired' : days <= 30 ? 'doc-status-expiring' : 'doc-status-valid';
   }
 
-getDocStatusText(exp: string): string {
-  if (!exp) return 'Unknown';
-  const days = Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000);
-  return days < 0 ? 'Expired' : days <= 30 ? `Expiring in ${days}d` : 'Valid';
-}
+  getDocStatusText(exp: string): string {
+    if (!exp) return 'Unknown';
+    const days = Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000);
+    return days < 0 ? 'Expired' : days <= 30 ? `Expiring in ${days}d` : 'Valid';
+  }
 
   savePass() {
-    if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.');                            return; }
-    if (this.vehicleLookupError())           { this.saveError.set('Fix Vehicle ID error before saving.');                return; }
-    if (!this.form.typeOfVehicle.trim())     { this.saveError.set('Enter a valid Vehicle ID first — type auto-fills.'); return; }
-    if (!this.form.issueDate)                { this.saveError.set('Issue Date is required.');                            return; }
-    if (!this.form.validityDate)             { this.saveError.set('Validity Date is required.');                         return; }
-    if (!this.form.gateNo.trim())            { this.saveError.set('Gate No is required.');                               return; }
+    if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.'); return; }
+    if (this.vehicleLookupError()) { this.saveError.set('Fix Vehicle ID error before saving.'); return; }
+    if (!this.form.typeOfVehicle.trim()) { this.saveError.set('Enter a valid Vehicle ID first — type auto-fills.'); return; }
+    if (!this.form.issueDate) { this.saveError.set('Issue Date is required.'); return; }
+    if (!this.form.validityDate) { this.saveError.set('Validity Date is required.'); return; }
+    if (!this.form.gateNo.trim()) { this.saveError.set('Gate No is required.'); return; }
     if (this.form.empType === 'Company_Employee' && !this.form.employeeNo.trim()) {
       this.saveError.set('Employee No is required for Company Employee.'); return;
     }
@@ -444,29 +467,29 @@ getDocStatusText(exp: string): string {
     this.saveSuccess.set('');
 
     const payload: any = {
-      vehicle          : { vehicleId: Number(this.form.vehicleId) },
-      typeOfVehicle    : this.form.typeOfVehicle,
-      empType          : this.form.empType,
-      dept             : this.form.dept             || null,
-      mobileNo         : this.form.mobileNo         || null,
-      issueDate        : this.form.issueDate,
-      validityDate     : this.form.validityDate,
-      gateNo           : this.form.gateNo,
-      parkingToBeUsed  : this.form.parkingToBeUsed  || null,
-      status           : this.form.passStatus,
-      isActive         : this.form.isActive,
-      remarks          : this.form.remarks           || null,
-      enterBy          : 'ADMIN',
-      enterDate        : new Date().toISOString().split('T')[0],
+      vehicle: { vehicleId: Number(this.form.vehicleId) },
+      typeOfVehicle: this.form.typeOfVehicle,
+      empType: this.form.empType,
+      dept: this.form.dept || null,
+      mobileNo: this.form.mobileNo || null,
+      issueDate: this.form.issueDate,
+      validityDate: this.form.validityDate,
+      gateNo: this.form.gateNo,
+      parkingToBeUsed: this.form.parkingToBeUsed || null,
+      status: this.form.passStatus,
+      isActive: this.form.isActive,
+      remarks: this.form.remarks || null,
+      enterBy: 'ADMIN',
+      enterDate: new Date().toISOString().split('T')[0],
     };
 
     if (this.form.empType === 'Company_Employee') {
-      payload.employeeNo        = this.form.employeeNo          || null;
-      payload.employeeCompanyNo = this.form.employeeCompanyNo   || null;
-      payload.contractorCode    = null;
+      payload.employeeNo = this.form.employeeNo || null;
+      payload.employeeCompanyNo = this.form.employeeCompanyNo || null;
+      payload.contractorCode = null;
     } else {
-      payload.contractorCode    = this.form.contractorCode      || null;
-      payload.employeeNo        = null;
+      payload.contractorCode = this.form.contractorCode || null;
+      payload.employeeNo = null;
       payload.employeeCompanyNo = null;
     }
 
@@ -478,7 +501,7 @@ getDocStatusText(exp: string): string {
           const idx = this.allPassesRaw().findIndex(p => p.passId === this.editId());
           if (idx !== -1) {
             const upd = [...this.allPassesRaw()];
-            upd[idx]  = { ...upd[idx], ...payload };
+            upd[idx] = { ...upd[idx], ...payload };
             this.allPassesRaw.set(upd);
           }
           this.saveSuccess.set('✅ Pass updated successfully.');
@@ -493,7 +516,7 @@ getDocStatusText(exp: string): string {
     }
 
     const req$ = this.isEditMode()
-      ? this.http.put(`${API_CONFIG.PASSES_UPDATE}/${this.editId()}`,  payload, { headers: this.HEADERS })
+      ? this.http.put(`${API_CONFIG.PASSES_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
       : this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS });
 
     req$
@@ -502,7 +525,7 @@ getDocStatusText(exp: string): string {
         takeUntil(this.destroy$),
         catchError((err: any) => {
           const body = err?.error;
-          const msg  =
+          const msg =
             (typeof body === 'string' && body.length < 300 ? body : null) ||
             body?.message || body?.error ||
             (typeof body === 'object' ? JSON.stringify(body) : null) ||
@@ -517,7 +540,7 @@ getDocStatusText(exp: string): string {
         if (!res) return;
         console.log('✅ savePass response:', res);
 
-        const isEdit  = this.isEditMode();
+        const isEdit = this.isEditMode();
         const savedId = res?.passId ?? this.editId() ?? '';
         const empCode = (this.form.employeeNo || this.form.contractorCode || 'ADMIN').toUpperCase();
 
@@ -555,17 +578,17 @@ getDocStatusText(exp: string): string {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   private logHistory(passId: any, action: string, empCode: string, remark: string): void {
     const payload = {
-      passNo     : String(passId ?? ''),
-      empCode    : (empCode || 'ADMIN').toUpperCase(),
-      action     : action.toUpperCase(),
-      remark     : remark || null,
+      passNo: String(passId ?? ''),
+      empCode: (empCode || 'ADMIN').toUpperCase(),
+      action: action.toUpperCase(),
+      remark: remark || null,
       dateOfEntry: new Date().toISOString(),
     };
 
     this.http
       .post<any>(API_CONFIG.HISTORY_LOG, payload, {
         headers: this.POST_HEADERS,
-        observe : 'response',
+        observe: 'response',
       })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
@@ -580,5 +603,53 @@ getDocStatusText(exp: string): string {
           console.log('📋 [History Log] Recorded — action:', payload.action, '| pass:', payload.passNo);
         }
       });
+  }
+  // ✅ Download pass — only enabled for Active status
+  downloadPass(p: any): void {
+    const passId = String(p.passId);
+    const emp = p.employeeNo || p.contractorCode || '—';
+    const vehicle = p.vehicle?.vehicleNo || '—';
+    const gate = p.gateNo || '—';
+    const issued = this.formatDate(p.issueDate);
+    const valid = this.formatDate(p.validityDate);
+    const status = p.status || '—';
+
+    const content = [
+      '================================================',
+      '         HEG VEHICLE PASS MANAGEMENT SYSTEM     ',
+      '================================================',
+      `PASS ID     : ${passId}`,
+      `EMPLOYEE NO : ${emp}`,
+      `EMP TYPE    : ${p.empType || '—'}`,
+      `DEPARTMENT  : ${p.dept || '—'}`,
+      `VEHICLE NO  : ${vehicle}`,
+      `VEHICLE TYPE: ${p.vehicle?.vehicleType || p.typeOfVehicle || '—'}`,
+      `GATE        : ${gate}`,
+      `ISSUE DATE  : ${issued}`,
+      `VALID TILL  : ${valid}`,
+      `STATUS      : ${status}`,
+      '================================================',
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pass-${passId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ✅ Edit — for DB records: opens edit modal (existing behaviour)
+  //         for local draft records: resumes pass-entry form
+  openEditInPassEntry(p: any): void {
+    if (p._localRecord) {
+      // It's a local draft — resume in pass-entry form
+      this.passState.setResumeDraft(p._localRecord);
+      this.router.navigate(['/pass-entry']);
+    } else {
+      // It's a DB record — open the existing inline edit modal
+      this.openEditModal(p);
+    }
   }
 }

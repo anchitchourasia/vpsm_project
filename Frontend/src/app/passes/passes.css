@@ -350,3 +350,22 @@ textarea.form-input { resize: vertical; }
 .vr-doc-error     { padding: 10px 12px; background: #fff3e0; border-left: 3px solid #f57c00; color: #bf360c; font-size: 13px; border-radius: 4px; margin: 8px 0; }
 .btn-view-pdf     { background: #fff; border: 1px solid #1976d2; color: #1976d2; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .btn-view-pdf:hover:not(:disabled) { background: #1976d2; color: #fff; }
+.btn-download {
+  background   : #16a34a;
+  color        : #fff;
+  border       : none;
+  padding      : 4px 10px;
+  border-radius: 4px;
+  cursor       : pointer;
+  font-size    : 12px;
+  margin-left  : 4px;
+}
+.btn-download-disabled {
+  background   : #d1d5db;
+  color        : #9ca3af;
+  cursor       : not-allowed;
+  pointer-events: none;
+}
+.btn-download:hover:not(:disabled) {
+  background: #15803d;
+}

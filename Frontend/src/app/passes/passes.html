@@ -35,13 +35,8 @@
     <div class="filter-bar">
       <div class="search-box">
         <i class="bi bi-search search-icon"></i>
-        <input
-          type="text"
-          placeholder="Search pass id, emp code, contractor, dept, mobile, vehicle no..."
-          [value]="searchText()"
-          (input)="onSearch($any($event.target).value)"
-          class="search-input"
-        />
+        <input type="text" placeholder="Search pass id, emp code, contractor, dept, mobile, vehicle no..."
+          [value]="searchText()" (input)="onSearch($any($event.target).value)" class="search-input" />
       </div>
       <div class="filter-group">
         <select (change)="onFilterStatus($any($event.target).value)" class="filter-select">
@@ -113,52 +108,63 @@
               <td>
                 <div class="action-btns">
                   <!-- View is always shown for all statuses -->
-                  <button class="btn-icon-view" title="View" (click)="openViewModal(p)">
+                  <!-- <button class="btn-icon-view" title="View" (click)="openViewModal(p)">
                     <i class="bi bi-eye"></i> View
-                  </button>
+                  </button> -->
                   <!-- ✅ CHANGE 2 — Edit hidden when status is Active -->
-                  <button
-                    *ngIf="(p.status || p.passStatus || '').toLowerCase() !== 'active'"
-                    class="btn-icon-edit"
-                    title="Edit"
-                    (click)="openEditModal(p)">
-                    <i class="bi bi-pencil-square"></i> Edit
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr *ngIf="pagedPasses().length === 0">
-              <td colspan="12" class="no-data">No passes found.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              <td class="actions-cell">
 
-      <!-- PAGINATION -->
-      <div class="pagination-bar">
-        <span class="page-info">
-          Showing
-          {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() < filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }}
-          of {{ filteredPasses().length }}
-        </span>
-        <div class="page-btns">
-          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
-            <i class="bi bi-chevron-left"></i>
-          </button>
-          <button
-            *ngFor="let pg of totalPagesArr"
-            class="pg-btn"
-            [class.active]="pg === currentPage()"
-            (click)="goToPage(pg)">
-            {{ pg }}
-          </button>
-          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
-            <i class="bi bi-chevron-right"></i>
-          </button>
-        </div>
+                <!-- View button — unchanged -->
+                <button class="btn-view" (click)="openViewModal(p)" title="View">
+                  👁 View
+                </button>
+
+                <!-- ✅ Edit — resumes pass-entry for drafts, inline modal for DB records -->
+                <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume">
+                  ✏ Edit
+                </button>
+
+                <!-- ✅ Download — ONLY enabled when status is Active -->
+                <button class="btn-download" [disabled]="(p.status || '').toLowerCase() !== 'active'"
+                  [class.btn-download-disabled]="(p.status || '').toLowerCase() !== 'active'"
+                  (click)="(p.status || '').toLowerCase() === 'active' && downloadPass(p)"
+                  title="{{ (p.status || '').toLowerCase() === 'active' ? 'Download Pass' : 'Available only for Active passes' }}">
+                  ⬇ Download
+                </button>
+
+              </td>
       </div>
+      </td>
+      </tr>
+      <tr *ngIf="pagedPasses().length === 0">
+        <td colspan="12" class="no-data">No passes found.</td>
+      </tr>
+      </tbody>
+      </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="pagination-bar">
+      <span class="page-info">
+        Showing
+        {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() <
+          filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{ filteredPasses().length
+          }} </span>
+          <div class="page-btns">
+            <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
+              (click)="goToPage(pg)">
+              {{ pg }}
+            </button>
+            <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </div>
     </div>
   </div>
+</div>
 </div>
 
 
@@ -206,20 +212,17 @@
       <ng-container *ngIf="form.empType === 'Company_Employee'">
         <div class="form-group">
           <label>Employee No <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.employeeNo"
-            placeholder="e.g. EMP001" class="form-input"
+          <input type="text" [(ngModel)]="form.employeeNo" placeholder="e.g. EMP001" class="form-input"
             style="text-transform:uppercase" />
         </div>
         <div class="form-group">
           <label>EC No (Company No)</label>
-          <input type="text" [(ngModel)]="form.employeeCompanyNo"
-            placeholder="e.g. HEG001" class="form-input"
+          <input type="text" [(ngModel)]="form.employeeCompanyNo" placeholder="e.g. HEG001" class="form-input"
             style="text-transform:uppercase" />
         </div>
         <div class="form-group">
           <label>Department</label>
-          <input type="text" [(ngModel)]="form.dept"
-            placeholder="e.g. Mechanical" class="form-input"
+          <input type="text" [(ngModel)]="form.dept" placeholder="e.g. Mechanical" class="form-input"
             style="text-transform:uppercase" />
         </div>
       </ng-container>
@@ -227,23 +230,20 @@
       <ng-container *ngIf="form.empType === 'Contractor'">
         <div class="form-group">
           <label>Contractor Code <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.contractorCode"
-            placeholder="e.g. CON001" class="form-input"
+          <input type="text" [(ngModel)]="form.contractorCode" placeholder="e.g. CON001" class="form-input"
             style="text-transform:uppercase" />
         </div>
         <div class="form-group">
           <label>Work Area / Department</label>
-          <input type="text" [(ngModel)]="form.dept"
-            placeholder="e.g. Civil Works" class="form-input"
+          <input type="text" [(ngModel)]="form.dept" placeholder="e.g. Civil Works" class="form-input"
             style="text-transform:uppercase" />
         </div>
       </ng-container>
 
       <div class="form-group">
         <label>Mobile No</label>
-        <input type="text" [(ngModel)]="form.mobileNo"
-          placeholder="e.g. 9876543210" class="form-input"
-          maxlength="15" inputmode="numeric" />
+        <input type="text" [(ngModel)]="form.mobileNo" placeholder="e.g. 9876543210" class="form-input" maxlength="15"
+          inputmode="numeric" />
       </div>
     </div>
 
@@ -256,16 +256,8 @@
       <div class="form-group">
         <label>Vehicle ID (FK) <span class="req">*</span></label>
         <div class="input-with-loader">
-          <input
-            type="number"
-            [(ngModel)]="form.vehicleId"
-            (blur)="onVehicleIdBlur()"
-            placeholder="e.g. 5"
-            class="form-input"
-            [class.input-readonly]="isEditMode()"
-            [readonly]="isEditMode()"
-            min="1"
-          />
+          <input type="number" [(ngModel)]="form.vehicleId" (blur)="onVehicleIdBlur()" placeholder="e.g. 5"
+            class="form-input" [class.input-readonly]="isEditMode()" [readonly]="isEditMode()" min="1" />
           <i class="bi bi-arrow-repeat spin-icon-sm lookup-spinner" *ngIf="isLookingUp()"></i>
         </div>
         <small class="form-hint" *ngIf="!isEditMode()">Tab out after entering ID — type auto-fills</small>
@@ -280,13 +272,8 @@
 
       <div class="form-group">
         <label>Type of Vehicle</label>
-        <input
-          type="text"
-          [(ngModel)]="form.typeOfVehicle"
-          placeholder="Auto-filled from Vehicle ID"
-          class="form-input input-readonly"
-          readonly
-        />
+        <input type="text" [(ngModel)]="form.typeOfVehicle" placeholder="Auto-filled from Vehicle ID"
+          class="form-input input-readonly" readonly />
         <small class="form-hint">Auto-filled when Vehicle ID is entered</small>
       </div>
 
@@ -303,8 +290,7 @@
       </div>
       <div class="form-group">
         <label>Validity Date <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="form.validityDate"
-          [min]="form.issueDate" class="form-input" />
+        <input type="date" [(ngModel)]="form.validityDate" [min]="form.issueDate" class="form-input" />
       </div>
       <div class="form-group">
         <label>Gate No <span class="req">*</span></label>
@@ -318,9 +304,7 @@
       </div>
       <div class="form-group">
         <label>Parking To Be Used</label>
-        <input type="text" [(ngModel)]="form.parkingToBeUsed"
-          placeholder="e.g. A-Block, Heavy Yard"
-          class="form-input"
+        <input type="text" [(ngModel)]="form.parkingToBeUsed" placeholder="e.g. A-Block, Heavy Yard" class="form-input"
           style="text-transform:uppercase" />
       </div>
       <div class="form-group">
@@ -340,9 +324,7 @@
       </div>
       <div class="form-group full-width">
         <label>Remarks</label>
-        <textarea [(ngModel)]="form.remarks" rows="3"
-          placeholder="Any remarks..." class="form-input"
-          maxlength="200">
+        <textarea [(ngModel)]="form.remarks" rows="3" placeholder="Any remarks..." class="form-input" maxlength="200">
         </textarea>
       </div>
     </div>
@@ -511,15 +493,12 @@
               </span>
             </td>
             <td>
-              <button
-                class="btn-view-pdf"
-                (click)="viewDocumentPdf(doc)"
+              <button class="btn-view-pdf" (click)="viewDocumentPdf(doc)"
                 [disabled]="!doc.fileName || viewPdfLoading() === doc.documentId"
                 [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
-                [style.opacity]="doc.fileName ? '1' : '0.4'"
-                [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
+                [style.opacity]="doc.fileName ? '1' : '0.4'" [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
                 <i class="bi"
-                   [ngClass]="viewPdfLoading() === doc.documentId ? 'bi-hourglass-split' : 'bi-file-earmark-pdf-fill'"></i>
+                  [ngClass]="viewPdfLoading() === doc.documentId ? 'bi-hourglass-split' : 'bi-file-earmark-pdf-fill'"></i>
                 {{ viewPdfLoading() === doc.documentId ? 'Loading...' : (doc.fileName ? 'View' : '—') }}
               </button>
             </td>
@@ -529,8 +508,7 @@
     </div>
 
     <!-- Empty state -->
-    <div class="vr-doc-empty"
-         *ngIf="!isLoadingViewDocs() && viewPassDocs().length === 0 && !viewDocLoadError()">
+    <div class="vr-doc-empty" *ngIf="!isLoadingViewDocs() && viewPassDocs().length === 0 && !viewDocLoadError()">
       <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
     </div>
 
@@ -544,9 +522,7 @@
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
     <!-- ✅ Edit in View footer also hidden when Active -->
-    <button
-      *ngIf="(viewPass().status || viewPass().passStatus || '').toLowerCase() !== 'active'"
-      class="btn-save"
+    <button *ngIf="(viewPass().status || viewPass().passStatus || '').toLowerCase() !== 'active'" class="btn-save"
       (click)="closeViewModal(); openEditModal(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>
