@@ -351,7 +351,7 @@ textarea.form-input { resize: vertical; }
 .btn-view-pdf     { background: #fff; border: 1px solid #1976d2; color: #1976d2; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .btn-view-pdf:hover:not(:disabled) { background: #1976d2; color: #fff; }
 .btn-download {
-  background   : #16a34a;
+  background   : #19a0c2;
   color        : #fff;
   border       : none;
   padding      : 4px 10px;
@@ -367,5 +367,33 @@ textarea.form-input { resize: vertical; }
   pointer-events: none;
 }
 .btn-download:hover:not(:disabled) {
-  background: #15803d;
+  background: #19a0c2;
 }
+/* ── TABLE ACTION BUTTONS — View (green) & Edit (blue) ── */
+.btn-view {
+  background   : #f0fdf4;
+  border       : 1px solid #bbf7d0;
+  color        : #15803d;
+  border-radius: 4px;
+  padding      : 3px 9px;
+  cursor       : pointer;
+  font-size    : 11px;
+  font-weight  : 600;
+  white-space  : nowrap;
+  transition   : all 0.2s;
+}
+.btn-view:hover { background: #15803d; color: #fff; border-color: #15803d; }
+
+.btn-edit {
+  background   : #eff6ff;
+  border       : 1px solid #bfdbfe;
+  color        : #2563eb;
+  border-radius: 4px;
+  padding      : 3px 9px;
+  cursor       : pointer;
+  font-size    : 11px;
+  font-weight  : 600;
+  white-space  : nowrap;
+  transition   : all 0.2s;
+}
+.btn-edit:hover { background: #2563eb; color: #fff; border-color: #2563eb; }

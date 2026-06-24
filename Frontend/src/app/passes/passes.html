@@ -122,8 +122,7 @@
                                (already approved/activated — no re-edit from approver side)
                   - ADMIN    : always visible (admin can edit anything)
                 -->
-                <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume"
-                  *ngIf="canEditPass(p)">
+                <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume" *ngIf="canEditPass(p)">
                   ✏ Edit
                 </button>
 
@@ -149,20 +148,20 @@
         <span class="page-info">
           Showing
           {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() <
-            filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{ filteredPasses().length
-            }} </span>
-          <div class="page-btns">
-            <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
-              <i class="bi bi-chevron-left"></i>
-            </button>
-            <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
-              (click)="goToPage(pg)">
-              {{ pg }}
-            </button>
-            <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
-              <i class="bi bi-chevron-right"></i>
-            </button>
-          </div>
+            filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{
+            filteredPasses().length }} </span>
+            <div class="page-btns">
+              <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
+                (click)="goToPage(pg)">
+                {{ pg }}
+              </button>
+              <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
       </div>
     </div>
   </div>
@@ -523,8 +522,7 @@
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
     <!-- ✅ Edit in View modal footer — same canEditPass() guard -->
-    <button *ngIf="canEditPass(viewPass())" class="btn-save"
-      (click)="closeViewModal(); openEditModal(viewPass())">
+    <button *ngIf="canEditPass(viewPass())" class="btn-save" (click)="closeViewModal(); openEditModal(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>
   </div>
