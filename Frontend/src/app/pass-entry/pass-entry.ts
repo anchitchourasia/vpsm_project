@@ -11,7 +11,8 @@ import { AuthService } from '../core/auth.service';
 
 const HTTP_TIMEOUT_MS = 12000;
 
-const EMP_IDX = { empNo: 0, name: 1, salary: 2, email: 4, deptName: 6 };
+// ✅ index 3 = aadhar (between salary[2] and email[4])
+const EMP_IDX = { empNo: 0, name: 1, salary: 2, aadhar: 3, email: 4, deptName: 6 };
 
 function formatPassId(dbPassId: number): string {
   return `PASS-HEG-${String(dbPassId).padStart(4, '0')}`;
@@ -86,14 +87,17 @@ export class PassEntry implements OnInit, OnDestroy {
   empName          = signal('');
   empDept          = signal('');
   empSalary        = signal('');
-  empEmail         = signal('');   // ← NEW
-  empType_display = signal('');   // "Company Employee" or "Contractor" label
-  empDeptCode     = signal('');   // department code from API index 5 (or object key)
-  empAadhar        = ''; 
-  empContractorCode  = '';   // for Company_Employee form
+  empEmail         = signal('');
+  empType_display  = signal('');
+  empDeptCode      = signal('');
+
+  // ✅ NOW a signal — auto-filled from employee API, readonly in the form
+  empAadhar        = signal('');
+
+  empContractorCode  = '';
   empContractorName  = '';
   empContractorEmail = '';
-  contractorName     = '';   // for Contractor form
+  contractorName     = '';
   contractorEmail    = '';
   isSaving         = signal(false);
   saved            = signal(false);
@@ -239,7 +243,8 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empType.set(t);
     this.ecNo = ''; this.contractorCode = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
-    this.empAadhar = '';
+    // ✅ reset aadhar signal
+    this.empAadhar.set('');
     this.empEmail.set('');
     this.contractorName  = '';
     this.contractorEmail = '';
@@ -279,6 +284,8 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empDept.set('');
     this.empSalary.set('');
     this.empEmail.set('');
+    // ✅ reset aadhar on new lookup
+    this.empAadhar.set('');
     this.contractorName  = '';
     this.contractorEmail = '';
     this.empData = null;
@@ -310,9 +317,17 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empDept.set(String(match[EMP_IDX.deptName] || '').toUpperCase());
           this.empSalary.set(String(match[EMP_IDX.salary] || ''));
           this.empEmail.set(String(match[EMP_IDX.email]   || ''));
+          // ✅ auto-fill Aadhar from API index 3 (or named key fallback)
+          this.empAadhar.set(String(
+            match[EMP_IDX.aadhar] ||
+            match['aadhar'] ||
+            match['aadharNo'] ||
+            match['aadhaarNo'] ||
+            match['aadharNumber'] ||
+            ''
+          ));
           this.empDeptCode.set(String(match[5] || match['deptCode'] || match['departmentCode'] || ''));
           this.empType_display.set(this.empType() === 'Company_Employee' ? 'Company Employee' : 'Contractor');
-          // ── Contractor form: auto-fill name & email from employee API ──
           this.contractorName  = String(match[EMP_IDX.name]  || '');
           this.contractorEmail = String(match[EMP_IDX.email] || '');
           this.empFetchError.set('');
@@ -359,7 +374,6 @@ export class PassEntry implements OnInit, OnDestroy {
                                   return 'EC No is required.';
     if (this.empType() === 'Contractor' && !this.contractorCode.trim())
                                   return 'Contractor Code is required.';
-    // ✅ validityDate is optional — but if entered, must NOT be a past date
     if (this.validityDate && this.validityDate < this.todayDate)
                                   return 'Validity Date cannot be a past date.';
     if (!this.gateNo)             return 'Gate No is required.';
@@ -392,16 +406,12 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
-  // ── YOUR ORIGINAL onSave FULLY RESTORED ──
-  // DRAFT-timestamp generated locally → user sees it instantly on screen
-  // persistDraftToDB() silently syncs to DB in background → same draft visible on any PC
   onSave(): void {
      if (!this.validityDate) this.validityDate = this.todayDate;
-     this.issueDate = this.todayDate;                          // ✅ always locked to system date
-     if (!this.validityDate) this.validityDate = this.todayDate; // ✅ fallback if user left it blank
+     this.issueDate = this.todayDate;
+     if (!this.validityDate) this.validityDate = this.todayDate;
      const err = this.validate();
      if (err) { this.saveError.set(err); return; }
-
 
     if (!this.passIdGenerated()) {
       const draftId = `DRAFT-${Date.now()}`;
@@ -435,7 +445,6 @@ export class PassEntry implements OnInit, OnDestroy {
       createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     };
 
-    // ── YOUR ORIGINAL LINES — FULLY RESTORED ──
     this.passState.upsert(record);
     this.passState.broadcastDraftChange();
     this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
@@ -450,15 +459,13 @@ export class PassEntry implements OnInit, OnDestroy {
       `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
     );
 
-    // ── NEW: silent background DB sync ──
-    // DRAFT-timestamp stored in remarks field so my-pass & pass-details display same ID on any PC
     this.persistDraftToDB(record);
   }
 
   onSubmit(): void {
     if (!this.validityDate) this.validityDate = this.todayDate;
-    this.issueDate = this.todayDate;                          // ✅ always locked to system date
-    if (!this.validityDate) this.validityDate = this.todayDate; // ✅ fallback if user left it blank
+    this.issueDate = this.todayDate;
+    if (!this.validityDate) this.validityDate = this.todayDate;
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
     const docErr = this.validateSubmit();
@@ -469,9 +476,6 @@ export class PassEntry implements OnInit, OnDestroy {
     this.step1RegisterVehicle();
   }
 
-  // ── Silent background draft persistence to DB ──
-  // Does NOT set isSaving, does NOT show any loading state
-  // User experience is unchanged — draft ID appears instantly
   private persistDraftToDB(record: PassRecord): void {
     const vehiclePayload = {
       vehicleNo    : this.vehicleNo.trim().toUpperCase(),
@@ -486,7 +490,7 @@ export class PassEntry implements OnInit, OnDestroy {
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(() => of(null))  // silent — user already sees DRAFT-id locally
+        catchError(() => of(null))
       )
       .subscribe(vRes => {
         if (!vRes) return;
@@ -507,7 +511,6 @@ export class PassEntry implements OnInit, OnDestroy {
           empType          : this.empType(),
           enterBy          : this.auth.empCode() || 'REQUESTER',
           enterDate        : this.todayDate,
-          // DRAFT-timestamp stored in remarks — my-pass & pass-details read this to show DRAFT-id
           remarks          : record.passId,
         };
 
@@ -515,11 +518,10 @@ export class PassEntry implements OnInit, OnDestroy {
           .pipe(
             timeout(HTTP_TIMEOUT_MS),
             takeUntil(this.destroy$),
-            catchError(() => of(null))  // silent
+            catchError(() => of(null))
           )
           .subscribe(pRes => {
             if (!pRes) return;
-            // Store DB numeric id — reused by step1RegisterVehicle on Submit
             this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
           });
       });
@@ -698,7 +700,8 @@ export class PassEntry implements OnInit, OnDestroy {
     this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
-    this.empAadhar = '';
+    // ✅ reset aadhar signal
+    this.empAadhar.set('');
     this.empDeptCode.set('');
     this.empType_display.set('');
     this.empContractorCode  = '';
