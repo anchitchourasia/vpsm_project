@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 // ✅ CHANGE 1: Added interval, switchMap
 import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
+import { Router } from '@angular/router';                          // ✅ NEW
 import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
+import { PassStateService } from '../services/pass-state.service'; // ✅ NEW
 
 const USE_DUMMY_DATA = false;
 const HTTP_TIMEOUT_MS = 12000;
@@ -61,7 +63,9 @@ const EMPTY_FORM = (): PassForm => ({
   styleUrl: './passes.css',
 })
 export class Passes implements OnInit, OnDestroy {
-  private auth = inject(AuthService);
+  private auth      = inject(AuthService);
+  private passState = inject(PassStateService); // ✅ NEW
+
   private readonly HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
@@ -76,33 +80,32 @@ export class Passes implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
   private allPassesRaw = signal<any[]>([]);
-  isLoading = signal(true);
-  hasError = signal(false);
-  isDummy = USE_DUMMY_DATA;
+  isLoading  = signal(true);
+  hasError   = signal(false);
+  isDummy    = USE_DUMMY_DATA;
 
-  searchText = signal('');
-  filterStatus = signal('ALL');
+  searchText    = signal('');
+  filterStatus  = signal('ALL');
   filterEmpType = signal('ALL');
-  currentPage = signal(1);
-  pageSize = signal(10);
+  currentPage   = signal(1);
+  pageSize      = signal(10);
 
   filteredPasses = computed(() => {
-    const q = this.searchText().toLowerCase();
+    const q  = this.searchText().toLowerCase();
     const st = this.filterStatus();
     const et = this.filterEmpType();
     return this.allPassesRaw().filter(p => {
       const matchSearch =
         !q ||
-        (p.employeeNo || '').toLowerCase().includes(q) ||
-        (p.contractorCode || '').toLowerCase().includes(q) ||
-        (p.dept || '').toLowerCase().includes(q) ||
-        (p.mobileNo || '').toLowerCase().includes(q) ||
+        (p.employeeNo        || '').toLowerCase().includes(q) ||
+        (p.contractorCode    || '').toLowerCase().includes(q) ||
+        (p.dept              || '').toLowerCase().includes(q) ||
+        (p.mobileNo          || '').toLowerCase().includes(q) ||
         (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
         String(p.passId || '').includes(q) ||
-        // search also matches formatted ID e.g. "PASS-HEG-0047"
         this.formatPassId(p.passId).toLowerCase().includes(q);
-      const rowStatus = p.status || p.passStatus || '';
-      const matchStatus = st === 'ALL' || rowStatus === st;
+      const rowStatus    = p.status || p.passStatus || '';
+      const matchStatus  = st === 'ALL' || rowStatus === st;
       const matchEmpType = et === 'ALL' || (p.empType || '') === et;
       return matchSearch && matchStatus && matchEmpType;
     });
@@ -113,33 +116,36 @@ export class Passes implements OnInit, OnDestroy {
     return this.filteredPasses().slice(start, start + this.pageSize());
   });
 
-  get totalPages(): number { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
+  get totalPages(): number     { return Math.max(1, Math.ceil(this.filteredPasses().length / this.pageSize())); }
   get totalPagesArr(): number[] { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
-  showModal = signal(false);
-  isEditMode = signal(false);
-  isSaving = signal(false);
-  saveError = signal('');
-  saveSuccess = signal('');
-  editId = signal<number | null>(null);
+  showModal    = signal(false);
+  isEditMode   = signal(false);
+  isSaving     = signal(false);
+  saveError    = signal('');
+  saveSuccess  = signal('');
+  editId       = signal<number | null>(null);
   form: PassForm = EMPTY_FORM();
 
-  vehicleLookupError = signal('');
+  vehicleLookupError   = signal('');
   vehicleLookupSuccess = signal('');
-  isLookingUp = signal(false);
+  isLookingUp          = signal(false);
 
-  showViewModal = signal(false);
-  viewPass = signal<any>(null);
-  viewPassDocs = signal<DocRecord[]>([]);
+  showViewModal     = signal(false);
+  viewPass          = signal<any>(null);
+  viewPassDocs      = signal<DocRecord[]>([]);
   isLoadingViewDocs = signal(false);
-  viewDocLoadError = signal('');
-  viewPdfLoading = signal<number | null>(null);
-  viewPdfError = signal('');
+  viewDocLoadError  = signal('');
+  viewPdfLoading    = signal<number | null>(null);
+  viewPdfError      = signal('');
 
-  constructor(private http: HttpClient) { }
+  // ✅ NEW — loading state while fetching pass+docs before redirect
+  isRedirectingToEdit = signal(false);
+
+  constructor(private http: HttpClient, private router: Router) {} // ✅ Router injected
 
   // ✅ CHANGE 2: startPolling() added
-  ngOnInit() { this.loadPasses(); this.startPolling(); }
+  ngOnInit()    { this.loadPasses(); this.startPolling(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadPasses() {
@@ -179,7 +185,7 @@ export class Passes implements OnInit, OnDestroy {
 
         if (this.auth.isRegularUser()) {
           filtered = filtered.filter((p: any) =>
-            (p.enterBy || '').toLowerCase() === myCode ||
+            (p.enterBy    || '').toLowerCase() === myCode ||
             (p.employeeNo || '').toLowerCase() === myCode
           );
         }
@@ -206,7 +212,6 @@ export class Passes implements OnInit, OnDestroy {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
 
-        // ✅ Same draft-owner filter on every 30s background poll
         const myCode = this.auth.empCode().trim().toLowerCase();
         let filtered = raw.filter((p: any) => {
           const st = (p.status || '').toLowerCase();
@@ -216,10 +221,9 @@ export class Passes implements OnInit, OnDestroy {
           return true;
         });
 
-        // ✅ Same employee filter applied on every 30s background poll
         if (this.auth.isRegularUser()) {
           filtered = filtered.filter((p: any) =>
-            (p.enterBy || '').toLowerCase() === myCode ||
+            (p.enterBy    || '').toLowerCase() === myCode ||
             (p.employeeNo || '').toLowerCase() === myCode
           );
         }
@@ -276,13 +280,12 @@ export class Passes implements OnInit, OnDestroy {
       });
   }
 
-  onSearch(v: string) { this.searchText.set(v); this.currentPage.set(1); }
-  onFilterStatus(v: string) { this.filterStatus.set(v); this.currentPage.set(1); }
+  onSearch(v: string)       { this.searchText.set(v);    this.currentPage.set(1); }
+  onFilterStatus(v: string)  { this.filterStatus.set(v);  this.currentPage.set(1); }
   onFilterEmpType(v: string) { this.filterEmpType.set(v); this.currentPage.set(1); }
-  onPageSize(v: string) { this.pageSize.set(+v); this.currentPage.set(1); }
-  goToPage(p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
+  onPageSize(v: string)      { this.pageSize.set(+v);     this.currentPage.set(1); }
+  goToPage(p: number)        { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
 
-  // formats DB integer passId → "PASS-HEG-0047"
   formatPassId(dbPassId: number | null | undefined, remarks?: string): string {
     if (!dbPassId && dbPassId !== 0) return '—';
     return String(dbPassId);
@@ -296,14 +299,14 @@ export class Passes implements OnInit, OnDestroy {
 
   getStatusClass(s: string): string {
     switch ((s || '').toLowerCase()) {
-      case 'active': return 'badge badge-active';
-      case 'expiring': return 'badge badge-expiring';
-      case 'expired': return 'badge badge-expired';
+      case 'active':      return 'badge badge-active';
+      case 'expiring':    return 'badge badge-expiring';
+      case 'expired':     return 'badge badge-expired';
       case 'surrendered': return 'badge badge-surrendered';
-      case 'draft': return 'badge badge-draft';
-      case 'submitted': return 'badge badge-submitted';
-      case 'confirmed': return 'badge badge-confirmed';
-      default: return 'badge badge-surrendered';
+      case 'draft':       return 'badge badge-draft';
+      case 'submitted':   return 'badge badge-submitted';
+      case 'confirmed':   return 'badge badge-confirmed';
+      default:            return 'badge badge-surrendered';
     }
   }
 
@@ -325,21 +328,21 @@ export class Passes implements OnInit, OnDestroy {
 
   openEditModal(p: any) {
     this.form = {
-      issueDate: p.issueDate || '',
-      validityDate: p.validityDate || '',
-      employeeNo: p.employeeNo || '',
-      employeeCompanyNo: p.employeeCompanyNo || '',
-      dept: p.dept || '',
-      contractorCode: p.contractorCode || '',
-      gateNo: p.gateNo || '',
-      parkingToBeUsed: p.parkingToBeUsed || '',
-      vehicleId: String(p.vehicle?.vehicleId ?? ''),
-      typeOfVehicle: p.typeOfVehicle || p.vehicle?.vehicleType || '',
-      mobileNo: p.mobileNo || '',
-      passStatus: p.status || p.passStatus || 'Active',
-      empType: p.empType || 'Company_Employee',
-      remarks: p.remarks || '',
-      isActive: p.isActive || 'Y',
+      issueDate         : p.issueDate         || '',
+      validityDate      : p.validityDate       || '',
+      employeeNo        : p.employeeNo         || '',
+      employeeCompanyNo : p.employeeCompanyNo  || '',
+      dept              : p.dept               || '',
+      contractorCode    : p.contractorCode     || '',
+      gateNo            : p.gateNo             || '',
+      parkingToBeUsed   : p.parkingToBeUsed    || '',
+      vehicleId         : String(p.vehicle?.vehicleId ?? ''),
+      typeOfVehicle     : p.typeOfVehicle || p.vehicle?.vehicleType || '',
+      mobileNo          : p.mobileNo           || '',
+      passStatus        : p.status || p.passStatus || 'Active',
+      empType           : p.empType            || 'Company_Employee',
+      remarks           : p.remarks            || '',
+      isActive          : p.isActive           || 'Y',
     };
     this.isEditMode.set(true);
     this.editId.set(p.passId);
@@ -347,9 +350,7 @@ export class Passes implements OnInit, OnDestroy {
     this.saveSuccess.set('');
     this.vehicleLookupError.set('');
     this.vehicleLookupSuccess.set(
-      this.form.typeOfVehicle
-        ? '✅ Vehicle found: ' + this.form.typeOfVehicle
-        : ''
+      this.form.typeOfVehicle ? '✅ Vehicle found: ' + this.form.typeOfVehicle : ''
     );
     this.isLookingUp.set(false);
     this.showViewModal.set(false);
@@ -385,7 +386,10 @@ export class Passes implements OnInit, OnDestroy {
         .subscribe(list => {
           const vid = (list || []).find((x: any) => x.passId === p.passId)?.vehicle?.vehicleId ?? null;
           if (vid) this.fetchViewDocsByVehicleId(vid);
-          else { this.viewDocLoadError.set('No vehicle linked — cannot load documents.'); this.isLoadingViewDocs.set(false); }
+          else {
+            this.viewDocLoadError.set('No vehicle linked — cannot load documents.');
+            this.isLoadingViewDocs.set(false);
+          }
         });
       return;
     }
@@ -396,8 +400,15 @@ export class Passes implements OnInit, OnDestroy {
     this.isLoadingViewDocs.set(true);
     this.viewDocLoadError.set('');
     this.http.get<DocRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
-      .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => { this.viewDocLoadError.set('Could not load documents (' + (err?.status || 'network error') + ').'); this.isLoadingViewDocs.set(false); return of([]); }))
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.viewDocLoadError.set('Could not load documents (' + (err?.status || 'network error') + ').');
+          this.isLoadingViewDocs.set(false);
+          return of([]);
+        })
+      )
       .subscribe(docs => {
         const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
         this.viewPassDocs.set(filtered);
@@ -407,12 +418,24 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   viewDocumentPdf(doc: DocRecord): void {
-    if (!doc?.documentId || !doc?.fileName) { this.viewPdfError.set('No file attached.'); setTimeout(() => this.viewPdfError.set(''), 3500); return; }
+    if (!doc?.documentId || !doc?.fileName) {
+      this.viewPdfError.set('No file attached.');
+      setTimeout(() => this.viewPdfError.set(''), 3500);
+      return;
+    }
     this.viewPdfLoading.set(doc.documentId);
     this.viewPdfError.set('');
     this.http.get(`${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`, { responseType: 'blob', headers: this.HEADERS })
-      .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(() => { this.viewPdfError.set('Could not load file.'); this.viewPdfLoading.set(null); setTimeout(() => this.viewPdfError.set(''), 4000); return of(null); }))
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => {
+          this.viewPdfError.set('Could not load file.');
+          this.viewPdfLoading.set(null);
+          setTimeout(() => this.viewPdfError.set(''), 4000);
+          return of(null);
+        })
+      )
       .subscribe((blob: Blob | null) => {
         this.viewPdfLoading.set(null);
         if (!blob) return;
@@ -435,12 +458,12 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   savePass() {
-    if (!String(this.form.vehicleId).trim()) { this.saveError.set('Vehicle ID is required.'); return; }
-    if (this.vehicleLookupError()) { this.saveError.set('Fix Vehicle ID error before saving.'); return; }
-    if (!this.form.typeOfVehicle.trim()) { this.saveError.set('Enter a valid Vehicle ID first — type auto-fills.'); return; }
-    if (!this.form.issueDate) { this.saveError.set('Issue Date is required.'); return; }
-    if (!this.form.validityDate) { this.saveError.set('Validity Date is required.'); return; }
-    if (!this.form.gateNo.trim()) { this.saveError.set('Gate No is required.'); return; }
+    if (!String(this.form.vehicleId).trim())   { this.saveError.set('Vehicle ID is required.'); return; }
+    if (this.vehicleLookupError())              { this.saveError.set('Fix Vehicle ID error before saving.'); return; }
+    if (!this.form.typeOfVehicle.trim())        { this.saveError.set('Enter a valid Vehicle ID first — type auto-fills.'); return; }
+    if (!this.form.issueDate)                   { this.saveError.set('Issue Date is required.'); return; }
+    if (!this.form.validityDate)                { this.saveError.set('Validity Date is required.'); return; }
+    if (!this.form.gateNo.trim())               { this.saveError.set('Gate No is required.'); return; }
     if (this.form.empType === 'Company_Employee' && !this.form.employeeNo.trim()) {
       this.saveError.set('Employee No is required for Company Employee.'); return;
     }
@@ -454,29 +477,29 @@ export class Passes implements OnInit, OnDestroy {
     this.saveSuccess.set('');
 
     const payload: any = {
-      vehicle: { vehicleId: Number(this.form.vehicleId) },
-      typeOfVehicle: this.form.typeOfVehicle,
-      empType: this.form.empType,
-      dept: this.form.dept || null,
-      mobileNo: this.form.mobileNo || null,
-      issueDate: this.form.issueDate,
-      validityDate: this.form.validityDate,
-      gateNo: this.form.gateNo,
-      parkingToBeUsed: this.form.parkingToBeUsed || null,
-      status: this.form.passStatus,
-      isActive: this.form.isActive,
-      remarks: this.form.remarks || null,
-      enterBy: 'ADMIN',
-      enterDate: new Date().toISOString().split('T')[0],
+      vehicle         : { vehicleId: Number(this.form.vehicleId) },
+      typeOfVehicle   : this.form.typeOfVehicle,
+      empType         : this.form.empType,
+      dept            : this.form.dept            || null,
+      mobileNo        : this.form.mobileNo        || null,
+      issueDate       : this.form.issueDate,
+      validityDate    : this.form.validityDate,
+      gateNo          : this.form.gateNo,
+      parkingToBeUsed : this.form.parkingToBeUsed || null,
+      status          : this.form.passStatus,
+      isActive        : this.form.isActive,
+      remarks         : this.form.remarks         || null,
+      enterBy         : 'ADMIN',
+      enterDate       : new Date().toISOString().split('T')[0],
     };
 
     if (this.form.empType === 'Company_Employee') {
-      payload.employeeNo = this.form.employeeNo || null;
+      payload.employeeNo        = this.form.employeeNo        || null;
       payload.employeeCompanyNo = this.form.employeeCompanyNo || null;
-      payload.contractorCode = null;
+      payload.contractorCode    = null;
     } else {
-      payload.contractorCode = this.form.contractorCode || null;
-      payload.employeeNo = null;
+      payload.contractorCode    = this.form.contractorCode || null;
+      payload.employeeNo        = null;
       payload.employeeCompanyNo = null;
     }
 
@@ -527,7 +550,7 @@ export class Passes implements OnInit, OnDestroy {
         if (!res) return;
         console.log('✅ savePass response:', res);
 
-        const isEdit = this.isEditMode();
+        const isEdit  = this.isEditMode();
         const savedId = res?.passId ?? this.editId() ?? '';
         const empCode = (this.form.employeeNo || this.form.contractorCode || 'ADMIN').toUpperCase();
 
@@ -556,27 +579,18 @@ export class Passes implements OnInit, OnDestroy {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  AUTO-LOG TO HISTORY — fires silently after every successful
   //  pass issue / update / surrender.
-  //
-  //  POST /api/history/log  (API_CONFIG.HISTORY_LOG)
-  //  Payload shape matches HistoryLog.java entity fields.
-  //
-  //  ⚠️  Silent fail by design — history errors MUST NOT block
-  //      or surface to the user in any way.
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   private logHistory(passId: any, action: string, empCode: string, remark: string): void {
     const payload = {
-      passNo: String(passId ?? ''),
-      empCode: (empCode || 'ADMIN').toUpperCase(),
-      action: action.toUpperCase(),
-      remark: remark || null,
+      passNo     : String(passId ?? ''),
+      empCode    : (empCode || 'ADMIN').toUpperCase(),
+      action     : action.toUpperCase(),
+      remark     : remark || null,
       dateOfEntry: new Date().toISOString(),
     };
 
     this.http
-      .post<any>(API_CONFIG.HISTORY_LOG, payload, {
-        headers: this.POST_HEADERS,
-        observe: 'response',
-      })
+      .post<any>(API_CONFIG.HISTORY_LOG, payload, { headers: this.POST_HEADERS, observe: 'response' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -594,13 +608,13 @@ export class Passes implements OnInit, OnDestroy {
 
   // ✅ Download pass — only enabled for Active status
   downloadPass(p: any): void {
-    const passId = String(p.passId);
-    const emp = p.employeeNo || p.contractorCode || '—';
+    const passId  = String(p.passId);
+    const emp     = p.employeeNo     || p.contractorCode || '—';
     const vehicle = p.vehicle?.vehicleNo || '—';
-    const gate = p.gateNo || '—';
-    const issued = this.formatDate(p.issueDate);
-    const valid = this.formatDate(p.validityDate);
-    const status = p.status || '—';
+    const gate    = p.gateNo         || '—';
+    const issued  = this.formatDate(p.issueDate);
+    const valid   = this.formatDate(p.validityDate);
+    const status  = p.status         || '—';
 
     const content = [
       '================================================',
@@ -620,42 +634,122 @@ export class Passes implements OnInit, OnDestroy {
     ].join('\n');
 
     const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
     a.download = `Pass-${passId}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  // ✅ Edit — always opens the inline DB edit modal
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  openEditInPassEntry — Edit button in Pass Registry
+  //
+  //  Flow:
+  //   1. Fetch fresh pass row from DB (fallback to current row)
+  //   2. Fetch compliance docs for that vehicle
+  //   3. Build PassRecord (same shape pass-entry.ts expects via resumeDraftData)
+  //   4. passState.setResumeDraft(record) → pass-entry reads in ngOnInit
+  //   5. router.navigate(['/pass-entry'])
+  //
+  //  pass-entry.ts ngOnInit "Resume DRAFT" block handles ALL pre-filling.
+  //  No changes needed in pass-entry.ts.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   openEditInPassEntry(p: any): void {
-    this.openEditModal(p);
+    const passId = p?.passId;
+    if (!passId) return;
+
+    this.isRedirectingToEdit.set(true);
+
+    // ── Step 1: Fetch fresh pass row from DB ──────────────────────────────
+    this.http
+      .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => of(null))
+      )
+      .subscribe((allPasses: any[] | null) => {
+        // Use fresh DB row if found, otherwise fall back to table row we already have
+        const fresh      = allPasses?.find((x: any) => x.passId === passId) ?? p;
+        const vehicleId  = fresh.vehicle?.vehicleId ?? null;
+
+        // ── Inner helper: build PassRecord + navigate ─────────────────────
+        const buildAndNavigate = (rawDocs: any[]) => {
+          // Map API doc shape → DocEntry shape pass-entry ngOnInit expects
+          const mappedDocs = (rawDocs || []).map((d: any) => ({
+            documentId  : d.documentId  ?? d.id        ?? null,
+            docType     : (d.documentType || '').toUpperCase().trim(),
+            docNo       : d.documentNo  || d.docNo     || '',
+            validUpto   : d.expiryDate  || d.validUpto || '',
+            fileName    : d.fileName    || null,
+          }));
+
+          // Build PassRecord — exact shape PassStateService & pass-entry expect
+          const record = {
+            passId        : String(fresh.passId),
+            empType       : fresh.empType                                  || 'Company_Employee',
+            vehicleNo     : fresh.vehicle?.vehicleNo                       || '',
+            vehicleType   : fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
+            vehicleClass  : fresh.vehicle?.vehicleClass                    || '',
+            brandModel    : fresh.vehicle?.brandModel                      || '',
+            ecNo          : fresh.employeeNo || fresh.employeeCompanyNo    || '',
+            empName       : fresh.employeeName || fresh.empName            || '',
+            empDept       : fresh.dept                                     || '',
+            contractorFirm: fresh.contractorCode                           || '',
+            issueDate     : fresh.issueDate                                || '',
+            validityDate  : fresh.validityDate                             || '',
+            gateNo        : fresh.gateNo                                   || '',
+            parkingArea   : fresh.parkingToBeUsed                          || '',
+            remark        : fresh.remarks                                  || '',
+            docs          : mappedDocs,
+            status        : 'Saved' as const,
+            createdAt     : fresh.enterDate
+                              || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+          };
+
+          // Push into state service → pass-entry.ts ngOnInit reads this on load
+          this.passState.setResumeDraft(record as any);
+
+          this.isRedirectingToEdit.set(false);
+          this.router.navigate(['/pass-entry']);
+        };
+
+        if (vehicleId) {
+          // ── Step 2: Fetch compliance docs for this vehicle ───────────────
+          this.http
+            .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
+            .pipe(
+              timeout(HTTP_TIMEOUT_MS),
+              takeUntil(this.destroy$),
+              catchError(() => of([]))  // doc fetch fails → still navigate, no docs pre-filled
+            )
+            .subscribe((docs: any[]) => buildAndNavigate(docs || []));
+        } else {
+          // No vehicle linked yet — navigate without docs
+          buildAndNavigate([]);
+        }
+      });
   }
+
   // ✅ Centralised Edit visibility guard — used by both table row and View modal footer
-  // ✅ Controls Edit button visibility per role + pass status
   canEditPass(p: any): boolean {
     const status = (p?.status || p?.passStatus || '').toLowerCase();
 
-    // ADMIN can always edit
     if (this.auth.isAdmin()) return true;
 
-    // APPROVER: hide Edit once pass is Active (they approved it — done)
     if (this.auth.isApprover() && !this.auth.isAdmin()) {
       return status !== 'active';
     }
 
-    // CONFIRMER: hide Edit once pass is Confirmed (they confirmed it — done)
     if (this.auth.isConfirmer() && !this.auth.isAdmin()) {
       return status !== 'confirmed' && status !== 'active';
     }
 
-    // UPLOADER: hide Edit once Confirmed or Active (out of their hands)
     if (this.auth.isUploader() && !this.auth.isAdmin()) {
       return status !== 'confirmed' && status !== 'active';
     }
 
-    // Regular employee — no edit
     return false;
   }
 }

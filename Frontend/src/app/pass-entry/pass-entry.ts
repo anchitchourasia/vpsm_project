@@ -690,13 +690,13 @@ export class PassEntry implements OnInit, OnDestroy {
         : `Pass submitted! ID: ${this.passId()} is now pending confirmer review.`
     );
 
-    setTimeout(() => {
-      if (this.auth.isRegularUser()) {
-        this.router.navigate(['/my-pass']);
-      } else {
-        this.router.navigate(['/pass-details']);
-      }
-    }, 2200);
+    // setTimeout(() => {
+    //   if (this.auth.isRegularUser()) {
+    //     this.router.navigate(['/my-pass']);
+    //   } else {
+    //     this.router.navigate(['/pass-details']);
+    //   }
+    // }, 2200);
   }
 
   // ✅ Shared helper to build PassRecord — avoids duplication
