@@ -756,6 +756,7 @@ export class PassEntry implements OnInit, OnDestroy {
       passNo     : String(passNo ?? ''),
       empCode    : (empCode || 'ADMIN').toUpperCase(),
       action     : action.toUpperCase(),
+      aadhaarNo: this.empAadhar() || null,
       remark     : remark || null,
       dateOfEntry: new Date().toISOString(),
     };

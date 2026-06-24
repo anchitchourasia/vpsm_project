@@ -6,7 +6,8 @@
       <i class="bi bi-person-check-fill header-icon blue"></i>
       <div>
         <h2 class="heading blue">Confirmer Queue</h2>
-        <p class="sub-text">Logged in as <strong>{{ confirmerName() }}</strong> &nbsp;·&nbsp; Review and confirm submitted pass requests</p>
+        <p class="sub-text">Logged in as <strong>{{ confirmerName() }}</strong> &nbsp;·&nbsp; Review and confirm
+          submitted pass requests</p>
       </div>
     </div>
     <div class="header-right">
@@ -48,9 +49,16 @@
         <table class="dtable">
           <thead>
             <tr>
-              <th>S.NO</th><th>PASS ID</th><th>EMPLOYEE NO</th><th>VEHICLE NO</th>
-              <th>TYPE</th><th>GATE</th><th>ISSUE DATE</th><th>VALID TILL</th>
-              <th>STATUS</th><th>ACTION</th>
+              <th>S.NO</th>
+              <th>PASS ID</th>
+              <th>EMPLOYEE NO</th>
+              <th>VEHICLE NO</th>
+              <th>TYPE</th>
+              <th>GATE</th>
+              <th>ISSUE DATE</th>
+              <th>VALID TILL</th>
+              <th>STATUS</th>
+              <th>ACTION</th>
             </tr>
           </thead>
           <tbody>
@@ -76,14 +84,15 @@
       <div class="pagination-bar">
         <span class="pg-info">
           Showing {{ pendingList().length === 0 ? 0 : (currentPage()-1)*pageSize+1 }}
-          – {{ currentPage()*pageSize < pendingList().length ? currentPage()*pageSize : pendingList().length }}
-          of {{ pendingList().length }}
-        </span>
-        <div class="pg-btns">
-          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">‹</button>
-          <button *ngFor="let p of totalPagesArr" class="pg-btn" [class.active]="p===currentPage()" (click)="goToPage(p)">{{ p }}</button>
-          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">›</button>
-        </div>
+          – {{ currentPage()*pageSize < pendingList().length ? currentPage()*pageSize : pendingList().length }} of {{
+            pendingList().length }} </span>
+            <div class="pg-btns">
+              <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">‹</button>
+              <button *ngFor="let p of totalPagesArr" class="pg-btn" [class.active]="p===currentPage()"
+                (click)="goToPage(p)">{{ p }}</button>
+              <button class="pg-btn" (click)="goToPage(currentPage()+1)"
+                [disabled]="currentPage()===totalPages">›</button>
+            </div>
       </div>
     </div>
   </div>
@@ -120,15 +129,35 @@
         <!-- ── Employee ── -->
         <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
         <div class="dg">
-          <div class="di"><label>Employee No</label><span>{{ p.employeeNo || '—' }}</span></div>
-          <div class="di"><label>Company No</label><span>{{ p.employeeCompanyNo || '—' }}</span></div>
-          <div class="di"><label>Name</label><span>{{ p.employeeName || p.empName || p.name || '—' }}</span></div>
-          <div class="di"><label>Emp Type</label><span>{{ p.empType || '—' }}</span></div>
-          <div class="di"><label>Department</label><span>{{ p.dept || '—' }}</span></div>
-          <div class="di"><label>Contractor Code</label><span>{{ p.contractorCode || '—' }}</span></div>
-          <div class="di"><label>Mobile</label><span>{{ p.mobileNo || '—' }}</span></div>
+          <div class="di"><label>Employee No</label>
+            <span>{{ p.employeeNo || p.contractorCode || '—' }}</span>
+          </div>
+          <div class="di"><label>Emp Type</label>
+            <span>{{ p.empType || '—' }}</span>
+          </div>
+          <div class="di"><label>Name</label>
+            <!-- resolveEmpName fallback: reads from PassStateService name-map loaded in ngOnInit -->
+            <span>{{ svc.resolveEmpName(p.employeeNo || p.contractorCode || '') || p.employeeName || p.empName || '—'
+              }}</span>
+          </div>
+          <div class="di"><label>Department</label>
+            <span>{{ p.dept || '—' }}</span>
+          </div>
+          <!-- Contractor Name: only visible for Contractor type -->
+          <div class="di" *ngIf="p.empType === 'Contractor'">
+            <label>Contractor Name</label>
+            <span>{{ p.contractorName || p.empName || svc.resolveEmpName(p.contractorCode || '') || '—' }}</span>
+          </div>
+          <div class="di" *ngIf="p.empType === 'Contractor'">
+            <label>Contractor Code</label>
+            <span>{{ p.contractorCode || '—' }}</span>
+          </div>
+          <!-- Aadhar: stored in pass payload when available -->
+          <div class="di">
+            <label>Aadhar No</label>
+            <span>{{ p.aadhaarNo || p.aadharNo || '—' }}</span>
+          </div>
         </div>
-
         <!-- ── Pass Details ── -->
         <div class="sec-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
         <div class="dg">
@@ -175,9 +204,7 @@
                   </span>
                 </td>
                 <td>
-                  <button class="btn-view-pdf"
-                    (click)="viewDocument(doc)"
-                    [disabled]="!doc.fileName"
+                  <button class="btn-view-pdf" (click)="viewDocument(doc)" [disabled]="!doc.fileName"
                     [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
                     [style.opacity]="doc.fileName ? '1' : '0.4'"
                     [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
@@ -197,10 +224,8 @@
         <!-- ── Confirmer Remark ── -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Confirmer Remark</div>
         <div class="form-group">
-          <textarea class="form-textarea" rows="3"
-            placeholder="Enter your verification remark (required)..."
-            [ngModel]="actionRemark()"
-            (ngModelChange)="actionRemark.set($event)">
+          <textarea class="form-textarea" rows="3" placeholder="Enter your verification remark (required)..."
+            [ngModel]="actionRemark()" (ngModelChange)="actionRemark.set($event)">
           </textarea>
         </div>
 
@@ -216,8 +241,7 @@
              Placed ABOVE footer — outside flex row
         ══════════════════════════════════════════════ -->
         <div class="hist-toggle-row">
-          <button class="btn-hist-toggle"
-            (click)="showHistory.set(!showHistory())"
+          <button class="btn-hist-toggle" (click)="showHistory.set(!showHistory())"
             [class.btn-hist-active]="showHistory()">
             <i class="bi bi-clock-history"></i>
             {{ showHistory() ? 'Hide Pass History' : 'Show Full Pass History' }}
@@ -241,8 +265,7 @@
             <i class="bi bi-exclamation-triangle-fill"></i> {{ historyLoadError() }}
           </div>
 
-          <div class="doc-table-wrap hist-table-wrap"
-               *ngIf="!isLoadingHistory() && empPassHistory().length > 0">
+          <div class="doc-table-wrap hist-table-wrap" *ngIf="!isLoadingHistory() && empPassHistory().length > 0">
             <table class="doc-table hist-table">
               <thead>
                 <tr>
@@ -257,8 +280,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let h of empPassHistory(); let hi = index"
-                    [class.hist-row-current]="h.passId === p.passId">
+                <tr *ngFor="let h of empPassHistory(); let hi = index" [class.hist-row-current]="h.passId === p.passId">
                   <td class="muted">{{ hi + 1 }}</td>
                   <td>
                     <strong [class.blue]="h.passId === p.passId">{{ h.passId }}</strong>
@@ -294,18 +316,15 @@
           </button>
 
           <!-- Send for Modify: first click arms (orange), second click fires -->
-          <button class="footer-btn btn-modify-footer"
-            [class.btn-modify-armed]="activeAction() === 'modify'"
-            (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')"
-            [disabled]="isActing()">
+          <button class="footer-btn btn-modify-footer" [class.btn-modify-armed]="activeAction() === 'modify'"
+            (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')" [disabled]="isActing()">
             <i class="bi bi-pencil-square"></i>
             {{ activeAction() === 'modify'
-                ? (isActing() ? 'Processing…' : 'Confirm Send for Modify')
-                : 'Send for Modify' }}
+            ? (isActing() ? 'Processing…' : 'Confirm Send for Modify')
+            : 'Send for Modify' }}
           </button>
 
-          <button class="footer-btn btn-red"
-            (click)="activeAction() === 'modify' ? setAction('modify') : reject(p)"
+          <button class="footer-btn btn-red" (click)="activeAction() === 'modify' ? setAction('modify') : reject(p)"
             [disabled]="isActing()">
             <i class="bi bi-x-circle-fill"></i>
             {{ isActing() ? 'Processing…' : 'Reject' }}

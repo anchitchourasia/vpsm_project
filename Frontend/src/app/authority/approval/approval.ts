@@ -17,6 +17,9 @@ interface PassRecord {
   name            ?: string;   // ← ADD THIS
   dept             : string;
   contractorCode   : string;
+  contractorName  ?: string;   // ✅ ADD THIS
+  aadhaarNo       ?: string;   // ✅ ADD THIS
+  aadharNo        ?: string;   // ✅ ADD THIS
   gateNo           : string;
   parkingToBeUsed  : string;
   typeOfVehicle    : string;
@@ -114,7 +117,7 @@ export class Approval implements OnInit, OnDestroy {
   get totalPages()    { return Math.max(1, Math.ceil(this.pendingList().length / this.pageSize)); }
   get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
-  private svc = inject(PassStateService);
+  protected svc = inject(PassStateService);
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
