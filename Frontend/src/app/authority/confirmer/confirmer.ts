@@ -168,7 +168,7 @@ export class Confirmer implements OnInit, OnDestroy {
     }
     this.empPassHistory.set([]);
     this.historyLoadError.set('');
-    this.loadEmpPassHistory(p.employeeNo);
+    this.loadEmpPassHistory(String(p.passId));
   }
 
   closeDetails(): void {
@@ -352,6 +352,7 @@ export class Confirmer implements OnInit, OnDestroy {
   this.isLoadingHistory.set(true);
   this.historyLoadError.set('');
   this.empPassHistory.set([]);
+  
 
   this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
     .pipe(

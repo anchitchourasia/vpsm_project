@@ -9,14 +9,13 @@ import { API_CONFIG } from '../core/api.config';
 
 const TIMEOUT_MS = 15000;
 
-// ── ACTION GROUPS — maps route data to which action values to show ──
 const ACTION_GROUPS: Record<string, string[]> = {
   'pass-created'  : ['SUBMITTED', 'CREATED', 'PASS_RAISED', 'DRAFT_SAVED'],
   'approved'      : ['APPROVED', 'CONFIRMED'],
   'surrendered'   : ['SURRENDERED'],
   'expiry-events' : ['EXPIRED', 'EXPIRY_WARN'],
   'gate-movements': ['GATE_IN', 'GATE_OUT', 'GATE_ENTRY', 'GATE_EXIT'],
-  'all'           : [],  // empty = show all
+  'all'           : [],
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -65,20 +64,65 @@ export class History implements OnInit, OnDestroy {
   pageSize     = signal(10);
   activeGroup  = signal<string>('all');
 
+  // ✅ NEW filter signals
+  filterAction   = signal<string>('ALL');
+  filterDateFrom = signal<string>('');
+  filterDateTo   = signal<string>('');
+  filterPassId   = signal<string>('');
+
   currentTabLabel = computed(() => TAB_LABELS[this.activeGroup()] ?? 'History');
 
-  // ── Filter by action group + search ──────────────────────────────────────
+  // ✅ NEW — unique action values for the dropdown (auto-built from loaded data)
+  uniqueActions = computed(() => {
+    const set = new Set<string>();
+    this.allRecords().forEach(r => { if (r.action) set.add(r.action.toUpperCase()); });
+    return Array.from(set).sort();
+  });
+
   filteredRecords = computed(() => {
     const group   = this.activeGroup();
     const actions = ACTION_GROUPS[group] ?? [];
     const q       = this.searchText().toLowerCase().trim();
+    const selAct  = this.filterAction();
+    const from    = this.filterDateFrom();
+    const to      = this.filterDateTo();
+    
 
     let list = this.allRecords();
-    
-    // Filter by action group (empty = all)
+    const pid = this.filterPassId().trim().toLowerCase();
+    if (pid) {
+      list = list.filter(r =>
+        (r.passNo || '').toLowerCase().includes(pid)
+  );
+}
+
+    // Filter by action group tab (empty = all)
     if (actions.length > 0) {
       list = list.filter(r =>
         actions.some(a => (r.action || '').toUpperCase() === a.toUpperCase())
+      );
+    }
+
+    // ✅ NEW — Filter by selected action dropdown
+    if (selAct !== 'ALL') {
+      list = list.filter(r =>
+        (r.action || '').toUpperCase() === selAct.toUpperCase()
+      );
+    }
+
+    // ✅ NEW — Filter by date FROM
+    if (from) {
+      const fromMs = new Date(from).setHours(0, 0, 0, 0);
+      list = list.filter(r =>
+        r.dateOfEntry && new Date(r.dateOfEntry).getTime() >= fromMs
+      );
+    }
+
+    // ✅ NEW — Filter by date TO
+    if (to) {
+      const toMs = new Date(to).setHours(23, 59, 59, 999);
+      list = list.filter(r =>
+        r.dateOfEntry && new Date(r.dateOfEntry).getTime() <= toMs
       );
     }
 
@@ -110,10 +154,10 @@ export class History implements OnInit, OnDestroy {
   constructor(private http: HttpClient, private route: ActivatedRoute) {}
 
   ngOnInit(): void {
-    // Read which tab we're on from route data
     this.route.data.pipe(takeUntil(this.destroy$)).subscribe(data => {
       this.activeGroup.set(data['historyType'] || 'all');
       this.currentPage.set(1);
+      this.resetFilters(); // ✅ reset filters on tab change
     });
     this.loadHistory();
   }
@@ -140,9 +184,23 @@ export class History implements OnInit, OnDestroy {
       });
   }
 
-  onSearch(v: string): void { this.searchText.set(v); this.currentPage.set(1); }
-  onPageSize(v: string): void { this.pageSize.set(+v); this.currentPage.set(1); }
-  goToPage(p: number): void { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
+  onSearch(v: string):     void { this.searchText.set(v);       this.currentPage.set(1); }
+  onPageSize(v: string):   void { this.pageSize.set(+v);        this.currentPage.set(1); }
+  goToPage(p: number):     void { if (p >= 1 && p <= this.totalPages) this.currentPage.set(p); }
+
+  // ✅ NEW filter handlers
+  onFilterAction(v: string):   void { this.filterAction.set(v);   this.currentPage.set(1); }
+  onFilterDateFrom(v: string): void { this.filterDateFrom.set(v); this.currentPage.set(1); }
+  onFilterDateTo(v: string):   void { this.filterDateTo.set(v);   this.currentPage.set(1); }
+
+  // ✅ NEW — resets all extra filters
+  resetFilters(): void {
+    this.searchText.set('');
+    this.filterAction.set('ALL');
+    this.filterDateFrom.set('');
+    this.filterDateTo.set('');
+    this.currentPage.set(1);
+  }
 
   formatDate(d: string): string {
     if (!d) return '—';

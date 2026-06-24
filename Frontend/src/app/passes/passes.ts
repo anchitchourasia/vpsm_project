@@ -62,9 +62,8 @@ const EMPTY_FORM = (): PassForm => ({
   styleUrl   : './passes.css',
 })
 export class Passes implements OnInit, OnDestroy {
-
+  private auth = inject(AuthService);
   private readonly HEADERS = new HttpHeaders({
-    private auth = inject(AuthService);  // ✅ ADD THIS LINE
     'x-api-key'   : API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });

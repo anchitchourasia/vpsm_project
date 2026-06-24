@@ -234,17 +234,7 @@
               placeholder="Auto-filled from EC No" />
           </div>
 
-          <!-- <div class="pe-field">
-            <label>
-              Salary
-              @if (isEcNoLocked) {
-                <span class="pe-readonly-lock"><i class="bi bi-lock-fill"></i></span>
-              }
-            </label>
-            <input type="text" class="pe-input pe-readonly"
-              [value]="empSalary()" readonly
-              placeholder="Auto-filled from EC No" />
-          </div> -->
+       
           <div class="pe-field">
             <label>Aadhar Number</label>
             <input type="text" class="pe-input"
@@ -254,35 +244,31 @@
               pattern="[0-9]{12}" />
           </div>
         </div>
-                <!-- ROW 3 : Contractor Code | Contractor Name | Email -->
-        <div class="pe-grid pe-grid-3">
+
+         <!-- ROW 2 : Contractor code  | Contractor Name -->
+        <div class="pe-grid pe-grid-2">
 
           <div class="pe-field">
+         
             <label>Contractor Code</label>
             <input type="text" class="pe-input"
               placeholder="Enter Contractor Code"
               [(ngModel)]="empContractorCode"
               (input)="onUpperInput($event, 'empContractorCode')"
-              maxlength="30" />
+               />
           </div>
 
+       
           <div class="pe-field">
             <label>Contractor Name</label>
             <input type="text" class="pe-input"
               placeholder="Enter Contractor Name"
               [(ngModel)]="empContractorName"
-              maxlength="80" />
+               />
           </div>
-
-          <div class="pe-field">
-            <label>Email</label>
-            <input type="email" class="pe-input"
-              placeholder="contractor@example.com"
-              [(ngModel)]="empContractorEmail"
-              maxlength="100" />
-          </div>
-
         </div>
+
+            
       }
 
       @if (empType() === 'Contractor') {
