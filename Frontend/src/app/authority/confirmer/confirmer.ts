@@ -182,7 +182,7 @@ export class Confirmer implements OnInit, OnDestroy {
     }
     this.empPassHistory.set([]);
     this.historyLoadError.set('');
-    this.loadEmpPassHistory(String(p.passId));
+    this.loadEmpPassHistory(p.employeeNo || p.contractorCode || '');
   }
 
   closeDetails(): void {

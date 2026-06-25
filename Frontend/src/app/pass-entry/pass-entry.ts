@@ -159,9 +159,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (this.auth.isRegularUser() && this.auth.empCode()) {
-      this.empType.set('Company_Employee');
       this.ecNo = this.auth.empCode()!;
-      this.onEcNoBlur();
     }
 
     // ── 1. Resume DRAFT ──
