@@ -89,11 +89,6 @@
               <td>
                 <strong>{{ p.empType === 'Contractor' ? (p.contractorCode || '—') : (p.employeeNo || '—') }}</strong>
               </td>
-              <td>
-                <span [class]="getEmpTypeBadgeClass(p.empType)">
-                  {{ p.empType === 'Company_Employee' ? 'Employee' : 'Contractor' }}
-                </span>
-              </td>
               <td>{{ p.dept || '—' }}</td>
               <td><strong>{{ p.vehicle?.vehicleNo || '—' }}</strong></td>
               <td>{{ p.typeOfVehicle || p.vehicle?.vehicleType || '—' }}</td>

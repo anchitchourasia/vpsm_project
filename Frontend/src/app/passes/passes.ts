@@ -189,9 +189,22 @@ export class Passes implements OnInit, OnDestroy {
             (p.employeeNo || '').toLowerCase() === myCode
           );
         }
+        // ✅ Normalize both fields at ingest — no downstream rendering workarounds needed
+        const normalized = filtered.map((p: any) => ({
+          ...p,
+          // FIX 1: Derive empType from contractorCode presence if DB value is wrong
+          empType: p.empType
+            ? p.empType                             // trust if set
+            : (p.contractorCode ? 'Contractor' : 'Company_Employee'),  // derive from data
 
-        // ✅ Only DB data — no localStorage merge
-        this.allPassesRaw.set(filtered);
+          // FIX 2: Hoist vehicle.vehicleType to top-level typeOfVehicle if missing
+          typeOfVehicle: p.typeOfVehicle
+            || p.vehicle?.vehicleType
+            || '',
+        }));
+
+        this.allPassesRaw.set(normalized);         // was: this.allPassesRaw.set(filtered)
+
         this.isLoading.set(false);
       });
   }
@@ -228,7 +241,21 @@ export class Passes implements OnInit, OnDestroy {
           );
         }
 
-        this.allPassesRaw.set(filtered);
+        // ✅ Normalize both fields at ingest — no downstream rendering workarounds needed
+        const normalized = filtered.map((p: any) => ({
+          ...p,
+          // FIX 1: Derive empType from contractorCode presence if DB value is wrong
+          empType: p.empType
+            ? p.empType                             // trust if set
+            : (p.contractorCode ? 'Contractor' : 'Company_Employee'),  // derive from data
+
+          // FIX 2: Hoist vehicle.vehicleType to top-level typeOfVehicle if missing
+          typeOfVehicle: p.typeOfVehicle
+            || p.vehicle?.vehicleType
+            || '',
+        }));
+
+        this.allPassesRaw.set(normalized);         // was: this.allPassesRaw.set(filtered)
       });
   }
 
@@ -340,7 +367,7 @@ export class Passes implements OnInit, OnDestroy {
       typeOfVehicle: p.typeOfVehicle || p.vehicle?.vehicleType || '',
       mobileNo: p.mobileNo || '',
       passStatus: p.status || p.passStatus || 'Active',
-      empType: p.empType || 'Company_Employee',
+      empType: p.empType || '',
       remarks: p.remarks || '',
       isActive: p.isActive || 'Y',
     };
