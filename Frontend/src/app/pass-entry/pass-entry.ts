@@ -183,12 +183,28 @@ export class PassEntry implements OnInit, OnDestroy {
       this.empName.set(draft.empName);
       this.empDept.set(draft.empDept);
 
+      // ✅ FIX: Restore previously saved docs from API-fetched data
+      // draft.docs carries {documentId, docType, docNo, validUpto, fileName}
+      // shape set by openEditInPassEntry() in passes.ts
+      if (Array.isArray(draft.docs) && draft.docs.length > 0) {
+        const restoredDocs: DocEntry[] = draft.docs.map((d: any) => ({
+          id: crypto.randomUUID(),
+          docType: (d.docType || '').toUpperCase().trim(),
+          docNo: d.docNo || '',
+          validUpto: d.validUpto || '',
+          file: null,                     // PDF File object cannot be serialised — null is correct
+          documentId: d.documentId || null,     // existing DB doc id — used by docAlreadyUploaded()
+          existingFile: d.fileName || null,     // shows "Uploaded ✅" pill in doc table
+        }));
+        this.docs.set(restoredDocs);
+      }
+
       this.draftPassId = draft.passId;
       this.passId.set(draft.passId);
       this.passIdGenerated.set(true);
       this.saved.set(true);
       this.saveSuccess.set(
-        `Draft resumed — Pass ID: ${draft.passId}. Add all 5 documents and click Submit to register.`
+        `Draft resumed — Pass ID: ${draft.passId}. Documents restored. Click Submit when ready.`
       );
       return;
     }
