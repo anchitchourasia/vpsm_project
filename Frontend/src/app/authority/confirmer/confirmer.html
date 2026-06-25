@@ -126,36 +126,58 @@
           <div class="di"><label>Brand/Model</label><span>{{ p.vehicle?.brandModel || '—' }}</span></div>
         </div>
 
-        <!-- ── Employee ── -->
+        <!-- ── Employee / Requester ── -->
         <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
+
+        <!-- Loading spinner while fetching live employee data -->
+        <div *ngIf="isLoadingExtra()" style="padding:8px 0;color:#888;font-size:13px;">
+          <i class="bi bi-arrow-repeat spin"></i> Fetching employee details...
+        </div>
+
         <div class="dg">
-          <div class="di"><label>Employee No</label>
+          <!-- Employee No / Contractor No — always from pass DB row (reliable) -->
+          <div class="di">
+            <label>{{ p.empType === 'Contractor' ? 'Contractor No' : 'Employee No' }}</label>
             <span>{{ p.employeeNo || p.contractorCode || '—' }}</span>
           </div>
+
+          <!-- Emp Type — always from pass row -->
           <div class="di"><label>Emp Type</label>
             <span>{{ p.empType || '—' }}</span>
           </div>
+
+          <!-- Name — from live API extra, fallback to pass row -->
           <div class="di"><label>Name</label>
-            <!-- resolveEmpName fallback: reads from PassStateService name-map loaded in ngOnInit -->
-            <span>{{ svc.resolveEmpName(p.employeeNo || p.contractorCode || '') || p.employeeName || p.empName || '—'
-              }}</span>
+            <span>{{ selectedPassExtra()?.empName || p.employeeName || p.empName || '—' }}</span>
           </div>
+
+          <!-- Department Name — from pass row -->
           <div class="di"><label>Department</label>
             <span>{{ p.dept || '—' }}</span>
           </div>
-          <!-- Contractor Name: only visible for Contractor type -->
+
+          <!-- ✅ NEW: Department Code — from live API only -->
+          <div class="di" *ngIf="p.empType !== 'Contractor'">
+            <label>Department Code</label>
+            <span>{{ selectedPassExtra()?.deptCode || '—' }}</span>
+          </div>
+
+          <!-- ✅ Contractor Name — from live API extra -->
           <div class="di" *ngIf="p.empType === 'Contractor'">
             <label>Contractor Name</label>
-            <span>{{ p.contractorName || p.empName || svc.resolveEmpName(p.contractorCode || '') || '—' }}</span>
+            <span>{{ selectedPassExtra()?.contractorName || p.contractorName || '—' }}</span>
           </div>
+
+          <!-- ✅ Contractor Code — from live API extra (reliable) -->
           <div class="di" *ngIf="p.empType === 'Contractor'">
             <label>Contractor Code</label>
-            <span>{{ p.contractorCode || '—' }}</span>
+            <span>{{ selectedPassExtra()?.contractorCode || p.contractorCode || '—' }}</span>
           </div>
-          <!-- Aadhar: stored in pass payload when available -->
+
+          <!-- ✅ Aadhar — from live API extra, fallback to pass row -->
           <div class="di">
             <label>Aadhar No</label>
-            <span>{{ p.aadhaarNo || p.aadharNo || '—' }}</span>
+            <span>{{ selectedPassExtra()?.aadhaarNo || p.aadhaarNo || p.aadharNo || '—' }}</span>
           </div>
         </div>
         <!-- ── Pass Details ── -->

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed,inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -10,59 +10,59 @@ import { PassStateService } from '../../services/pass-state.service';
 const TIMEOUT_MS = 15000;
 
 interface PassRecord {
-  passId           : number;
-  employeeNo       : string;
+  passId: number;
+  employeeNo: string;
   employeeCompanyNo: string;
-  employeeName     : string;
-  empName         ?: string;   // ← ADD THIS
-  name            ?: string;   // ← ADD THIS 
-  dept             : string;
-  contractorCode   : string;
-  contractorName  ?: string;   // ✅ ADD THIS
-  aadhaarNo       ?: string;   // ✅ ADD THIS
-  aadharNo        ?: string;   // ✅ ADD THIS
-  gateNo           : string;
-  parkingToBeUsed  : string;
-  typeOfVehicle    : string;
-  mobileNo         : string;
-  status           : string;
-  remarks          : string;
-  enterBy          : string;
-  enterDate        : string;
-  empType          : string;
-  issueDate        : string;
-  validityDate     : string;
-  vehicle          : {
-    vehicleId   : number;
-    vehicleNo   : string;
-    vehicleType : string;
+  employeeName: string;
+  empName?: string;   // ← ADD THIS
+  name?: string;   // ← ADD THIS 
+  dept: string;
+  contractorCode: string;
+  contractorName?: string;   // ✅ ADD THIS
+  aadhaarNo?: string;   // ✅ ADD THIS
+  aadharNo?: string;   // ✅ ADD THIS
+  gateNo: string;
+  parkingToBeUsed: string;
+  typeOfVehicle: string;
+  mobileNo: string;
+  status: string;
+  remarks: string;
+  enterBy: string;
+  enterDate: string;
+  empType: string;
+  issueDate: string;
+  validityDate: string;
+  vehicle: {
+    vehicleId: number;
+    vehicleNo: string;
+    vehicleType: string;
     vehicleClass: string;
-    brandModel ?: string;
+    brandModel?: string;
   } | null;
 }
 
 interface DocumentRecord {
-  documentId  : number;
+  documentId: number;
   documentType: string;
-  documentNo  : string;
-  startDate   : string;
-  expiryDate  : string;
-  fileName   ?: string;
-  vehicle    ?: { vehicleId: number };
+  documentNo: string;
+  startDate: string;
+  expiryDate: string;
+  fileName?: string;
+  vehicle?: { vehicleId: number };
 }
 
 @Component({
-  selector   : 'app-confirmer',
-  standalone : true,
-  imports    : [CommonModule, FormsModule],
+  selector: 'app-confirmer',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './confirmer.html',
-  styleUrl   : './confirmer.css'
+  styleUrl: './confirmer.css'
 })
 export class Confirmer implements OnInit, OnDestroy {
 
   private readonly HEADERS = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
-    'Accept'      : 'application/json',
+    'x-api-key': API_CONFIG.API_KEY,
+    'Accept': 'application/json',
     'Content-Type': 'application/json'
   });
   private readonly destroy$ = new Subject<void>();
@@ -71,45 +71,55 @@ export class Confirmer implements OnInit, OnDestroy {
     localStorage.getItem('vpsm_userName') || 'CONFIRMER'
   );
 
-  allPasses   = signal<PassRecord[]>([]);
-  isLoading   = signal(true);
-  hasError    = signal(false);
-  searchText  = signal('');
+  allPasses = signal<PassRecord[]>([]);
+  isLoading = signal(true);
+  hasError = signal(false);
+  searchText = signal('');
   currentPage = signal(1);
   readonly pageSize = 10;
 
-  selectedPass  = signal<PassRecord | null>(null);
-  actionRemark  = signal('');
-  actionError   = signal('');
+  selectedPass = signal<PassRecord | null>(null);
+  // ✅ NEW — holds live-enriched employee details fetched on modal open
+  selectedPassExtra = signal<{
+    deptCode: string;
+    contractorName: string;
+    contractorCode: string;
+    aadhaarNo: string;
+    empName: string;
+  } | null>(null);
+  isLoadingExtra = signal(false);
+
+  actionRemark = signal('');
+  actionError = signal('');
   actionSuccess = signal('');
-  isActing      = signal(false);
+  isActing = signal(false);
 
   // ── NEW: tracks which action is armed in the footer ───────────────────────
   // null = default state | 'modify' = Send for Modify is armed
   activeAction = signal<'modify' | null>(null);
 
   // ── Documents State ───────────────────────────────────────────────────────
-  passDocuments  = signal<DocumentRecord[]>([]);
-  isLoadingDocs  = signal(false);
-  docLoadError   = signal('');
+  passDocuments = signal<DocumentRecord[]>([]);
+  isLoadingDocs = signal(false);
+  docLoadError = signal('');
   // ── Employee Pass History ─────────────────────────────────────────────────
-  empPassHistory    = signal<PassRecord[]>([]);
-  isLoadingHistory  = signal(false);
-  historyLoadError  = signal('');
+  empPassHistory = signal<PassRecord[]>([]);
+  isLoadingHistory = signal(false);
+  historyLoadError = signal('');
   showHistory = signal(false);
 
   pendingList = computed(() => {
-    const q    = this.searchText().toLowerCase().trim();
+    const q = this.searchText().toLowerCase().trim();
     const list = this.allPasses().filter(p =>
       (p.status || '').toLowerCase() === 'submitted'
     );
     if (!q) return list;
     return list.filter(p =>
-      String(p.passId).includes(q)                           ||
-      (p.employeeNo         || '').toLowerCase().includes(q) ||
+      String(p.passId).includes(q) ||
+      (p.employeeNo || '').toLowerCase().includes(q) ||
       (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
-      (p.dept               || '').toLowerCase().includes(q) ||
-      (p.empType            || '').toLowerCase().includes(q)
+      (p.dept || '').toLowerCase().includes(q) ||
+      (p.empType || '').toLowerCase().includes(q)
     );
   });
 
@@ -118,11 +128,11 @@ export class Confirmer implements OnInit, OnDestroy {
     return this.pendingList().slice(start, start + this.pageSize);
   });
 
-  get totalPages()    { return Math.max(1, Math.ceil(this.pendingList().length / this.pageSize)); }
+  get totalPages() { return Math.max(1, Math.ceil(this.pendingList().length / this.pageSize)); }
   get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
   protected svc = inject(PassStateService);
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   ngOnInit(): void {
     this.svc.loadEmployeeNames();  // ← fetch employee name map once
@@ -147,7 +157,7 @@ export class Confirmer implements OnInit, OnDestroy {
         const enriched = (Array.isArray(data) ? data : []).map(p => ({
           ...p,
           employeeName: p.employeeName ?? p.empName ?? p.name
-                  ?? this.svc.resolveEmpName(p.employeeNo ?? '')
+            ?? this.svc.resolveEmpName(p.employeeNo ?? '')
         }));
         this.allPasses.set(enriched);
         this.isLoading.set(false);
@@ -163,6 +173,7 @@ export class Confirmer implements OnInit, OnDestroy {
     this.passDocuments.set([]);
     this.docLoadError.set('');
     this.showHistory.set(false);
+    this.enrichPassWithEmployeeData(p);
 
     if (p.vehicle?.vehicleId) {
       this.loadDocuments(p.vehicle.vehicleId);
@@ -176,6 +187,7 @@ export class Confirmer implements OnInit, OnDestroy {
 
   closeDetails(): void {
     this.selectedPass.set(null);
+    this.isLoadingExtra.set(false);
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
@@ -186,7 +198,7 @@ export class Confirmer implements OnInit, OnDestroy {
     this.historyLoadError.set('');
     this.showHistory.set(false);
 
-    
+
   }
 
   // ── NEW: toggle armed state for Send for Modify button ───────────────────
@@ -195,6 +207,71 @@ export class Confirmer implements OnInit, OnDestroy {
     this.activeAction.set(this.activeAction() === action ? null : action);
     this.actionError.set('');
     this.actionSuccess.set('');
+  }
+  // ─────────────────────────────────────────────────────────────────
+  // enrichPassWithEmployeeData — fetches live employee/contractor
+  // details and stores them in selectedPassExtra signal.
+  //
+  // 📍 WHEN  → Called inside openDetails() every time a pass is opened
+  // 📍 WHERE → confirmer.ts → private method, called from openDetails()
+  // 📍 HOW   →
+  //   1. Calls GET /api/reports/employee-department (same API as pass-entry)
+  //   2. Matches by employeeNo (Company_Employee) OR contractorNo (Contractor)
+  //   3. Picks: deptCode, contractorName, aadhaarNo, empName
+  //   4. Stores result in selectedPassExtra signal
+  //   5. HTML reads from selectedPassExtra — never from raw pass object for these fields
+  //   6. Falls back to pass object values if API has no match
+  // ─────────────────────────────────────────────────────────────────
+  private enrichPassWithEmployeeData(pass: PassRecord): void {
+    this.isLoadingExtra.set(true);
+    this.selectedPassExtra.set(null);
+
+    this.http
+      .get<any[]>(`${API_CONFIG.BASE_URL}/api/reports/employee-department`, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => {
+          // Silent fail — modal still works, just shows raw pass data
+          this.isLoadingExtra.set(false);
+          return of([]);
+        })
+      )
+      .subscribe((rows: any[]) => {
+        this.isLoadingExtra.set(false);
+        if (!rows || rows.length === 0) return;
+
+        let match: any;
+        if (pass.empType === 'Contractor') {
+          // Match by contractorNo field — same logic as pass-entry.ts onEcNoBlur()
+          match = rows.find(r =>
+            r.contractorNo &&
+            String(r.contractorNo).toUpperCase() === (pass.contractorCode || '').toUpperCase()
+          );
+        } else {
+          // Match by numeric employee id
+          match = rows.find(r => String(r.id) === String(pass.employeeNo || ''));
+        }
+
+        if (match) {
+          this.selectedPassExtra.set({
+            deptCode: String(match.deptCode || '—'),
+            contractorName: String(match.name || pass.contractorName || '—'),
+            contractorCode: String(match.contractorCode || pass.contractorCode || '—'),
+            aadhaarNo: String(match.aadhaarNo || match.aadharNo || pass.aadhaarNo || '—'),
+            empName: String(match.name || pass.employeeName || '—'),
+          });
+        } else {
+          // No match in employee API — fall back to whatever the pass row has
+          this.selectedPassExtra.set({
+            deptCode: '—',
+            contractorName: pass.contractorName || '—',
+            contractorCode: pass.contractorCode || '—',
+            aadhaarNo: pass.aadhaarNo || pass.aadharNo || '—',
+            empName: pass.employeeName || pass.empName || '—',
+          });
+        }
+      });
   }
 
   // ── GET /api/documents/list → filter by vehicleId ────────────────────────
@@ -256,10 +333,10 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status  : 'Confirmed',
-      enterBy : this.confirmerName(),
-      remarks : `Confirmed by ${this.confirmerName()}: ${this.actionRemark().trim()}`,
-      vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+      status: 'Confirmed',
+      enterBy: this.confirmerName(),
+      remarks: `Confirmed by ${this.confirmerName()}: ${this.actionRemark().trim()}`,
+      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
     this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
@@ -289,10 +366,10 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status  : 'Rejected',
-      enterBy : this.confirmerName(),
-      remarks : `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
-      vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+      status: 'Rejected',
+      enterBy: this.confirmerName(),
+      remarks: `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
+      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
     this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
@@ -322,10 +399,10 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status  : 'Needs_Modification',
-      enterBy : this.confirmerName(),
-      remarks : `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
-      vehicle : pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+      status: 'Needs_Modification',
+      enterBy: this.confirmerName(),
+      remarks: `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
+      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
     this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
@@ -349,35 +426,35 @@ export class Confirmer implements OnInit, OnDestroy {
   }
   private loadEmpPassHistory(employeeNo: string): void {
     if (!employeeNo) {
-    this.historyLoadError.set('No employee code linked to this pass.');
-    return;
-  }
-  this.isLoadingHistory.set(true);
-  this.historyLoadError.set('');
-  this.empPassHistory.set([]);
-  
+      this.historyLoadError.set('No employee code linked to this pass.');
+      return;
+    }
+    this.isLoadingHistory.set(true);
+    this.historyLoadError.set('');
+    this.empPassHistory.set([]);
 
-  this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
-    .pipe(
-      timeout(TIMEOUT_MS), takeUntil(this.destroy$),
-      catchError(err => {
-        this.historyLoadError.set(
-          'Could not load pass history (' + (err?.status || 'network error') + ')'
-        );
+
+    this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.historyLoadError.set(
+            'Could not load pass history (' + (err?.status || 'network error') + ')'
+          );
+          this.isLoadingHistory.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(data => {
+        const history = (Array.isArray(data) ? data : [])
+          .filter(p => (p.employeeNo || '').toLowerCase() === employeeNo.toLowerCase())
+          .sort((a: any, b: any) => b.passId - a.passId);   // newest first
+        this.empPassHistory.set(history as any);
+        if (history.length === 0) {
+          this.historyLoadError.set('No pass history found for this employee.');
+        }
         this.isLoadingHistory.set(false);
-        return of([]);
-      })
-    )
-    .subscribe(data => {
-      const history = (Array.isArray(data) ? data : [])
-        .filter(p => (p.employeeNo || '').toLowerCase() === employeeNo.toLowerCase())
-        .sort((a: any, b: any) => b.passId - a.passId);   // newest first
-      this.empPassHistory.set(history as any);
-      if (history.length === 0) {
-        this.historyLoadError.set('No pass history found for this employee.');
-      }
-      this.isLoadingHistory.set(false);
-    });
+      });
   }
   private logHistory(passId: number, empCode: string, action: string, remark: string): void {
     const payload = {
@@ -389,31 +466,31 @@ export class Confirmer implements OnInit, OnDestroy {
   }
 
   onSearch(value: string): void { this.searchText.set(value); this.currentPage.set(1); }
-  goToPage(page: number): void  { if (page >= 1 && page <= this.totalPages) this.currentPage.set(page); }
+  goToPage(page: number): void { if (page >= 1 && page <= this.totalPages) this.currentPage.set(page); }
 
   getStatusLabel(status: string): string {
     switch ((status || '').toLowerCase()) {
-      case 'submitted'         : return 'Pending Confirmation';
-      case 'confirmed'         : return 'Pending Approval';
-      case 'active'            : return 'Approved';
-      case 'rejected'          : return 'Rejected';
-      case 'surrendered'       : return 'Surrendered';
-      case 'expired'           : return 'Expired';
+      case 'submitted': return 'Pending Confirmation';
+      case 'confirmed': return 'Pending Approval';
+      case 'active': return 'Approved';
+      case 'rejected': return 'Rejected';
+      case 'surrendered': return 'Surrendered';
+      case 'expired': return 'Expired';
       case 'needs_modification': return 'Needs Modification';  // ← NEW
-      default                  : return status || '—';
+      default: return status || '—';
     }
   }
 
   getStatusClass(status: string): string {
     switch ((status || '').toLowerCase()) {
-      case 'submitted'         : return 'badge-submitted';
-      case 'confirmed'         : return 'badge-confirmed';
-      case 'active'            : return 'badge-active';
-      case 'rejected'          : return 'badge-rejected';
-      case 'surrendered'       : return 'badge-surrendered';
-      case 'expired'           : return 'badge-expired';
+      case 'submitted': return 'badge-submitted';
+      case 'confirmed': return 'badge-confirmed';
+      case 'active': return 'badge-active';
+      case 'rejected': return 'badge-rejected';
+      case 'surrendered': return 'badge-surrendered';
+      case 'expired': return 'badge-expired';
       case 'needs_modification': return 'badge-modify';         // ← NEW
-      default                  : return 'badge-default';
+      default: return 'badge-default';
     }
   }
 
@@ -425,19 +502,19 @@ export class Confirmer implements OnInit, OnDestroy {
   formatDocDate(d: string): string {
     if (!d) return '—';
     const dt = new Date(d);
-    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   getDocStatusClass(expiryDate: string): string {
     const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
-    if (days < 0)   return 'doc-expired';
+    if (days < 0) return 'doc-expired';
     if (days <= 30) return 'doc-expiring';
     return 'doc-valid';
   }
 
   getDocStatusText(expiryDate: string): string {
     const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
-    if (days < 0)   return 'Expired';
+    if (days < 0) return 'Expired';
     if (days <= 30) return `${days}d left`;
     return 'Valid';
   }
