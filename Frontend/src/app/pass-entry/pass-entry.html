@@ -90,9 +90,29 @@
 
       <div class="pe-field">
         <label>Vehicle Type <span class="req">*</span></label>
-        <input type="text" class="pe-input" placeholder="e.g. CAR, BIKE, TRUCK, JCB" [(ngModel)]="vehicleType"
-          (input)="onVehicleTypeInput($event)" maxlength="40" />
-        <span class="pe-field-hint">Auto-detects Vehicle Class as you type</span>
+        <select class="pe-input" [(ngModel)]="vehicleType" (ngModelChange)="onVehicleTypeInput($event)">
+          <option value="">— Select Vehicle Type —</option>
+          <optgroup label="Two Wheeler">
+            <option value="BIKE">Bike</option>
+            <option value="SCOOTER">Scooter</option>
+          </optgroup>
+          <optgroup label="Four Wheeler">
+            <option value="CAR">Car</option>
+            <option value="SUV">SUV</option>
+            <option value="VAN">Van</option>
+            <option value="JEEP">Jeep</option>
+            <option value="TEMPO">Tempo</option>
+          </optgroup>
+          <optgroup label="Heavy Machinery">
+            <option value="TRUCK">Truck</option>
+            <option value="DUMPER">Dumper</option>
+            <option value="JCB">JCB</option>
+            <option value="CRANE">Crane</option>
+            <option value="TRACTOR">Tractor</option>
+            <option value="TRAILER">Trailer</option>
+          </optgroup>
+        </select>
+        <span class="pe-field-hint">Vehicle Class auto-detects on selection</span>
       </div>
     </div>
 
@@ -361,9 +381,15 @@
 
       <div class="pe-field">
         <label>Parking Area</label>
-        <input type="text" class="pe-input" placeholder="e.g. P1 - Main, P2 - Contractor Bay" [(ngModel)]="parkingArea"
-          maxlength="80" />
-        <span class="pe-field-hint">Free text — write any parking location</span>
+        <select class="pe-input" [(ngModel)]="parkingArea">
+          <option value="">— Select Parking Area —</option>
+          <option value="P1">P1 — Main Parking</option>
+          <option value="P2">P2 — Contractor Bay</option>
+          <option value="P3">P3 — Heavy Vehicle Zone</option>
+          <option value="P4">P4 — Visitor Parking</option>
+          <option value="P5">P5 — Reserved</option>
+        </select>
+        <span class="pe-field-hint">Select the parking area to be used</span>
       </div>
 
     </div>

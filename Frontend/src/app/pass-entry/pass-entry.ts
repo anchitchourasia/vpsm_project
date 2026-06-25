@@ -19,12 +19,12 @@ function formatPassId(dbPassId: number): string {
 }
 
 interface DocEntry {
-  id          : string;
-  docType     : string;
-  docNo       : string;
-  validUpto   : string;
-  file        : File | null;
-  documentId  ?: number;
+  id: string;
+  docType: string;
+  docNo: string;
+  validUpto: string;
+  file: File | null;
+  documentId?: number;
   existingFile?: string;
 }
 
@@ -45,9 +45,9 @@ function detectVehicleClass(vehicleType: string): string {
     'bullet', 'bajaj', 'hero', 'tvs', 'honda', 'yamaha', 'ktm',
     'royal enfield', 'suzuki', 'access', 'unicorn', 'shine'
   ];
-  if (heavy.some(k => v.includes(k)))       return 'Heavy_Machinery';
-  if (twoWheeler.some(k => v.includes(k)))  return 'Two_Wheeler';
-  if (v.length >= 2)                         return 'Four_Wheeler';
+  if (heavy.some(k => v.includes(k))) return 'Heavy_Machinery';
+  if (twoWheeler.some(k => v.includes(k))) return 'Two_Wheeler';
+  if (v.length >= 2) return 'Four_Wheeler';
   return '';
 }
 
@@ -56,11 +56,11 @@ function emptyDoc(): DocEntry {
 }
 
 @Component({
-  selector   : 'app-pass-entry',
-  standalone : true,
-  imports    : [CommonModule, FormsModule],
+  selector: 'app-pass-entry',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './pass-entry.html',
-  styleUrl   : './pass-entry.css',
+  styleUrl: './pass-entry.css',
 })
 export class PassEntry implements OnInit, OnDestroy {
 
@@ -69,7 +69,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   private readonly HEADERS = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
+    'x-api-key': API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
   private readonly MULTIPART_HEADERS = new HttpHeaders({
@@ -77,48 +77,48 @@ export class PassEntry implements OnInit, OnDestroy {
   });
 
   private passState = inject(PassStateService);
-  private auth      = inject(AuthService);
+  private auth = inject(AuthService);
 
-  empType          = signal<string>('');
-  passId           = signal<string>('');
-  passIdGenerated  = signal(false);
+  empType = signal<string>('');
+  passId = signal<string>('');
+  passIdGenerated = signal(false);
   fetchingEmployee = signal(false);
-  empFetchError    = signal('');
-  empName          = signal('');
-  empDept          = signal('');
-  empSalary        = signal('');
-  empEmail         = signal('');
-  empType_display  = signal('');
-  empDeptCode      = signal('');
+  empFetchError = signal('');
+  empName = signal('');
+  empDept = signal('');
+  empSalary = signal('');
+  empEmail = signal('');
+  empType_display = signal('');
+  empDeptCode = signal('');
 
   // ✅ Aadhar — signal, auto-filled readonly from employee API
-  empAadhar        = signal('');
+  empAadhar = signal('');
 
-  empContractorCode  = '';
-  empContractorName  = '';
+  empContractorCode = '';
+  empContractorName = '';
   empContractorEmail = '';
-  contractorName     = '';
-  contractorEmail    = '';
-  isSaving           = signal(false);
-  saved              = signal(false);
-  saveSuccess        = signal('');
-  saveError          = signal('');
-  docs               = signal<DocEntry[]>([]);
+  contractorName = '';
+  contractorEmail = '';
+  isSaving = signal(false);
+  saved = signal(false);
+  saveSuccess = signal('');
+  saveError = signal('');
+  docs = signal<DocEntry[]>([]);
 
   modificationRemark = signal<string>('');
   isModificationMode = signal(false);
 
-  vehicleNo      = '';
-  vehicleType    = '';
-  brandModel     = '';
-  vehicleClass   = '';
-  ecNo           = '';
+  vehicleNo = '';
+  vehicleType = '';
+  brandModel = '';
+  vehicleClass = '';
+  ecNo = '';
   contractorCode = '';
-  issueDate      = '';
-  validityDate   = '';
-  gateNo         = '';
-  parkingArea    = '';
-  remark         = '';
+  issueDate = '';
+  validityDate = '';
+  gateNo = '';
+  parkingArea = '';
+  remark = '';
 
   private empData: any = null;
   private savedVehicleId: number | null = null;
@@ -151,7 +151,7 @@ export class PassEntry implements OnInit, OnDestroy {
     return available;
   };
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) { }
 
   docAlreadyUploaded(doc: DocEntry): boolean {
     return !!doc.documentId && !!doc.existingFile && !doc.file;
@@ -170,16 +170,16 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passState.clearResumeDraft();
 
       this.empType.set(draft.empType);
-      this.vehicleNo      = draft.vehicleNo;
-      this.vehicleType    = draft.vehicleType;
-      this.vehicleClass   = draft.vehicleClass;
-      this.brandModel     = draft.brandModel;
-      this.ecNo           = draft.ecNo;
+      this.vehicleNo = draft.vehicleNo;
+      this.vehicleType = draft.vehicleType;
+      this.vehicleClass = draft.vehicleClass;
+      this.brandModel = draft.brandModel;
+      this.ecNo = draft.ecNo;
       this.contractorCode = draft.contractorFirm;
-      this.validityDate   = draft.validityDate;
-      this.gateNo         = draft.gateNo;
-      this.parkingArea    = draft.parkingArea;
-      this.remark         = draft.remark;
+      this.validityDate = draft.validityDate;
+      this.gateNo = draft.gateNo;
+      this.parkingArea = draft.parkingArea;
+      this.remark = draft.remark;
       this.empName.set(draft.empName);
       this.empDept.set(draft.empDept);
 
@@ -199,28 +199,28 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passState.clearResumeMod();
 
       this.empType.set(modData.empType || '');
-      this.vehicleNo      = modData.vehicleNo      || '';
-      this.vehicleType    = modData.vehicleType    || '';
-      this.vehicleClass   = modData.vehicleClass   || '';
-      this.brandModel     = modData.brandModel     || '';
-      this.ecNo           = modData.ecNo           || '';
+      this.vehicleNo = modData.vehicleNo || '';
+      this.vehicleType = modData.vehicleType || '';
+      this.vehicleClass = modData.vehicleClass || '';
+      this.brandModel = modData.brandModel || '';
+      this.ecNo = modData.ecNo || '';
       this.contractorCode = modData.contractorFirm || '';
-      this.validityDate   = modData.validityDate   || '';
-      this.gateNo         = modData.gateNo         || '';
-      this.parkingArea    = modData.parkingArea     || '';
-      this.remark         = modData.remark         || '';
+      this.validityDate = modData.validityDate || '';
+      this.gateNo = modData.gateNo || '';
+      this.parkingArea = modData.parkingArea || '';
+      this.remark = modData.remark || '';
       this.empName.set(modData.empName || '');
       this.empDept.set(modData.empDept || '');
 
       if (Array.isArray(modData.docs) && modData.docs.length > 0) {
         const prefilledDocs: DocEntry[] = modData.docs.map((d: any) => ({
-          id          : crypto.randomUUID(),
-          docType     : (d.docType || '').toUpperCase().trim(),
-          docNo       : d.docNo      || '',
-          validUpto   : d.validUpto  || '',
-          file        : null,
-          documentId  : d.documentId  || null,
-          existingFile: d.fileName    || null,
+          id: crypto.randomUUID(),
+          docType: (d.docType || '').toUpperCase().trim(),
+          docNo: d.docNo || '',
+          validUpto: d.validUpto || '',
+          file: null,
+          documentId: d.documentId || null,
+          existingFile: d.fileName || null,
         }));
         this.docs.set(prefilledDocs);
       }
@@ -246,7 +246,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empAadhar.set('');
     this.empEmail.set('');
-    this.contractorName  = '';
+    this.contractorName = '';
     this.contractorEmail = '';
     this.empDeptCode.set('');
     this.empType_display.set('');
@@ -254,11 +254,15 @@ export class PassEntry implements OnInit, OnDestroy {
     this.clearAlerts();
   }
 
-  onVehicleTypeInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const val = input.value.toUpperCase();
+  onVehicleTypeInput(event: Event | string): void {
+    // (ngModelChange) from <select> passes a plain string;
+    // (input) from old <input> passes a DOM Event — handle both
+    const val = (typeof event === 'string'
+      ? event
+      : (event.target as HTMLInputElement).value
+    ).toUpperCase();
+
     this.vehicleType = val;
-    input.value = val;
     const detected = detectVehicleClass(val);
     if (detected) this.vehicleClass = detected;
   }
@@ -286,7 +290,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empSalary.set('');
     this.empEmail.set('');
     this.empAadhar.set('');
-    this.contractorName  = '';
+    this.contractorName = '';
     this.contractorEmail = '';
     this.empData = null;
     this.fetchingEmployee.set(true);
@@ -326,7 +330,7 @@ export class PassEntry implements OnInit, OnDestroy {
         if (match) {
           this.empData = match;
           // ✅ All fields from named keys
-          this.empName.set(String(match.name     || ''));
+          this.empName.set(String(match.name || ''));
           this.empDept.set(String(match.deptName || '').toUpperCase());
           this.empDeptCode.set(String(match.deptCode || ''));
           this.empSalary.set('');   // salary not in new API — keep blank
@@ -335,9 +339,9 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empAadhar.set(String(match.aadhaarNo || match.aadharNo || match.aadhar || ''));
           // ✅ For contractor form
           this.empContractorCode = String(match.contractorCode || '');
-          this.empContractorName  = String(match.name || '');         // ✅ was setting contractorName (Contractor mode only)
-          this.contractorName    = String(match.name || '');
-          this.contractorEmail   = '';
+          this.empContractorName = String(match.name || '');         // ✅ was setting contractorName (Contractor mode only)
+          this.contractorName = String(match.name || '');
+          this.contractorEmail = '';
           this.empType_display.set(String(match.empType || ''));
           this.empFetchError.set('');
         } else {
@@ -370,7 +374,7 @@ export class PassEntry implements OnInit, OnDestroy {
     if (!input.files?.length) return;
     const file = input.files[0];
     if (file.type !== 'application/pdf') { this.saveError.set('Only PDF files are allowed.'); return; }
-    if (file.size > 10 * 1024 * 1024)   { this.saveError.set('File must be under 10 MB.');   return; }
+    if (file.size > 10 * 1024 * 1024) { this.saveError.set('File must be under 10 MB.'); return; }
     this.docs.update(list => list.map(d =>
       d.id === doc.id ? { ...d, file, existingFile: undefined } : d
     ));
@@ -380,22 +384,22 @@ export class PassEntry implements OnInit, OnDestroy {
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
 
   private validate(): string {
-    if (!this.vehicleNo.trim())   return 'Vehicle No is required.';
+    if (!this.vehicleNo.trim()) return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
-    if (!this.vehicleClass)       return 'Vehicle Class is required.';
+    if (!this.vehicleClass) return 'Vehicle Class is required.';
     if (this.empType() === 'Company_Employee' && !this.ecNo.trim())
-                                  return 'EC No is required.';
+      return 'EC No is required.';
     if (this.empType() === 'Contractor' && !this.contractorCode.trim())
-                                  return 'Contractor Code is required.';
+      return 'Contractor Code is required.';
     if (this.validityDate && this.validityDate < this.todayDate)
-                                  return 'Validity Date cannot be a past date.';
-    if (!this.gateNo)             return 'Gate No is required.';
+      return 'Validity Date cannot be a past date.';
+    if (!this.gateNo) return 'Gate No is required.';
     for (const doc of this.docs()) {
-      if (!doc.docType)       return 'Select Document Type for all document rows.';
-      if (!doc.docNo.trim())  return `Document No is required for ${doc.docType}.`;
-      if (!doc.validUpto)     return `Valid Upto date is required for ${doc.docType}.`;
+      if (!doc.docType) return 'Select Document Type for all document rows.';
+      if (!doc.docNo.trim()) return `Document No is required for ${doc.docType}.`;
+      if (!doc.validUpto) return `Valid Upto date is required for ${doc.docType}.`;
       if (!doc.file && !this.docAlreadyUploaded(doc))
-                              return `Please upload a PDF file for ${doc.docType}.`;
+        return `Please upload a PDF file for ${doc.docType}.`;
     }
     return '';
   }
@@ -408,11 +412,11 @@ export class PassEntry implements OnInit, OnDestroy {
       return `All 5 documents are mandatory. Missing: ${missing.join(', ')}.`;
     }
     for (const doc of this.docs()) {
-      if (!doc.docType)       return 'Select Document Type for all document rows.';
-      if (!doc.docNo.trim())  return `Document No is required for ${doc.docType}.`;
-      if (!doc.validUpto)     return `Valid Upto date is required for ${doc.docType}.`;
+      if (!doc.docType) return 'Select Document Type for all document rows.';
+      if (!doc.docNo.trim()) return `Document No is required for ${doc.docType}.`;
+      if (!doc.validUpto) return `Valid Upto date is required for ${doc.docType}.`;
       if (!doc.file && !this.docAlreadyUploaded(doc))
-                              return `Please upload a PDF file for ${doc.docType}.`;
+        return `Please upload a PDF file for ${doc.docType}.`;
     }
     return '';
   }
@@ -456,7 +460,7 @@ export class PassEntry implements OnInit, OnDestroy {
     const formErr = this.validate();
     if (formErr) { this.saveError.set(formErr); return; }
     const docErr = this.validateSubmit();
-    if (docErr)  { this.saveError.set(docErr);  return; }
+    if (docErr) { this.saveError.set(docErr); return; }
     if (this.isSaving()) return;
     this.clearAlerts();
     this.isSaving.set(true);
@@ -471,11 +475,11 @@ export class PassEntry implements OnInit, OnDestroy {
   // ══════════════════════════════════════════════════════════════════════
   private persistDraftToDB(): void {
     const vehiclePayload = {
-      vehicleNo    : this.vehicleNo.trim().toUpperCase(),
-      vehicleType  : this.vehicleType.trim(),
-      vehicleClass : this.vehicleClass,
-      brandModel   : this.brandModel.trim() || null,
-      isActive     : 'Y',
+      vehicleNo: this.vehicleNo.trim().toUpperCase(),
+      vehicleType: this.vehicleType.trim(),
+      vehicleClass: this.vehicleClass,
+      brandModel: this.brandModel.trim() || null,
+      isActive: 'Y',
       isBlacklisted: 'N',
     };
 
@@ -493,23 +497,25 @@ export class PassEntry implements OnInit, OnDestroy {
         this.savedVehicleId = vRes.vehicleId ?? vRes.id ?? null;
 
         const passPayload = {
-          vehicle          : { vehicleId: this.savedVehicleId },
+          vehicle: { vehicleId: this.savedVehicleId },
           // issueDate and validityDate intentionally OMITTED —
           // backend sets them null on new record anyway;
           // DB constraint requires NOT NULL → backend bug, but confirmed workflow
           // is that Conformer PUT /update/{id} sets them automatically on approval
-          employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+          employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
           employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
-          employeeName     : this.empName() || null,
-          dept             : this.empDept() || null,
-          contractorCode   : this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
-          gateNo           : this.gateNo,
-          parkingToBeUsed  : this.parkingArea.trim() || null,
-          status           : 'Draft',
-          empType          : this.empType(),
-          enterBy          : this.auth.empCode() || 'REQUESTER',
+          employeeName: this.empName() || null,
+          dept: this.empDept() || null,
+          contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
+          aadhaarNo: this.empAadhar() || null,        // ✅ ADD
+          contractorName: this.empContractorName || null,  // ✅ ADD
+          gateNo: this.gateNo,
+          parkingToBeUsed: this.parkingArea.trim() || null,
+          status: 'Draft',
+          empType: this.empType(),
+          enterBy: this.auth.empCode() || 'REQUESTER',
           // enterDate OMITTED — LocalDate field, backend handles it
-          remarks          : this.remark.trim() || null,
+          remarks: this.remark.trim() || null,
         };
 
         this.http.post<any>(API_CONFIG.PASSES_ISSUE, passPayload, { headers: this.HEADERS })
@@ -556,11 +562,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private step1RegisterVehicle(): void {
     const payload = {
-      vehicleNo    : this.vehicleNo.trim().toUpperCase(),
-      vehicleType  : this.vehicleType.trim(),
-      vehicleClass : this.vehicleClass,
-      brandModel   : this.brandModel.trim() || null,
-      isActive     : 'Y',
+      vehicleNo: this.vehicleNo.trim().toUpperCase(),
+      vehicleType: this.vehicleType.trim(),
+      vehicleClass: this.vehicleClass,
+      brandModel: this.brandModel.trim() || null,
+      isActive: 'Y',
       isBlacklisted: 'N',
     };
     this.http.post<any>(API_CONFIG.VEHICLES_REGISTER, payload, { headers: this.HEADERS })
@@ -577,19 +583,21 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private step2IssuePass(): void {
     const payload = {
-      vehicle          : { vehicleId: this.savedVehicleId },
+      vehicle: { vehicleId: this.savedVehicleId },
       // issueDate, validityDate, enterDate intentionally OMITTED
-      employeeNo       : this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+      employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
       employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
-      employeeName     : this.empName() || null,
-      dept             : this.empDept() || null,
-      contractorCode   : this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
-      gateNo           : this.gateNo,
-      parkingToBeUsed  : this.parkingArea.trim() || null,
-      status           : 'Submitted',
-      empType          : this.empType(),
-      enterBy          : this.auth.empCode() || 'REQUESTER',
-      remarks          : this.remark.trim() || null,
+      employeeName: this.empName() || null,
+      dept: this.empDept() || null,
+      contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
+      aadhaarNo: this.empAadhar() || null,        // ✅ ADD
+      contractorName: this.empContractorName || null,  // ✅ ADD
+      gateNo: this.gateNo,
+      parkingToBeUsed: this.parkingArea.trim() || null,
+      status: 'Submitted',
+      empType: this.empType(),
+      enterBy: this.auth.empCode() || 'REQUESTER',
+      remarks: this.remark.trim() || null,
     };
     this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })
       .pipe(
@@ -605,7 +613,7 @@ export class PassEntry implements OnInit, OnDestroy {
         this.passIdGenerated.set(true);
         const docsWithNewFile = this.docs().filter(d => d.docType && d.file);
         if (docsWithNewFile.length > 0) { this.step3UploadDocs(docsWithNewFile); }
-        else                            { this.finaliseSubmit(); }
+        else { this.finaliseSubmit(); }
       });
   }
 
@@ -615,33 +623,33 @@ export class PassEntry implements OnInit, OnDestroy {
     fd.append('enterBy', this.auth.empCode() || 'REQUESTER');
 
     for (const doc of docsToProcess) {
-      const dt   = doc.docType.toLowerCase();
+      const dt = doc.docType.toLowerCase();
       const file = doc.file!;
       if (dt === 'rc') {
-        fd.append('rcNo',     doc.docNo);
-        fd.append('rcStart',  this.todayDate);
+        fd.append('rcNo', doc.docNo);
+        fd.append('rcStart', this.todayDate);
         fd.append('rcExpiry', doc.validUpto);
-        fd.append('rcFile',   file, file.name);
+        fd.append('rcFile', file, file.name);
       } else if (dt === 'puc') {
-        fd.append('pucNo',     doc.docNo);
-        fd.append('pucStart',  this.todayDate);
+        fd.append('pucNo', doc.docNo);
+        fd.append('pucStart', this.todayDate);
         fd.append('pucExpiry', doc.validUpto);
-        fd.append('pucFile',   file, file.name);
+        fd.append('pucFile', file, file.name);
       } else if (dt === 'insurance') {
-        fd.append('insuranceNo',     doc.docNo);
-        fd.append('insuranceStart',  this.todayDate);
+        fd.append('insuranceNo', doc.docNo);
+        fd.append('insuranceStart', this.todayDate);
         fd.append('insuranceExpiry', doc.validUpto);
-        fd.append('insuranceFile',   file, file.name);
+        fd.append('insuranceFile', file, file.name);
       } else if (dt === 'license') {
-        fd.append('loadTestNo',     doc.docNo);
-        fd.append('loadTestStart',  this.todayDate);
+        fd.append('loadTestNo', doc.docNo);
+        fd.append('loadTestStart', this.todayDate);
         fd.append('loadTestExpiry', doc.validUpto);
-        fd.append('loadTestFile',   file, file.name);
+        fd.append('loadTestFile', file, file.name);
       } else if (dt === 'fitness') {
-        fd.append('fitnessNo',     doc.docNo);
-        fd.append('fitnessStart',  this.todayDate);
+        fd.append('fitnessNo', doc.docNo);
+        fd.append('fitnessStart', this.todayDate);
         fd.append('fitnessExpiry', doc.validUpto);
-        fd.append('fitnessFile',   file, file.name);
+        fd.append('fitnessFile', file, file.name);
       }
     }
     this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
@@ -701,32 +709,33 @@ export class PassEntry implements OnInit, OnDestroy {
   // ✅ Shared helper to build PassRecord — avoids duplication
   private _buildRecord(status: 'Saved' | 'Submitted'): PassRecord {
     return {
-      passId        : this.passId(),
-      empType       : this.empType(),
-      vehicleNo     : this.vehicleNo,
-      vehicleType   : this.vehicleType,
-      vehicleClass  : this.vehicleClass,
-      brandModel    : this.brandModel,
-      ecNo          : this.ecNo,
-      empName       : this.empName(),
-      empDept       : this.empDept(),
+      passId: this.passId(),
+      empType: this.empType(),
+      vehicleNo: this.vehicleNo,
+      vehicleType: this.vehicleType,
+      vehicleClass: this.vehicleClass,
+      brandModel: this.brandModel,
+      ecNo: this.ecNo,
+      empName: this.empName(),
+      empDept: this.empDept(),
       contractorFirm: this.contractorCode,
-      issueDate     : this.todayDate,
-      validityDate  : this.validityDate,
-      gateNo        : this.gateNo,
-      parkingArea   : this.parkingArea,
-      remark        : this.remark,
-      docs          : this.docs().map(d => ({
-        docType  : d.docType,
-        docNo    : d.docNo,
+      issueDate: this.todayDate,
+      validityDate: this.validityDate,
+      gateNo: this.gateNo,
+      parkingArea: this.parkingArea,
+      remark: this.remark,
+      docs: this.docs().map(d => ({
+        docType: d.docType,
+        docNo: d.docNo,
         validUpto: d.validUpto,
       })),
-      status   : status,
+      status: status,
       createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     };
   }
 
   clearForm(): void {
+    this.empType.set('');
     this.vehicleNo = ''; this.vehicleType = ''; this.brandModel = ''; this.vehicleClass = '';
     this.ecNo = ''; this.contractorCode = '';
     this.validityDate = ''; this.gateNo = ''; this.parkingArea = ''; this.remark = '';
@@ -734,11 +743,11 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empAadhar.set('');
     this.empDeptCode.set('');
     this.empType_display.set('');
-    this.empContractorCode  = '';
-    this.empContractorName  = '';
+    this.empContractorCode = '';
+    this.empContractorName = '';
     this.empContractorEmail = '';
-    this.contractorName     = '';
-    this.contractorEmail    = '';
+    this.contractorName = '';
+    this.contractorEmail = '';
     this.empData = null;
     this.docs.set([]);
     this.passId.set(''); this.passIdGenerated.set(false);
@@ -752,11 +761,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private logHistory(passNo: any, action: string, empCode: string, remark: string): void {
     const payload = {
-      passNo     : String(passNo ?? ''),
-      empCode    : (empCode || 'ADMIN').toUpperCase(),
-      action     : action.toUpperCase(),
+      passNo: String(passNo ?? ''),
+      empCode: (empCode || 'ADMIN').toUpperCase(),
+      action: action.toUpperCase(),
       aadhaarNo: this.empAadhar() || null,
-      remark     : remark || null,
+      remark: remark || null,
       dateOfEntry: new Date().toISOString(),
     };
     this.http
@@ -773,8 +782,8 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private handleSaveError(err: any, step: string): void {
     const status = err?.status ?? '?';
-    const body   = err?.error;
-    let msg      = '';
+    const body = err?.error;
+    let msg = '';
     if (body instanceof Blob) {
       body.text().then(t => {
         try { msg = JSON.parse(t)?.message || t; } catch { msg = t; }
