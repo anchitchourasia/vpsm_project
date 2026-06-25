@@ -11,7 +11,7 @@ export const routes: Routes = [
   { path: '', canActivate: [authGuard], loadComponent: () => import('./home/home').then(m => m.Home) },
 
   // MY PASS — protected
-  { path: 'my-pass', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
+  // { path: 'my-pass', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
 
   // VEHICLES MASTER — protected
   { path: 'vehicles/all',         canActivate: [authGuard], loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },

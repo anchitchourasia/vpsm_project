@@ -202,7 +202,7 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passIdGenerated.set(true);
       this.saved.set(true);
       this.saveSuccess.set(
-        `Draft resumed — Pass ID: ${draft.passId}. Documents restored. Click Submit when ready.`
+        `Draft resumed — Request ID: ${draft.passId}. Documents restored. Click Submit when ready.`
       );
       return;
     }
@@ -458,7 +458,7 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
       this.saved.set(true);
       this.saveSuccess.set(
-        `Draft updated — Pass ID: ${this.passId()}. Add all 5 documents then click Submit to register.`
+        `Draft updated — Request ID: ${this.passId()}. Add all 5 documents then click Submit to register.`
       );
       return;
     }
@@ -781,8 +781,8 @@ export class PassEntry implements OnInit, OnDestroy {
 
     this.saveSuccess.set(
       docWarn
-        ? `Pass registered! ID: ${this.passId()} — Documents upload failed; add from Documents module.`
-        : `Pass submitted! ID: ${this.passId()} is now pending confirmer review.`
+        ? `Request registered! ID: ${this.passId()} — Documents upload failed; add from Documents module.`
+        : `Request submitted! ID: ${this.passId()} is now pending confirmer review.`
     );
 
     setTimeout(() => {
