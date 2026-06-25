@@ -86,6 +86,7 @@ export class Confirmer implements OnInit, OnDestroy {
     contractorCode: string;
     aadhaarNo: string;
     empName: string;
+    empType: string;
   } | null>(null);
   isLoadingExtra = signal(false);
 
@@ -241,34 +242,52 @@ export class Confirmer implements OnInit, OnDestroy {
         this.isLoadingExtra.set(false);
         if (!rows || rows.length === 0) return;
 
-        let match: any;
-        if (pass.empType === 'Contractor') {
-          // Match by contractorNo field — same logic as pass-entry.ts onEcNoBlur()
+        // ✅ FIX: Do NOT trust pass.empType from DB — it may be wrong for old records.
+        // Try BOTH lookups simultaneously. Whichever finds a row wins.
+        // Priority: contractorCode match first (more specific), then employeeNo match.
+
+        // Try 1: Match as Contractor — by contractorNo field
+        let match: any = null;
+        if (pass.contractorCode) {
           match = rows.find(r =>
             r.contractorNo &&
-            String(r.contractorNo).toUpperCase() === (pass.contractorCode || '').toUpperCase()
+            String(r.contractorNo).toUpperCase() === String(pass.contractorCode).toUpperCase()
           );
-        } else {
-          // Match by numeric employee id
-          match = rows.find(r => String(r.id) === String(pass.employeeNo || ''));
+        }
+
+        // Try 2: Match as Company Employee — by numeric id
+        if (!match && pass.employeeNo) {
+          match = rows.find(r => String(r.id) === String(pass.employeeNo));
+        }
+
+        // Try 3: Match employeeNo against contractorNo (edge case: old pass saved ecNo in employeeNo for a contractor)
+        if (!match && pass.employeeNo) {
+          match = rows.find(r =>
+            r.contractorNo &&
+            String(r.contractorNo).toUpperCase() === String(pass.employeeNo).toUpperCase()
+          );
         }
 
         if (match) {
+          const isContractor = !!(match.contractorNo);
           this.selectedPassExtra.set({
             deptCode: String(match.deptCode || '—'),
-            contractorName: String(match.name || pass.contractorName || '—'),
-            contractorCode: String(match.contractorCode || pass.contractorCode || '—'),
+            contractorName: isContractor ? String(match.name || '—') : '—',
+            contractorCode: isContractor ? String(match.contractorNo || match.contractorCode || '—') : '—',
             aadhaarNo: String(match.aadhaarNo || match.aadharNo || pass.aadhaarNo || '—'),
             empName: String(match.name || pass.employeeName || '—'),
+            // ✅ FIX: empType from employee API match — overrides whatever was wrong in DB
+            empType: isContractor ? 'Contractor' : String(match.empType || pass.empType || '—'),
           });
         } else {
-          // No match in employee API — fall back to whatever the pass row has
+          // No API match — fall back to pass row values
           this.selectedPassExtra.set({
             deptCode: '—',
             contractorName: pass.contractorName || '—',
             contractorCode: pass.contractorCode || '—',
             aadhaarNo: pass.aadhaarNo || pass.aadharNo || '—',
             empName: pass.employeeName || pass.empName || '—',
+            empType: pass.empType || '—',   // fallback only if API returned no rows
           });
         }
       });

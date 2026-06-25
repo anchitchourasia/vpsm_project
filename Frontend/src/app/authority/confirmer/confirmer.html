@@ -143,7 +143,7 @@
 
           <!-- Emp Type — always from pass row -->
           <div class="di"><label>Emp Type</label>
-            <span>{{ p.empType || '—' }}</span>
+            <span>{{ selectedPassExtra()?.empType || p.empType || '—' }}</span>
           </div>
 
           <!-- Name — from live API extra, fallback to pass row -->
@@ -162,14 +162,12 @@
             <span>{{ selectedPassExtra()?.deptCode || '—' }}</span>
           </div>
 
-          <!-- ✅ Contractor Name — from live API extra -->
-          <div class="di" *ngIf="p.empType === 'Contractor'">
+          <!-- ✅ Show contractor fields if empType says Contractor OR if enriched data has contractorCode -->
+          <div class="di" *ngIf="p.empType === 'Contractor' || selectedPassExtra()?.contractorCode !== '—'">
             <label>Contractor Name</label>
             <span>{{ selectedPassExtra()?.contractorName || p.contractorName || '—' }}</span>
           </div>
-
-          <!-- ✅ Contractor Code — from live API extra (reliable) -->
-          <div class="di" *ngIf="p.empType === 'Contractor'">
+          <div class="di" *ngIf="p.empType === 'Contractor' || selectedPassExtra()?.contractorCode !== '—'">
             <label>Contractor Code</label>
             <span>{{ selectedPassExtra()?.contractorCode || p.contractorCode || '—' }}</span>
           </div>
