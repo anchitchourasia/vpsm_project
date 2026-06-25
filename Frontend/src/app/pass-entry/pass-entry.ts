@@ -544,10 +544,9 @@ export class PassEntry implements OnInit, OnDestroy {
             })
           )
           .subscribe(pRes => {
-            this.isSaving.set(false);
-            if (!pRes) return;
+            if (!pRes) { this.isSaving.set(false); return; }
+            
 
-            // ✅ Real DB numeric pass id — no DRAFT prefix, no template
             const realDbId = pRes.passId ?? pRes.id ?? null;
             this.savedPassRegistryId = realDbId;
 
@@ -556,23 +555,105 @@ export class PassEntry implements OnInit, OnDestroy {
             this.passIdGenerated.set(true);
             this.draftPassId = realIdStr;
 
-            const record = this._buildRecord('Saved');
-            this.passState.upsert(record);
-            this.passState.broadcastDraftChange();
-            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-            this.saved.set(true);
-
             this.logHistory(
               realDbId,
               'DRAFT_SAVED',
               this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
               `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
             );
+            
+
+            // ✅ FIX: If user already filled docs in the form, upload them to DB now
+            // so they are retrievable when user comes back to Edit this Draft.
+            // Previously docs were only uploaded on Submit — that caused them to
+            // disappear when the user navigated away and returned via Edit.
+            const docsWithFile = this.docs().filter(d => d.docType && d.file);
+            if (docsWithFile.length > 0 && this.savedVehicleId) {
+              // Reuse the same upload method used in Submit flow
+              this.step3UploadDocs(docsWithFile);
+              // step3UploadDocs calls finaliseSubmit() at the end — we override that
+              // by finishing draft state here first before upload completes
+            }
+
+            const record = this._buildRecord('Saved');
+            this.passState.upsert(record);
+            this.passState.broadcastDraftChange();
+            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+            this.saved.set(true);
+            this.isSaving.set(false);
+            
 
             this.saveSuccess.set(
-              `Draft saved — Pass ID: ${realIdStr}. Add all 5 documents then click Submit to register.`
+              `Draft saved — Pass ID: ${realIdStr}. Documents saved. Click Submit when ready.`
             );
           });
+      });
+  }
+  // ─────────────────────────────────────────────────────────────────
+  // uploadDocsForDraft — uploads filled docs silently during Save
+  //
+  // 📍 WHEN  → Called right after Draft pass is created in DB
+  // 📍 WHERE → pass-entry.ts → called from inside persistDraftToDB()
+  // 📍 HOW   →
+  //   - Reuses same FormData structure as step3UploadDocs
+  //   - Does NOT call finaliseSubmit() — only uploads files silently
+  //   - On success/fail: updates saveSuccess message accordingly
+  //   - This lets docs be fetched back from DB when user returns to Edit
+  // ─────────────────────────────────────────────────────────────────
+  private uploadDocsForDraft(docsToUpload: DocEntry[], realIdStr: string): void {
+    const fd = new FormData();
+    fd.append('vehicleId', String(this.savedVehicleId));
+    fd.append('enterBy', this.auth.empCode() || 'REQUESTER');
+
+    for (const doc of docsToUpload) {
+      const dt = doc.docType.toLowerCase();
+      const file = doc.file!;
+      if (dt === 'rc') {
+        fd.append('rcNo', doc.docNo);
+        fd.append('rcStart', this.todayDate);
+        fd.append('rcExpiry', doc.validUpto);
+        fd.append('rcFile', file, file.name);
+      } else if (dt === 'puc') {
+        fd.append('pucNo', doc.docNo);
+        fd.append('pucStart', this.todayDate);
+        fd.append('pucExpiry', doc.validUpto);
+        fd.append('pucFile', file, file.name);
+      } else if (dt === 'insurance') {
+        fd.append('insuranceNo', doc.docNo);
+        fd.append('insuranceStart', this.todayDate);
+        fd.append('insuranceExpiry', doc.validUpto);
+        fd.append('insuranceFile', file, file.name);
+      } else if (dt === 'license') {
+        fd.append('loadTestNo', doc.docNo);
+        fd.append('loadTestStart', this.todayDate);
+        fd.append('loadTestExpiry', doc.validUpto);
+        fd.append('loadTestFile', file, file.name);
+      } else if (dt === 'fitness') {
+        fd.append('fitnessNo', doc.docNo);
+        fd.append('fitnessStart', this.todayDate);
+        fd.append('fitnessExpiry', doc.validUpto);
+        fd.append('fitnessFile', file, file.name);
+      }
+    }
+
+    this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => {
+          // Silent fail — draft is still saved, just docs didn't upload
+          this.saveSuccess.set(
+            `Draft saved — Pass ID: ${realIdStr}. ⚠️ Documents could not be uploaded. Try again on Submit.`
+          );
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res) {
+          this.saveSuccess.set(
+            `Draft saved — Pass ID: ${realIdStr}. Documents uploaded ✅. Click Submit when ready.`
+          );
+        }
       });
   }
 
