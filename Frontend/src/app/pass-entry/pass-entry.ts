@@ -545,7 +545,7 @@ export class PassEntry implements OnInit, OnDestroy {
           )
           .subscribe(pRes => {
             if (!pRes) { this.isSaving.set(false); return; }
-            
+
 
             const realDbId = pRes.passId ?? pRes.id ?? null;
             this.savedPassRegistryId = realDbId;
@@ -561,18 +561,11 @@ export class PassEntry implements OnInit, OnDestroy {
               this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
               `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
             );
-            
 
-            // ✅ FIX: If user already filled docs in the form, upload them to DB now
-            // so they are retrievable when user comes back to Edit this Draft.
-            // Previously docs were only uploaded on Submit — that caused them to
-            // disappear when the user navigated away and returned via Edit.
+
             const docsWithFile = this.docs().filter(d => d.docType && d.file);
             if (docsWithFile.length > 0 && this.savedVehicleId) {
-              // Reuse the same upload method used in Submit flow
-              this.step3UploadDocs(docsWithFile);
-              // step3UploadDocs calls finaliseSubmit() at the end — we override that
-              // by finishing draft state here first before upload completes
+              this.uploadDocsForDraft(docsWithFile, realIdStr);
             }
 
             const record = this._buildRecord('Saved');
@@ -581,7 +574,7 @@ export class PassEntry implements OnInit, OnDestroy {
             this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
             this.saved.set(true);
             this.isSaving.set(false);
-            
+
 
             this.saveSuccess.set(
               `Draft saved — Pass ID: ${realIdStr}. Documents saved. Click Submit when ready.`
@@ -794,13 +787,13 @@ export class PassEntry implements OnInit, OnDestroy {
         : `Pass submitted! ID: ${this.passId()} is now pending confirmer review.`
     );
 
-    // setTimeout(() => {
-    //   if (this.auth.isRegularUser()) {
-    //     this.router.navigate(['/my-pass']);
-    //   } else {
-    //     this.router.navigate(['/pass-details']);
-    //   }
-    // }, 2200);
+    setTimeout(() => {
+      if (this.auth.isRegularUser()) {
+        this.router.navigate(['/my-pass']);
+      } else {
+        this.router.navigate(['/passes']);
+      }
+    }, 2200);
   }
 
   // ✅ Shared helper to build PassRecord — avoids duplication
