@@ -320,8 +320,8 @@
             (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')" [disabled]="isActing()">
             <i class="bi bi-pencil-square"></i>
             {{ activeAction() === 'modify'
-            ? (isActing() ? 'Processing…' : 'Confirm Send for Modify')
-            : 'Send for Modify' }}
+            ? (isActing() ? 'Processing…' : 'Confirm Send for Modification')
+            : 'Send for Modification' }}
           </button>
 
           <button class="footer-btn btn-red" (click)="activeAction() === 'modify' ? setAction('modify') : reject(p)"

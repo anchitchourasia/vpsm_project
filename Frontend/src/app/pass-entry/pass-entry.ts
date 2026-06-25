@@ -335,11 +335,10 @@ export class PassEntry implements OnInit, OnDestroy {
           this.empAadhar.set(String(match.aadhaarNo || match.aadharNo || match.aadhar || ''));
           // ✅ For contractor form
           this.empContractorCode = String(match.contractorCode || '');
+          this.empContractorName  = String(match.name || '');         // ✅ was setting contractorName (Contractor mode only)
           this.contractorName    = String(match.name || '');
           this.contractorEmail   = '';
-          this.empType_display.set(
-            this.empType() === 'Company_Employee' ? 'Company Employee' : 'Contractor'
-          );
+          this.empType_display.set(String(match.empType || ''));
           this.empFetchError.set('');
         } else {
           this.empFetchError.set(

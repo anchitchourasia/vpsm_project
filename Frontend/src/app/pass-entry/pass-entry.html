@@ -238,20 +238,20 @@
 
     </div>
 
-    <!-- ROW 3 : Contractor Code | Contractor Name (unchanged) -->
+    <!-- ROW 3 : Contractor Code | Contractor Name — auto-filled readonly from API -->
     <div class="pe-grid pe-grid-2">
-
       <div class="pe-field">
         <label>Contractor Code</label>
-        <input type="text" class="pe-input" placeholder="Enter Contractor Code" [(ngModel)]="empContractorCode"
-          (input)="onUpperInput($event, 'empContractorCode')" />
+        <input type="text" class="pe-input pe-readonly" [value]="empContractorCode" readonly
+          placeholder="Auto-filled from EC No" />
+        <span class="pe-field-hint">Filled from employee record</span>
       </div>
-
       <div class="pe-field">
         <label>Contractor Name</label>
-        <input type="text" class="pe-input" placeholder="Enter Contractor Name" [(ngModel)]="empContractorName" />
+        <input type="text" class="pe-input pe-readonly" [value]="empContractorName" readonly
+          placeholder="Auto-filled from EC No" />
+        <span class="pe-field-hint">Filled from employee record</span>
       </div>
-
     </div>
 
     }
@@ -421,7 +421,7 @@
             <input type="text" class="pe-input pe-input-sm pe-date-display"
               [value]="doc.validUpto ? formatDateDDMMYYYY(doc.validUpto) : ''" placeholder="DD/MM/YYYY" readonly
               (click)="openDatePicker(docDatePicker)" />
-            <input type="date" class="pe-date-hidden" #docDatePicker [(ngModel)]="doc.validUpto" />
+            <input type="date" class="pe-date-hidden" #docDatePicker [(ngModel)]="doc.validUpto" [min]="todayDate" />
             <i class="bi bi-calendar3 pe-date-icon" (click)="openDatePicker(docDatePicker)"></i>
           </div>
         </div>
