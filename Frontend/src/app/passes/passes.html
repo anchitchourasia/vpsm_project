@@ -91,7 +91,9 @@
               </td>
               <td>
                 <span [class]="getEmpTypeBadgeClass(p.empType)">
-                  {{ p.empType === 'Contractor' ? 'Contractor' : 'Employee' }}
+                  {{ p.empType === 'Contractor'
+                  ? 'Contractor'
+                  : (p.empTypeDetail || p.empType || 'Employee') }}
                 </span>
               </td>
               <td>{{ p.dept || '—' }}</td>
@@ -385,7 +387,9 @@
       <div class="vr-item">
         <label>Emp Type</label>
         <span [class]="getEmpTypeBadgeClass(viewPass().empType)">
-          {{ viewPass().empType === 'Contractor' ? 'Contractor' : 'Company Employee' }}
+          {{ viewPass().empType === 'Contractor'
+          ? 'Contractor'
+          : (viewPass().empTypeDetail || viewPass().empType || 'Company Employee') }}
         </span>
       </div>
       <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">

@@ -622,6 +622,7 @@ export class PassEntry implements OnInit, OnDestroy {
           parkingToBeUsed: this.parkingArea.trim() || null,
           status: 'Draft',
           empType: this.empType(),
+          empTypeDetail: this.empTypeDetail() || null,
           enterBy: this.auth.empCode() || 'REQUESTER',
           // enterDate OMITTED — LocalDate field, backend handles it
           typeOfVehicle: this.vehicleType.trim() || null,
@@ -780,6 +781,7 @@ export class PassEntry implements OnInit, OnDestroy {
       parkingToBeUsed: this.parkingArea.trim() || null,
       status: 'Submitted',
       empType: this.empType(),
+      empTypeDetail: this.empTypeDetail() || null,
       enterBy: this.auth.empCode() || 'REQUESTER',
       typeOfVehicle: this.vehicleType.trim() || null,
       remarks: this.remark.trim() || null,
