@@ -174,21 +174,35 @@
 
     @if (empType() === 'Company_Employee') {
 
-    <!-- ── ROW 1 : EC No | Employee Type | Name ── -->
+    <!-- ── ROW 1 : Employee Type | EC No | Name ── -->
     <div class="pe-grid pe-grid-3">
 
-      <!-- EC No -->
+      <!-- Employee Type — user selects FIRST, then EC No is unlocked -->
+      <div class="pe-field">
+        <label>Employee Type <span class="req">*</span></label>
+        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="ecNo=''; empName.set(''); empDept.set(''); empAadhar.set('');
+                      empDeptCode.set(''); empFetchError.set(''); empType_display.set('')">
+          <option value="">— Select Employee Type —</option>
+          <option value="PERMANENT">PERMANENT</option>
+          <option value="HEG">HEG</option>
+          <option value="CONTRACT">CONTRACT</option>
+        </select>
+        <span class="pe-field-hint">Select first to unlock EC No</span>
+      </div>
+
+      <!-- EC No — locked until Employee Type is chosen -->
       <div class="pe-field">
         <label>EC No <span class="req">*</span></label>
         <div class="pe-input-group">
           <input type="text" class="pe-input" placeholder="Enter EC / Employee Code" [(ngModel)]="ecNo"
-            [disabled]="isEcNoLocked" [class.field-locked]="isEcNoLocked" (blur)="onEcNoBlur()"
-            (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
+            [disabled]="isEcNoLocked || !empTypeDetail()" [class.field-locked]="isEcNoLocked || !empTypeDetail()"
+            (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
           @if (fetchingEmployee()) {
           <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
           }
-          @if (isEcNoLocked && !fetchingEmployee()) {
-          <span class="pe-input-lock-icon" title="Linked to your login session">
+          @if ((isEcNoLocked || !empTypeDetail()) && !fetchingEmployee()) {
+          <span class="pe-input-lock-icon"
+            [title]="!empTypeDetail() ? 'Select Employee Type first' : 'Linked to your login session'">
             <i class="bi bi-lock-fill"></i>
           </span>
           }
@@ -198,23 +212,14 @@
           <i class="bi bi-shield-lock-fill"></i>
           Linked to your login — cannot be changed
         </span>
+        } @else if (!empTypeDetail()) {
+        <span class="pe-field-hint pe-hint-locked">
+          <i class="bi bi-lock-fill"></i>
+          Select Employee Type above to unlock
+        </span>
         } @else {
-        <span class="pe-field-hint">Auto-fills name, dept &amp; salary on blur</span>
+        <span class="pe-field-hint">EC No validated against selected Employee Type on blur</span>
         }
-      </div>
-
-      <!-- Employee Type — dropdown, pre-selected from API, user can override -->
-      <!-- Employee Type — user selects FIRST, then EC No fetch validates against it -->
-      <div class="pe-field">
-        <label>Employee Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="ecNo=''; empName.set(''); empDept.set(''); empAadhar.set('');
-                    empDeptCode.set(''); empFetchError.set(''); empType_display.set('')">
-          <option value="">— Select Employee Type —</option>
-          <option value="PERMANENT">PERMANENT</option>
-          <option value="HEG">HEG</option>
-          <option value="CONTRACT">CONTRACT</option>
-        </select>
-        <span class="pe-field-hint">Select first — EC No is validated against this</span>
       </div>
 
       <!-- Name -->
