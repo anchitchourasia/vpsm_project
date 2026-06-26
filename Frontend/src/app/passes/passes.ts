@@ -199,6 +199,12 @@ export class Passes implements OnInit, OnDestroy {
             ? 'Contractor'
             : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
 
+          // Preserve empTypeDetail — the sub-type (PERMANENT / HEG / CONTRACT)
+          // from API. Never overwrite it. If missing, derive from empType itself.
+          const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
+            ? p.empTypeDetail.trim().toUpperCase()
+            : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
+
           // Derive typeOfVehicle from vehicle object if top-level column is blank
           const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
             ? p.typeOfVehicle
@@ -211,6 +217,7 @@ export class Passes implements OnInit, OnDestroy {
           return {
             ...p,
             empType: derivedEmpType,
+            empTypeDetail: derivedEmpTypeDetail,
             typeOfVehicle: derivedVehicleType,
           };
         });
@@ -263,6 +270,12 @@ export class Passes implements OnInit, OnDestroy {
             ? 'Contractor'
             : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
 
+          // Preserve empTypeDetail — the sub-type (PERMANENT / HEG / CONTRACT)
+          // from API. Never overwrite it. If missing, derive from empType itself.
+          const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
+            ? p.empTypeDetail.trim().toUpperCase()
+            : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
+
           // Derive typeOfVehicle from vehicle object if top-level column is blank
           const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
             ? p.typeOfVehicle
@@ -275,6 +288,7 @@ export class Passes implements OnInit, OnDestroy {
           return {
             ...p,
             empType: derivedEmpType,
+            empTypeDetail: derivedEmpTypeDetail,
             typeOfVehicle: derivedVehicleType,
           };
         });
@@ -361,8 +375,13 @@ export class Passes implements OnInit, OnDestroy {
     }
   }
 
-  getEmpTypeBadgeClass(e: string): string {
-    return e === 'Contractor' ? 'badge badge-contractor' : 'badge badge-employee';
+  getEmpTypeBadgeClass(e: string, detail?: string): string {
+    if (e === 'Contractor') return 'badge badge-contractor';
+    const d = (detail || '').toUpperCase();
+    if (d === 'HEG') return 'badge badge-heg';
+    if (d === 'CONTRACT') return 'badge badge-contract-type';
+    if (d === 'PERMANENT') return 'badge badge-permanent';
+    return 'badge badge-employee';
   }
 
   openAddModal() {

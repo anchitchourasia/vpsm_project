@@ -90,10 +90,12 @@
                 <strong>{{ p.empType === 'Contractor' ? (p.contractorCode || '—') : (p.employeeNo || '—') }}</strong>
               </td>
               <td>
-                <span [class]="getEmpTypeBadgeClass(p.empType)">
+                <span [class]="getEmpTypeBadgeClass(p.empType, p.empTypeDetail)">
                   {{ p.empType === 'Contractor'
                   ? 'Contractor'
-                  : (p.empTypeDetail || p.empType || 'Employee') }}
+                  : (p.empTypeDetail && p.empTypeDetail !== 'Company_Employee'
+                  ? p.empTypeDetail
+                  : 'Company Employee') }}
                 </span>
               </td>
               <td>{{ p.dept || '—' }}</td>
