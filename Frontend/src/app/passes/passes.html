@@ -89,9 +89,14 @@
               <td>
                 <strong>{{ p.empType === 'Contractor' ? (p.contractorCode || '—') : (p.employeeNo || '—') }}</strong>
               </td>
+              <td>
+                <span [class]="getEmpTypeBadgeClass(p.empType)">
+                  {{ p.empType === 'Contractor' ? 'Contractor' : 'Employee' }}
+                </span>
+              </td>
               <td>{{ p.dept || '—' }}</td>
               <td><strong>{{ p.vehicle?.vehicleNo || '—' }}</strong></td>
-              <td>{{ p.typeOfVehicle || p.vehicle?.vehicleType || '—' }}</td>
+              <td>{{ p.typeOfVehicle || p.vehicle?.vehicleType || p.vehicle?.vehicleClass || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
               <td>{{ formatDate(p.issueDate) }}</td>
               <td>{{ formatDate(p.validityDate) }}</td>
@@ -380,14 +385,14 @@
       <div class="vr-item">
         <label>Emp Type</label>
         <span [class]="getEmpTypeBadgeClass(viewPass().empType)">
-          {{ viewPass().empType === 'Company_Employee' ? 'Company Employee' : 'Contractor' }}
+          {{ viewPass().empType === 'Contractor' ? 'Contractor' : 'Company Employee' }}
         </span>
       </div>
-      <div class="vr-item" *ngIf="viewPass().empType === 'Company_Employee'">
+      <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
         <label>Employee No</label>
         <span><strong>{{ viewPass().employeeNo || '—' }}</strong></span>
       </div>
-      <div class="vr-item" *ngIf="viewPass().empType === 'Company_Employee'">
+      <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
         <label>EC No (Company No)</label>
         <span>{{ viewPass().employeeCompanyNo || '—' }}</span>
       </div>
