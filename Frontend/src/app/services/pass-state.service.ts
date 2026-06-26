@@ -21,47 +21,52 @@ export type WorkflowStatus =
 // ─────────────────────────────────────────────────────────────────────────────
 export interface PassRecord {
   // ── EXISTING FIELDS (unchanged) ──────────────────────────────────────────
-  passId         : string;
-  empType        : string;
-  vehicleNo      : string;
-  vehicleType    : string;
-  vehicleClass   : string;
-  brandModel     : string;
-  ecNo           : string;
-  empName        : string;
-  empDept        : string;
-  contractorFirm : string;
-  issueDate      : string;
-  validityDate   : string;
-  gateNo         : string;
-  parkingArea    : string;
-  remark         : string;
-  docs           : {
-    documentId ?: number;
-    docType     : string;
-    docNo       : string;
-    validUpto   : string;
-    fileName   ?: string;
+  passId: string;
+  empType: string;
+  vehicleNo: string;
+  vehicleType: string;
+  vehicleClass: string;
+  brandModel: string;
+  ecNo: string;
+  empName: string;
+  empDept: string;
+  contractorFirm: string;
+  issueDate: string;
+  validityDate: string;
+  gateNo: string;
+  parkingArea: string;
+  remark: string;
+  docs: {
+    documentId?: number;
+    docType: string;
+    docNo: string;
+    validUpto: string;
+    fileName?: string;
   }[];
-  status         : 'Saved' | 'Submitted';  // kept for backward compat
-  createdAt      : string;
+  status: 'Saved' | 'Submitted';  // kept for backward compat
+  createdAt: string;
 
   // ── NEW WORKFLOW FIELDS (all optional — old records load with no break) ──
-  workflowStatus  ?: WorkflowStatus;
+  workflowStatus?: WorkflowStatus;
 
   // Submission info
-  submittedBy     ?: string;
-  submittedAt     ?: string;
+  submittedBy?: string;
+  submittedAt?: string;
 
   // Confirmer action info
-  confirmedBy     ?: string;
-  confirmedAt     ?: string;
-  confirmerRemark ?: string;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  confirmerRemark?: string;
 
   // Approver action info
-  approvedBy      ?: string;
-  approvedAt      ?: string;
-  approverRemark  ?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  approverRemark?: string;
+  empTypeDetail?: string;
+  empAadhar?: string;
+  empDeptCode?: string;
+  empContractorCode?: string;
+  empContractorName?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -100,9 +105,9 @@ function saveToStorage(records: PassRecord[]): void {
 @Injectable({ providedIn: 'root' })
 export class PassStateService {
 
-  private zone    = inject(NgZone);
+  private zone = inject(NgZone);
   private channel = new BroadcastChannel('pass_submitted_channel');
-  private http    = inject(HttpClient);
+  private http = inject(HttpClient);
 
   // Initialize from localStorage — survives refresh & tab close
   private _passes = signal<PassRecord[]>(loadFromStorage());
@@ -207,7 +212,7 @@ export class PassStateService {
   loadEmployeeNames(): void {
     if (Object.keys(this._empNameMap()).length > 0) return;
     const headers = new HttpHeaders({
-      'x-api-key'   : API_CONFIG.API_KEY,
+      'x-api-key': API_CONFIG.API_KEY,
       'Content-Type': 'application/json',
     });
     this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers })
@@ -216,9 +221,9 @@ export class PassStateService {
         const map: Record<string, string> = {};
         (employees || []).forEach(emp => {
           const code = (emp.employeeCode ?? emp.empCode ?? emp.ec_no ?? emp.employeeNo ?? '')
-                         .toString().trim().toLowerCase();
+            .toString().trim().toLowerCase();
           const name = (emp.name ?? emp.employeeName ?? emp.emp_name ?? '')
-                         .toString().trim().toUpperCase();
+            .toString().trim().toUpperCase();
           if (code && name) map[code] = name;
         });
         this._empNameMap.set(map);
@@ -330,39 +335,39 @@ export class PassStateService {
 
   // ── NAVIGATION STATE ──────────────────────────────────────────────────────
   private _resumeDraftData = signal<PassRecord | null>(null);
-  private _resumeModData   = signal<any | null>(null);
+  private _resumeModData = signal<any | null>(null);
 
   readonly resumeDraftData = this._resumeDraftData.asReadonly();
-  readonly resumeModData   = this._resumeModData.asReadonly();
+  readonly resumeModData = this._resumeModData.asReadonly();
 
   setResumeDraft(data: PassRecord): void { this._resumeDraftData.set(data); }
-  clearResumeDraft():               void { this._resumeDraftData.set(null); }
-  setResumeMod(data: any):          void { this._resumeModData.set(data);   }
-  clearResumeMod():                 void { this._resumeModData.set(null);   }
+  clearResumeDraft(): void { this._resumeDraftData.set(null); }
+  setResumeMod(data: any): void { this._resumeModData.set(data); }
+  clearResumeMod(): void { this._resumeModData.set(null); }
 
   // ── TEMPLATE HELPERS ──────────────────────────────────────────────────────
 
   getStatusLabel(ws: WorkflowStatus | undefined): string {
     switch (ws) {
-      case 'Draft'                 : return 'Draft';
-      case 'Submitted'             : return 'Pending Confirmation';
-      case 'Confirmed'             : return 'Pending Approval';
-      case 'Confirmation_Rejected' : return 'Returned by Confirmer';
-      case 'Approved'              : return 'Approved';
-      case 'Approval_Rejected'     : return 'Returned by Approver';
-      default                      : return 'Unknown';
+      case 'Draft': return 'Draft';
+      case 'Submitted': return 'Pending Confirmation';
+      case 'Confirmed': return 'Pending Approval';
+      case 'Confirmation_Rejected': return 'Returned by Confirmer';
+      case 'Approved': return 'Approved';
+      case 'Approval_Rejected': return 'Returned by Approver';
+      default: return 'Unknown';
     }
   }
 
   getStatusClass(ws: WorkflowStatus | undefined): string {
     switch (ws) {
-      case 'Draft'                 : return 'badge-draft';
-      case 'Submitted'             : return 'badge-submitted';
-      case 'Confirmed'             : return 'badge-confirmed';
-      case 'Confirmation_Rejected' : return 'badge-rejected';
-      case 'Approved'              : return 'badge-approved';
-      case 'Approval_Rejected'     : return 'badge-rejected';
-      default                      : return 'badge-draft';
+      case 'Draft': return 'badge-draft';
+      case 'Submitted': return 'badge-submitted';
+      case 'Confirmed': return 'badge-confirmed';
+      case 'Confirmation_Rejected': return 'badge-rejected';
+      case 'Approved': return 'badge-approved';
+      case 'Approval_Rejected': return 'badge-rejected';
+      default: return 'badge-draft';
     }
   }
 }

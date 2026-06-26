@@ -182,6 +182,14 @@ export class PassEntry implements OnInit, OnDestroy {
       this.empName.set(draft.empName);
       this.empDept.set(draft.empDept);
 
+      // ✅ FIX: Restore employee sub-fields so Employee Details section unlocks correctly
+      this.empTypeDetail.set((draft as any).empTypeDetail || '');
+      this.empAadhar.set((draft as any).empAadhar || '');
+      this.empDeptCode.set((draft as any).empDeptCode || '');
+      this.empContractorCode = (draft as any).empContractorCode || '';
+      this.empContractorName = (draft as any).empContractorName || '';
+      this.contractorName = (draft as any).contractorName || draft.contractorFirm || '';
+
       // ✅ FIX: Restore previously saved docs from API-fetched data
       // draft.docs carries {documentId, docType, docNo, validUpto, fileName}
       // shape set by openEditInPassEntry() in passes.ts

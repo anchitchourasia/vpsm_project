@@ -755,7 +755,6 @@ export class Passes implements OnInit, OnDestroy {
             fileName: d.fileName || null,
           }));
 
-          // Build PassRecord — exact shape PassStateService & pass-entry expect
           const record = {
             passId: String(fresh.passId),
             empType: fresh.empType || 'Company_Employee',
@@ -776,6 +775,14 @@ export class Passes implements OnInit, OnDestroy {
             status: 'Saved' as const,
             createdAt: fresh.enterDate
               || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+
+            // ✅ FIX: Pass employee sub-fields so pass-entry ngOnInit can restore them
+            empTypeDetail: fresh.empTypeDetail || fresh.empType === 'Contractor' ? '' : (fresh.empTypeDetail || ''),
+            empAadhar: fresh.aadhaarNo || '',
+            empDeptCode: fresh.deptCode || '',
+            empContractorCode: fresh.contractorCode || '',
+            empContractorName: fresh.contractorName || fresh.employeeName || '',
+            contractorName: fresh.contractorName || fresh.contractorCode || '',
           };
 
           // Push into state service → pass-entry.ts ngOnInit reads this on load
