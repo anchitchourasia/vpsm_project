@@ -87,15 +87,19 @@
               <td class="td-passid"><strong>{{ formatPassId(p.passId) }}</strong></td>
 
               <td>
-                <strong>{{ p.empType === 'Contractor' ? (p.contractorCode || '—') : (p.employeeNo || '—') }}</strong>
+                <strong>{{ p.empType === 'Contractor'
+                  ? 'Contractor'
+                  : p.empType === 'Company_Employee'
+                  ? 'Company Employee'
+                  : (p.empType || 'Company Employee') }}</strong>
               </td>
               <td>
                 <span [class]="getEmpTypeBadgeClass(p.empType, p.empTypeDetail)">
                   {{ p.empType === 'Contractor'
                   ? 'Contractor'
-                  : (p.empTypeDetail && p.empTypeDetail !== 'Company_Employee'
-                  ? p.empTypeDetail
-                  : 'Company Employee') }}
+                  : p.empType === 'Company_Employee'
+                  ? 'Company Employee'
+                  : (p.empType || 'Company Employee') }}
                 </span>
               </td>
               <td>{{ p.dept || '—' }}</td>
