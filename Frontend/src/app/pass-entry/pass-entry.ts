@@ -90,7 +90,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empEmail = signal('');
   empType_display = signal('');
   empDeptCode = signal('');
-  empTypeDetail = signal<string>('');
+  empTypeDetail = signal<'PERMANENT' | 'HEG' | 'CONTRACT' | ''>('');
 
   // ✅ Aadhar — signal, auto-filled readonly from employee API
   empAadhar = signal('');
@@ -257,6 +257,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
   setEmpType(t: string): void {
     this.empType.set(t);
+    this.empTypeDetail.set('');
     this.ecNo = ''; this.contractorCode = '';
     this.empName.set(''); this.empDept.set(''); this.empSalary.set('');
     this.empAadhar.set('');
@@ -343,25 +344,55 @@ export class PassEntry implements OnInit, OnDestroy {
         }
 
         if (match) {
+          // ── Employee Type mismatch guard ──────────────────────────────────
+          // Map selected empTypeDetail to expected API empType category
+          const selectedDetail = this.empTypeDetail();
+          const apiEmpType = String(match.empType || '').toLowerCase();
+          const isContractorMatch = !!(match.contractorNo);
+
+          // Determine if the user's dropdown choice is consistent with API result
+          let mismatch = false;
+          let mismatchMsg = '';
+
+          if (selectedDetail === 'CONTRACT' && !isContractorMatch) {
+            mismatch = true;
+            mismatchMsg = `⚠️ Mismatch: EC No "${ecNo}" belongs to a Company Employee (${match.empType || 'non-contractor'}), not a Contractor. Please select the correct Employee Type.`;
+          } else if ((selectedDetail === 'PERMANENT' || selectedDetail === 'HEG') && isContractorMatch) {
+            mismatch = true;
+            mismatchMsg = `⚠️ Mismatch: EC No "${ecNo}" belongs to a Contractor, not a ${selectedDetail} employee. Please select CONTRACT.`;
+          }
+
+          if (mismatch) {
+            // Clear all fields — do not populate with wrong record
+            this.empName.set('');
+            this.empDept.set('');
+            this.empDeptCode.set('');
+            this.empAadhar.set('');
+            this.empContractorCode = '';
+            this.empContractorName = '';
+            this.contractorName = '';
+            this.empType_display.set('');
+            this.empData = null;
+            this.empFetchError.set(mismatchMsg);
+            return;
+          }
+          // ── No mismatch — populate all fields normally ────────────────────
           this.empData = match;
-          // ✅ All fields from named keys
           this.empName.set(String(match.name || ''));
           this.empDept.set(String(match.deptName || '').toUpperCase());
           this.empDeptCode.set(String(match.deptCode || ''));
-          this.empSalary.set('');   // salary not in new API — keep blank
-          this.empEmail.set('');    // email not in new API — keep blank
-          // ✅ Aadhar from named key aadhaarNo
+          this.empSalary.set('');
+          this.empEmail.set('');
           this.empAadhar.set(String(match.aadhaarNo || match.aadharNo || match.aadhar || ''));
-          // ✅ For contractor form
           this.empContractorCode = String(match.contractorCode || '');
-          this.empContractorName = String(match.name || '');         // ✅ was setting contractorName (Contractor mode only)
+          this.empContractorName = String(match.name || '');
           this.contractorName = String(match.name || '');
           this.contractorEmail = '';
           this.empType_display.set(String(match.empType || ''));
           this.empFetchError.set('');
         } else {
           this.empFetchError.set(
-            this.empType() === 'Contractor'
+            this.empTypeDetail() === 'CONTRACT'
               ? `No contractor found for Code: ${ecNo}`
               : `No employee found for ID: ${ecNo}`
           );
@@ -834,6 +865,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empAadhar.set('');
     this.empDeptCode.set('');
     this.empType_display.set('');
+    this.empTypeDetail.set('');
     this.empContractorCode = '';
     this.empContractorName = '';
     this.empContractorEmail = '';

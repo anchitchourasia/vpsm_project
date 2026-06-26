@@ -204,18 +204,17 @@
       </div>
 
       <!-- Employee Type — dropdown, pre-selected from API, user can override -->
+      <!-- Employee Type — user selects FIRST, then EC No fetch validates against it -->
       <div class="pe-field">
         <label>Employee Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="empTypeDetail">
+        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="ecNo=''; empName.set(''); empDept.set(''); empAadhar.set('');
+                    empDeptCode.set(''); empFetchError.set(''); empType_display.set('')">
           <option value="">— Select Employee Type —</option>
-          <option value="PERMANENT">Permanent</option>
-          <option value="HEG">Probationary</option>
-          <option value="CONTRACT">Trainee</option>
-          <!-- <option value="Apprentice">Apprentice</option>
-          <option value="Deputation">Deputation</option> -->
-          <option value="Other">Other</option>
+          <option value="PERMANENT">PERMANENT</option>
+          <option value="HEG">HEG</option>
+          <option value="CONTRACT">CONTRACT</option>
         </select>
-        <span class="pe-field-hint">Auto-selected from EC No — can be overridden</span>
+        <span class="pe-field-hint">Select first — EC No is validated against this</span>
       </div>
 
       <!-- Name -->
