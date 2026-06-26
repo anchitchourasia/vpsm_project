@@ -93,7 +93,7 @@ export class Approval implements OnInit, OnDestroy {
   actionError = signal('');
   actionSuccess = signal('');
   isActing = signal(false);
-  activeAction = signal<'modify' | 'approve' | null>(null);
+  activeAction = signal<'modify' | 'approve' | 'reject' | null>(null);
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments = signal<DocumentRecord[]>([]);
   isLoadingDocs = signal(false);
@@ -200,7 +200,7 @@ export class Approval implements OnInit, OnDestroy {
     this.historyLoadError.set('');
     this.showHistory.set(false);
   }
-  setAction(action: 'modify' | 'approve'): void {
+  setAction(action: 'modify' | 'approve' | 'reject'): void {
     this.activeAction.set(this.activeAction() === action ? null : action);
     this.actionError.set('');
     this.actionSuccess.set('');
@@ -477,6 +477,38 @@ export class Approval implements OnInit, OnDestroy {
         this.logHistory(pass.passId, pass.employeeNo, 'RETURNED',
           `Returned to Confirmer by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`↩️ Pass #${pass.passId} returned to Confirmer queue.`);
+        this.isActing.set(false);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
+  // ── Reject Pass ───────────────────────────────────────────────────────────
+  reject(pass: PassRecord): void {
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required before rejecting.');
+      return;
+    }
+    this.isActing.set(true);
+    this.actionError.set('');
+    const updatePayload = {
+      status: 'Rejected',
+      enterBy: this.approverName(),
+      remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
+      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+    };
+    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.passId, pass.employeeNo, 'REJECTED',
+          `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`❌ Pass #${pass.passId} rejected.`);
         this.isActing.set(false);
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);

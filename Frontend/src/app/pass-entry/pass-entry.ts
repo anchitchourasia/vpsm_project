@@ -90,6 +90,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empEmail = signal('');
   empType_display = signal('');
   empDeptCode = signal('');
+  empTypeDetail = signal<string>('');
 
   // ✅ Aadhar — signal, auto-filled readonly from employee API
   empAadhar = signal('');

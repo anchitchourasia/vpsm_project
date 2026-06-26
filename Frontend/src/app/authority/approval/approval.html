@@ -351,11 +351,25 @@
             : 'Send for Modification' }}
           </button>
 
-          <button class="footer-btn btn-orange" (click)="returnToConfirmer(p)" [disabled]="isActing()">
-            <i class="bi bi-arrow-return-left"></i>
-            {{ isActing() ? 'Processing…' : 'Return to Confirmer' }}
+          <!-- Reject confirmation warning — appears only when armed -->
+          <div class="reject-confirm-box" *ngIf="activeAction() === 'reject'">
+            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444"></i>
+            <span> You are about to <strong>permanently reject</strong> Pass #{{ p.passId }}.
+              This cannot be undone. Make sure your remark explains the reason clearly.</span>
+          </div>
+
+          <button class="footer-btn btn-red" [class.btn-reject-armed]="activeAction() === 'reject'"
+            (click)="activeAction() === 'reject' ? reject(p) : setAction('reject')" [disabled]="isActing()">
+            <i class="bi bi-x-circle-fill"></i>
+            {{ activeAction() === 'reject'
+            ? (isActing() ? 'Processing…' : ' Confirm Reject')
+            : 'Reject' }}
           </button>
 
+          <!-- <button class="footer-btn btn-orange" (click)="returnToConfirmer(p)" [disabled]="isActing()">
+            <i class="bi bi-arrow-return-left"></i>
+            {{ isActing() ? 'Processing…' : 'Return to Confirmer' }}
+          </button> -->
           <!-- Approve confirmation warning — appears only when armed -->
           <div class="approve-confirm-box" *ngIf="activeAction() === 'approve'">
             <i class="bi bi-patch-check-fill" style="color:#16a34a"></i>

@@ -203,12 +203,19 @@
         }
       </div>
 
-      <!-- ✅ NEW: Employee Type — auto-filled from API -->
+      <!-- Employee Type — dropdown, pre-selected from API, user can override -->
       <div class="pe-field">
-        <label>Employee Type</label>
-        <input type="text" class="pe-input pe-readonly" [value]="empType_display()" readonly
-          placeholder="Auto-filled from EC No" />
-        <span class="pe-field-hint">Filled from employee record</span>
+        <label>Employee Type <span class="req">*</span></label>
+        <select class="pe-input" [(ngModel)]="empTypeDetail">
+          <option value="">— Select Employee Type —</option>
+          <option value="PERMANENT">Permanent</option>
+          <option value="HEG">Probationary</option>
+          <option value="CONTRACT">Trainee</option>
+          <!-- <option value="Apprentice">Apprentice</option>
+          <option value="Deputation">Deputation</option> -->
+          <option value="Other">Other</option>
+        </select>
+        <span class="pe-field-hint">Auto-selected from EC No — can be overridden</span>
       </div>
 
       <!-- Name -->
