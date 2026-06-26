@@ -310,3 +310,29 @@
   transition     : opacity .2s;
 }
 .footer-btn:disabled { opacity: .55; cursor: not-allowed; }
+/* Reject confirmation warning box */
+.reject-confirm-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #991b1b;
+  line-height: 1.5;
+}
+
+/* Armed state for the Reject button */
+.btn-reject-armed {
+  background: #dc2626 !important;
+  border: 2px solid #991b1b !important;
+  animation: pulse-red 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-red {
+  from { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  to   { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}

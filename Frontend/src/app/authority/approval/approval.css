@@ -279,3 +279,28 @@
   transition     : opacity .2s;
 }
 .footer-btn:disabled { opacity: .55; cursor: not-allowed; }
+/* Approve confirmation box */
+.approve-confirm-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #14532d;
+  line-height: 1.5;
+}
+
+.btn-approve-armed {
+  background: #15803d !important;
+  border: 2px solid #14532d !important;
+  animation: pulse-green 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-green {
+  from { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+  to   { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
+}

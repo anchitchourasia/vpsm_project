@@ -529,6 +529,7 @@ export class PassEntry implements OnInit, OnDestroy {
           empType: this.empType(),
           enterBy: this.auth.empCode() || 'REQUESTER',
           // enterDate OMITTED — LocalDate field, backend handles it
+          typeOfVehicle: this.vehicleType.trim() || null,
           remarks: this.remark.trim() || null,
         };
 
@@ -685,6 +686,7 @@ export class PassEntry implements OnInit, OnDestroy {
       status: 'Submitted',
       empType: this.empType(),
       enterBy: this.auth.empCode() || 'REQUESTER',
+      typeOfVehicle: this.vehicleType.trim() || null,
       remarks: this.remark.trim() || null,
     };
     this.http.post<any>(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS })

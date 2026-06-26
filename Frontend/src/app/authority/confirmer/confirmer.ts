@@ -97,7 +97,7 @@ export class Confirmer implements OnInit, OnDestroy {
 
   // ── NEW: tracks which action is armed in the footer ───────────────────────
   // null = default state | 'modify' = Send for Modify is armed
-  activeAction = signal<'modify' | null>(null);
+  activeAction = signal<'modify' |'reject' | null>(null);
 
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments = signal<DocumentRecord[]>([]);
@@ -203,7 +203,7 @@ export class Confirmer implements OnInit, OnDestroy {
   }
 
   // ── NEW: toggle armed state for Send for Modify button ───────────────────
-  setAction(action: 'modify'): void {
+  setAction(action: 'modify'| 'reject'): void {
     // clicking same button again = cancel/disarm
     this.activeAction.set(this.activeAction() === action ? null : action);
     this.actionError.set('');

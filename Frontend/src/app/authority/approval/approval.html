@@ -356,9 +356,19 @@
             {{ isActing() ? 'Processing…' : 'Return to Confirmer' }}
           </button>
 
-          <button class="footer-btn btn-green" (click)="approve(p)" [disabled]="isActing()">
+          <!-- Approve confirmation warning — appears only when armed -->
+          <div class="approve-confirm-box" *ngIf="activeAction() === 'approve'">
+            <i class="bi bi-patch-check-fill" style="color:#16a34a"></i>
+            <span>✅ You are about to <strong>activate Pass #{{ p.passId }}</strong> as a live vehicle pass.
+              Please verify all documents are valid before confirming.</span>
+          </div>
+
+          <button class="footer-btn btn-green" [class.btn-approve-armed]="activeAction() === 'approve'"
+            (click)="activeAction() === 'approve' ? approve(p) : setAction('approve')" [disabled]="isActing()">
             <i class="bi bi-patch-check-fill"></i>
-            {{ isActing() ? 'Processing…' : 'Approve & Activate Pass' }}
+            {{ activeAction() === 'approve'
+            ? (isActing() ? 'Processing…' : '✅ Confirm Approve & Activate')
+            : 'Approve & Activate Pass' }}
           </button>
 
         </div>

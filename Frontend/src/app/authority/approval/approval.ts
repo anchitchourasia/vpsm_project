@@ -93,7 +93,7 @@ export class Approval implements OnInit, OnDestroy {
   actionError = signal('');
   actionSuccess = signal('');
   isActing = signal(false);
-  activeAction = signal<'modify' | null>(null);
+  activeAction = signal<'modify' | 'approve' | null>(null);
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments = signal<DocumentRecord[]>([]);
   isLoadingDocs = signal(false);
@@ -200,7 +200,7 @@ export class Approval implements OnInit, OnDestroy {
     this.historyLoadError.set('');
     this.showHistory.set(false);
   }
-  setAction(action: 'modify'): void {
+  setAction(action: 'modify' | 'approve'): void {
     this.activeAction.set(this.activeAction() === action ? null : action);
     this.actionError.set('');
     this.actionSuccess.set('');

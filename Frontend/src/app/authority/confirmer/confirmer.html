@@ -344,10 +344,19 @@
             : 'Send for Modification' }}
           </button>
 
-          <button class="footer-btn btn-red" (click)="activeAction() === 'modify' ? setAction('modify') : reject(p)"
-            [disabled]="isActing()">
+          <!-- Reject confirmation warning — appears only when armed -->
+          <div class="reject-confirm-box" *ngIf="activeAction() === 'reject'">
+            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444"></i>
+            <span> You are about to <strong>permanently reject</strong> Pass #{{ p.passId }}.
+              This cannot be undone. Make sure your remark explains the reason clearly.</span>
+          </div>
+
+          <button class="footer-btn btn-red" [class.btn-reject-armed]="activeAction() === 'reject'"
+            (click)="activeAction() === 'reject' ? reject(p) : setAction('reject')" [disabled]="isActing()">
             <i class="bi bi-x-circle-fill"></i>
-            {{ isActing() ? 'Processing…' : 'Reject' }}
+            {{ activeAction() === 'reject'
+            ? (isActing() ? 'Processing…' : ' Confirm Reject')
+            : 'Reject' }}
           </button>
 
           <button class="footer-btn btn-blue" (click)="confirm(p)" [disabled]="isActing()">

@@ -190,18 +190,30 @@ export class Passes implements OnInit, OnDestroy {
           );
         }
         // ✅ Normalize both fields at ingest — no downstream rendering workarounds needed
-        const normalized = filtered.map((p: any) => ({
-          ...p,
-          // FIX 1: Derive empType from contractorCode presence if DB value is wrong
-          empType: p.empType
-            ? p.empType                             // trust if set
-            : (p.contractorCode ? 'Contractor' : 'Company_Employee'),  // derive from data
+        const normalized = filtered.map((p: any) => {
+          // Derive empType: contractorCode presence is the source of truth
+          // If empType is already 'Contractor' from DB → keep it
+          // If contractorCode is present → it IS a Contractor regardless of empType column
+          // Otherwise → Company_Employee
+          const derivedEmpType = (p.contractorCode && p.contractorCode.trim())
+            ? 'Contractor'
+            : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
 
-          // FIX 2: Hoist vehicle.vehicleType to top-level typeOfVehicle if missing
-          typeOfVehicle: p.typeOfVehicle
-            || p.vehicle?.vehicleType
-            || '',
-        }));
+          // Derive typeOfVehicle from vehicle object if top-level column is blank
+          const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
+            ? p.typeOfVehicle
+            : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
+              ? p.vehicle.vehicleType
+              : (p.vehicle?.vehicleClass && p.vehicle.vehicleClass.trim()
+                ? p.vehicle.vehicleClass
+                : '—'));
+
+          return {
+            ...p,
+            empType: derivedEmpType,
+            typeOfVehicle: derivedVehicleType,
+          };
+        });
 
         this.allPassesRaw.set(normalized);         // was: this.allPassesRaw.set(filtered)
 
@@ -242,18 +254,30 @@ export class Passes implements OnInit, OnDestroy {
         }
 
         // ✅ Normalize both fields at ingest — no downstream rendering workarounds needed
-        const normalized = filtered.map((p: any) => ({
-          ...p,
-          // FIX 1: Derive empType from contractorCode presence if DB value is wrong
-          empType: p.empType
-            ? p.empType                             // trust if set
-            : (p.contractorCode ? 'Contractor' : 'Company_Employee'),  // derive from data
+        const normalized = filtered.map((p: any) => {
+          // Derive empType: contractorCode presence is the source of truth
+          // If empType is already 'Contractor' from DB → keep it
+          // If contractorCode is present → it IS a Contractor regardless of empType column
+          // Otherwise → Company_Employee
+          const derivedEmpType = (p.contractorCode && p.contractorCode.trim())
+            ? 'Contractor'
+            : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
 
-          // FIX 2: Hoist vehicle.vehicleType to top-level typeOfVehicle if missing
-          typeOfVehicle: p.typeOfVehicle
-            || p.vehicle?.vehicleType
-            || '',
-        }));
+          // Derive typeOfVehicle from vehicle object if top-level column is blank
+          const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
+            ? p.typeOfVehicle
+            : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
+              ? p.vehicle.vehicleType
+              : (p.vehicle?.vehicleClass && p.vehicle.vehicleClass.trim()
+                ? p.vehicle.vehicleClass
+                : '—'));
+
+          return {
+            ...p,
+            empType: derivedEmpType,
+            typeOfVehicle: derivedVehicleType,
+          };
+        });
 
         this.allPassesRaw.set(normalized);         // was: this.allPassesRaw.set(filtered)
       });
