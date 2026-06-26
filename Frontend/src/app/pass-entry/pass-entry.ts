@@ -428,6 +428,60 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
+  // ══════════════════════════════════════════════════════════════════════
+  // checkDuplicate — fetches all passes from API and checks if
+  // the SAME vehicle + SAME employee/contractor combination already
+  // exists with a non-terminal status (Draft/Submitted/Confirmed/Active).
+  // 
+  // Rule: vehicleNo + ecNo/contractorCode = DUPLICATE → block
+  //       vehicleNo + different person     = ALLOWED   → different pass
+  // ══════════════════════════════════════════════════════════════════════
+  private checkDuplicate(): Promise<string> {
+    const vehicleNo = this.vehicleNo.trim().toUpperCase();
+    const ecNo = this.empType() === 'Company_Employee'
+      ? this.ecNo.trim().toUpperCase()
+      : (this.contractorCode || this.ecNo).trim().toUpperCase();
+
+    return new Promise(resolve => {
+      this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          catchError(() => of([]))   // silent fail — don't block save on network error
+        )
+        .subscribe(passes => {
+          if (!passes || passes.length === 0) { resolve(''); return; }
+
+          // Terminal statuses — passes already closed, reissue is allowed
+          const terminalStatuses = ['rejected', 'surrendered', 'expired'];
+
+          const duplicate = passes.find(p => {
+            const pVehicleNo = String(p.vehicle?.vehicleNo || '').trim().toUpperCase();
+            const pEcNo = String(p.employeeNo || p.contractorCode || '').trim().toUpperCase();
+            const pStatus = String(p.status || '').toLowerCase();
+
+            // Skip this pass if we are in modification mode (editing existing pass)
+            if (this.savedPassRegistryId && p.passId === this.savedPassRegistryId) return false;
+
+            // Skip terminal statuses — those passes are closed
+            if (terminalStatuses.includes(pStatus)) return false;
+
+            return pVehicleNo === vehicleNo && pEcNo === ecNo;
+          });
+
+          if (duplicate) {
+            const statusLabel = duplicate.status || 'existing';
+            resolve(
+              `⚠️ Duplicate detected: Vehicle ${vehicleNo} is already linked to EC/Code "${ecNo}" ` +
+              `with Pass ID #${duplicate.passId} (Status: ${statusLabel}). ` +
+              `A new pass cannot be created for the same vehicle and employee combination.`
+            );
+          } else {
+            resolve('');
+          }
+        });
+    });
+  }
 
   private validate(): string {
     if (!this.vehicleNo.trim()) return 'Vehicle No is required.';
@@ -469,13 +523,6 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private clearAlerts(): void { this.saveError.set(''); this.saveSuccess.set(''); }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // onSave — DRAFT logic:
-  //   ✅ Calls persistDraftToDB() FIRST
-  //   ✅ Waits for real DB passId → sets passId signal to actual numeric id
-  //   ✅ No more DRAFT-timestamp shown — user sees real DB id like 126, 127
-  //   ✅ No two saves can get same id — DB auto-increment guarantees uniqueness
-  // ══════════════════════════════════════════════════════════════════════
   onSave(): void {
     if (!this.validityDate) this.validityDate = this.todayDate;
     this.issueDate = this.todayDate;
@@ -495,9 +542,16 @@ export class PassEntry implements OnInit, OnDestroy {
       return;
     }
 
-    // ✅ First save → persist to DB, get real id, then show it
+    // ✅ First save — check for duplicate before persisting to DB
     this.isSaving.set(true);
-    this.persistDraftToDB();
+    this.checkDuplicate().then(dupErr => {
+      if (dupErr) {
+        this.saveError.set(dupErr);
+        this.isSaving.set(false);
+        return;
+      }
+      this.persistDraftToDB();
+    });
   }
 
   onSubmit(): void {
@@ -510,7 +564,16 @@ export class PassEntry implements OnInit, OnDestroy {
     if (this.isSaving()) return;
     this.clearAlerts();
     this.isSaving.set(true);
-    this.step1RegisterVehicle();
+
+    // ✅ Duplicate check before submitting to DB
+    this.checkDuplicate().then(dupErr => {
+      if (dupErr) {
+        this.saveError.set(dupErr);
+        this.isSaving.set(false);
+        return;
+      }
+      this.step1RegisterVehicle();
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════

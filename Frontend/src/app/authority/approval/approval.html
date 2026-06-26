@@ -381,7 +381,7 @@
             (click)="activeAction() === 'approve' ? approve(p) : setAction('approve')" [disabled]="isActing()">
             <i class="bi bi-patch-check-fill"></i>
             {{ activeAction() === 'approve'
-            ? (isActing() ? 'Processing…' : '✅ Confirm Approve & Activate')
+            ? (isActing() ? 'Processing…' : 'Confirm Approve & Activate')
             : 'Approve & Activate Pass' }}
           </button>
 
