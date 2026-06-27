@@ -786,6 +786,7 @@ export class Passes implements OnInit, OnDestroy {
                 vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
                 vehicleClass: fresh.vehicle?.vehicleClass || '',
                 brandModel: fresh.vehicle?.brandModel || '',
+                vehicleId: fresh.vehicle?.vehicleId ?? null,   // ✅ needed so ngOnInit can restore savedVehicleId
 
                 // ✅ ecNo: for Company_Employee = employeeNo; for Contractor = contractorCode
                 ecNo: isContractor ? '' : lookupCode,

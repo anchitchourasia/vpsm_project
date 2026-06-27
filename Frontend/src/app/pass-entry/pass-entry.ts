@@ -248,6 +248,12 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passIdGenerated.set(true);
       this.saved.set(true);
       this.savedPassRegistryId = draft.passId ? Number(draft.passId) : null;
+      // ✅ FIX: Restore vehicleId so updateExistingPassInDB() can upload docs
+      // to the correct vehicle. Without this, savedVehicleId stays null and
+      // all document uploads silently fail on Edit → Save/Submit.
+      this.savedVehicleId = (draft as any).vehicleId
+        ? Number((draft as any).vehicleId)
+        : null;
 
       this.saveSuccess.set(
         `Draft resumed — Request ID: ${draft.passId}. Documents restored. Click Submit when ready.`
@@ -288,6 +294,10 @@ export class PassEntry implements OnInit, OnDestroy {
       }
 
       this.savedPassRegistryId = modData.passId ?? null;
+      // ✅ FIX: Restore vehicleId for Needs_Modification flow too
+      this.savedVehicleId = (modData as any).vehicleId
+        ? Number((modData as any).vehicleId)
+        : null;
       this.passId.set(
         modData.passId ? String(modData.passId) : ''
       );
@@ -569,28 +579,33 @@ export class PassEntry implements OnInit, OnDestroy {
     const err = this.validate();
     if (err) { this.saveError.set(err); return; }
 
-    // ✅ If already saved once (has a real DB id), just update local state — no duplicate DB entry
+    // ✅ FIX: If editing an existing pass (Draft or Needs_Modification),
+    // PUT the updated data to DB AND upload any newly selected/replaced docs.
+    // Old code only updated PassStateService (memory) → changes lost on tab close.
     if (this.passIdGenerated() && this.savedPassRegistryId) {
-      const record = this._buildRecord('Saved');
-      this.passState.upsert(record);
-      this.passState.broadcastDraftChange();
-      this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-      this.saved.set(true);
-      this.saveSuccess.set(
-        `Draft updated — Request ID: ${this.passId()}. Add all 5 documents then click Submit to register.`
-      );
+      this.isSaving.set(true);
+      this.updateExistingPassInDB('Draft');
       return;
     }
 
     // ✅ First save — check for duplicate before persisting to DB
     this.isSaving.set(true);
+    // ✅ FIX: If editing an existing pass (Draft / Needs_Modification),
+    // PUT update the existing record instead of POSTing a new one.
+    // Old code always called step1RegisterVehicle() → always created a new duplicate pass.
     this.checkDuplicate().then(dupErr => {
       if (dupErr) {
         this.saveError.set(dupErr);
         this.isSaving.set(false);
         return;
       }
-      this.persistDraftToDB();
+      if (this.savedPassRegistryId) {
+        // Existing pass — update it, upload new docs, then finalise
+        this.updateExistingPassInDB('Submitted');
+      } else {
+        // Brand-new pass — original flow unchanged
+        this.step1RegisterVehicle();
+      }
     });
   }
 
@@ -780,6 +795,109 @@ export class PassEntry implements OnInit, OnDestroy {
             `Draft saved — Pass ID: ${realIdStr}. Documents uploaded ✅. Click Submit when ready.`
           );
         }
+      });
+  }
+  // ══════════════════════════════════════════════════════════════════════
+  // updateExistingPassInDB — called when EDITING a Draft or Needs_Modification pass.
+  //
+  // 📍 Called from:
+  //   onSave()   → newStatus = 'Draft'      (save progress, stay on form)
+  //   onSubmit() → newStatus = 'Submitted'  (submit for confirmer review)
+  //
+  // 📍 What it does:
+  //   1. PUTs updated pass fields (gate, validity, remark, empType etc.) to DB
+  //   2. Uploads any docs where user selected a NEW file (doc.file !== null)
+  //   3. For docs where file is unchanged (doc.file === null, docAlreadyUploaded),
+  //      skips re-upload — existing DB file is preserved automatically
+  //   4. On Draft save: stays on form, shows success message
+  //   5. On Submit: calls finaliseSubmit() → navigates away after 2.2s
+  //
+  // 📍 Does NOT:
+  //   - Create a new vehicle (vehicle already exists from original save)
+  //   - Create a new pass (PUT updates the existing pass row)
+  //   - Re-upload docs that haven't changed (preserves existing files)
+  // ══════════════════════════════════════════════════════════════════════
+  private updateExistingPassInDB(newStatus: 'Draft' | 'Submitted'): void {
+    const passRegistryId = this.savedPassRegistryId!;
+
+    const updatePayload = {
+      employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+      employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+      employeeName: this.empName() || null,
+      dept: this.empDept() || null,
+      contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
+      aadhaarNo: this.empAadhar() || null,
+      contractorName: this.empContractorName || null,
+      gateNo: this.gateNo,
+      parkingToBeUsed: this.parkingArea.trim() || null,
+      status: newStatus,
+      empType: this.empType() === 'Contractor'
+        ? 'Contractor'
+        : (this.empTypeDetail() || this.empType()),
+      typeOfVehicle: this.vehicleType.trim() || null,
+      remarks: this.remark.trim() || null,
+      validityDate: this.validityDate || null,
+    };
+
+    this.http
+      .put<any>(`${API_CONFIG.PASSES_UPDATE}/${passRegistryId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.handleSaveError(err, `Update Pass [${newStatus}]`);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (!res) { this.isSaving.set(false); return; }
+
+        // ── Upload only docs where user selected a NEW file ──────────────
+        // doc.file !== null  → user picked a replacement file → upload it
+        // doc.file === null  → file unchanged (docAlreadyUploaded) → skip
+        const docsWithNewFile = this.docs().filter(d => d.docType && d.file !== null);
+
+        if (docsWithNewFile.length > 0 && this.savedVehicleId) {
+          if (newStatus === 'Submitted') {
+            // step3UploadDocs calls finaliseSubmit() on completion — full submit flow
+            this.step3UploadDocs(docsWithNewFile);
+          } else {
+            // Draft save — reuse uploadDocsForDraft (silent, stays on form)
+            this.uploadDocsForDraft(docsWithNewFile, this.passId());
+            // Update PassStateService memory + broadcast
+            const record = this._buildRecord('Saved');
+            this.passState.upsert(record);
+            this.passState.broadcastDraftChange();
+            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+            this.saved.set(true);
+            this.isSaving.set(false);
+            this.saveSuccess.set(
+              `Draft updated — Pass ID: ${this.passId()}. Changes & documents saved ✅. Click Submit when ready.`
+            );
+          }
+        } else {
+          // No new files selected — pass fields updated, existing docs untouched
+          if (newStatus === 'Submitted') {
+            this.finaliseSubmit();
+          } else {
+            const record = this._buildRecord('Saved');
+            this.passState.upsert(record);
+            this.passState.broadcastDraftChange();
+            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+            this.saved.set(true);
+            this.isSaving.set(false);
+            this.saveSuccess.set(
+              `Draft updated — Pass ID: ${this.passId()}. Changes saved ✅. Click Submit when ready.`
+            );
+          }
+        }
+
+        this.logHistory(
+          passRegistryId,
+          newStatus === 'Submitted' ? 'RESUBMITTED' : 'DRAFT_UPDATED',
+          this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+          `Pass ${newStatus.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
+        );
       });
   }
 
