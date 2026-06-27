@@ -777,7 +777,7 @@ export class Passes implements OnInit, OnDestroy {
               || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
 
             // ✅ FIX: Pass employee sub-fields so pass-entry ngOnInit can restore them
-            empTypeDetail: fresh.empTypeDetail || fresh.empType === 'Contractor' ? '' : (fresh.empTypeDetail || ''),
+            empTypeDetail: (fresh.empType === 'Contractor') ? '' : (fresh.empTypeDetail || ''),
             empAadhar: fresh.aadhaarNo || '',
             empDeptCode: fresh.deptCode || '',
             empContractorCode: fresh.contractorCode || '',
