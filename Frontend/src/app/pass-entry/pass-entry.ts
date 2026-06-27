@@ -163,7 +163,7 @@ export class PassEntry implements OnInit, OnDestroy {
       this.ecNo = this.auth.empCode()!;
     }
 
-    // ── 1. Resume DRAFT ──
+    // ── 1. Resume DRAFT (also handles Edit from Pass Registry) ──
     const draft = this.passState.resumeDraftData();
     if (draft) {
       this.passState.clearResumeDraft();
@@ -173,8 +173,6 @@ export class PassEntry implements OnInit, OnDestroy {
       this.vehicleType = draft.vehicleType;
       this.vehicleClass = draft.vehicleClass;
       this.brandModel = draft.brandModel;
-      this.ecNo = draft.ecNo;
-      this.contractorCode = draft.contractorFirm;
       this.validityDate = draft.validityDate;
       this.gateNo = draft.gateNo;
       this.parkingArea = draft.parkingArea;
@@ -182,8 +180,47 @@ export class PassEntry implements OnInit, OnDestroy {
       this.empName.set(draft.empName);
       this.empDept.set(draft.empDept);
 
-      // ✅ FIX: Restore employee sub-fields so Employee Details section unlocks correctly
-      this.empTypeDetail.set((draft as any).empTypeDetail || '');
+      // ─────────────────────────────────────────────────────────────────────
+      // ✅ FIX: Resolve empTypeDetail so EC No field ALWAYS unlocks on Edit.
+      //
+      // ROOT CAUSE: Old passes saved before the empTypeDetail column existed
+      // return null/undefined from the API. The old code did:
+      //   this.empTypeDetail.set((draft as any).empTypeDetail || '')
+      // This sets '' → template evaluates !empTypeDetail() === true →
+      // EC No input stays [disabled] → ALL Employee Details rows are blank.
+      //
+      // FIX LOGIC:
+      //   • Contractor      → empTypeDetail always '' (not needed for that flow)
+      //   • Company_Employee with known value (PERMANENT / HEG / CONTRACT) → use it
+      //   • Company_Employee with empty/null (old pass, no DB value) → default 'HEG'
+      //     so the field is always unlocked; user can correct if needed.
+      // ─────────────────────────────────────────────────────────────────────
+      const rawDetail = ((draft as any).empTypeDetail || '') as string;
+      const isContractor = draft.empType === 'Contractor';
+
+      let resolvedDetail: 'PERMANENT' | 'HEG' | 'CONTRACT' | '' = '';
+      if (!isContractor) {
+        const upper = rawDetail.toUpperCase().trim();
+        if (upper === 'PERMANENT' || upper === 'HEG' || upper === 'CONTRACT') {
+          resolvedDetail = upper as 'PERMANENT' | 'HEG' | 'CONTRACT';
+        } else {
+          // Empty/unknown value from old pass — default to HEG to unlock the field
+          resolvedDetail = 'HEG';
+        }
+      }
+      this.empTypeDetail.set(resolvedDetail);
+
+      // ── Fix ecNo vs contractorCode assignment per empType ──────────────
+      // For Contractor passes, draft.ecNo may be '' but contractorFirm has the code.
+      if (isContractor) {
+        this.contractorCode = draft.contractorFirm || '';
+        this.ecNo = this.contractorCode; // keep ecNo in sync for onEcNoBlur lookup
+      } else {
+        this.ecNo = draft.ecNo || '';
+        this.contractorCode = draft.contractorFirm || '';
+      }
+
+      // ✅ Restore remaining employee sub-fields
       this.empAadhar.set((draft as any).empAadhar || '');
       this.empDeptCode.set((draft as any).empDeptCode || '');
       this.empContractorCode = (draft as any).empContractorCode || '';
@@ -199,9 +236,9 @@ export class PassEntry implements OnInit, OnDestroy {
           docType: (d.docType || '').toUpperCase().trim(),
           docNo: d.docNo || '',
           validUpto: d.validUpto || '',
-          file: null,                     // PDF File object cannot be serialised — null is correct
-          documentId: d.documentId || null,     // existing DB doc id — used by docAlreadyUploaded()
-          existingFile: d.fileName || null,     // shows "Uploaded ✅" pill in doc table
+          file: null,                       // PDF File object cannot be serialised — null is correct
+          documentId: d.documentId || null, // existing DB doc id — used by docAlreadyUploaded()
+          existingFile: d.fileName || null, // shows "Uploaded ✅" pill in doc table
         }));
         this.docs.set(restoredDocs);
       }
@@ -353,12 +390,10 @@ export class PassEntry implements OnInit, OnDestroy {
 
         if (match) {
           // ── Employee Type mismatch guard ──────────────────────────────────
-          // Map selected empTypeDetail to expected API empType category
           const selectedDetail = this.empTypeDetail();
           const apiEmpType = String(match.empType || '').toLowerCase();
           const isContractorMatch = !!(match.contractorNo);
 
-          // Determine if the user's dropdown choice is consistent with API result
           let mismatch = false;
           let mismatchMsg = '';
 
@@ -371,7 +406,6 @@ export class PassEntry implements OnInit, OnDestroy {
           }
 
           if (mismatch) {
-            // Clear all fields — do not populate with wrong record
             this.empName.set('');
             this.empDept.set('');
             this.empDeptCode.set('');
@@ -440,7 +474,7 @@ export class PassEntry implements OnInit, OnDestroy {
   // checkDuplicate — fetches all passes from API and checks if
   // the SAME vehicle + SAME employee/contractor combination already
   // exists with a non-terminal status (Draft/Submitted/Confirmed/Active).
-  // 
+  //
   // Rule: vehicleNo + ecNo/contractorCode = DUPLICATE → block
   //       vehicleNo + different person     = ALLOWED   → different pass
   // ══════════════════════════════════════════════════════════════════════
@@ -460,7 +494,6 @@ export class PassEntry implements OnInit, OnDestroy {
         .subscribe(passes => {
           if (!passes || passes.length === 0) { resolve(''); return; }
 
-          // Terminal statuses — passes already closed, reissue is allowed
           const terminalStatuses = ['rejected', 'surrendered', 'expired'];
 
           const duplicate = passes.find(p => {
@@ -468,10 +501,7 @@ export class PassEntry implements OnInit, OnDestroy {
             const pEcNo = String(p.employeeNo || p.contractorCode || '').trim().toUpperCase();
             const pStatus = String(p.status || '').toLowerCase();
 
-            // Skip this pass if we are in modification mode (editing existing pass)
             if (this.savedPassRegistryId && p.passId === this.savedPassRegistryId) return false;
-
-            // Skip terminal statuses — those passes are closed
             if (terminalStatuses.includes(pStatus)) return false;
 
             return pVehicleNo === vehicleNo && pEcNo === ecNo;
@@ -650,7 +680,6 @@ export class PassEntry implements OnInit, OnDestroy {
           .subscribe(pRes => {
             if (!pRes) { this.isSaving.set(false); return; }
 
-
             const realDbId = pRes.passId ?? pRes.id ?? null;
             this.savedPassRegistryId = realDbId;
 
@@ -666,7 +695,6 @@ export class PassEntry implements OnInit, OnDestroy {
               `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
             );
 
-
             const docsWithFile = this.docs().filter(d => d.docType && d.file);
             if (docsWithFile.length > 0 && this.savedVehicleId) {
               this.uploadDocsForDraft(docsWithFile, realIdStr);
@@ -678,7 +706,6 @@ export class PassEntry implements OnInit, OnDestroy {
             this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
             this.saved.set(true);
             this.isSaving.set(false);
-
 
             this.saveSuccess.set(
               `Draft saved — Pass ID: ${realIdStr}. Documents saved. Click Submit when ready.`
