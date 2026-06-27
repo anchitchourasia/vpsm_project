@@ -88,10 +88,12 @@
 
               <td>
                 <strong>{{ p.empType === 'Contractor'
-                  ? 'Contractor'
-                  : p.empType === 'Company_Employee'
-                  ? 'Company Employee'
-                  : (p.empType || 'Company Employee') }}</strong>
+                  ? (p.contractorCode || '—')
+                  : (p.employeeNo || p.employeeCompanyNo || '—') }}</strong>
+                <br>
+                <!-- <small style="color:#888; font-size:0.72rem;">
+                  {{ p.empType === 'Contractor' ? 'Contractor' : 'Company Employee' }}
+                </small> -->
               </td>
               <td>
                 <span [class]="getEmpTypeBadgeClass(p.empType, p.empTypeDetail)">

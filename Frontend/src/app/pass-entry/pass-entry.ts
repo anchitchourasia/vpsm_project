@@ -247,6 +247,8 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passId.set(draft.passId);
       this.passIdGenerated.set(true);
       this.saved.set(true);
+      this.savedPassRegistryId = draft.passId ? Number(draft.passId) : null;
+
       this.saveSuccess.set(
         `Draft resumed — Request ID: ${draft.passId}. Documents restored. Click Submit when ready.`
       );
