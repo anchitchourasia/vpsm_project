@@ -782,7 +782,7 @@ export class Passes implements OnInit, OnDestroy {
             empDeptCode: fresh.deptCode || '',
             empContractorCode: fresh.contractorCode || '',
             empContractorName: fresh.contractorName || fresh.employeeName || '',
-            contractorName: fresh.contractorName || fresh.contractorCode || '',
+            contractorName: fresh.contractorName || fresh.contractorCode || '', 
           };
 
           // Push into state service → pass-entry.ts ngOnInit reads this on load
