@@ -2,12 +2,11 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
-// ✅ CHANGE 1: Added interval, switchMap
 import { Subject, takeUntil, timeout, catchError, of, interval, switchMap } from 'rxjs';
-import { Router } from '@angular/router';                          // ✅ NEW
+import { Router } from '@angular/router';
 import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
-import { PassStateService } from '../services/pass-state.service'; // ✅ NEW
+import { PassStateService } from '../services/pass-state.service';
 
 const USE_DUMMY_DATA = false;
 const HTTP_TIMEOUT_MS = 12000;
@@ -20,7 +19,6 @@ const DUMMY_PASSES: any[] = [
   { passId: 5, issueDate: '2024-04-01', validityDate: '2024-12-31', employeeNo: null, employeeCompanyNo: null, dept: null, contractorCode: 'CON002', gateNo: 'GATE_02', parkingToBeUsed: 'Heavy Yard', vehicle: { vehicleId: 8, vehicleNo: 'MP04HEG8888', vehicleType: 'Truck', vehicleClass: 'Heavy_Machinery' }, typeOfVehicle: 'Truck', mobileNo: '9700001111', status: 'Surrendered', empType: 'Contractor', isActive: 'N', enterBy: 'ADMIN', enterDate: '2024-04-01', remarks: 'Surrendered early' },
 ];
 
-// ── All form fields camelCase — matching PassRegistry.java getters exactly ──
 interface PassForm {
   issueDate: string;
   validityDate: string;
@@ -64,7 +62,7 @@ const EMPTY_FORM = (): PassForm => ({
 })
 export class Passes implements OnInit, OnDestroy {
   private auth = inject(AuthService);
-  private passState = inject(PassStateService); // ✅ NEW
+  private passState = inject(PassStateService);
 
   private readonly HEADERS = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
@@ -139,12 +137,10 @@ export class Passes implements OnInit, OnDestroy {
   viewPdfLoading = signal<number | null>(null);
   viewPdfError = signal('');
 
-  // ✅ NEW — loading state while fetching pass+docs before redirect
   isRedirectingToEdit = signal(false);
 
-  constructor(private http: HttpClient, private router: Router) { } // ✅ Router injected
+  constructor(private http: HttpClient, private router: Router) { }
 
-  // ✅ CHANGE 2: startPolling() added
   ngOnInit() { this.loadPasses(); this.startPolling(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
@@ -173,7 +169,6 @@ export class Passes implements OnInit, OnDestroy {
         if (!response) return;
         const raw = (response.status === 204 || !response.body) ? [] : response.body;
 
-        // ✅ Drafts visible only to their creator — all other statuses pass through
         const myCode = this.auth.empCode().trim().toLowerCase();
         let filtered = raw.filter((p: any) => {
           const st = (p.status || '').toLowerCase();
@@ -189,23 +184,16 @@ export class Passes implements OnInit, OnDestroy {
             (p.employeeNo || '').toLowerCase() === myCode
           );
         }
-        // ✅ Normalize both fields at ingest — no downstream rendering workarounds needed
+
         const normalized = filtered.map((p: any) => {
-          // Derive empType: contractorCode presence is the source of truth
-          // If empType is already 'Contractor' from DB → keep it
-          // If contractorCode is present → it IS a Contractor regardless of empType column
-          // Otherwise → Company_Employee
           const derivedEmpType = (p.contractorCode && p.contractorCode.trim())
             ? 'Contractor'
             : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
 
-          // Preserve empTypeDetail — the sub-type (PERMANENT / HEG / CONTRACT)
-          // from API. Never overwrite it. If missing, derive from empType itself.
           const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
             ? p.empTypeDetail.trim().toUpperCase()
             : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
 
-          // Derive typeOfVehicle from vehicle object if top-level column is blank
           const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
             ? p.typeOfVehicle
             : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
@@ -222,13 +210,11 @@ export class Passes implements OnInit, OnDestroy {
           };
         });
 
-        this.allPassesRaw.set(normalized);         // was: this.allPassesRaw.set(filtered)
-
+        this.allPassesRaw.set(normalized);
         this.isLoading.set(false);
       });
   }
 
-  // ✅ CHANGE 3: Silent background poll every 30s
   private startPolling(): void {
     if (USE_DUMMY_DATA) return;
     interval(30000)
@@ -260,23 +246,15 @@ export class Passes implements OnInit, OnDestroy {
           );
         }
 
-        // ✅ Normalize both fields at ingest — no downstream rendering workarounds needed
         const normalized = filtered.map((p: any) => {
-          // Derive empType: contractorCode presence is the source of truth
-          // If empType is already 'Contractor' from DB → keep it
-          // If contractorCode is present → it IS a Contractor regardless of empType column
-          // Otherwise → Company_Employee
           const derivedEmpType = (p.contractorCode && p.contractorCode.trim())
             ? 'Contractor'
             : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
 
-          // Preserve empTypeDetail — the sub-type (PERMANENT / HEG / CONTRACT)
-          // from API. Never overwrite it. If missing, derive from empType itself.
           const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
             ? p.empTypeDetail.trim().toUpperCase()
             : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
 
-          // Derive typeOfVehicle from vehicle object if top-level column is blank
           const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
             ? p.typeOfVehicle
             : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
@@ -293,7 +271,7 @@ export class Passes implements OnInit, OnDestroy {
           };
         });
 
-        this.allPassesRaw.set(normalized);         // was: this.allPassesRaw.set(filtered)
+        this.allPassesRaw.set(normalized);
       });
   }
 
@@ -638,18 +616,11 @@ export class Passes implements OnInit, OnDestroy {
           isEdit ? '✅ Pass updated successfully.' : '✅ Pass issued successfully.'
         );
         this.isSaving.set(false);
-
-        // ✅ CHANGE 4: Always re-fetch from server for accuracy
         this.loadPasses();
-
         setTimeout(() => this.closeModal(), 1200);
       });
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  AUTO-LOG TO HISTORY — fires silently after every successful
-  //  pass issue / update / surrender.
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   private logHistory(passId: any, action: string, empCode: string, remark: string): void {
     const payload = {
       passNo: String(passId ?? ''),
@@ -676,7 +647,6 @@ export class Passes implements OnInit, OnDestroy {
       });
   }
 
-  // ✅ Download pass — only enabled for Active status
   downloadPass(p: any): void {
     const passId = String(p.passId);
     const emp = p.employeeNo || p.contractorCode || '—';
@@ -715,15 +685,20 @@ export class Passes implements OnInit, OnDestroy {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  openEditInPassEntry — Edit button in Pass Registry
   //
-  //  Flow:
-  //   1. Fetch fresh pass row from DB (fallback to current row)
-  //   2. Fetch compliance docs for that vehicle
-  //   3. Build PassRecord (same shape pass-entry.ts expects via resumeDraftData)
-  //   4. passState.setResumeDraft(record) → pass-entry reads in ngOnInit
-  //   5. router.navigate(['/pass-entry'])
+  //  ✅ FIX: The old code tried to read employee name/dept/aadhar
+  //  directly from the pass object (fresh.employeeName, fresh.empName,
+  //  fresh.deptCode etc.) — BUT the /api/passes/list endpoint does NOT
+  //  return these fields. They only exist in the Employee Report API.
   //
-  //  pass-entry.ts ngOnInit "Resume DRAFT" block handles ALL pre-filling.
-  //  No changes needed in pass-entry.ts.
+  //  NEW FLOW:
+  //   1. Fetch fresh pass row from DB
+  //   2. Fetch compliance docs for that vehicle
+  //   3. ✅ NEW: Fetch employee details from /api/reports/employee-department
+  //      using fresh.employeeNo (Company_Employee) or fresh.contractorCode
+  //      (Contractor) to get name, dept, deptCode, aadhaarNo etc.
+  //   4. Build PassRecord with real employee data merged in
+  //   5. passState.setResumeDraft(record) → pass-entry reads in ngOnInit
+  //   6. router.navigate(['/pass-entry'])
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   openEditInPassEntry(p: any): void {
     const passId = p?.passId;
@@ -740,91 +715,156 @@ export class Passes implements OnInit, OnDestroy {
         catchError(() => of(null))
       )
       .subscribe((allPasses: any[] | null) => {
-        // Use fresh DB row if found, otherwise fall back to table row we already have
         const fresh = allPasses?.find((x: any) => x.passId === passId) ?? p;
         const vehicleId = fresh.vehicle?.vehicleId ?? null;
+        const isContractor = (fresh.empType || '').toLowerCase() === 'contractor'
+          || !!(fresh.contractorCode && fresh.contractorCode.trim());
+        const lookupCode = isContractor
+          ? (fresh.contractorCode || '').trim()
+          : (fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
 
-        // ── Inner helper: build PassRecord + navigate ─────────────────────
-        const buildAndNavigate = (rawDocs: any[]) => {
-          // Map API doc shape → DocEntry shape pass-entry ngOnInit expects
-          const mappedDocs = (rawDocs || []).map((d: any) => ({
-            documentId: d.documentId ?? d.id ?? null,
-            docType: (d.documentType || '').toUpperCase().trim(),
-            docNo: d.documentNo || d.docNo || '',
-            validUpto: d.expiryDate || d.validUpto || '',
-            fileName: d.fileName || null,
-          }));
+        // ── Step 2: Fetch employee details from Employee Report API ─────────
+        // This is the ✅ KEY FIX — the passes/list API never returns
+        // employee name, deptCode, aadhaarNo. We must fetch from employee API.
+        this.http
+          .get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers: this.HEADERS })
+          .pipe(
+            timeout(HTTP_TIMEOUT_MS),
+            takeUntil(this.destroy$),
+            catchError(() => of([]))   // if employee API fails, still navigate with empty name
+          )
+          .subscribe((empRows: any[]) => {
 
-          const record = {
-            passId: String(fresh.passId),
-            empType: fresh.empType || 'Company_Employee',
-            vehicleNo: fresh.vehicle?.vehicleNo || '',
-            vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
-            vehicleClass: fresh.vehicle?.vehicleClass || '',
-            brandModel: fresh.vehicle?.brandModel || '',
-            ecNo: fresh.employeeNo || fresh.employeeCompanyNo || '',
-            empName: fresh.employeeName || fresh.empName || '',
-            empDept: fresh.dept || '',
-            contractorFirm: fresh.contractorCode || '',
-            issueDate: fresh.issueDate || '',
-            validityDate: fresh.validityDate || '',
-            gateNo: fresh.gateNo || '',
-            parkingArea: fresh.parkingToBeUsed || '',
-            remark: fresh.remarks || '',
-            docs: mappedDocs,
-            status: 'Saved' as const,
-            createdAt: fresh.enterDate
-              || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+            // Match employee row by EC No or Contractor Code
+            let empMatch: any = null;
+            if (lookupCode && empRows && empRows.length > 0) {
+              if (isContractor) {
+                empMatch = empRows.find(r =>
+                  r.contractorNo &&
+                  String(r.contractorNo).trim().toUpperCase() === lookupCode.toUpperCase()
+                );
+              } else {
+                empMatch = empRows.find(r =>
+                  String(r.id || '').trim() === lookupCode
+                );
+              }
+            }
 
-            // ✅ FIX: Pass employee sub-fields so pass-entry ngOnInit can restore them
-            empTypeDetail: fresh.empType === 'Contractor' ? '' : (fresh.empTypeDetail || ''),
-            empAadhar: fresh.aadhaarNo || '',
-            empDeptCode: fresh.deptCode || '',
-            empContractorCode: fresh.contractorCode || '',
-            empContractorName: fresh.contractorName || fresh.employeeName || '',
-            contractorName: fresh.contractorName || fresh.contractorCode || '', 
-          };
+            // ── Step 3: Fetch compliance docs for this vehicle ──────────────
+            const fetchDocsAndNavigate = (rawDocs: any[]) => {
+              const mappedDocs = (rawDocs || []).map((d: any) => ({
+                documentId: d.documentId ?? d.id ?? null,
+                docType: (d.documentType || '').toUpperCase().trim(),
+                docNo: d.documentNo || d.docNo || '',
+                validUpto: d.expiryDate || d.validUpto || '',
+                fileName: d.fileName || null,
+              }));
 
-          // Push into state service → pass-entry.ts ngOnInit reads this on load
-          this.passState.setResumeDraft(record as any);
+              // ── Resolve empTypeDetail ────────────────────────────────────
+              // Priority: DB value on pass → employee API value → default 'HEG'
+              // Default 'HEG' ensures EC No field is always UNLOCKED on Edit
+              const rawEmpTypeDetail = (fresh.empTypeDetail || '').toString().trim().toUpperCase();
+              let resolvedEmpTypeDetail = '';
+              if (!isContractor) {
+                if (rawEmpTypeDetail === 'PERMANENT' || rawEmpTypeDetail === 'HEG' || rawEmpTypeDetail === 'CONTRACT') {
+                  resolvedEmpTypeDetail = rawEmpTypeDetail;
+                } else {
+                  // Check employee API empType field as fallback
+                  const apiEmpType = (empMatch?.empType || '').toString().trim().toUpperCase();
+                  if (apiEmpType === 'PERMANENT' || apiEmpType === 'HEG' || apiEmpType === 'CONTRACT') {
+                    resolvedEmpTypeDetail = apiEmpType;
+                  } else {
+                    resolvedEmpTypeDetail = 'HEG'; // default — unlocks EC No field
+                  }
+                }
+              }
 
-          this.isRedirectingToEdit.set(false);
-          this.router.navigate(['/pass-entry']);
-        };
+              const record = {
+                passId: String(fresh.passId),
+                empType: isContractor ? 'Contractor' : 'Company_Employee',
+                vehicleNo: fresh.vehicle?.vehicleNo || '',
+                vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
+                vehicleClass: fresh.vehicle?.vehicleClass || '',
+                brandModel: fresh.vehicle?.brandModel || '',
 
-        if (vehicleId) {
-          // ── Step 2: Fetch compliance docs for this vehicle ───────────────
-          this.http
-            .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
-            .pipe(
-              timeout(HTTP_TIMEOUT_MS),
-              takeUntil(this.destroy$),
-              catchError(() => of([]))  // doc fetch fails → still navigate, no docs pre-filled
-            )
-            .subscribe((docs: any[]) => buildAndNavigate(docs || []));
-        } else {
-          // No vehicle linked yet — navigate without docs
-          buildAndNavigate([]);
-        }
+                // ✅ ecNo: for Company_Employee = employeeNo; for Contractor = contractorCode
+                ecNo: isContractor ? '' : lookupCode,
+                contractorFirm: isContractor ? lookupCode : (fresh.contractorCode || ''),
+
+                // ✅ FIX: empName now sourced from Employee Report API match
+                // Falls back to any name stored on the pass itself as last resort
+                empName: empMatch?.name
+                  || empMatch?.employeeName
+                  || fresh.employeeName
+                  || fresh.empName
+                  || '',
+
+                // ✅ FIX: empDept from Employee Report API (deptName field)
+                // Falls back to dept column on pass row
+                empDept: (empMatch?.deptName || fresh.dept || '').toUpperCase(),
+
+                issueDate: fresh.issueDate || '',
+                validityDate: fresh.validityDate || '',
+                gateNo: fresh.gateNo || '',
+                parkingArea: fresh.parkingToBeUsed || '',
+                remark: fresh.remarks || '',
+                docs: mappedDocs,
+                status: 'Saved' as const,
+                createdAt: fresh.enterDate
+                  || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+
+                // ✅ FIX: empTypeDetail resolved above — always a valid value for Company_Employee
+                empTypeDetail: resolvedEmpTypeDetail,
+
+                // ✅ FIX: empAadhar from Employee Report API (aadhaarNo field)
+                empAadhar: empMatch?.aadhaarNo
+                  || empMatch?.aadharNo
+                  || fresh.aadhaarNo
+                  || '',
+
+                // ✅ FIX: empDeptCode from Employee Report API (deptCode field)
+                empDeptCode: empMatch?.deptCode || fresh.deptCode || '',
+
+                // ✅ FIX: contractor fields from Employee Report API match
+                empContractorCode: empMatch?.contractorCode || fresh.contractorCode || '',
+                empContractorName: isContractor
+                  ? (empMatch?.name || fresh.contractorName || lookupCode)
+                  : (empMatch?.name || ''),
+
+                contractorName: isContractor
+                  ? (empMatch?.name || fresh.contractorName || lookupCode)
+                  : '',
+              };
+
+              this.passState.setResumeDraft(record as any);
+              this.isRedirectingToEdit.set(false);
+              this.router.navigate(['/pass-entry']);
+            };
+
+            if (vehicleId) {
+              // ── Step 4: Fetch compliance docs for this vehicle ───────────
+              this.http
+                .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
+                .pipe(
+                  timeout(HTTP_TIMEOUT_MS),
+                  takeUntil(this.destroy$),
+                  catchError(() => of([]))
+                )
+                .subscribe((docs: any[]) => fetchDocsAndNavigate(docs || []));
+            } else {
+              fetchDocsAndNavigate([]);
+            }
+          });
       });
   }
 
-  // Edit is ONLY for Uploader (own Draft / Needs_Modification) and Admin.
-  // Confirmer and Approver must NEVER get Edit — they have their own workflow UIs.
   canEditPass(p: any): boolean {
     const status = (p?.status || p?.passStatus || '').toLowerCase();
-
-    // Admin override — can always edit anything
     if (this.auth.isAdmin()) return true;
-
-    // Confirmer & Approver — NO edit access in Pass Registry. Period.
     if (this.auth.isConfirmer() || this.auth.isApprover()) return false;
-
-    // Uploader / Requester — ONLY Draft or Needs_Modification
     if (this.auth.isUploader() || this.auth.isRegularUser()) {
       return status === 'draft' || status === 'needs_modification';
     }
-
     return false;
   }
 }
