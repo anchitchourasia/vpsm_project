@@ -601,4 +601,12 @@ export class Approval implements OnInit, OnDestroy {
     if (!d) return '—';
     try { return new Date(d).toLocaleDateString('en-GB'); } catch { return d; }
   }
+  formatDateTime(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const date = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${date}, ${time}`;
+  }
 }

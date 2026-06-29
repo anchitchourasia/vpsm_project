@@ -360,6 +360,13 @@ export class Passes implements OnInit, OnDestroy {
     if (!d) return '—';
     const dt = new Date(d);
     return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } formatDateTime(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const date = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `${date}, ${time}`;
   }
 
   getStatusClass(s: string): string {
