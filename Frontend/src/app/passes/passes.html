@@ -156,20 +156,19 @@
           Showing
           {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() <
             filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{
-            filteredPasses().length }}
-        </span>
-        <div class="page-btns">
-          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
-            <i class="bi bi-chevron-left"></i>
-          </button>
-          <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
-            (click)="goToPage(pg)">
-            {{ pg }}
-          </button>
-          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
-            <i class="bi bi-chevron-right"></i>
-          </button>
-        </div>
+            filteredPasses().length }} </span>
+            <div class="page-btns">
+              <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
+                (click)="goToPage(pg)">
+                {{ pg }}
+              </button>
+              <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
       </div>
     </div>
   </div>
@@ -385,39 +384,75 @@
         <label>Vehicle Class</label>
         <span>{{ viewPass().vehicle?.vehicleClass || '—' }}</span>
       </div>
+      <!-- Add this as 5th item inside Vehicle vr-grid -->
+      <div class="vr-item">
+        <label>Brand / Model</label>
+        <span>{{ viewPass().vehicle?.brandModel || '—' }}</span>
+      </div>
     </div>
 
     <!-- ── Employee / Requester Section ── -->
     <div class="vr-section-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
-    <div class="vr-grid">
+
+    <!-- Loading spinner while enriching -->
+    <div class="vr-doc-loading" *ngIf="isLoadingExtra()">
+      <i class="bi bi-arrow-repeat spin-icon"></i> Loading employee details...
+    </div>
+
+    <div class="vr-grid" *ngIf="!isLoadingExtra()">
+
+      <!-- Emp Type -->
       <div class="vr-item">
         <label>Emp Type</label>
-        <span [class]="getEmpTypeBadgeClass(viewPass().empType)">
-          {{ viewPass().empType === 'Contractor'
+        <span [class]="getEmpTypeBadgeClass(viewPassExtra()?.empType || viewPass().empType)">
+          {{ viewPassExtra()?.empType === 'Contractor'
           ? 'Contractor'
-          : (viewPass().empTypeDetail || viewPass().empType || 'Company Employee') }}
+          : (viewPassExtra()?.empType || viewPass().empTypeDetail || viewPass().empType || 'Company Employee') }}
         </span>
       </div>
+
+      <!-- Employee No — only for Company Employee -->
       <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
         <label>Employee No</label>
         <span><strong>{{ viewPass().employeeNo || '—' }}</strong></span>
       </div>
-      <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
-        <label>EC No (Company No)</label>
-        <span>{{ viewPass().employeeCompanyNo || '—' }}</span>
+
+      <!-- Name — from Employee Report API -->
+      <div class="vr-item">
+        <label>Name</label>
+        <span><strong>{{ viewPassExtra()?.empName || '—' }}</strong></span>
       </div>
+
+      <!-- Contractor Code — only for Contractor -->
       <div class="vr-item" *ngIf="viewPass().empType === 'Contractor'">
         <label>Contractor Code</label>
-        <span><strong>{{ viewPass().contractorCode || '—' }}</strong></span>
+        <span><strong>{{ viewPassExtra()?.contractorCode || viewPass().contractorCode || '—' }}</strong></span>
       </div>
+
+      <!-- Department / Work Area -->
       <div class="vr-item">
-        <label>Department / Work Area</label>
+        <label>Department</label>
         <span>{{ viewPass().dept || '—' }}</span>
       </div>
+
+      <!-- Department Code — from Employee Report API -->
+      <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
+        <label>Department Code</label>
+        <span>{{ viewPassExtra()?.deptCode || '—' }}</span>
+      </div>
+
+      <!-- Aadhaar No — from Employee Report API -->
+      <div class="vr-item">
+        <label>Aadhaar No</label>
+        <span>{{ viewPassExtra()?.aadhaarNo || '—' }}</span>
+      </div>
+
+      <!-- Mobile -->
       <div class="vr-item">
         <label>Mobile</label>
         <span>{{ viewPass().mobileNo || '—' }}</span>
       </div>
+
     </div>
 
     <!-- ── Pass Details Section ── -->
@@ -506,8 +541,7 @@
               <button class="btn-view-pdf" (click)="viewDocumentPdf(doc)"
                 [disabled]="!doc.fileName || viewPdfLoading() === doc.documentId"
                 [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
-                [style.opacity]="doc.fileName ? '1' : '0.4'"
-                [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
+                [style.opacity]="doc.fileName ? '1' : '0.4'" [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
                 <i class="bi"
                   [ngClass]="viewPdfLoading() === doc.documentId ? 'bi-hourglass-split' : 'bi-file-earmark-pdf-fill'"></i>
                 {{ viewPdfLoading() === doc.documentId ? 'Loading...' : (doc.fileName ? 'View' : '—') }}
@@ -530,8 +564,7 @@
 
     <!-- ✅ History toggle — INSIDE modal-body so it scrolls, never overlaps footer -->
     <div class="hist-toggle-row">
-      <button class="btn-hist-toggle"
-        (click)="showViewHistory.set(!showViewHistory());
+      <button class="btn-hist-toggle" (click)="showViewHistory.set(!showViewHistory());
                  !viewPassHistory().length && !viewHistError() && loadViewHistory(viewPass().passId)"
         [class.btn-hist-active]="showViewHistory()">
         <i class="bi bi-clock-history"></i>
@@ -572,8 +605,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let h of viewPassHistory(); let hi = index"
-                [ngClass]="getActionRowClass(h.action)">
+            <tr *ngFor="let h of viewPassHistory(); let hi = index" [ngClass]="getActionRowClass(h.action)">
               <td class="muted">{{ hi + 1 }}</td>
               <td>
                 <span class="hist-action-badge" [ngClass]="getActionClass(h.action)">
@@ -597,8 +629,7 @@
       </div>
 
       <!-- Empty state -->
-      <div class="hist-empty"
-        *ngIf="!isLoadingViewHist() && viewPassHistory().length === 0 && !viewHistError()">
+      <div class="hist-empty" *ngIf="!isLoadingViewHist() && viewPassHistory().length === 0 && !viewHistError()">
         <i class="bi bi-clock-history"></i> No audit events recorded for this pass yet.
       </div>
 
@@ -610,8 +641,7 @@
   <!-- ✅ Footer — only Close + Edit, no history toggle here so no overlap -->
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <button *ngIf="canEditPass(viewPass())" class="btn-save"
-      (click)="closeViewModal(); openEditModal(viewPass())">
+    <button *ngIf="canEditPass(viewPass())" class="btn-save" (click)="closeViewModal(); openEditModal(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>
   </div>

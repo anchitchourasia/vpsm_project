@@ -45,6 +45,14 @@ interface DocRecord {
   fileName?: string;
   vehicle?: { vehicleId: number };
 }
+interface EmpExtra {
+  empName: string;
+  deptCode: string;
+  aadhaarNo: string;
+  contractorName: string;
+  contractorCode: string;
+  empType: string;
+}
 interface HistoryRecord {
   id?: number;
   passNo: string;
@@ -143,6 +151,8 @@ export class Passes implements OnInit, OnDestroy {
   viewDocLoadError = signal('');
   viewPdfLoading = signal<number | null>(null);
   viewPdfError = signal('');
+  viewPassExtra = signal<EmpExtra | null>(null);
+  isLoadingExtra = signal(false);
   // ── History signals — add these after viewPdfError signal
   showViewHistory = signal(false);
   isLoadingViewHist = signal(false);
@@ -424,9 +434,11 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPassDocs.set([]);
     this.viewDocLoadError.set('');
     this.viewPdfError.set('');
+    this.viewPassExtra.set(null);
     this.viewPdfLoading.set(null);
     this.showViewModal.set(true);
     this.loadViewDocs(p);
+    this.enrichViewPassWithEmployeeData(p);
   }
 
   closeViewModal(): void {
@@ -435,6 +447,7 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPassDocs.set([]);
     this.viewDocLoadError.set('');
     this.viewPdfError.set('');
+    this.viewPassExtra.set(null);
     this.showViewHistory.set(false);
     this.viewPassHistory.set([]);
     this.viewHistError.set('');
@@ -871,6 +884,60 @@ export class Passes implements OnInit, OnDestroy {
               fetchDocsAndNavigate([]);
             }
           });
+      });
+  }
+  private enrichViewPassWithEmployeeData(pass: any): void {
+    this.isLoadingExtra.set(true);
+    this.viewPassExtra.set(null);
+
+    this.http
+      .get<any[]>(`${API_CONFIG.BASE_URL}/api/reports/employee-department`, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => { this.isLoadingExtra.set(false); return of([]); })
+      )
+      .subscribe((rows: any[]) => {
+        this.isLoadingExtra.set(false);
+        if (!rows || rows.length === 0) return;
+
+        let match: any = null;
+        if (pass.contractorCode) {
+          match = rows.find(r =>
+            r.contractorNo &&
+            String(r.contractorNo).toUpperCase() === String(pass.contractorCode).toUpperCase()
+          );
+        }
+        if (!match && pass.employeeNo) {
+          match = rows.find(r => String(r.id) === String(pass.employeeNo));
+        }
+        if (!match && pass.employeeNo) {
+          match = rows.find(r =>
+            r.contractorNo &&
+            String(r.contractorNo).toUpperCase() === String(pass.employeeNo).toUpperCase()
+          );
+        }
+
+        if (match) {
+          const isContractor = !!(match.contractorNo);
+          this.viewPassExtra.set({
+            empName: String(match.name || '—'),
+            deptCode: String(match.deptCode || '—'),
+            aadhaarNo: String(match.aadhaarNo || match.aadharNo || pass.aadhaarNo || '—'),
+            contractorName: isContractor ? String(match.name || '—') : '—',
+            contractorCode: isContractor ? String(match.contractorNo || match.contractorCode || '—') : '—',
+            empType: isContractor ? 'Contractor' : String(match.empType || pass.empType || '—'),
+          });
+        } else {
+          this.viewPassExtra.set({
+            empName: pass.employeeName || pass.empName || '—',
+            deptCode: '—',
+            aadhaarNo: pass.aadhaarNo || pass.aadharNo || '—',
+            contractorName: pass.contractorName || '—',
+            contractorCode: pass.contractorCode || '—',
+            empType: pass.empType || '—',
+          });
+        }
       });
   }
   loadViewHistory(passId: number): void {

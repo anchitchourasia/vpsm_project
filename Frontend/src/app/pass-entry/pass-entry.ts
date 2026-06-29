@@ -667,7 +667,7 @@ export class PassEntry implements OnInit, OnDestroy {
             this.isSaving.set(false);
 
             this.saveSuccess.set(
-              `Draft saved — Pass ID: ${realIdStr}. Documents saved. Click Submit when ready.`
+              `Draft saved — Request ID: ${realIdStr}. Documents saved. Click Submit when ready.`
             );
           });
       });
@@ -725,7 +725,7 @@ export class PassEntry implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         catchError(() => {
           this.saveSuccess.set(
-            `Draft saved — Pass ID: ${realIdStr}. ⚠️ Documents could not be uploaded. Try again on Submit.`
+            `Draft saved — Request ID: ${realIdStr}. ⚠️ Documents could not be uploaded. Try again on Submit.`
           );
           return of(null);
         })
@@ -734,7 +734,7 @@ export class PassEntry implements OnInit, OnDestroy {
         if (res !== null) {
           // ✅ FIX: res !== null (not truthy) — backend may return {} or []
           this.saveSuccess.set(
-            `Draft saved — Pass ID: ${realIdStr}. Documents uploaded ✅. Click Submit when ready.`
+            `Draft saved — Request ID: ${realIdStr}. Documents uploaded ✅. Click Submit when ready.`
           );
         }
       });
@@ -979,11 +979,9 @@ export class PassEntry implements OnInit, OnDestroy {
     );
 
     setTimeout(() => {
-      if (this.auth.isRegularUser()) {
-        this.router.navigate(['/my-pass']);
-      } else {
-        this.router.navigate(['/passes']);
-      }
+     
+        this.router.navigate(['/passes/all']);
+      
     }, 2200);
   }
 
