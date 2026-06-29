@@ -180,21 +180,6 @@ export class PassEntry implements OnInit, OnDestroy {
       this.empName.set(draft.empName);
       this.empDept.set(draft.empDept);
 
-      // ─────────────────────────────────────────────────────────────────────
-      // ✅ FIX: Resolve empTypeDetail so EC No field ALWAYS unlocks on Edit.
-      //
-      // ROOT CAUSE: Old passes saved before the empTypeDetail column existed
-      // return null/undefined from the API. The old code did:
-      //   this.empTypeDetail.set((draft as any).empTypeDetail || '')
-      // This sets '' → template evaluates !empTypeDetail() === true →
-      // EC No input stays [disabled] → ALL Employee Details rows are blank.
-      //
-      // FIX LOGIC:
-      //   • Contractor      → empTypeDetail always '' (not needed for that flow)
-      //   • Company_Employee with known value (PERMANENT / HEG / CONTRACT) → use it
-      //   • Company_Employee with empty/null (old pass, no DB value) → default 'HEG'
-      //     so the field is always unlocked; user can correct if needed.
-      // ─────────────────────────────────────────────────────────────────────
       const rawDetail = ((draft as any).empTypeDetail || '') as string;
       const isContractor = draft.empType === 'Contractor';
 
@@ -204,41 +189,34 @@ export class PassEntry implements OnInit, OnDestroy {
         if (upper === 'PERMANENT' || upper === 'HEG' || upper === 'CONTRACT') {
           resolvedDetail = upper as 'PERMANENT' | 'HEG' | 'CONTRACT';
         } else {
-          // Empty/unknown value from old pass — default to HEG to unlock the field
           resolvedDetail = 'HEG';
         }
       }
       this.empTypeDetail.set(resolvedDetail);
 
-      // ── Fix ecNo vs contractorCode assignment per empType ──────────────
-      // For Contractor passes, draft.ecNo may be '' but contractorFirm has the code.
       if (isContractor) {
         this.contractorCode = draft.contractorFirm || '';
-        this.ecNo = this.contractorCode; // keep ecNo in sync for onEcNoBlur lookup
+        this.ecNo = this.contractorCode;
       } else {
         this.ecNo = draft.ecNo || '';
         this.contractorCode = draft.contractorFirm || '';
       }
 
-      // ✅ Restore remaining employee sub-fields
       this.empAadhar.set((draft as any).empAadhar || '');
       this.empDeptCode.set((draft as any).empDeptCode || '');
       this.empContractorCode = (draft as any).empContractorCode || '';
       this.empContractorName = (draft as any).empContractorName || '';
       this.contractorName = (draft as any).contractorName || draft.contractorFirm || '';
 
-      // ✅ FIX: Restore previously saved docs from API-fetched data
-      // draft.docs carries {documentId, docType, docNo, validUpto, fileName}
-      // shape set by openEditInPassEntry() in passes.ts
       if (Array.isArray(draft.docs) && draft.docs.length > 0) {
         const restoredDocs: DocEntry[] = draft.docs.map((d: any) => ({
           id: crypto.randomUUID(),
           docType: (d.docType || '').toUpperCase().trim(),
           docNo: d.docNo || '',
           validUpto: d.validUpto || '',
-          file: null,                       // PDF File object cannot be serialised — null is correct
-          documentId: d.documentId || null, // existing DB doc id — used by docAlreadyUploaded()
-          existingFile: d.fileName || null, // shows "Uploaded ✅" pill in doc table
+          file: null,
+          documentId: d.documentId || null,
+          existingFile: d.fileName || null,
         }));
         this.docs.set(restoredDocs);
       }
@@ -248,9 +226,6 @@ export class PassEntry implements OnInit, OnDestroy {
       this.passIdGenerated.set(true);
       this.saved.set(true);
       this.savedPassRegistryId = draft.passId ? Number(draft.passId) : null;
-      // ✅ FIX: Restore vehicleId so updateExistingPassInDB() can upload docs
-      // to the correct vehicle. Without this, savedVehicleId stays null and
-      // all document uploads silently fail on Edit → Save/Submit.
       this.savedVehicleId = (draft as any).vehicleId
         ? Number((draft as any).vehicleId)
         : null;
@@ -294,7 +269,6 @@ export class PassEntry implements OnInit, OnDestroy {
       }
 
       this.savedPassRegistryId = modData.passId ?? null;
-      // ✅ FIX: Restore vehicleId for Needs_Modification flow too
       this.savedVehicleId = (modData as any).vehicleId
         ? Number((modData as any).vehicleId)
         : null;
@@ -328,8 +302,6 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onVehicleTypeInput(event: Event | string): void {
-    // (ngModelChange) from <select> passes a plain string;
-    // (input) from old <input> passes a DOM Event — handle both
     const val = (typeof event === 'string'
       ? event
       : (event.target as HTMLInputElement).value
@@ -388,9 +360,6 @@ export class PassEntry implements OnInit, OnDestroy {
           return;
         }
 
-        // ✅ API is now named-key objects — match by:
-        //    Company_Employee → r.id  (numeric employee id)
-        //    Contractor       → r.contractorNo  (e.g. "C1001")
         let match: any;
         if (this.empType() === 'Contractor') {
           match = rows.find(r =>
@@ -401,7 +370,6 @@ export class PassEntry implements OnInit, OnDestroy {
         }
 
         if (match) {
-          // ── Employee Type mismatch guard ──────────────────────────────────
           const selectedDetail = this.empTypeDetail();
           const apiEmpType = String(match.empType || '').toLowerCase();
           const isContractorMatch = !!(match.contractorNo);
@@ -430,7 +398,7 @@ export class PassEntry implements OnInit, OnDestroy {
             this.empFetchError.set(mismatchMsg);
             return;
           }
-          // ── No mismatch — populate all fields normally ────────────────────
+
           this.empData = match;
           this.empName.set(String(match.name || ''));
           this.empDept.set(String(match.deptName || '').toUpperCase());
@@ -482,14 +450,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
-  // ══════════════════════════════════════════════════════════════════════
-  // checkDuplicate — fetches all passes from API and checks if
-  // the SAME vehicle + SAME employee/contractor combination already
-  // exists with a non-terminal status (Draft/Submitted/Confirmed/Active).
-  //
-  // Rule: vehicleNo + ecNo/contractorCode = DUPLICATE → block
-  //       vehicleNo + different person     = ALLOWED   → different pass
-  // ══════════════════════════════════════════════════════════════════════
+
   private checkDuplicate(): Promise<string> {
     const vehicleNo = this.vehicleNo.trim().toUpperCase();
     const ecNo = this.empType() === 'Company_Employee'
@@ -501,7 +462,7 @@ export class PassEntry implements OnInit, OnDestroy {
         .pipe(
           timeout(HTTP_TIMEOUT_MS),
           takeUntil(this.destroy$),
-          catchError(() => of([]))   // silent fail — don't block save on network error
+          catchError(() => of([]))
         )
         .subscribe(passes => {
           if (!passes || passes.length === 0) { resolve(''); return; }
@@ -579,17 +540,12 @@ export class PassEntry implements OnInit, OnDestroy {
     const err = this.validate();
     if (err) { this.saveError.set(err); return; }
 
-    // ✅ FIX: If editing an existing pass (Draft or Needs_Modification),
-    // PUT the updated data to DB AND upload any newly selected/replaced docs.
-    // Old code only updated PassStateService (memory) → changes lost on tab close.
     if (this.passIdGenerated() && this.savedPassRegistryId) {
       this.isSaving.set(true);
       this.updateExistingPassInDB('Draft');
       return;
     }
 
-    // ✅ First save — check for duplicate before persisting to DB
-    // First save — check for duplicate then persist to DB as Draft
     this.isSaving.set(true);
     this.checkDuplicate().then(dupErr => {
       if (dupErr) {
@@ -597,7 +553,6 @@ export class PassEntry implements OnInit, OnDestroy {
         this.isSaving.set(false);
         return;
       }
-      // Brand-new pass only — existing passes are handled by the early-return above
       this.persistDraftToDB();
     });
   }
@@ -613,7 +568,6 @@ export class PassEntry implements OnInit, OnDestroy {
     this.clearAlerts();
     this.isSaving.set(true);
 
-    // Duplicate check — skip if editing an existing pass (same pass is excluded)
     this.checkDuplicate().then(dupErr => {
       if (dupErr) {
         this.saveError.set(dupErr);
@@ -621,21 +575,13 @@ export class PassEntry implements OnInit, OnDestroy {
         return;
       }
       if (this.savedPassRegistryId) {
-        // ✅ Existing pass (Draft / Needs_Modification) — PUT update, do NOT create new
         this.updateExistingPassInDB('Submitted');
       } else {
-        // Brand-new pass — original 3-step flow unchanged
         this.step1RegisterVehicle();
       }
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // persistDraftToDB — saves vehicle + pass (status=Draft) to DB
-  //   ✅ On success: sets this.passId to actual DB numeric id
-  //   ✅ Shows that id to user immediately — fully trackable in DB
-  //   ✅ isSaving spinner shown during this call (unlike old silent version)
-  // ══════════════════════════════════════════════════════════════════════
   private persistDraftToDB(): void {
     const vehiclePayload = {
       vehicleNo: this.vehicleNo.trim().toUpperCase(),
@@ -661,17 +607,15 @@ export class PassEntry implements OnInit, OnDestroy {
 
         const passPayload = {
           vehicle: { vehicleId: this.savedVehicleId },
-          // issueDate and validityDate intentionally OMITTED —
-          // backend sets them null on new record anyway;
-          // DB constraint requires NOT NULL → backend bug, but confirmed workflow
-          // is that Conformer PUT /update/{id} sets them automatically on approval
+          issueDate: this.issueDate || this.todayDate,
+          validityDate: this.validityDate || null,
           employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
           employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
           employeeName: this.empName() || null,
           dept: this.empDept() || null,
           contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
-          aadhaarNo: this.empAadhar() || null,        // ✅ ADD
-          contractorName: this.empContractorName || null,  // ✅ ADD
+          aadhaarNo: this.empAadhar() || null,
+          contractorName: this.empContractorName || null,
           gateNo: this.gateNo,
           parkingToBeUsed: this.parkingArea.trim() || null,
           status: 'Draft',
@@ -679,7 +623,6 @@ export class PassEntry implements OnInit, OnDestroy {
             ? 'Contractor'
             : (this.empTypeDetail() || this.empType()),
           enterBy: this.auth.empCode() || 'REQUESTER',
-          // enterDate OMITTED — LocalDate field, backend handles it
           typeOfVehicle: this.vehicleType.trim() || null,
           remarks: this.remark.trim() || null,
         };
@@ -729,17 +672,15 @@ export class PassEntry implements OnInit, OnDestroy {
           });
       });
   }
-  // ─────────────────────────────────────────────────────────────────
-  // uploadDocsForDraft — uploads filled docs silently during Save
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // uploadDocsForDraft — uploads/replaces docs silently during Save
   //
-  // 📍 WHEN  → Called right after Draft pass is created in DB
-  // 📍 WHERE → pass-entry.ts → called from inside persistDraftToDB()
-  // 📍 HOW   →
-  //   - Reuses same FormData structure as step3UploadDocs
-  //   - Does NOT call finaliseSubmit() — only uploads files silently
-  //   - On success/fail: updates saveSuccess message accordingly
-  //   - This lets docs be fetched back from DB when user returns to Edit
-  // ─────────────────────────────────────────────────────────────────
+  // ✅ Always uses POST /api/documents/upload
+  // Backend /upload does upsert by vehicleId + docType:
+  //   finds existing row → UPDATE, or creates new row → INSERT
+  // No separate PUT /update endpoint needed.
+  // ─────────────────────────────────────────────────────────────────────────
   private uploadDocsForDraft(docsToUpload: DocEntry[], realIdStr: string): void {
     const fd = new FormData();
     fd.append('vehicleId', String(this.savedVehicleId));
@@ -776,12 +717,13 @@ export class PassEntry implements OnInit, OnDestroy {
       }
     }
 
+    // ✅ Always POST to /upload — backend upserts by vehicleId + docType automatically.
+    // No separate PUT /update endpoint needed — /upload handles both new & replacement docs.
     this.http.post<any>(API_CONFIG.DOCUMENTS_UPLOAD, fd, { headers: this.MULTIPART_HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
         catchError(() => {
-          // Silent fail — draft is still saved, just docs didn't upload
           this.saveSuccess.set(
             `Draft saved — Pass ID: ${realIdStr}. ⚠️ Documents could not be uploaded. Try again on Submit.`
           );
@@ -789,41 +731,22 @@ export class PassEntry implements OnInit, OnDestroy {
         })
       )
       .subscribe(res => {
-        if (res) {
+        if (res !== null) {
+          // ✅ FIX: res !== null (not truthy) — backend may return {} or []
           this.saveSuccess.set(
             `Draft saved — Pass ID: ${realIdStr}. Documents uploaded ✅. Click Submit when ready.`
           );
         }
       });
   }
-      // ══════════════════════════════════════════════════════════════════════
-  // updateExistingPassInDB — called when EDITING a Draft or Needs_Modification pass.
-  //
-  // 📍 Called from:
-  //   onSave()   → newStatus = 'Draft'      (save progress, stay on form)
-  //   onSubmit() → newStatus = 'Submitted'  (submit for confirmer review)
-  //
-  // 📍 FIX: Now also PUTs vehicle data FIRST (vehicleNo, Type, Class, brandModel)
-  //   so vehicle table in DB is always in sync with what user typed in the form.
-  //   Without this, vehicle fields were NEVER updated on Edit — only pass row was.
-  //
-  // 📍 Flow:
-  //   1. PUT /api/vehicles/update/{vehicleId}  ← vehicle fields
-  //   2. PUT /api/passes/update/{passId}       ← pass + employee fields
-  //   3. Upload any new docs (file !== null)
-  //   4. finaliseSubmit() OR stay on form (Draft)
-  //
-  // 📍 Non-blocking vehicle PUT:
-  //   If vehicle PUT fails (e.g. vehicleId null on old pass), it logs a warning
-  //   but STILL proceeds to pass PUT — pass data is more critical.
-  // ══════════════════════════════════════════════════════════════════════
+
   private updateExistingPassInDB(newStatus: 'Draft' | 'Submitted'): void {
     const passRegistryId = this.savedPassRegistryId!;
 
-    // ── Inner function: PUT pass row after vehicle PUT completes ──────────
     const proceedToPassUpdate = () => {
       const updatePayload = {
         employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+        issueDate: this.issueDate || this.todayDate,
         employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
         employeeName: this.empName() || null,
         dept: this.empDept() || null,
@@ -854,7 +777,6 @@ export class PassEntry implements OnInit, OnDestroy {
         .subscribe(res => {
           if (!res) { this.isSaving.set(false); return; }
 
-          // ── Upload only docs where user selected a NEW file ──────────────
           const docsWithNewFile = this.docs().filter(d => d.docType && d.file !== null);
 
           if (docsWithNewFile.length > 0 && this.savedVehicleId) {
@@ -897,7 +819,6 @@ export class PassEntry implements OnInit, OnDestroy {
         });
     };
 
-    // ── Step 0: PUT vehicle data first (only if we have a vehicleId) ──────
     if (this.savedVehicleId) {
       const vehiclePayload = {
         vehicleNo: this.vehicleNo.trim().toUpperCase(),
@@ -914,15 +835,13 @@ export class PassEntry implements OnInit, OnDestroy {
           timeout(HTTP_TIMEOUT_MS),
           takeUntil(this.destroy$),
           catchError(err => {
-            // ✅ Non-blocking — vehicle PUT fail must NOT stop pass PUT
             console.warn(`[Vehicle PUT] failed [${err?.status}] — continuing to pass update`);
-            return of(null);   // return null but DO NOT call handleSaveError
+            return of(null);
           })
         )
         .subscribe(() => proceedToPassUpdate());
 
     } else {
-      // No vehicleId (old pass before vehicleId was restored) — skip vehicle PUT
       console.warn('[updateExistingPassInDB] savedVehicleId is null — skipping vehicle PUT');
       proceedToPassUpdate();
     }
@@ -952,14 +871,15 @@ export class PassEntry implements OnInit, OnDestroy {
   private step2IssuePass(): void {
     const payload = {
       vehicle: { vehicleId: this.savedVehicleId },
-      // issueDate, validityDate, enterDate intentionally OMITTED
+      issueDate: this.issueDate || this.todayDate,
+      validityDate: this.validityDate || null,
       employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
       employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
       employeeName: this.empName() || null,
       dept: this.empDept() || null,
       contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
-      aadhaarNo: this.empAadhar() || null,        // ✅ ADD
-      contractorName: this.empContractorName || null,  // ✅ ADD
+      aadhaarNo: this.empAadhar() || null,
+      contractorName: this.empContractorName || null,
       gateNo: this.gateNo,
       parkingToBeUsed: this.parkingArea.trim() || null,
       status: 'Submitted',
@@ -978,7 +898,6 @@ export class PassEntry implements OnInit, OnDestroy {
       .subscribe(pRes => {
         if (!pRes) return;
         this.savedPassRegistryId = pRes.passId ?? pRes.id ?? null;
-        // ✅ Actual DB numeric id
         const realId = formatPassId(this.savedPassRegistryId!);
         this.passId.set(realId);
         this.passIdGenerated.set(true);
@@ -1042,15 +961,6 @@ export class PassEntry implements OnInit, OnDestroy {
     }
     this.draftPassId = null;
 
-    // this.passState.upsert({
-    //   ...record,
-    //   workflowStatus: 'Submitted',
-    //   submittedBy   : this.auth.empCode() || 'REQUESTER',
-    //   submittedAt   : new Date().toISOString(),
-    // });
-
-    // this.passState.markSubmitted(record.passId);
-
     const action = this.modificationRemark() ? 'RESUBMITTED' : 'SUBMITTED';
     this.logHistory(
       this.savedPassRegistryId ?? this.savedVehicleId,
@@ -1077,7 +987,6 @@ export class PassEntry implements OnInit, OnDestroy {
     }, 2200);
   }
 
-  // ✅ Shared helper to build PassRecord — avoids duplication
   private _buildRecord(status: 'Saved' | 'Submitted'): PassRecord {
     return {
       passId: this.passId(),

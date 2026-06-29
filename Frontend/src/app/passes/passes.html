@@ -264,7 +264,7 @@
     <div class="form-grid">
 
       <div class="form-group">
-        <label>Vehicle ID (FK) <span class="req">*</span></label>
+        <label>Vehicle ID <span class="req">*</span></label>
         <div class="input-with-loader">
           <input type="number" [(ngModel)]="form.vehicleId" (blur)="onVehicleIdBlur()" placeholder="e.g. 5"
             class="form-input" [class.input-readonly]="isEditMode()" [readonly]="isEditMode()" min="1" />
@@ -372,7 +372,7 @@
     <div class="vr-section-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
     <div class="vr-grid">
       <div class="vr-item">
-        <label>Vehicle ID (FK)</label>
+        <label>Vehicle ID</label>
         <span>{{ viewPass().vehicle?.vehicleId ?? '—' }}</span>
       </div>
       <div class="vr-item">
@@ -416,10 +416,10 @@
         <label>Department / Work Area</label>
         <span>{{ viewPass().dept || '—' }}</span>
       </div>
-      <div class="vr-item">
+      <!-- <div class="vr-item">
         <label>Mobile</label>
         <span>{{ viewPass().mobileNo || '—' }}</span>
-      </div>
+      </div> -->
     </div>
 
     <!-- ── Pass Details Section ── -->
@@ -459,10 +459,10 @@
         <label>Entered By</label>
         <span>{{ viewPass().enterBy || '—' }}</span>
       </div>
-      <div class="vr-item">
+      <!-- <div class="vr-item">
         <label>Enter Date</label>
         <span>{{ formatDate(viewPass().enterDate) }}</span>
-      </div>
+      </div> -->
       <div class="vr-item" *ngIf="viewPass().remarks">
         <label>Remarks</label>
         <span>{{ viewPass().remarks }}</span>
