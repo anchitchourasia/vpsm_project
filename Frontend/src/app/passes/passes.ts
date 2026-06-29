@@ -45,7 +45,14 @@ interface DocRecord {
   fileName?: string;
   vehicle?: { vehicleId: number };
 }
-
+interface HistoryRecord {
+  id?: number;
+  passNo: string;
+  empCode: string;
+  action: string;
+  remark: string;
+  dateOfEntry: string;
+}
 const EMPTY_FORM = (): PassForm => ({
   issueDate: '', validityDate: '', employeeNo: '', employeeCompanyNo: '',
   dept: '', contractorCode: '', gateNo: '', parkingToBeUsed: '',
@@ -136,6 +143,11 @@ export class Passes implements OnInit, OnDestroy {
   viewDocLoadError = signal('');
   viewPdfLoading = signal<number | null>(null);
   viewPdfError = signal('');
+  // ── History signals — add these after viewPdfError signal
+  showViewHistory = signal(false);
+  isLoadingViewHist = signal(false);
+  viewHistError = signal('');
+  viewPassHistory = signal<HistoryRecord[]>([]);
 
   isRedirectingToEdit = signal(false);
 
@@ -423,6 +435,9 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPassDocs.set([]);
     this.viewDocLoadError.set('');
     this.viewPdfError.set('');
+    this.showViewHistory.set(false);
+    this.viewPassHistory.set([]);
+    this.viewHistError.set('');
   }
 
   private loadViewDocs(p: any): void {
@@ -857,6 +872,69 @@ export class Passes implements OnInit, OnDestroy {
             }
           });
       });
+  }
+  loadViewHistory(passId: number): void {
+    this.isLoadingViewHist.set(true);
+    this.viewHistError.set('');
+    this.viewPassHistory.set([]);
+
+    this.http.get<HistoryRecord[]>(API_CONFIG.HISTORY_LIST, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.viewHistError.set('Could not load history (' + (err?.status || 'network error') + ')');
+          this.isLoadingViewHist.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(data => {
+        const history = (Array.isArray(data) ? data : [])
+          .filter(h => String(h.passNo) === String(passId))
+          .sort((a: any, b: any) =>
+            new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
+          );
+        this.viewPassHistory.set(history);
+        if (history.length === 0) {
+          this.viewHistError.set('No audit history found for this pass.');
+        }
+        this.isLoadingViewHist.set(false);
+      });
+  }
+
+  getActionClass(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'CONFIRMED': return 'badge-confirmed';
+      case 'APPROVED': return 'badge-active';
+      case 'REJECTED': return 'badge-rejected';
+      case 'SENT_FOR_MODIFICATION': return 'badge-modify';
+      case 'CREATE': return 'badge-create';
+      case 'SURRENDER': return 'badge-surrendered';
+      default: return 'badge-default';
+    }
+  }
+
+  getActionIcon(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'CONFIRMED': return 'bi-check-circle-fill';
+      case 'APPROVED': return 'bi-patch-check-fill';
+      case 'REJECTED': return 'bi-x-circle-fill';
+      case 'SENT_FOR_MODIFICATION': return 'bi-pencil-square';
+      case 'CREATE': return 'bi-plus-circle-fill';
+      case 'SURRENDER': return 'bi-flag-fill';
+      default: return 'bi-dot';
+    }
+  }
+
+  getActionRowClass(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'APPROVED': return 'hist-row-approved';
+      case 'REJECTED': return 'hist-row-rejected';
+      case 'CONFIRMED': return 'hist-row-confirmed';
+      case 'SENT_FOR_MODIFICATION': return 'hist-row-modify';
+      case 'CREATE': return 'hist-row-create';
+      default: return '';
+    }
   }
 
   canEditPass(p: any): boolean {

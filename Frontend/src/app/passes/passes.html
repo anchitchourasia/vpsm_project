@@ -125,12 +125,9 @@
                 <!--
                   ✅ Edit button visibility rules:
                   - UPLOADER : hide when status is Confirmed OR Active
-                               (pass has moved past their stage — confirmer/approver owns it)
                   - CONFIRMER: hide when status is Confirmed
-                               (already confirmed — no re-edit from confirmer side)
                   - APPROVER : hide when status is Active
-                               (already approved/activated — no re-edit from approver side)
-                  - ADMIN    : always visible (admin can edit anything)
+                  - ADMIN    : always visible
                 -->
                 <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume" *ngIf="canEditPass(p)">
                   ✏ Edit
@@ -159,19 +156,20 @@
           Showing
           {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{ currentPage()*pageSize() <
             filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of {{
-            filteredPasses().length }} </span>
-            <div class="page-btns">
-              <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
-                <i class="bi bi-chevron-left"></i>
-              </button>
-              <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
-                (click)="goToPage(pg)">
-                {{ pg }}
-              </button>
-              <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
-                <i class="bi bi-chevron-right"></i>
-              </button>
-            </div>
+            filteredPasses().length }}
+        </span>
+        <div class="page-btns">
+          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
+            (click)="goToPage(pg)">
+            {{ pg }}
+          </button>
+          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -416,10 +414,10 @@
         <label>Department / Work Area</label>
         <span>{{ viewPass().dept || '—' }}</span>
       </div>
-      <!-- <div class="vr-item">
+      <div class="vr-item">
         <label>Mobile</label>
         <span>{{ viewPass().mobileNo || '—' }}</span>
-      </div> -->
+      </div>
     </div>
 
     <!-- ── Pass Details Section ── -->
@@ -508,7 +506,8 @@
               <button class="btn-view-pdf" (click)="viewDocumentPdf(doc)"
                 [disabled]="!doc.fileName || viewPdfLoading() === doc.documentId"
                 [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
-                [style.opacity]="doc.fileName ? '1' : '0.4'" [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
+                [style.opacity]="doc.fileName ? '1' : '0.4'"
+                [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
                 <i class="bi"
                   [ngClass]="viewPdfLoading() === doc.documentId ? 'bi-hourglass-split' : 'bi-file-earmark-pdf-fill'"></i>
                 {{ viewPdfLoading() === doc.documentId ? 'Loading...' : (doc.fileName ? 'View' : '—') }}
@@ -529,13 +528,92 @@
       <i class="bi bi-exclamation-circle-fill"></i> {{ viewPdfError() }}
     </div>
 
+    <!-- ✅ History toggle — INSIDE modal-body so it scrolls, never overlaps footer -->
+    <div class="hist-toggle-row">
+      <button class="btn-hist-toggle"
+        (click)="showViewHistory.set(!showViewHistory());
+                 !viewPassHistory().length && !viewHistError() && loadViewHistory(viewPass().passId)"
+        [class.btn-hist-active]="showViewHistory()">
+        <i class="bi bi-clock-history"></i>
+        {{ showViewHistory() ? 'Hide Pass History' : 'Show Full Pass History' }}
+        <i class="bi" [ngClass]="showViewHistory() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+      </button>
+    </div>
+
+    <!-- ✅ History panel — fully implemented, inside modal-body -->
+    <div *ngIf="showViewHistory()" class="hist-panel">
+
+      <div class="vr-section-title hist-title">
+        <i class="bi bi-clock-history"></i>
+        Audit Trail — Pass #<strong>{{ viewPass().passId }}</strong>
+        <span class="hist-count-chip">{{ viewPassHistory().length }} events</span>
+      </div>
+
+      <!-- Loading -->
+      <div class="vr-doc-loading" *ngIf="isLoadingViewHist()">
+        <i class="bi bi-arrow-repeat spin-icon"></i> Loading audit history...
+      </div>
+
+      <!-- Error -->
+      <div class="vr-doc-error" *ngIf="viewHistError() && !isLoadingViewHist()">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ viewHistError() }}
+      </div>
+
+      <!-- History table -->
+      <div class="hist-table-wrap" *ngIf="!isLoadingViewHist() && viewPassHistory().length > 0">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ACTION</th>
+              <th>PERFORMED BY</th>
+              <th>REMARK</th>
+              <th>DATE & TIME</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let h of viewPassHistory(); let hi = index"
+                [ngClass]="getActionRowClass(h.action)">
+              <td class="muted">{{ hi + 1 }}</td>
+              <td>
+                <span class="hist-action-badge" [ngClass]="getActionClass(h.action)">
+                  <i class="bi" [ngClass]="getActionIcon(h.action)"></i>
+                  {{ h.action }}
+                </span>
+              </td>
+              <td>
+                <span class="hist-emp-chip">
+                  <i class="bi bi-person-fill"></i> {{ h.empCode || '—' }}
+                </span>
+              </td>
+              <td class="hist-remark-cell">{{ h.remark || '—' }}</td>
+              <td class="hist-date-cell">
+                <i class="bi bi-calendar2-check" style="color:#94a3b8; margin-right:4px"></i>
+                {{ formatDate(h.dateOfEntry) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty state -->
+      <div class="hist-empty"
+        *ngIf="!isLoadingViewHist() && viewPassHistory().length === 0 && !viewHistError()">
+        <i class="bi bi-clock-history"></i> No audit events recorded for this pass yet.
+      </div>
+
+    </div>
+    <!-- ── end history panel ── -->
+
   </div><!-- /modal-body -->
 
+  <!-- ✅ Footer — only Close + Edit, no history toggle here so no overlap -->
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <!-- ✅ Edit in View modal footer — same canEditPass() guard -->
-    <button *ngIf="canEditPass(viewPass())" class="btn-save" (click)="closeViewModal(); openEditModal(viewPass())">
+    <button *ngIf="canEditPass(viewPass())" class="btn-save"
+      (click)="closeViewModal(); openEditModal(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>
   </div>
+
 </div>
