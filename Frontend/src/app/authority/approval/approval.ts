@@ -50,6 +50,14 @@ interface DocumentRecord {
   fileName?: string;   // ✅ ADD THIS — same field as documents module
   vehicle?: { vehicleId: number };
 }
+interface HistoryRecord {
+  id?: number;
+  passNo: string;
+  empCode: string;
+  action: string;
+  remark: string;
+  dateOfEntry: string;
+}
 
 @Component({
   selector: 'app-approval',
@@ -99,7 +107,7 @@ export class Approval implements OnInit, OnDestroy {
   isLoadingDocs = signal(false);
   docLoadError = signal('');
   // ── Pass History State ──────────────────────────────────────────────────────
-  empPassHistory = signal<PassRecord[]>([]);
+  empPassHistory = signal<HistoryRecord[]>([]);
   isLoadingHistory = signal(false);
   historyLoadError = signal('');
   showHistory = signal(false);
@@ -182,9 +190,7 @@ export class Approval implements OnInit, OnDestroy {
       this.docLoadError.set('No vehicle linked — cannot load documents.');
     }
     // ── load pass history for this employee ──
-    if (p.employeeNo) {
-      this.loadEmpPassHistory(p.employeeNo);
-    }
+    this.loadEmpPassHistory(p.passId);
   }
 
   closeDetails(): void {
@@ -349,11 +355,13 @@ export class Approval implements OnInit, OnDestroy {
         this.isLoadingDocs.set(false);
       });
   }
-  private loadEmpPassHistory(employeeNo: string): void {
+  // ✅ FIXED — calls /api/history/list and filters by passId
+  private loadEmpPassHistory(passId: number): void {
     this.isLoadingHistory.set(true);
     this.historyLoadError.set('');
+    this.empPassHistory.set([]);
 
-    this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<HistoryRecord[]>(API_CONFIG.HISTORY_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
@@ -364,11 +372,16 @@ export class Approval implements OnInit, OnDestroy {
           return of([]);
         })
       )
-      .subscribe(all => {
-        const history = (all || []).filter(
-          p => (p.employeeNo || '').toLowerCase() === employeeNo.toLowerCase()
-        );
+      .subscribe(data => {
+        const history = (Array.isArray(data) ? data : [])
+          .filter(h => String(h.passNo) === String(passId))
+          .sort((a: any, b: any) =>
+            new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
+          ); // newest first
         this.empPassHistory.set(history);
+        if (history.length === 0) {
+          this.historyLoadError.set('No audit history found for this pass.');
+        }
         this.isLoadingHistory.set(false);
       });
   }
@@ -537,6 +550,37 @@ export class Approval implements OnInit, OnDestroy {
       case 'expired': return 'Expired';
       case 'needs_modification': return 'Needs Modification';   // ← NEW
       default: return status || '—';
+    }
+  }
+  getActionClass(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'CONFIRMED': return 'badge-confirmed';
+      case 'APPROVED': return 'badge-active';
+      case 'REJECTED': return 'badge-rejected';
+      case 'SENT_FOR_MODIFICATION': return 'badge-modify';
+      case 'RETURNED': return 'badge-submitted';
+      default: return 'badge-default';
+    }
+  }
+
+  getActionIcon(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'CONFIRMED': return 'bi-check-circle-fill';
+      case 'APPROVED': return 'bi-patch-check-fill';
+      case 'REJECTED': return 'bi-x-circle-fill';
+      case 'SENT_FOR_MODIFICATION': return 'bi-pencil-square';
+      case 'RETURNED': return 'bi-arrow-return-left';
+      default: return 'bi-dot';
+    }
+  }
+
+  getActionRowClass(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'APPROVED': return 'hist-row-approved';
+      case 'REJECTED': return 'hist-row-rejected';
+      case 'CONFIRMED': return 'hist-row-confirmed';
+      case 'SENT_FOR_MODIFICATION': return 'hist-row-modify';
+      default: return '';
     }
   }
 

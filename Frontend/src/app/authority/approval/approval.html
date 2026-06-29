@@ -280,11 +280,12 @@
 
           <div class="sec-title hist-title">
             <i class="bi bi-clock-history"></i>
-            All Pass History — <strong>{{ p.employeeNo }}</strong>
+            Audit Trail — Pass #<strong>{{ p.passId }}</strong>
+            <span class="hist-count-chip">{{ empPassHistory().length }} events</span>
           </div>
 
           <div class="doc-loading" *ngIf="isLoadingHistory()">
-            <i class="bi bi-arrow-repeat spin"></i> Loading pass history...
+            <i class="bi bi-arrow-repeat spin"></i> Loading audit history...
           </div>
 
           <div class="doc-error" *ngIf="historyLoadError() && !isLoadingHistory()">
@@ -292,43 +293,42 @@
           </div>
 
           <div class="hist-table-wrap" *ngIf="!isLoadingHistory() && empPassHistory().length > 0">
-            <table class="doc-table hist-table">
+            <table class="hist-table">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>PASS ID</th>
-                  <th>VEHICLE NO</th>
-                  <th>GATE</th>
-                  <th>ISSUE DATE</th>
-                  <th>VALID TILL</th>
-                  <th>EMP TYPE</th>
-                  <th>STATUS</th>
+                  <th>ACTION</th>
+                  <th>PERFORMED BY</th>
+                  <th>REMARK</th>
+                  <th>DATE & TIME</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let h of empPassHistory(); let hi = index" [class.hist-row-current]="h.passId === p.passId">
+                <tr *ngFor="let h of empPassHistory(); let hi = index" [ngClass]="getActionRowClass(h.action)">
                   <td class="muted">{{ hi + 1 }}</td>
                   <td>
-                    <strong [class.green]="h.passId === p.passId">{{ h.passId }}</strong>
-                    <span *ngIf="h.passId === p.passId" class="hist-current-badge">← current</span>
-                  </td>
-                  <td>{{ h.vehicle?.vehicleNo || '—' }}</td>
-                  <td>{{ h.gateNo || '—' }}</td>
-                  <td>{{ formatDate(h.issueDate) }}</td>
-                  <td>{{ formatDate(h.validityDate) }}</td>
-                  <td>{{ h.empType || '—' }}</td>
-                  <td>
-                    <span class="badge" [ngClass]="getStatusClass(h.status)">
-                      {{ getStatusLabel(h.status) }}
+                    <span class="hist-action-badge" [ngClass]="getActionClass(h.action)">
+                      <i class="bi" [ngClass]="getActionIcon(h.action)"></i>
+                      {{ h.action }}
                     </span>
+                  </td>
+                  <td>
+                    <span class="hist-emp-chip">
+                      <i class="bi bi-person-fill"></i> {{ h.empCode || '—' }}
+                    </span>
+                  </td>
+                  <td class="hist-remark-cell">{{ h.remark || '—' }}</td>
+                  <td class="hist-date-cell">
+                    <i class="bi bi-calendar2-check" style="color:#94a3b8;margin-right:4px"></i>
+                    {{ formatDate(h.dateOfEntry) }}
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div *ngIf="!isLoadingHistory() && empPassHistory().length === 0 && !historyLoadError()" class="doc-empty">
-            <i class="bi bi-folder2-open"></i> No other passes found for this employee.
+          <div class="hist-empty" *ngIf="!isLoadingHistory() && empPassHistory().length === 0 && !historyLoadError()">
+            <i class="bi bi-clock-history"></i> No audit events recorded for this pass yet.
           </div>
 
         </div>
