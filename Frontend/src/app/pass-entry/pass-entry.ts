@@ -589,23 +589,16 @@ export class PassEntry implements OnInit, OnDestroy {
     }
 
     // ✅ First save — check for duplicate before persisting to DB
+    // First save — check for duplicate then persist to DB as Draft
     this.isSaving.set(true);
-    // ✅ FIX: If editing an existing pass (Draft / Needs_Modification),
-    // PUT update the existing record instead of POSTing a new one.
-    // Old code always called step1RegisterVehicle() → always created a new duplicate pass.
     this.checkDuplicate().then(dupErr => {
       if (dupErr) {
         this.saveError.set(dupErr);
         this.isSaving.set(false);
         return;
       }
-      if (this.savedPassRegistryId) {
-        // Existing pass — update it, upload new docs, then finalise
-        this.updateExistingPassInDB('Submitted');
-      } else {
-        // Brand-new pass — original flow unchanged
-        this.step1RegisterVehicle();
-      }
+      // Brand-new pass only — existing passes are handled by the early-return above
+      this.persistDraftToDB();
     });
   }
 
@@ -620,14 +613,20 @@ export class PassEntry implements OnInit, OnDestroy {
     this.clearAlerts();
     this.isSaving.set(true);
 
-    // ✅ Duplicate check before submitting to DB
+    // Duplicate check — skip if editing an existing pass (same pass is excluded)
     this.checkDuplicate().then(dupErr => {
       if (dupErr) {
         this.saveError.set(dupErr);
         this.isSaving.set(false);
         return;
       }
-      this.step1RegisterVehicle();
+      if (this.savedPassRegistryId) {
+        // ✅ Existing pass (Draft / Needs_Modification) — PUT update, do NOT create new
+        this.updateExistingPassInDB('Submitted');
+      } else {
+        // Brand-new pass — original 3-step flow unchanged
+        this.step1RegisterVehicle();
+      }
     });
   }
 
@@ -797,108 +796,136 @@ export class PassEntry implements OnInit, OnDestroy {
         }
       });
   }
-  // ══════════════════════════════════════════════════════════════════════
+      // ══════════════════════════════════════════════════════════════════════
   // updateExistingPassInDB — called when EDITING a Draft or Needs_Modification pass.
   //
   // 📍 Called from:
   //   onSave()   → newStatus = 'Draft'      (save progress, stay on form)
   //   onSubmit() → newStatus = 'Submitted'  (submit for confirmer review)
   //
-  // 📍 What it does:
-  //   1. PUTs updated pass fields (gate, validity, remark, empType etc.) to DB
-  //   2. Uploads any docs where user selected a NEW file (doc.file !== null)
-  //   3. For docs where file is unchanged (doc.file === null, docAlreadyUploaded),
-  //      skips re-upload — existing DB file is preserved automatically
-  //   4. On Draft save: stays on form, shows success message
-  //   5. On Submit: calls finaliseSubmit() → navigates away after 2.2s
+  // 📍 FIX: Now also PUTs vehicle data FIRST (vehicleNo, Type, Class, brandModel)
+  //   so vehicle table in DB is always in sync with what user typed in the form.
+  //   Without this, vehicle fields were NEVER updated on Edit — only pass row was.
   //
-  // 📍 Does NOT:
-  //   - Create a new vehicle (vehicle already exists from original save)
-  //   - Create a new pass (PUT updates the existing pass row)
-  //   - Re-upload docs that haven't changed (preserves existing files)
+  // 📍 Flow:
+  //   1. PUT /api/vehicles/update/{vehicleId}  ← vehicle fields
+  //   2. PUT /api/passes/update/{passId}       ← pass + employee fields
+  //   3. Upload any new docs (file !== null)
+  //   4. finaliseSubmit() OR stay on form (Draft)
+  //
+  // 📍 Non-blocking vehicle PUT:
+  //   If vehicle PUT fails (e.g. vehicleId null on old pass), it logs a warning
+  //   but STILL proceeds to pass PUT — pass data is more critical.
   // ══════════════════════════════════════════════════════════════════════
   private updateExistingPassInDB(newStatus: 'Draft' | 'Submitted'): void {
     const passRegistryId = this.savedPassRegistryId!;
 
-    const updatePayload = {
-      employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
-      employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
-      employeeName: this.empName() || null,
-      dept: this.empDept() || null,
-      contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
-      aadhaarNo: this.empAadhar() || null,
-      contractorName: this.empContractorName || null,
-      gateNo: this.gateNo,
-      parkingToBeUsed: this.parkingArea.trim() || null,
-      status: newStatus,
-      empType: this.empType() === 'Contractor'
-        ? 'Contractor'
-        : (this.empTypeDetail() || this.empType()),
-      typeOfVehicle: this.vehicleType.trim() || null,
-      remarks: this.remark.trim() || null,
-      validityDate: this.validityDate || null,
+    // ── Inner function: PUT pass row after vehicle PUT completes ──────────
+    const proceedToPassUpdate = () => {
+      const updatePayload = {
+        employeeNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+        employeeCompanyNo: this.empType() === 'Company_Employee' ? this.ecNo.trim() : null,
+        employeeName: this.empName() || null,
+        dept: this.empDept() || null,
+        contractorCode: this.empType() === 'Contractor' ? this.contractorCode.trim() : null,
+        aadhaarNo: this.empAadhar() || null,
+        contractorName: this.empContractorName || null,
+        gateNo: this.gateNo,
+        parkingToBeUsed: this.parkingArea.trim() || null,
+        status: newStatus,
+        empType: this.empType() === 'Contractor'
+          ? 'Contractor'
+          : (this.empTypeDetail() || this.empType()),
+        typeOfVehicle: this.vehicleType.trim() || null,
+        remarks: this.remark.trim() || null,
+        validityDate: this.validityDate || null,
+      };
+
+      this.http
+        .put<any>(`${API_CONFIG.PASSES_UPDATE}/${passRegistryId}`, updatePayload, { headers: this.HEADERS })
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          catchError(err => {
+            this.handleSaveError(err, `Update Pass [${newStatus}]`);
+            return of(null);
+          })
+        )
+        .subscribe(res => {
+          if (!res) { this.isSaving.set(false); return; }
+
+          // ── Upload only docs where user selected a NEW file ──────────────
+          const docsWithNewFile = this.docs().filter(d => d.docType && d.file !== null);
+
+          if (docsWithNewFile.length > 0 && this.savedVehicleId) {
+            if (newStatus === 'Submitted') {
+              this.step3UploadDocs(docsWithNewFile);
+            } else {
+              this.uploadDocsForDraft(docsWithNewFile, this.passId());
+              const record = this._buildRecord('Saved');
+              this.passState.upsert(record);
+              this.passState.broadcastDraftChange();
+              this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+              this.saved.set(true);
+              this.isSaving.set(false);
+              this.saveSuccess.set(
+                `Draft updated — Pass ID: ${this.passId()}. Changes & documents saved ✅. Click Submit when ready.`
+              );
+            }
+          } else {
+            if (newStatus === 'Submitted') {
+              this.finaliseSubmit();
+            } else {
+              const record = this._buildRecord('Saved');
+              this.passState.upsert(record);
+              this.passState.broadcastDraftChange();
+              this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
+              this.saved.set(true);
+              this.isSaving.set(false);
+              this.saveSuccess.set(
+                `Draft updated — Pass ID: ${this.passId()}. Changes saved ✅. Click Submit when ready.`
+              );
+            }
+          }
+
+          this.logHistory(
+            passRegistryId,
+            newStatus === 'Submitted' ? 'RESUBMITTED' : 'DRAFT_UPDATED',
+            this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+            `Pass ${newStatus.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
+          );
+        });
     };
 
-    this.http
-      .put<any>(`${API_CONFIG.PASSES_UPDATE}/${passRegistryId}`, updatePayload, { headers: this.HEADERS })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          this.handleSaveError(err, `Update Pass [${newStatus}]`);
-          return of(null);
-        })
-      )
-      .subscribe(res => {
-        if (!res) { this.isSaving.set(false); return; }
+    // ── Step 0: PUT vehicle data first (only if we have a vehicleId) ──────
+    if (this.savedVehicleId) {
+      const vehiclePayload = {
+        vehicleNo: this.vehicleNo.trim().toUpperCase(),
+        vehicleType: this.vehicleType.trim(),
+        vehicleClass: this.vehicleClass,
+        brandModel: this.brandModel.trim() || null,
+        isActive: 'Y',
+        isBlacklisted: 'N',
+      };
 
-        // ── Upload only docs where user selected a NEW file ──────────────
-        // doc.file !== null  → user picked a replacement file → upload it
-        // doc.file === null  → file unchanged (docAlreadyUploaded) → skip
-        const docsWithNewFile = this.docs().filter(d => d.docType && d.file !== null);
+      this.http
+        .put<any>(`${API_CONFIG.VEHICLES_UPDATE}/${this.savedVehicleId}`, vehiclePayload, { headers: this.HEADERS })
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          catchError(err => {
+            // ✅ Non-blocking — vehicle PUT fail must NOT stop pass PUT
+            console.warn(`[Vehicle PUT] failed [${err?.status}] — continuing to pass update`);
+            return of(null);   // return null but DO NOT call handleSaveError
+          })
+        )
+        .subscribe(() => proceedToPassUpdate());
 
-        if (docsWithNewFile.length > 0 && this.savedVehicleId) {
-          if (newStatus === 'Submitted') {
-            // step3UploadDocs calls finaliseSubmit() on completion — full submit flow
-            this.step3UploadDocs(docsWithNewFile);
-          } else {
-            // Draft save — reuse uploadDocsForDraft (silent, stays on form)
-            this.uploadDocsForDraft(docsWithNewFile, this.passId());
-            // Update PassStateService memory + broadcast
-            const record = this._buildRecord('Saved');
-            this.passState.upsert(record);
-            this.passState.broadcastDraftChange();
-            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-            this.saved.set(true);
-            this.isSaving.set(false);
-            this.saveSuccess.set(
-              `Draft updated — Pass ID: ${this.passId()}. Changes & documents saved ✅. Click Submit when ready.`
-            );
-          }
-        } else {
-          // No new files selected — pass fields updated, existing docs untouched
-          if (newStatus === 'Submitted') {
-            this.finaliseSubmit();
-          } else {
-            const record = this._buildRecord('Saved');
-            this.passState.upsert(record);
-            this.passState.broadcastDraftChange();
-            this.passState.broadcast({ ...record, _broadcastType: 'DRAFT_UPSERT' } as any);
-            this.saved.set(true);
-            this.isSaving.set(false);
-            this.saveSuccess.set(
-              `Draft updated — Pass ID: ${this.passId()}. Changes saved ✅. Click Submit when ready.`
-            );
-          }
-        }
-
-        this.logHistory(
-          passRegistryId,
-          newStatus === 'Submitted' ? 'RESUBMITTED' : 'DRAFT_UPDATED',
-          this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
-          `Pass ${newStatus.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
-        );
-      });
+    } else {
+      // No vehicleId (old pass before vehicleId was restored) — skip vehicle PUT
+      console.warn('[updateExistingPassInDB] savedVehicleId is null — skipping vehicle PUT');
+      proceedToPassUpdate();
+    }
   }
 
   private step1RegisterVehicle(): void {
