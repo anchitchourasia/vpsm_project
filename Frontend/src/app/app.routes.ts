@@ -49,6 +49,7 @@ export const routes: Routes = [
   // VEHICLE PERMISSION — protected
   { path: 'vehicle-permission/add',  canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-form/vehicle-permission-form').then(m => m.VehiclePermissionForm) },
   { path: 'vehicle-permission/list', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-list/vehicle-permission-list').then(m => m.VehiclePermissionList) },
+  { path: 'vehicle-permission/confirmer', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/contractor-confirmer/contractor-confirmer').then(m => m.ContractorConfirmerComponent) },
   // FALLBACK — redirect to home (guard will catch unauthenticated → login)
   { path: '**', redirectTo: '' },
 ];

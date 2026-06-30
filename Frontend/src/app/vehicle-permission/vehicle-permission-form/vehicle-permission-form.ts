@@ -1,4 +1,5 @@
 import { Component, signal, OnInit, OnDestroy, inject } from '@angular/core';
+import { API_CONFIG } from '../../core/api.config';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -6,7 +7,7 @@ import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { CvpsService, CvpsPersonnel } from '../../services/cvps.service';
-import { HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 interface DocEntry {
   id: string;
@@ -74,13 +75,14 @@ const VEHICLE_TYPE_MAP: Record<string, string> = {
   templateUrl: './vehicle-permission-form.html',
   styleUrl: './vehicle-permission-form.css',
 })
-export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
+export class VehiclePermissionForm implements OnInit, OnDestroy {
 
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private auth = inject(AuthService);
   private cvps = inject(CvpsService);
   private destroy$ = new Subject<void>();
+  private http = inject(HttpClient);
 
   readonly formNo = 'W-OHS-SECURITY-12';
   readonly companyName = 'HEG Limited, Mandideep';
@@ -179,23 +181,31 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onContractorCodeChange(typedCode: string): void {
-    const cleanCode = typedCode.trim();
+    const cleanCode = typedCode.trim().toUpperCase();
     this.contractorCode.set(cleanCode);
     if (!cleanCode) { this.contractorName.set(''); this.errorMsg.set(''); return; }
 
-    const secureHeaders = new HttpHeaders({ 'X-API-KEY': 'HEG-CVPS-KEY-TOKEN-2026', 'Content-Type': 'application/json' });
-
-    this.cvps.fetchContractorDetails().pipe(
-      timeout(12000), takeUntil(this.destroy$),
+    this.http.get<any[]>(
+      `${API_CONFIG.BASE_URL}/api/reports/employee-department`,
+      { headers: new HttpHeaders({ 'x-api-key': API_CONFIG.API_KEY, 'Content-Type': 'application/json' }) }
+    ).pipe(
+      timeout(12000),
+      takeUntil(this.destroy$),
       catchError(() => of([]))
     ).subscribe((rows: any[]) => {
-      if (!rows || rows.length === 0) return;
-      const match = rows.find(r => (r.contractorNo && String(r.contractorNo).toUpperCase() === cleanCode.toUpperCase()) || (r.contractorCode && String(r.contractorCode).toUpperCase() === cleanCode.toUpperCase()) || (r.id && String(r.id) === cleanCode));
+      if (!rows || rows.length === 0) { this.errorMsg.set('Could not fetch employee list.'); return; }
+
+      // ✅ Match against contractorCode field (e.g. "CTR009")
+      const match = rows.find(r =>
+        r.contractorCode && String(r.contractorCode).toUpperCase() === cleanCode
+      );
+
       if (match) {
-        this.contractorName.set(String(match.contractorName || match.name || match.employeeName || '').toUpperCase());
+        this.contractorName.set(String(match.name || '').toUpperCase());
         this.errorMsg.set('');
       } else {
         this.contractorName.set('');
+        this.errorMsg.set(`⚠️ No contractor found for code: ${cleanCode}`);
       }
     });
   }
