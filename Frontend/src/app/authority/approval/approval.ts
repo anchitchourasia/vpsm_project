@@ -74,11 +74,13 @@ export class Approval implements OnInit, OnDestroy {
     'Content-Type': 'application/json'
   });
   private readonly destroy$ = new Subject<void>();
-
-  readonly approverName = signal(
-    localStorage.getItem('vpsm_userName') || 'APPROVER'
-  );
-
+  // ✅ Read from sessionStorage where AuthService actually saves the session
+  private get _sessionUser(): any {
+    try { return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null'); } 
+    catch { return null; }
+  }
+  readonly approverName = signal(this._sessionUser?.primaryRole || 'APPROVER');
+  readonly approverCode = signal(this._sessionUser?.empCode || 'APPROVER');
   allPasses = signal<PassRecord[]>([]);
   isLoading = signal(true);
   hasError = signal(false);
@@ -455,7 +457,7 @@ export class Approval implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'APPROVED',
+        this.logHistory(pass.passId, this.approverCode(), 'APPROVED',
           `Pass activated by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`✅ Pass #${pass.passId} APPROVED. Pass is now Active.`);
         this.isActing.set(false);
@@ -487,7 +489,7 @@ export class Approval implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'RETURNED',
+        this.logHistory(pass.passId, this.approverCode(), 'RETURNED',
           `Returned to Confirmer by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`↩️ Pass #${pass.passId} returned to Confirmer queue.`);
         this.isActing.set(false);
@@ -519,7 +521,7 @@ export class Approval implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'REJECTED',
+        this.logHistory(pass.passId, this.approverCode(), 'REJECTED',
           `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`❌ Pass #${pass.passId} rejected.`);
         this.isActing.set(false);

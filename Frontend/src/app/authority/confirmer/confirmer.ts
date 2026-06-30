@@ -75,10 +75,14 @@ export class Confirmer implements OnInit, OnDestroy {
     'Content-Type': 'application/json'
   });
   private readonly destroy$ = new Subject<void>();
+  // ✅ REPLACE WITH
+  private get _sessionUser(): any {
+    try { return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null'); }
+    catch { return null; }
+  }
+  readonly confirmerName = signal(this._sessionUser?.primaryRole || 'CONFIRMER');
+  readonly confirmerCode = signal(this._sessionUser?.empCode || 'CONFIRMER');
 
-  readonly confirmerName = signal(
-    localStorage.getItem('vpsm_userName') || 'CONFIRMER'
-  );
 
   allPasses = signal<PassRecord[]>([]);
   isLoading = signal(true);
@@ -376,7 +380,7 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'CONFIRMED',
+        this.logHistory(pass.passId, this.confirmerCode(), 'CONFIRMED',
           `Confirmed by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`✅ Pass #${pass.passId} confirmed and sent to Approver.`);
         this.isActing.set(false);
@@ -409,7 +413,7 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'REJECTED',
+        this.logHistory(pass.passId, this.confirmerCode(), 'REJECTED',
           `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`❌ Pass #${pass.passId} rejected and returned to requester.`);
         this.isActing.set(false);
@@ -443,7 +447,7 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'SENT_FOR_MODIFICATION',
+        this.logHistory(pass.passId, this.confirmerCode(), 'SENT_FOR_MODIFICATION',
           `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`🔄 Pass #${pass.passId} sent back to requester for modification.`);
         this.isActing.set(false);

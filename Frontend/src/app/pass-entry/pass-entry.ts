@@ -650,7 +650,7 @@ export class PassEntry implements OnInit, OnDestroy {
             this.logHistory(
               realDbId,
               'DRAFT_SAVED',
-              this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+              this.auth.empCode() || 'REQUESTER',
               `Draft saved — Vehicle: ${this.vehicleNo}, Gate: ${this.gateNo}`
             );
 
@@ -813,7 +813,7 @@ export class PassEntry implements OnInit, OnDestroy {
           this.logHistory(
             passRegistryId,
             newStatus === 'Submitted' ? 'RESUBMITTED' : 'DRAFT_UPDATED',
-            this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+            this.auth.empCode() || 'REQUESTER',
             `Pass ${newStatus.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
           );
         });
@@ -965,7 +965,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.logHistory(
       this.savedPassRegistryId ?? this.savedVehicleId,
       action,
-      this.ecNo.trim() || this.contractorCode.trim() || 'REQUESTER',
+      this.auth.empCode() || 'REQUESTER',
       `Pass ${action.toLowerCase()} — ID: ${this.passId()}, Vehicle: ${this.vehicleNo}`
     );
 
@@ -979,9 +979,9 @@ export class PassEntry implements OnInit, OnDestroy {
     );
 
     setTimeout(() => {
-     
-        this.router.navigate(['/passes/all']);
-      
+
+      this.router.navigate(['/passes/all']);
+
     }, 2200);
   }
 
