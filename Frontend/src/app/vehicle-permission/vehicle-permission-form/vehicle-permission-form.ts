@@ -298,8 +298,16 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
   private processFormSubmission(targetStatus: string): void {
     if (!this.contractorCode().trim()) { this.errorMsg.set('Contractor Code is required.'); return; }
     if (!this.contractorName().trim()) { this.errorMsg.set('Contractor Name is required.'); return; }
+    if (!this.natureOfJob().trim()) { this.errorMsg.set('Nature of Job is required.'); return; }
     if (!this.vehicleNumber().trim()) { this.errorMsg.set('Vehicle Number is required.'); return; }
     if (!this.vehicleType()) { this.errorMsg.set('Vehicle Type is required.'); return; }
+    // ✅ Common validations — apply for BOTH Draft and Submit
+    if (!this.contractorCode().trim()) { this.errorMsg.set('Contractor Code is required.'); return; }
+    if (!this.contractorName().trim()) { this.errorMsg.set('Contractor Name is required.'); return; }
+    if (!this.natureOfJob().trim()) { this.errorMsg.set('Nature of Job description is mandatory.'); return; }
+    if (!this.vehicleNumber().trim()) { this.errorMsg.set('Vehicle Number is required.'); return; }
+    if (!this.vehicleType()) { this.errorMsg.set('Vehicle Type is required.'); return; }
+
 
     if (targetStatus === 'CREATED') {
       const todayStr = this.reqDate();
