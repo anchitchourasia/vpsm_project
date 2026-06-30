@@ -1,6 +1,4 @@
 <div class="vp-shell">
-
-  <!-- HEADER CARD -->
   <div class="vp-header-card">
     <div class="vp-header-left">
       <i class="bi bi-truck vp-header-icon"></i>
@@ -9,32 +7,33 @@
         <p class="vp-header-sub">{{ companyName }}</p>
       </div>
     </div>
-    <div class="vp-form-no">{{ formNo }}</div>
+    
+    <div style="display:flex; align-items:center; gap: 15px;">
+       <span class="vp-status-pill" [ngClass]="getStatusClass(status())">{{ status() }}</span>
+       <div class="vp-form-no">{{ formNo }}</div>
+    </div>
   </div>
-
-  
 
   @if (saveMsg())  { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
   @if (errorMsg()) { <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div> }
 
-  <!-- SECTION 1: GENERAL INFORMATION -->
   <div class="vp-section">
     <div class="vp-section-title">General Information</div>
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Contractor Code</label>
-        <input class="vp-input" type="text" placeholder="Enter contractor / vendor name"
-               [value]="contractorName()" (input)="contractorName.set($any($event.target).value)" />
+        <input class="vp-input" type="text" placeholder="Enter contractor code"
+               [ngModel]="contractorCode()" (ngModelChange)="onContractorCodeChange($event)" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Contractor Name</label>
-        <input class="vp-input" type="text" placeholder="Enter contractor / vendor name"
-               [value]="contractorName()" (input)="contractorName.set($any($event.target).value)" />
+        <input class="vp-input" type="text" placeholder="Contractor name will auto-populate"
+               [value]="contractorName()" readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Request Date</label>
         <input class="vp-input" type="date"
-               [value]="reqDate()" (input)="reqDate.set($any($event.target).value)" />
+               [value]="reqDate()" readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Nature of Job</label>
@@ -44,18 +43,16 @@
       <div class="vp-field"></div>
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
-        <input class="vp-input" type="date"[value]="permissionDateFrom()" (input)="permissionDateFrom.set($any($event.target).value)" />
+        <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()" (input)="permissionDateFrom.set($any($event.target).value)" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Permission Date To</label>
-        <input class="vp-input" type="date"
-               [value]="permissionDateTo()" (input)="permissionDateTo.set($any($event.target).value)" />
+        <input class="vp-input" type="date" [min]="permissionDateFrom() || reqDate()" [value]="permissionDateTo()" (input)="permissionDateTo.set($any($event.target).value)" />
       </div>
     </div>
   </div>
 
-  <!-- SECTION 2: VEHICLE INFORMATION -->
-  <div class="vp-section">
+   <div class="vp-section">
     <div class="vp-section-title">Vehicle Information</div>
     <div class="vp-grid-2">
       <div class="vp-field">
@@ -75,119 +72,124 @@
     </div>
   </div>
 
-  <!-- SECTION 3: VEHICLE DOCUMENTS -->
-  <div class="vp-section">
+   <div class="vp-section">
     <div class="vp-section-title-row">
-      <span class="vp-section-title">Vehicle Documents</span>
-      <button class="vp-btn-add" (click)="addVehicleDoc()">
+      <span class="vp-section-title">Required Documents</span>
+      <span style="margin-left: 15px; font-weight: 600; color: #6c757d; font-size: 0.9rem;">
+        {{ docs().length }} / {{ ALLOWED_DOC_TYPES.length }} added
+      </span>
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDoc()" [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
         <i class="bi bi-plus-circle-fill"></i> Add Document
       </button>
     </div>
+
+    @if (docs().length > 0) {
     <div class="vp-table-wrap">
       <table class="vp-table">
         <thead>
-          <tr>
-            <th>Document Type</th><th>Document No.</th>
-            <th>Valid From</th><th>Valid To</th>
-            <th>Upload File</th><th>Action</th>
-          </tr>
+          <tr><th>Doc Type</th><th>Doc No</th><th>Valid Upto</th><th>File (PDF)</th><th>Action</th></tr>
         </thead>
         <tbody>
-          @for (doc of vehicleDocs(); track $index) {
-            <tr>
-              <td>
-                <select class="vp-cell-select" [value]="doc.docType"
-                        (change)="doc.docType = $any($event.target).value">
-                  <option value="">Select</option>
-                  @for (o of docTypeOptions; track o) { <option [value]="o">{{ o }}</option> }
-                </select>
-              </td>
-              <td><input class="vp-cell-input" type="text" placeholder="Doc number"
-                         [value]="doc.docNo" (input)="doc.docNo = $any($event.target).value" /></td>
-              <td><input class="vp-cell-input" type="date"
-                         [value]="doc.validFrom" (input)="doc.validFrom = $any($event.target).value" /></td>
-              <td><input class="vp-cell-input" type="date"
-                         [value]="doc.validTo" (input)="doc.validTo = $any($event.target).value" /></td>
-              <td>
-                <div class="vp-file-cell">
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onVehicleDocFile($event, $index)" />
-                  @if (doc.fileName) { <span class="vp-filename">{{ doc.fileName }}</span> }
-                </div>
-              </td>
-              <td>
-                <button class="vp-btn-del" (click)="removeVehicleDoc($index)"
-                        [disabled]="vehicleDocs().length === 1">
-                  <i class="bi bi-trash-fill"></i>
-                </button>
-              </td>
-            </tr>
+          @for (doc of docs(); track doc.id; let i = $index) {
+          <tr>
+            <td>
+              <select class="vp-cell-select" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)">
+                <option value="">— Type —</option>
+                @for (t of availableDocTypes(doc); track t) { <option [value]="t">{{ t }}</option> }
+              </select>
+            </td>
+            <td><input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo" (input)="onDocNoInput($event, doc)" maxlength="60" /></td>
+            <td><input type="date" class="vp-cell-input" [(ngModel)]="doc.validUpto" [min]="reqDate()" /></td>
+            <td>
+              <div class="vp-file-cell" style="display: flex; align-items: center; gap: 10px;">
+                @if (docAlreadyUploaded(doc)) {
+                  <span class="vp-filename" [title]="doc.existingFile" style="color: #28a745; font-weight: bold; font-size: 0.85rem;"><i class="bi bi-check-circle-fill"></i> {{ (doc.existingFile && doc.existingFile.length > 20) ? doc.existingFile.substring(0, 17) + '...' : (doc.existingFile || 'Uploaded') }}</span>
+                  <label class="vp-btn-ghost" style="cursor: pointer; padding: 2px 8px; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 4px;" [for]="'doc-file-' + doc.id" title="Replace file"><i class="bi bi-arrow-repeat"></i> Replace<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
+                } @else if (doc.file) {
+                  <label class="vp-btn-ghost" style="cursor: pointer; padding: 2px 8px; font-size: 0.8rem; border: 1px solid #28a745; color: #28a745; border-radius: 4px;" [for]="'doc-file-' + doc.id" title="{{ doc.file.name }}"><i class="bi bi-file-earmark-check-fill"></i> {{ shortName(doc.file.name) }}<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
+                } @else {
+                  <label class="vp-btn-secondary" style="cursor: pointer; padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #ccc; background: #f8f9fa;" [for]="'doc-file-' + doc.id"><i class="bi bi-cloud-upload"></i> Upload<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
+                }
+              </div>
+            </td>
+            <td><button class="vp-btn-del" (click)="removeDoc(i)"><i class="bi bi-trash-fill"></i></button></td>
+          </tr>
           }
         </tbody>
       </table>
     </div>
+    }
   </div>
 
-  <!-- SECTION 4: DRIVER INFORMATION -->
   <div class="vp-section">
-    <div class="vp-section-title">Driver Information</div>
-    <div class="vp-grid-2">
-      <div class="vp-field">
-        <label class="vp-label">Driver Name</label>
-        <input class="vp-input" type="text" placeholder="Full name"
-               [value]="driverName()" (input)="driverName.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">Contact Number</label>
-        <input class="vp-input" type="tel" placeholder="10-digit mobile"
-               [value]="contactNumber()" (input)="contactNumber.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">Aadhaar Number</label>
-        <input class="vp-input" type="text" placeholder="12-digit Aadhaar"
-               [value]="aadhaarNumber()" (input)="aadhaarNumber.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">Aadhaar Copy</label>
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onAadhaarFile($event)" />
-        @if (aadhaarCopyName()) { <span class="vp-filename">{{ aadhaarCopyName() }}</span> }
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">License Number</label>
-        <input class="vp-input" type="text" placeholder="DL number"
-               [value]="licenseNumber()" (input)="licenseNumber.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">License Type</label>
-        <input class="vp-input" type="text" placeholder="e.g. LMV, HMV"
-               [value]="licenseType()" (input)="licenseType.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">License Valid From</label>
-        <input class="vp-input" type="date"
-               [value]="licenseValidFrom()" (input)="licenseValidFrom.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">License Valid To</label>
-        <input class="vp-input" type="date"
-               [value]="licenseValidTo()" (input)="licenseValidTo.set($any($event.target).value)" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">Driving License Copy</label>
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDrivingLicFile($event)" />
-        @if (drivingLicName()) { <span class="vp-filename">{{ drivingLicName() }}</span> }
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">Driver Photograph</label>
-        <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event)" />
-        @if (driverPhotoName()) { <span class="vp-filename">{{ driverPhotoName() }}</span> }
-      </div>
+    <div class="vp-section-title-row" style="margin-bottom: 20px;">
+      <span class="vp-section-title">Driver Information</span>
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()">
+        <i class="bi bi-person-plus-fill"></i> Add Driver
+      </button>
     </div>
+
+    @for (driver of drivers(); track driver.id; let i = $index) {
+      <div style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd; position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
+          <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Driver {{ i + 1 }}</h4>
+          @if (drivers().length > 1) {
+            <button class="vp-btn-del" (click)="removeDriver(i)"><i class="bi bi-trash-fill"></i> Remove</button>
+          }
+        </div>
+
+        <div class="vp-grid-2">
+          <div class="vp-field">
+            <label class="vp-label">Driver Name</label>
+            <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">Contact Number</label>
+            <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">Aadhaar Number</label>
+            <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">Aadhaar Copy</label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverAadhaarFile($event, driver)" />
+            @if (driver.aadhaarFileName) { <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.aadhaarFileName }}</span> }
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">License Number</label>
+            <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">License Type</label>
+            <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [(ngModel)]="driver.licenseType" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">License Valid From</label>
+            <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">License Valid To</label>
+            <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">Driving License Copy</label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
+            @if (driver.dlFileName) { <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.dlFileName }}</span> }
+          </div>
+          <div class="vp-field">
+            <label class="vp-label">Driver Photograph</label>
+            <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
+            @if (driver.photoFileName) { <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.photoFileName }}</span> }
+          </div>
+        </div>
+      </div>
+    }
   </div>
 
-  <!-- SECTION 5: ADDITIONAL HELPER DETAILS -->
   <div class="vp-section">
     <div class="vp-section-title-row">
-      <span class="vp-section-title">Additional Driver / Helper Details</span>
+      <span class="vp-section-title">Additional Helper Details</span>
       <button class="vp-btn-add" (click)="addHelper()">
         <i class="bi bi-plus-circle-fill"></i> Add Person
       </button>
@@ -199,27 +201,24 @@
         </thead>
         <tbody>
           @if (helpers().length === 0) {
-            <tr><td colspan="7" class="vp-empty-row">No Additional Driver / Helper Added</td></tr>
+            <tr><td colspan="7" class="vp-empty-row">No Additional Helper Added</td></tr>
           }
           @for (h of helpers(); track $index) {
             <tr>
               <td>{{ $index + 1 }}</td>
               <td>
-                <select class="vp-cell-select" [value]="h.jobType" (change)="h.jobType = $any($event.target).value">
+                <select class="vp-cell-select" [(ngModel)]="h.jobType">
                   <option value="">Select</option>
                   @for (j of jobTypeOptions; track j) { <option [value]="j">{{ j }}</option> }
                 </select>
               </td>
-              <td><input class="vp-cell-input" type="text" placeholder="Full name"
-                         [value]="h.name" (input)="h.name = $any($event.target).value" /></td>
-              <td><input class="vp-cell-input" type="tel" placeholder="Mobile"
-                         [value]="h.mobileNo" (input)="h.mobileNo = $any($event.target).value" /></td>
-              <td><input class="vp-cell-input" type="text" placeholder="Aadhaar"
-                         [value]="h.aadhaarNo" (input)="h.aadhaarNo = $any($event.target).value" /></td>
+              <td><input class="vp-cell-input" type="text" placeholder="Full name" [(ngModel)]="h.name" /></td>
+              <td><input class="vp-cell-input" type="tel" placeholder="Mobile" [(ngModel)]="h.mobileNo" /></td>
+              <td><input class="vp-cell-input" type="text" placeholder="Aadhaar" [(ngModel)]="h.aadhaarNo" /></td>
               <td>
                 <div class="vp-file-cell">
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onHelperFile($event, $index)" />
-                  @if (h.fileName) { <span class="vp-filename">{{ h.fileName }}</span> }
+                  @if (h.fileName) { <span class="vp-filename" style="color: #28a745;">{{ h.fileName }}</span> }
                 </div>
               </td>
               <td><button class="vp-btn-del" (click)="removeHelper($index)"><i class="bi bi-trash-fill"></i></button></td>
@@ -228,43 +227,17 @@
         </tbody>
       </table>
     </div>
-    <div class="vp-notice">
-      They are being allowed only for above referred work and they would work under our department's supervision and follow all safety rules.
-    </div>
   </div>
 
-  <!-- SECTION 6: APPROVAL WORKFLOW -->
-  <div class="vp-section">
-    <div class="vp-section-title">Approval Workflow</div>
-    <div class="vp-table-wrap">
-      <table class="vp-table">
-        <thead>
-          <tr><th>#</th><th>Approval Level</th><th>Approver Name</th><th>Status</th><th>Remarks</th><th>Action Date</th></tr>
-        </thead>
-        <tbody>
-          @for (row of workflowRows(); track $index) {
-            <tr>
-              <td>{{ $index + 1 }}</td>
-              <td>{{ row.level }}</td>
-              <td>{{ row.approver }}</td>
-              <td><span class="wf-badge" [ngClass]="getStatusClass(row.status)">{{ row.status }}</span></td>
-              <td>{{ row.remark }}</td>
-              <td>{{ row.date }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ACTION BUTTONS -->
   <div class="vp-actions">
-    <button class="vp-btn-secondary" (click)="saveDraft()"><i class="bi bi-floppy-fill"></i> Save Draft</button>
-    <button class="vp-btn-primary"   (click)="submitForm()" [disabled]="isSubmitting()">
+    <button class="vp-btn-secondary" (click)="saveDraft()" [disabled]="isSaving() || isSubmitting()">
+      @if (isSaving()) { <i class="bi bi-hourglass-split"></i> Saving... }
+      @else { <i class="bi bi-floppy-fill"></i> Save Draft }
+    </button>
+    <button class="vp-btn-primary" (click)="submitForm()" [disabled]="isSaving() || isSubmitting()">
       @if (isSubmitting()) { <i class="bi bi-hourglass-split"></i> Submitting... }
-      @else { <i class="bi bi-send-fill"></i> Submit }
+      @else { <i class="bi bi-send-fill"></i> Submit Request }
     </button>
     <button class="vp-btn-ghost" (click)="reset()">Reset</button>
   </div>
-
 </div>

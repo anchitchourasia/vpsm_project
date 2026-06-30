@@ -272,4 +272,13 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     const s = (r.reqStatus || '').toUpperCase();
     return this.isUploader() && (s === 'CREATED' || s === 'HOLD');
   }
+
+
+  editRecord(record: CvpsRequest): void {
+    if (!record || !record.requestNo) return;
+    this.closePanel(); // Ensure any open panel slides away
+    this.router.navigate(['/vehicle-permission/add'], { 
+      queryParams: { edit: record.requestNo } 
+    });
+  }
 }

@@ -1,6 +1,5 @@
 <div class="vpl-shell">
 
-  <!-- ── PAGE HEADER ── -->
   <div class="vpl-page-header">
     <div class="vpl-header-left">
       <i class="bi bi-truck-front-fill vpl-header-icon"></i>
@@ -23,7 +22,6 @@
     </div>
   </div>
 
-  <!-- ── PHASE C: GATE VALIDATION PANEL ── -->
   @if (showGatePanel()) {
     <div class="vpl-gate-panel">
       <div class="vpl-gate-header">
@@ -67,7 +65,6 @@
     </div>
   }
 
-  <!-- ── FILTERS ── -->
   <div class="vpl-filters">
     <div class="vpl-search-wrap">
       <i class="bi bi-search vpl-search-icon"></i>
@@ -90,7 +87,6 @@
     <div class="vpl-alert-error"><i class="bi bi-exclamation-circle"></i> {{ errorMsg() }}</div>
   }
 
-  <!-- ── TABLE CARD ── -->
   <div class="vpl-card">
     @if (isLoading()) {
       <div class="vpl-loading">
@@ -143,6 +139,12 @@
                   <button class="vpl-btn-view" (click)="openPanel(r)">
                     <i class="bi bi-eye-fill"></i> View
                   </button>
+                  
+                  @if (isUploader() && r.reqStatus === 'HOLD') {
+                    <button class="vpl-btn-view" (click)="editRecord(r)" style="background-color: #AC9457; margin-left: 6px;" title="Edit & Resubmit Form">
+                      <i class="bi bi-pencil-square"></i> Edit
+                    </button>
+                  }
                 </td>
               </tr>
             }
@@ -150,7 +152,6 @@
         </table>
       </div>
 
-      <!-- Pagination -->
       @if (totalPages > 1) {
         <div class="vpl-pagination">
           <button class="vpl-page-btn" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1">
@@ -171,7 +172,6 @@
     }
   </div>
 
-  <!-- ── PHASE B: ACTION SIDE PANEL ── -->
   @if (panelOpen() && selectedRecord()) {
     <div class="vpl-overlay" (click)="closePanel()"></div>
     <div class="vpl-side-panel">
@@ -186,7 +186,6 @@
         <button class="vpl-panel-close" (click)="closePanel()"><i class="bi bi-x-lg"></i></button>
       </div>
 
-      <!-- Request Details -->
       <div class="vpl-panel-section">
         <div class="vpl-panel-section-title">Request Details</div>
         <div class="vpl-panel-grid">
@@ -201,7 +200,6 @@
         </div>
       </div>
 
-      <!-- Personnel -->
       @if (selectedRecord()!.employeeDetails && selectedRecord()!.employeeDetails!.length > 0) {
         <div class="vpl-panel-section">
           <div class="vpl-panel-section-title">Personnel</div>
@@ -215,7 +213,6 @@
         </div>
       }
 
-      <!-- Documents -->
       @if (selectedRecord()!.vehicleDocuments && selectedRecord()!.vehicleDocuments!.length > 0) {
         <div class="vpl-panel-section">
           <div class="vpl-panel-section-title">Vehicle Documents</div>
@@ -236,7 +233,6 @@
         </div>
       }
 
-      <!-- Workflow History -->
       @if (selectedRecord()!.requestHistories && selectedRecord()!.requestHistories!.length > 0) {
         <div class="vpl-panel-section">
           <div class="vpl-panel-section-title">Workflow History</div>
@@ -251,7 +247,6 @@
         </div>
       }
 
-      <!-- ── WORKFLOW ACTION AREA (role-based) ── -->
       <div class="vpl-panel-section">
         <div class="vpl-panel-section-title">Take Action</div>
 
@@ -271,7 +266,6 @@
 
         <div class="vpl-action-btns">
 
-          <!-- CONFIRMER: can CONFIRM when status = CREATED -->
           @if (isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') {
             <button class="vpl-action-btn vpl-action-confirm" (click)="doAction('CONFIRM')"
                     [disabled]="workflowLoading()">
@@ -280,7 +274,6 @@
             </button>
           }
 
-          <!-- APPROVER: can APPROVE / REJECT / HOLD when status = CONFIRMED -->
           @if (isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED') {
             <button class="vpl-action-btn vpl-action-approve" (click)="doAction('APPROVE')"
                     [disabled]="workflowLoading()">
@@ -297,7 +290,6 @@
             </button>
           }
 
-          <!-- No action available message -->
           @if (
             !(isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') &&
             !(isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED')
