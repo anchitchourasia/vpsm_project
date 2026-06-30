@@ -24,7 +24,6 @@
         <label class="vp-label">Contractor Code</label>
         <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode()"
           (ngModelChange)="contractorCode.set($event)" (blur)="onContractorCodeChange(contractorCode())" />
-
       </div>
       <div class="vp-field">
         <label class="vp-label">Contractor Name</label>
@@ -87,7 +86,7 @@
       </button>
     </div>
 
-    @if (docs().length > 0) {
+    <!-- ✅ FIX 1: Removed @if (docs().length > 0) wrapper — table always visible -->
     <div class="vp-table-wrap">
       <table class="vp-table">
         <thead>
@@ -100,6 +99,14 @@
           </tr>
         </thead>
         <tbody>
+          <!-- ✅ Empty state row when no docs added -->
+          @if (docs().length === 0) {
+          <tr>
+            <td colspan="5" style="text-align: center; color: #adb5bd; padding: 18px; font-style: italic;">
+              No documents added yet. Click <strong>Add Document</strong> to begin.
+            </td>
+          </tr>
+          }
           @for (doc of docs(); track doc.id; let i = $index) {
           <tr>
             <td>
@@ -144,7 +151,6 @@
         </tbody>
       </table>
     </div>
-    }
   </div>
 
   <div class="vp-section">
@@ -179,12 +185,22 @@
           <label class="vp-label">Aadhaar Number</label>
           <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
         </div>
+
+        <!-- ✅ FIX 2: Show existing aadhaar file from DB on edit, without requiring re-upload -->
         <div class="vp-field">
           <label class="vp-label">Aadhaar Copy</label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverAadhaarFile($event, driver)" />
-          @if (driver.aadhaarFileName) { <span class="vp-filename" style="color: #28a745;"><i
-              class="bi bi-check-circle-fill"></i> {{ driver.aadhaarFileName }}</span> }
+          @if (driver.aadhaarFileName) {
+            <span class="vp-filename" style="color: #28a745;">
+              <i class="bi bi-check-circle-fill"></i> {{ driver.aadhaarFileName }}
+            </span>
+          } @else if (driver.aadhaarExistingFile) {
+            <span class="vp-filename" style="color: #28a745;">
+              <i class="bi bi-check-circle-fill"></i> {{ driver.aadhaarExistingFile }}
+            </span>
+          }
         </div>
+
         <div class="vp-field">
           <label class="vp-label">License Number</label>
           <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
@@ -201,12 +217,22 @@
           <label class="vp-label">License Valid To</label>
           <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
         </div>
+
+        <!-- ✅ FIX 3: Show existing DL file from DB on edit, without requiring re-upload -->
         <div class="vp-field">
           <label class="vp-label">Driving License Copy</label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
-          @if (driver.dlFileName) { <span class="vp-filename" style="color: #28a745;"><i
-              class="bi bi-check-circle-fill"></i> {{ driver.dlFileName }}</span> }
+          @if (driver.dlFileName) {
+            <span class="vp-filename" style="color: #28a745;">
+              <i class="bi bi-check-circle-fill"></i> {{ driver.dlFileName }}
+            </span>
+          } @else if (driver.dlExistingFile) {
+            <span class="vp-filename" style="color: #28a745;">
+              <i class="bi bi-check-circle-fill"></i> {{ driver.dlExistingFile }}
+            </span>
+          }
         </div>
+
         <div class="vp-field">
           <label class="vp-label">Driver Photograph</label>
           <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />

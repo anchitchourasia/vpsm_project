@@ -3,22 +3,15 @@
      ════════════════════════════════════════ -->
 <div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
 
-  <aside
-    class="sidebar"
-    [class.collapsed]="sidebarCollapsed()"
-    (click)="sidebarCollapsed() && expandSidebar()"
-  >
+  <aside class="sidebar" [class.collapsed]="sidebarCollapsed()" (click)="sidebarCollapsed() && expandSidebar()">
     <!-- BRAND ROW -->
     <div class="sb-brand">
       <div class="sb-logo">
         <img src="assets/heg-logo.png" alt="HEG" class="sb-logo-img" width="32" height="32" />
       </div>
       <span class="sb-company">HEG Limited</span>
-      <button
-        class="sb-toggle"
-        (click)="$event.stopPropagation(); toggleSidebar()"
-        [title]="sidebarCollapsed() ? 'Expand' : 'Collapse'"
-      >
+      <button class="sb-toggle" (click)="$event.stopPropagation(); toggleSidebar()"
+        [title]="sidebarCollapsed() ? 'Expand' : 'Collapse'">
         <span class="toggle-arrow" [class.rotated]="sidebarCollapsed()">
           <i class="bi bi-chevron-left"></i>
         </span>
@@ -28,328 +21,318 @@
     <!-- ✅ NAV only renders after session API resolves -->
     @if (auth.sessionReady()) {
 
-      <nav class="sb-nav">
+    <nav class="sb-nav">
 
-        <!-- ── SECTION: MAIN ── -->
-        <div class="sb-section-label">MAIN</div>
+      <!-- ── SECTION: MAIN ── -->
+      <div class="sb-section-label">MAIN</div>
 
-        <a routerLink="/" routerLinkActive="sb-active"
-           [routerLinkActiveOptions]="{exact:true}"
-           class="sb-item" (click)="$event.stopPropagation()">
-          <i class="bi bi-house-door-fill sb-icon"></i>
-          <span class="sb-label">Home</span>
-        </a>
+      <a routerLink="/" routerLinkActive="sb-active" [routerLinkActiveOptions]="{exact:true}" class="sb-item"
+        (click)="$event.stopPropagation()">
+        <i class="bi bi-house-door-fill sb-icon"></i>
+        <span class="sb-label">Home</span>
+      </a>
 
-        <!-- Dashboard — authority only -->
-        @if (auth.hasAuthority()) {
-          <a routerLink="/dashboard" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-bar-chart-line-fill sb-icon"></i>
-            <span class="sb-label">Dashboard</span>
-          </a>
-        }
+      <!-- Dashboard — authority only -->
+      @if (auth.hasAuthority()) {
+      <a routerLink="/dashboard" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+        <i class="bi bi-bar-chart-line-fill sb-icon"></i>
+        <span class="sb-label">Dashboard</span>
+      </a>
+      }
 
-        <!-- ── SECTION: PASS MANAGEMENT ── -->
-        <div class="sb-section-label">PASS MANAGEMENT</div>
+      <!-- ── SECTION: PASS MANAGEMENT ── -->
+      <div class="sb-section-label">PASS MANAGEMENT</div>
 
-        <!-- ══════════════════════════════════════════════
+      <!-- ══════════════════════════════════════════════
              REGULAR EMPLOYEE — only Add Pass + My Pass
              ══════════════════════════════════════════════ -->
-        @if (auth.isRegularUser()) {
+      @if (auth.isRegularUser()) {
 
-          <div class="sb-employee-banner">
-            <i class="bi bi-person-circle sb-emp-icon"></i>
-            <!-- <div class="sb-emp-info">
+      <div class="sb-employee-banner">
+        <i class="bi bi-person-circle sb-emp-icon"></i>
+        <!-- <div class="sb-emp-info">
               <span class="sb-emp-name">{{ auth.empCode() }}</span>
               <span class="sb-emp-tag">Employee Portal</span>
             </div> -->
-          </div>
+      </div>
 
-          <div class="sb-item sb-item-employee"
-               (click)="openPassEntry(); $event.stopPropagation()"
-               style="cursor:pointer"
-               title="Submit a new vehicle pass application">
-            <i class="bi bi-plus-circle-fill sb-icon" style="color:#AC9457"></i>
-            <span class="sb-label">
-              Add Pass
-              <i class="bi bi-box-arrow-up-right sb-external-icon"></i>
-            </span>
-          </div>
+      <div class="sb-item sb-item-employee" (click)="openPassEntry(); $event.stopPropagation()" style="cursor:pointer"
+        title="Submit a new vehicle pass application">
+        <i class="bi bi-plus-circle-fill sb-icon" style="color:#AC9457"></i>
+        <span class="sb-label">
+          Add Pass
+          <i class="bi bi-box-arrow-up-right sb-external-icon"></i>
+        </span>
+      </div>
 
-          <a routerLink="/my-pass" routerLinkActive="sb-active"
-             class="sb-item sb-item-employee"
-             (click)="$event.stopPropagation()"
-             title="View your submitted pass applications">
-            <i class="bi bi-card-list sb-icon" style="color:#AC9457"></i>
-            <span class="sb-label">Pass List</span>
-          </a>
+      <a routerLink="/my-pass" routerLinkActive="sb-active" class="sb-item sb-item-employee"
+        (click)="$event.stopPropagation()" title="View your submitted pass applications">
+        <i class="bi bi-card-list sb-icon" style="color:#AC9457"></i>
+        <span class="sb-label">Pass List</span>
+      </a>
 
-          <!-- ── VEHICLE PERMISSION — Employee sees own records only ── -->
-          <div class="sb-section-label">VEHICLE PERMISSION</div>
-          <a routerLink="/vehicle-permission/add" routerLinkActive="sb-active"
-             class="sb-item sb-item-employee"
-             (click)="$event.stopPropagation()"
-             title="Submit a new vehicle permission request">
-            <i class="bi bi-truck-front-fill sb-icon" style="color:#AC9457"></i>
-            <span class="sb-label">Add Form</span>
-          </a>
-          <a routerLink="/vehicle-permission/list" routerLinkActive="sb-active"
-             class="sb-item sb-item-employee"
-             (click)="$event.stopPropagation()"
-             title="View your vehicle permission requests">
-            <i class="bi bi-circle-fill sb-icon" style="color:#AC9457; font-size:0.5rem"></i>
-            <span class="sb-label">Contractor Details</span>
-          </a>
-        }
+      <!-- ── VEHICLE PERMISSION — Employee sees own records only ── -->
+      <div class="sb-section-label">VEHICLE PERMISSION</div>
+      <a routerLink="/vehicle-permission/add" routerLinkActive="sb-active" class="sb-item sb-item-employee"
+        (click)="$event.stopPropagation()" title="Submit a new vehicle permission request">
+        <i class="bi bi-truck-front-fill sb-icon" style="color:#AC9457"></i>
+        <span class="sb-label">Add Form</span>
+      </a>
+      <a routerLink="/vehicle-permission/list" routerLinkActive="sb-active" class="sb-item sb-item-employee"
+        (click)="$event.stopPropagation()" title="View your vehicle permission requests">
+        <i class="bi bi-circle-fill sb-icon" style="color:#AC9457; font-size:0.5rem"></i>
+        <span class="sb-label">Contractor Details</span>
+      </a>
+      }
 
-        <!-- ══ UPLOADER MENU ══ -->
-        @if (auth.isUploader()) {
-          <div class="sb-item" (click)="openPassEntry(); $event.stopPropagation()"
-               style="cursor:pointer" title="Open Pass Entry Form">
-            <i class="bi bi-plus-circle-fill sb-icon" style="color:#AC9457"></i>
-            <span class="sb-label">
-              Add Pass
-              <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem;margin-left:6px;opacity:0.55"></i>
-            </span>
-          </div>
-          <!-- <a routerLink="/authority/uploader" routerLinkActive="sb-active"
+      <!-- ══ UPLOADER MENU ══ -->
+      @if (auth.isUploader()) {
+      <div class="sb-item" (click)="openPassEntry(); $event.stopPropagation()" style="cursor:pointer"
+        title="Open Pass Entry Form">
+        <i class="bi bi-plus-circle-fill sb-icon" style="color:#AC9457"></i>
+        <span class="sb-label">
+          Add Pass
+          <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem;margin-left:6px;opacity:0.55"></i>
+        </span>
+      </div>
+      <!-- <a routerLink="/authority/uploader" routerLinkActive="sb-active"
              class="sb-item" (click)="$event.stopPropagation()">
             <i class="bi bi-card-list sb-icon"></i>
             <span class="sb-label">My Pass</span>
           </a> -->
-          <a routerLink="/passes/all" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-collection-fill sb-icon"></i>
-            <span class="sb-label">All Pass</span>
-          </a>
-        }
+      <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+        <i class="bi bi-collection-fill sb-icon"></i>
+        <span class="sb-label">All Pass</span>
+      </a>
+      }
 
-        <!-- ══ CONFIRMER MENU ══ -->
-        @if (auth.isConfirmer()) {
-          <a routerLink="/passes/all" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-collection-fill sb-icon"></i>
-            <span class="sb-label">All Pass</span>
-          </a>
-          <a routerLink="/authority/confirmer" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#AC9457"></i>
-            <span class="sb-label">
-              ← Pending for Confirmer
-              @if (pendingForConfirmer() > 0) {
-                <span class="sb-badge sb-badge-blue">{{ pendingForConfirmer() }}</span>
-              }
-            </span>
-          </a>
-        }
+      <!-- ══ CONFIRMER MENU ══ -->
+      @if (auth.isConfirmer()) {
+      <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+        <i class="bi bi-collection-fill sb-icon"></i>
+        <span class="sb-label">All Pass</span>
+      </a>
+      <a routerLink="/authority/confirmer" routerLinkActive="sb-active" class="sb-item"
+        (click)="$event.stopPropagation()">
+        <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#AC9457"></i>
+        <span class="sb-label">
+          ← Pending for Confirmer
+          @if (pendingForConfirmer() > 0) {
+          <span class="sb-badge sb-badge-blue">{{ pendingForConfirmer() }}</span>
+          }
+        </span>
+      </a>
+      }
 
-        <!-- ══ APPROVER MENU ══ -->
-        @if (auth.isApprover()) {
-          <a routerLink="/passes/all" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-collection-fill sb-icon"></i>
-            <span class="sb-label">All Pass</span>
-          </a>
-          <a routerLink="/authority/approval" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#6a1b9a"></i>
-            <span class="sb-label">
-              ← Pending for Approver
-              @if (pendingForApprover() > 0) {
-                <span class="sb-badge sb-badge-purple">{{ pendingForApprover() }}</span>
-              }
-            </span>
-          </a>
-        }
+      <!-- ══ APPROVER MENU ══ -->
+      @if (auth.isApprover()) {
+      <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+        <i class="bi bi-collection-fill sb-icon"></i>
+        <span class="sb-label">All Pass</span>
+      </a>
+      <a routerLink="/authority/approval" routerLinkActive="sb-active" class="sb-item"
+        (click)="$event.stopPropagation()">
+        <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#6a1b9a"></i>
+        <span class="sb-label">
+          ← Pending for Approver
+          @if (pendingForApprover() > 0) {
+          <span class="sb-badge sb-badge-purple">{{ pendingForApprover() }}</span>
+          }
+        </span>
+      </a>
+      }
 
-        <!-- ══ VEHICLE PERMISSION MENU ══ -->
-        @if (auth.hasAuthority()) {
-          <div class="sb-section-label">VEHICLE PERMISSION</div>
-          <div class="sb-group" [class.open]="isMenuOpen('vp')">
-            <div class="sb-item sb-parent" (click)="toggleMenu('vp', $event)">
-              <i class="bi bi-truck-front-fill sb-icon" style="color:#AC9457"></i>
-              <span class="sb-label">Vehicle Permission</span>
-              <i class="bi bi-chevron-down sb-arrow"></i>
-            </div>
-            <div class="sb-children">
-              <a routerLink="/vehicle-permission/add" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Add Form
-              </a>
-              <a routerLink="/vehicle-permission/list" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Contractor Details
-              </a>
-            </div>
-          </div>
-        }
+      <!-- ══ VEHICLE PERMISSION MENU ══ -->
+      @if (auth.hasAuthority() || auth.isConfirmer()) {
+      <div class="sb-section-label">VEHICLE PERMISSION</div>
+      <div class="sb-group" [class.open]="isMenuOpen('vp')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('vp', $event)">
+          <i class="bi bi-truck-front-fill sb-icon" style="color:#AC9457"></i>
+          <span class="sb-label">Vehicle Permission</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/vehicle-permission/add" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Add Form
+          </a>
+          <a routerLink="/vehicle-permission/list" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Contractor Details
+          </a>
 
-        <!-- Authority-only sections -->
-        <!-- ══ ADMIN ONLY — Pass Details, Vehicles Master, Pass Registry,
+          <!-- ✅ NEW: Only visible to CONFIRMER role -->
+          @if (auth.isConfirmer()) {
+          <a routerLink="/vehicle-permission/confirmer" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Permission for Confirmer
+          </a>
+          }
+        </div>
+      </div>
+      }
+
+      <!-- Authority-only sections -->
+      <!-- ══ ADMIN ONLY — Pass Details, Vehicles Master, Pass Registry,
         Documents, History, Authority
         Uploader / Confirmer / Approver do NOT see these ══ -->
-        @if (auth.isAdmin()) {
+      @if (auth.isAdmin()) {
 
-          <a routerLink="/pass-details" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-card-list sb-icon"></i>
-            <span class="sb-label">Pass Details</span>
+      <a routerLink="/pass-details" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+        <i class="bi bi-card-list sb-icon"></i>
+        <span class="sb-label">Pass Details</span>
+      </a>
+
+      <div class="sb-group" [class.open]="isMenuOpen('vehicles')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('vehicles', $event)">
+          <i class="bi bi-truck-front-fill sb-icon"></i>
+          <span class="sb-label">Vehicles Master</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/vehicles/all" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> All Vehicles
           </a>
-
-          <div class="sb-group" [class.open]="isMenuOpen('vehicles')">
-            <div class="sb-item sb-parent" (click)="toggleMenu('vehicles', $event)">
-              <i class="bi bi-truck-front-fill sb-icon"></i>
-              <span class="sb-label">Vehicles Master</span>
-              <i class="bi bi-chevron-down sb-arrow"></i>
-            </div>
-            <div class="sb-children">
-              <a routerLink="/vehicles/all" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> All Vehicles
-              </a>
-              <a routerLink="/vehicles/active" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Active Vehicles
-              </a>
-              <a routerLink="/vehicles/blacklisted" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Blacklisted
-              </a>
-            </div>
-          </div>
-
-          <div class="sb-group" [class.open]="isMenuOpen('passes')">
-            <div class="sb-item sb-parent" (click)="toggleMenu('passes', $event)">
-              <i class="bi bi-person-vcard-fill sb-icon"></i>
-              <span class="sb-label">Pass Registry</span>
-              <i class="bi bi-chevron-down sb-arrow"></i>
-            </div>
-            <div class="sb-children">
-              <a routerLink="/passes/active" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Active Passes
-              </a>
-              <a routerLink="/passes/expiring" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Expiring Passes
-              </a>
-              <a routerLink="/passes/expired" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Expired Passes
-              </a>
-              <a routerLink="/passes/surrendered" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Surrendered
-              </a>
-            </div>
-          </div>
-
-          <!-- ── COMPLIANCE ── -->
-          <div class="sb-section-label">COMPLIANCE</div>
-          <div class="sb-group" [class.open]="isMenuOpen('docs')">
-            <div class="sb-item sb-parent" (click)="toggleMenu('docs', $event)">
-              <i class="bi bi-file-earmark-text-fill sb-icon"></i>
-              <span class="sb-label">Documents</span>
-              <i class="bi bi-chevron-down sb-arrow"></i>
-            </div>
-            <div class="sb-children">
-              <a routerLink="/docs/all" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> All Documents
-              </a>
-              <a routerLink="/docs/rc" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> RC Certificate
-              </a>
-              <a routerLink="/docs/puc" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> PUC Certificate
-              </a>
-              <a routerLink="/docs/insurance" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Insurance
-              </a>
-              <a routerLink="/docs/fitness" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Fitness Certificate
-              </a>
-              <a routerLink="/docs/load-test" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Load Test
-              </a>
-            </div>
-          </div>
-
-          <!-- ── AUDIT ── -->
-          <div class="sb-section-label">AUDIT</div>
-          <a routerLink="/history" routerLinkActive="sb-active"
-             class="sb-item" (click)="$event.stopPropagation()">
-            <i class="bi bi-clock-history sb-icon"></i>
-            <span class="sb-label">History</span>
+          <a routerLink="/vehicles/active" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Active Vehicles
           </a>
+          <a routerLink="/vehicles/blacklisted" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Blacklisted
+          </a>
+        </div>
+      </div>
 
-          <!-- ── ADMIN ── -->
-          <div class="sb-section-label">ADMIN</div>
-          <div class="sb-group" [class.open]="isMenuOpen('authority')">
-            <div class="sb-item sb-parent" (click)="toggleMenu('authority', $event)">
-              <i class="bi bi-lock-fill sb-icon"></i>
-              <span class="sb-label">Authority</span>
-              <i class="bi bi-chevron-down sb-arrow"></i>
-            </div>
-            <div class="sb-children">
-              <a routerLink="/authority/company" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Company Policies
-              </a>
-              <a routerLink="/authority/gate" class="sb-child" (click)="$event.stopPropagation()">
-                <i class="bi bi-circle-fill sb-child-dot"></i> Gate Authority
-              </a>
-              @if (auth.isConfirmer()) {
-                <a routerLink="/authority/confirmer" class="sb-child" (click)="$event.stopPropagation()">
-                  <i class="bi bi-circle-fill sb-child-dot"></i> Confirmer Panel
-                </a>
-              }
-              @if (auth.isApprover()) {
-                <a routerLink="/authority/approval" class="sb-child" (click)="$event.stopPropagation()">
-                  <i class="bi bi-circle-fill sb-child-dot"></i> Approval Config
-                </a>
-              }
-              @if (auth.isUploader()) {
-                <a routerLink="/authority/uploader" class="sb-child" (click)="$event.stopPropagation()">
-                  <i class="bi bi-circle-fill sb-child-dot"></i> My Applications
-                </a>
-              }
-            </div>
-          </div>
+      <div class="sb-group" [class.open]="isMenuOpen('passes')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('passes', $event)">
+          <i class="bi bi-person-vcard-fill sb-icon"></i>
+          <span class="sb-label">Pass Registry</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/passes/active" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Active Passes
+          </a>
+          <a routerLink="/passes/expiring" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Expiring Passes
+          </a>
+          <a routerLink="/passes/expired" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Expired Passes
+          </a>
+          <a routerLink="/passes/surrendered" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Surrendered
+          </a>
+        </div>
+      </div>
 
-        }
+      <!-- ── COMPLIANCE ── -->
+      <div class="sb-section-label">COMPLIANCE</div>
+      <div class="sb-group" [class.open]="isMenuOpen('docs')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('docs', $event)">
+          <i class="bi bi-file-earmark-text-fill sb-icon"></i>
+          <span class="sb-label">Documents</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/docs/all" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> All Documents
+          </a>
+          <a routerLink="/docs/rc" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> RC Certificate
+          </a>
+          <a routerLink="/docs/puc" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> PUC Certificate
+          </a>
+          <a routerLink="/docs/insurance" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Insurance
+          </a>
+          <a routerLink="/docs/fitness" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Fitness Certificate
+          </a>
+          <a routerLink="/docs/load-test" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Load Test
+          </a>
+        </div>
+      </div>
 
-      </nav>
+      <!-- ── AUDIT ── -->
+      <div class="sb-section-label">AUDIT</div>
+      <a routerLink="/history" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+        <i class="bi bi-clock-history sb-icon"></i>
+        <span class="sb-label">History</span>
+      </a>
+
+      <!-- ── ADMIN ── -->
+      <div class="sb-section-label">ADMIN</div>
+      <div class="sb-group" [class.open]="isMenuOpen('authority')">
+        <div class="sb-item sb-parent" (click)="toggleMenu('authority', $event)">
+          <i class="bi bi-lock-fill sb-icon"></i>
+          <span class="sb-label">Authority</span>
+          <i class="bi bi-chevron-down sb-arrow"></i>
+        </div>
+        <div class="sb-children">
+          <a routerLink="/authority/company" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Company Policies
+          </a>
+          <a routerLink="/authority/gate" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Gate Authority
+          </a>
+          @if (auth.isConfirmer()) {
+          <a routerLink="/authority/confirmer" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Confirmer Panel
+          </a>
+          }
+          @if (auth.isApprover()) {
+          <a routerLink="/authority/approval" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> Approval Config
+          </a>
+          }
+          @if (auth.isUploader()) {
+          <a routerLink="/authority/uploader" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot"></i> My Applications
+          </a>
+          }
+        </div>
+      </div>
+
+      }
+
+    </nav>
 
     } @else {
-      <!-- Loading spinner while session resolves -->
-      <div class="sb-nav-loading">
-        <i class="bi bi-arrow-repeat sb-spin-icon"></i>
-        <span class="sb-loading-txt">Loading...</span>
-      </div>
+    <!-- Loading spinner while session resolves -->
+    <div class="sb-nav-loading">
+      <i class="bi bi-arrow-repeat sb-spin-icon"></i>
+      <span class="sb-loading-txt">Loading...</span>
+    </div>
     }
 
     <!-- IDENTITY CARD — logged in users -->
     @if (auth.isLoggedIn()) {
-      <div class="sb-identity-card">
-        <div class="sb-id-row">
-          <i class="bi bi-person-badge-fill sb-id-icon"></i>
-          <span class="sb-id-emp">{{ auth.empCode() }}</span>
-        </div>
-        <div class="sb-id-row">
-          <i class="bi bi-building sb-id-icon"></i>
-          <span class="sb-id-text">{{ auth.company() }}</span>
-          @if (auth.department()) {
-            <span class="sb-id-sep">·</span>
-            <span class="sb-id-text">{{ auth.department() }}</span>
-          }
-        </div>
-        <div class="sb-id-row">
-          <i class="bi bi-shield-fill-check sb-id-icon"></i>
-          <span class="sb-id-role-badge"
-            [class.badge-uploader]="auth.isUploader()"
-            [class.badge-confirmer]="auth.isConfirmer()"
-            [class.badge-approver]="auth.isApprover()"
-            [class.badge-regular]="auth.isRegularUser()">
-            {{ auth.isRegularUser() ? 'EMPLOYEE' : auth.role() }}
-          </span>
-        </div>
-        @if (auth.validTill() && auth.hasAuthority()) {
-          <div class="sb-id-row">
-            <i class="bi bi-calendar-check sb-id-icon"></i>
-            <span class="sb-id-validity">Valid till {{ auth.validTill() | date:'dd/MM/yy' }}</span>
-          </div>
+    <div class="sb-identity-card">
+      <div class="sb-id-row">
+        <i class="bi bi-person-badge-fill sb-id-icon"></i>
+        <span class="sb-id-emp">{{ auth.empCode() }}</span>
+      </div>
+      <div class="sb-id-row">
+        <i class="bi bi-building sb-id-icon"></i>
+        <span class="sb-id-text">{{ auth.company() }}</span>
+        @if (auth.department()) {
+        <span class="sb-id-sep">·</span>
+        <span class="sb-id-text">{{ auth.department() }}</span>
         }
       </div>
+      <div class="sb-id-row">
+        <i class="bi bi-shield-fill-check sb-id-icon"></i>
+        <span class="sb-id-role-badge" [class.badge-uploader]="auth.isUploader()"
+          [class.badge-confirmer]="auth.isConfirmer()" [class.badge-approver]="auth.isApprover()"
+          [class.badge-regular]="auth.isRegularUser()">
+          {{ auth.isRegularUser() ? 'EMPLOYEE' : auth.role() }}
+        </span>
+      </div>
+      @if (auth.validTill() && auth.hasAuthority()) {
+      <div class="sb-id-row">
+        <i class="bi bi-calendar-check sb-id-icon"></i>
+        <span class="sb-id-validity">Valid till {{ auth.validTill() | date:'dd/MM/yy' }}</span>
+      </div>
+      }
+    </div>
     }
 
     <!-- FOOTER -->
@@ -359,21 +342,19 @@
       </div>
       <div class="sb-footer-info">
         @if (auth.isLoggedIn()) {
-          <div class="sb-footer-name">{{ auth.empCode() }}</div>
-          <div class="sb-footer-role">
-            {{ auth.isRegularUser() ? 'Employee' : auth.company() + ' · ' + auth.role() }}
-          </div>
+        <div class="sb-footer-name">{{ auth.empCode() }}</div>
+        <div class="sb-footer-role">
+          {{ auth.isRegularUser() ? 'Employee' : auth.company() + ' · ' + auth.role() }}
+        </div>
         } @else {
-          <div class="sb-footer-name">Guest</div>
-          <div class="sb-footer-role">Not logged in</div>
+        <div class="sb-footer-name">Guest</div>
+        <div class="sb-footer-role">Not logged in</div>
         }
       </div>
       @if (auth.isLoggedIn()) {
-        <button class="sb-signout-btn"
-                (click)="auth.logout(); $event.stopPropagation()"
-                title="Sign Out">
-          <i class="bi bi-box-arrow-left"></i>
-        </button>
+      <button class="sb-signout-btn" (click)="auth.logout(); $event.stopPropagation()" title="Sign Out">
+        <i class="bi bi-box-arrow-left"></i>
+      </button>
       }
     </div>
 
