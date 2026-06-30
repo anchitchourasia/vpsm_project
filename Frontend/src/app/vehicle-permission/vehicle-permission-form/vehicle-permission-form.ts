@@ -339,12 +339,10 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
 
     const activeId = this.savedRequestNo();
 
-    // ── 🟢 FIXED: If it's a DRAFT, force a POST (create) or handle as new ──
-    // Check if the current status is DRAFT. If so, treat as a new creation 
-    // to bypass the backend's "Modification Denied" restriction.
-    const isDraft = this.status() === 'Draft';
+    // ✅ FINAL correct logic — restore isDraft check, it was RIGHT all along
+    const isDraftStatus = this.status() === 'Draft';
 
-    const step1$ = (activeId && !isDraft)
+    const step1$ = (activeId && !isDraftStatus)
       ? this.cvps.modifyRequest(activeId, step1Payload)
       : this.cvps.createRequest(step1Payload);
 
