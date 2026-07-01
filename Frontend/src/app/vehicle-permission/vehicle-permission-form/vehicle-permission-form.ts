@@ -288,8 +288,21 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
       const regularDocs = req.vehicleDocuments.filter(
         (d: any) => !DRIVER_DOC_TYPES.includes((d.documentType || '').toUpperCase().replace(/\s+/g, '_'))
       );
-      if (regularDocs.length > 0) {
-        this.docs.set(regularDocs.map((d: any) => {
+
+      // ✅ FIX: Deduplicate by docType — keep only the LATEST entry per type
+      // (highest id = most recently saved row wins)
+      const latestByType = new Map<string, any>();
+      for (const d of regularDocs) {
+        const key = (d.documentType || '').trim().toLowerCase();
+        const existing = latestByType.get(key);
+        if (!existing || (d.id && existing.id && d.id > existing.id)) {
+          latestByType.set(key, d);
+        }
+      }
+      const dedupedDocs = Array.from(latestByType.values());
+
+      if (dedupedDocs.length > 0) {
+        this.docs.set(dedupedDocs.map((d: any) => {
           const matchedType = ALLOWED_DOC_TYPES.find(
             opt => opt.toLowerCase() === (d.documentType || '').trim().toLowerCase()
           ) || d.documentType;
