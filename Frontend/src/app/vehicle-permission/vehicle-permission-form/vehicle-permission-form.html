@@ -173,6 +173,18 @@
       </div>
 
       <div class="vp-grid-2">
+
+        <!-- ✅ NEW: Role dropdown — first field in each driver card -->
+        <div class="vp-field">
+          <label class="vp-label">Role <span style="color: red;">*</span></label>
+          <select class="vp-select" [(ngModel)]="driver.role">
+            <option value="">— Select Role —</option>
+            @for (r of driverRoleOptions; track r) {
+              <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </div>
+
         <div class="vp-field">
           <label class="vp-label">Driver Name</label>
           <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
