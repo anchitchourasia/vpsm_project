@@ -13,19 +13,19 @@ import { AuthService } from '../core/auth.service';   // ✅ FIXED: ../core/ not
  * permissionFrom / permissionTo → LocalDateTime → send as "YYYY-MM-DDTHH:mm:ss"
  */
 export interface CvpsRequest {
-  requestNo       ?: number;
-  contractorId     : string;    // CHAR(9) @Size(max=9) @NotBlank
-  natureOfJob      : string;    // VARCHAR(150) @NotBlank
-  vehicleNo        : string;    // VARCHAR(20) @Size(4-20)
-  vehicleType      : string;    // VARCHAR(10) @Size(max=10)
-  permissionFrom   : string;    // "YYYY-MM-DDTHH:mm:ss"
-  permissionTo     : string;    // "YYYY-MM-DDTHH:mm:ss"
-  reqStatus       ?: string;    // default "CREATED"
-  createdBy        : string;    // CHAR(9) @Size(max=9)
-  createdDate     ?: string;
-  vehicleDocuments ?: CvpsVehicleDoc[];
-  employeeDetails  ?: CvpsPersonnel[];
-  requestHistories ?: CvpsHistory[];
+  requestNo?: number;
+  contractorId: string;    // CHAR(9) @Size(max=9) @NotBlank
+  natureOfJob: string;    // VARCHAR(150) @NotBlank
+  vehicleNo: string;    // VARCHAR(20) @Size(4-20)
+  vehicleType: string;    // VARCHAR(10) @Size(max=10)
+  permissionFrom: string;    // "YYYY-MM-DDTHH:mm:ss"
+  permissionTo: string;    // "YYYY-MM-DDTHH:mm:ss"
+  reqStatus?: string;    // default "CREATED"
+  createdBy: string;    // CHAR(9) @Size(max=9)
+  createdDate?: string;
+  vehicleDocuments?: CvpsVehicleDoc[];
+  employeeDetails?: CvpsPersonnel[];
+  requestHistories?: CvpsHistory[];
 }
 
 /**
@@ -34,12 +34,12 @@ export interface CvpsRequest {
  * Backend does LocalDate.parse(validFrom) — do NOT send datetime with T suffix
  */
 export interface CvpsVehicleDoc {
-  id           ?: number;
-  documentType  : string;    // RC | Insurance | PUC | Fitness | Load Test | AADHAAR | DL
-  documentNo    : string;
-  validFrom     : string;    // "YYYY-MM-DD"
-  validTill    ?: string;    // "YYYY-MM-DD" — optional
-  filename     ?: string;
+  id?: number;
+  documentType: string;    // RC | Insurance | PUC | Fitness | Load Test | AADHAAR | DL
+  documentNo: string;
+  validFrom: string;    // "YYYY-MM-DD"
+  validTill?: string;    // "YYYY-MM-DD" — optional
+  filename?: string;
 }
 
 /**
@@ -47,12 +47,12 @@ export interface CvpsVehicleDoc {
  * Note: field is "aadharNo" (single a) — matches Java entity exactly
  */
 export interface CvpsPersonnel {
-  id      ?: number;
-  empJob   : string;    // DRIVER | HELPER | SUPERVISOR | TECHNICIAN | LABORER | OTHER
-  empType  : string;    // CONTRACTOR (always for this system)
-  empNo   ?: number;
+  id?: number;
+  empJob: string;    // DRIVER | HELPER | SUPERVISOR | TECHNICIAN | LABORER | OTHER
+  empType: string;    // CONTRACTOR (always for this system)
+  empNo?: number;
   aadharNo?: string;    // ← "aadhar" (single a) — must match Java field name
-  name     : string;
+  name: string;
 }
 
 /**
@@ -64,9 +64,9 @@ export interface CvpsPersonnel {
  * NOTE: VERIFY / VERIFIER role does NOT exist in this system
  */
 export interface WorkflowAction {
-  action  : 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD';
-  empNo   : string;    // acting employee code — CHAR(9)
-  remarks : string;
+  action: 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD';
+  empNo: string;    // acting employee code — CHAR(9)
+  remarks: string;
 }
 
 /**
@@ -74,11 +74,11 @@ export interface WorkflowAction {
  * field is "actionTaken" — matches Java getter exactly
  */
 export interface CvpsHistory {
-  historyId   ?: number;
-  actionTaken  : string;    // CONFIRMED | APPROVED | REJECTED | HOLD
-  empNo        : string;
-  remarks     ?: string;
-  actionDate  ?: string;
+  historyId?: number;
+  actionTaken: string;    // CONFIRMED | APPROVED | REJECTED | HOLD
+  empNo: string;
+  remarks?: string;
+  actionDate?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -86,11 +86,11 @@ export interface CvpsHistory {
 // Pass these to getByStatus() for type-safe queue filtering
 // ─────────────────────────────────────────────────────────────────────────
 export const CVPS_STATUS = {
-  CREATED  : 'CREATED',    // Submitted by UPLOADER — awaiting CONFIRMER
+  CREATED: 'CREATED',    // Submitted by UPLOADER — awaiting CONFIRMER
   CONFIRMED: 'CONFIRMED',  // Confirmed — awaiting APPROVER
-  APPROVED : 'APPROVED',   // Gate pass is ACTIVE
-  REJECTED : 'REJECTED',   // Rejected by APPROVER
-  HOLD     : 'HOLD',       // On hold — can be modified and re-submitted
+  APPROVED: 'APPROVED',   // Gate pass is ACTIVE
+  REJECTED: 'REJECTED',   // Rejected by APPROVER
+  HOLD: 'HOLD',       // On hold — can be modified and re-submitted
 } as const;
 
 export type CvpsStatusType = typeof CVPS_STATUS[keyof typeof CVPS_STATUS];
@@ -119,8 +119,8 @@ export class CvpsService {
   // validFrom / validTill MUST be "YYYY-MM-DD" — LocalDate.parse() on backend
   // ROLE: UPLOADER or ADMIN
   uploadAllDocuments(
-    requestNo : number,
-    docs      : { docType: string; docNo: string; validFrom: string; validTo: string; file: File }[]
+    requestNo: number,
+    docs: { docType: string; docNo: string; validFrom: string; validTo: string; file: File }[]
   ): Observable<string> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required to upload documents.'));
@@ -128,10 +128,10 @@ export class CvpsService {
     const fd = new FormData();
     docs.forEach(d => {
       fd.append('documentType', d.docType);
-      fd.append('documentNo',   d.docNo);
-      fd.append('validFrom',    d.validFrom);
-      fd.append('validTill',    d.validTo || '');
-      fd.append('files',        d.file, d.file.name);
+      fd.append('documentNo', d.docNo);
+      fd.append('validFrom', d.validFrom);
+      fd.append('validTill', d.validTo || '');
+      fd.append('files', d.file, d.file.name);
     });
     return this.http.post<string>(
       CVPS_URLS.uploadDocs(requestNo), fd,
@@ -155,14 +155,26 @@ export class CvpsService {
   // REJECT  → APPROVER  role   → reqStatus = "REJECTED"
   // HOLD    → APPROVER  role   → reqStatus = "HOLD"
   // Each call writes an immutable row to CVPS_REQUESTS_HISTORY
+  // ── 4. POST /{requestNo}/workflow-action ──────────────────────────────
+  // CONFIRM → CONFIRMER role   → reqStatus = "CONFIRMED"
+  // APPROVE → APPROVER  role   → reqStatus = "APPROVED"
+  // REJECT  → APPROVER  role   → reqStatus = "REJECTED"
+  // HOLD    → CONFIRMER or APPROVER role → reqStatus = "HOLD" (send back for modification)
+  // Each call writes an immutable row to CVPS_REQUESTS_HISTORY
   doWorkflowAction(requestNo: number, payload: WorkflowAction): Observable<CvpsRequest> {
     const action = payload.action.toUpperCase();
+
     if (action === 'CONFIRM' && !this.auth.isConfirmer()) {
       return throwError(() => new Error('Access Denied: CONFIRMER role required.'));
     }
-    if (['APPROVE', 'REJECT', 'HOLD'].includes(action) && !this.auth.isApprover()) {
+    if (['APPROVE', 'REJECT'].includes(action) && !this.auth.isApprover()) {
       return throwError(() => new Error('Access Denied: APPROVER role required.'));
     }
+    // ✅ FIX: HOLD is allowed for CONFIRMER (send back) AND APPROVER (put on hold)
+    if (action === 'HOLD' && !this.auth.isApprover() && !this.auth.isConfirmer()) {
+      return throwError(() => new Error('Access Denied: CONFIRMER or APPROVER role required.'));
+    }
+
     return this.http.post<CvpsRequest>(CVPS_URLS.workflowAction(requestNo), payload);
   }
 
@@ -182,18 +194,18 @@ export class CvpsService {
   // If documentType not found   → treated as fresh upload (backend fallback)
   // ROLE: UPLOADER or ADMIN
   replaceDocument(
-    requestNo : number,
-    doc       : { docType: string; docNo: string; validFrom: string; validTo: string; file: File }
+    requestNo: number,
+    doc: { docType: string; docNo: string; validFrom: string; validTo: string; file: File }
   ): Observable<string> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required to replace documents.'));
     }
     const fd = new FormData();
     fd.append('documentType', doc.docType);
-    fd.append('documentNo',   doc.docNo);
-    fd.append('validFrom',    doc.validFrom);
-    fd.append('validTill',    doc.validTo || '');
-    fd.append('file',         doc.file, doc.file.name);  // singular "file" per backend @RequestParam
+    fd.append('documentNo', doc.docNo);
+    fd.append('validFrom', doc.validFrom);
+    fd.append('validTill', doc.validTo || '');
+    fd.append('file', doc.file, doc.file.name);  // singular "file" per backend @RequestParam
     return this.http.post<string>(
       CVPS_URLS.replaceDoc(requestNo), fd,
       { responseType: 'text' as 'json' }
@@ -270,8 +282,8 @@ export class CvpsService {
   // ─────────────────────────────────────────────────────────────────────
   triggerBlobDownload(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href     = url;
+    const a = document.createElement('a');
+    a.href = url;
     a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 3000);

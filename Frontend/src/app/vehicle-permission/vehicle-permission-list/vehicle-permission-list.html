@@ -138,7 +138,7 @@
                 <i class="bi bi-eye-fill"></i> View
               </button>
 
-              @if (isUploader() && (r.reqStatus === 'HOLD' || r.reqStatus === 'DRAFT')) {
+              @if (isUploader() && (r.reqStatus === 'CREATED' || r.reqStatus === 'HOLD' || r.reqStatus === 'DRAFT')) {
               <button class="vpl-btn-view" (click)="editRecord(r)" style="background-color: #AC9457; margin-left: 6px;"
                 title="Edit & Resubmit Form">
                 <i class="bi bi-pencil-square"></i> Edit
@@ -263,7 +263,8 @@
       </div>
 
       <div class="vpl-action-btns">
-        @if (isUploader() && (selectedRecord()!.reqStatus === 'DRAFT' || selectedRecord()!.reqStatus === 'HOLD')) {
+        @if (isUploader() && (selectedRecord()!.reqStatus === 'CREATED' || selectedRecord()!.reqStatus === 'DRAFT' ||
+        selectedRecord()!.reqStatus === 'HOLD')) {
         <button class="vpl-action-btn vpl-action-confirm" (click)="editRecord(selectedRecord()!)"
           [disabled]="workflowLoading()" style="background-color: #AC9457;">
           <i class="bi bi-pencil-square"></i> Edit & Resubmit
@@ -292,7 +293,9 @@
 
         @if (
         !(isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') &&
-        !(isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED')
+        !(isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED') &&
+        !(isUploader() && (selectedRecord()!.reqStatus === 'CREATED' || selectedRecord()!.reqStatus === 'DRAFT' ||
+        selectedRecord()!.reqStatus === 'HOLD'))
         ) {
         <div class="vpl-no-action">
           <i class="bi bi-info-circle"></i>

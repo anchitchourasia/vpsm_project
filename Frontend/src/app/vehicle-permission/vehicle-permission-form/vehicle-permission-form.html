@@ -40,7 +40,7 @@
         <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
           (input)="natureOfJob.set($any($event.target).value)" />
       </div>
-      <div class="vp-field"></div>
+      
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
         <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()"

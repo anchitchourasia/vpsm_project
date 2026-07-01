@@ -227,117 +227,158 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
     });
   }
 
+  // ── ✅ FIX: 2-step fetch to get full record with eager-loaded vehicleDocuments & employeeDetails ──
+  // Step 1: getAllRequests() → find vehicleNo for the given requestNo
+  // Step 2: getByVehicleNo(vehicleNo) → full record with all nested relations populated
+  // Fixes JPA lazy-load issue where getAllRequests() returned empty vehicleDocuments/employeeDetails
   private loadExistingRequestData(requestNo: number): void {
     this.cvps.getAllRequests().pipe(takeUntil(this.destroy$)).subscribe({
       next: (requests: any[]) => {
-        const req = requests.find(r => r.requestNo === requestNo);
-        if (!req) return;
-
-        // ── ✅ Status translation ──
-        if (req.reqStatus === 'HOLD') {
-          this.status.set('Need Modification');
-        } else if (req.reqStatus === 'DRAFT') {
-          this.status.set('Draft');
-        } else {
-          this.status.set(req.reqStatus || 'Draft');
+        const summary = requests.find(r => r.requestNo === requestNo);
+        if (!summary) {
+          this.errorMsg.set('❌ Request not found.');
+          return;
+        }
+        const vehicleNo = summary.vehicleNo?.trim().toUpperCase();
+        if (!vehicleNo) {
+          this.errorMsg.set('❌ Vehicle number missing on this record.');
+          return;
         }
 
-        this.contractorCode.set(req.contractorId || '');
-        this.contractorName.set(req.contractorName || req.contractorId || '');
-        this.natureOfJob.set(req.natureOfJob || '');
-        this.vehicleNumber.set(req.vehicleNo || '');
-
-        const displayType = Object.keys(VEHICLE_TYPE_MAP).find(k => VEHICLE_TYPE_MAP[k] === req.vehicleType);
-        this.vehicleType.set(displayType || req.vehicleType || '');
-
-        if (req.permissionFrom) this.permissionDateFrom.set(req.permissionFrom.split('T')[0]);
-        if (req.permissionTo) this.permissionDateTo.set(req.permissionTo.split('T')[0]);
-
-        // ── ✅ Map regular vehicle documents ──
-        if (req.vehicleDocuments && req.vehicleDocuments.length > 0) {
-          const DRIVER_DOC_TYPES = ['DL', 'LICENSE', 'PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH', 'AADHAAR', 'AADHAR', 'ADHAR'];
-          const regularDocs = req.vehicleDocuments.filter(
-            (d: any) => !DRIVER_DOC_TYPES.includes(d.documentType?.toUpperCase())
-          );
-          if (regularDocs.length > 0) {
-            this.docs.set(regularDocs.map((d: any) => {
-              const matchedType = ALLOWED_DOC_TYPES.find(
-                opt => opt.toLowerCase() === (d.documentType || '').trim().toLowerCase()
-              ) || d.documentType;
-              return {
-                id: crypto.randomUUID(),
-                docType: matchedType,
-                docNo: d.documentNo || '',
-                validUpto: d.validTill
-                  ? d.validTill.split('T')[0]
-                  : (d.validFrom ? d.validFrom.split('T')[0] : ''),
-                file: null,
-                documentId: d.id || null,
-                existingFile: d.filename
-                  ? d.filename.substring(d.filename.lastIndexOf('/') + 1)
-                  : 'Attached Document',
-              };
-            }));
+        // Step 2: Fetch FULL single record — forces eager load of all nested collections
+        this.cvps.getByVehicleNo(vehicleNo).pipe(takeUntil(this.destroy$)).subscribe({
+          next: (req: any) => {
+            // Edge case: vehicleNo has a newer request — fall back to summary data
+            if (!req || req.requestNo !== requestNo) {
+              this.populateFormFields(summary);
+            } else {
+              this.populateFormFields(req);
+            }
+          },
+          error: () => {
+            // Single-record fetch failed — still populate basic fields from summary
+            this.populateFormFields(summary);
           }
-          // No docs on a pure DRAFT → docs stays [] → user sees empty table with Add Document button
-        }
-
-        // ── ✅ Map drivers and helpers ──
-        if (req.employeeDetails && req.employeeDetails.length > 0) {
-          const driverList = req.employeeDetails.filter((e: any) => e.empJob?.toUpperCase() === 'DRIVER');
-          const dlDocs = (req.vehicleDocuments || []).filter(
-            (d: any) => ['DL', 'LICENSE'].includes(d.documentType?.toUpperCase())
-          );
-          const aadhaarDocs = (req.vehicleDocuments || []).filter(
-            (d: any) => ['AADHAAR', 'AADHAR', 'ADHAR'].includes(d.documentType?.toUpperCase())
-          );
-
-          if (driverList.length > 0) {
-            this.drivers.set(driverList.map((driverData: any, idx: number) => {
-              const dlDoc = dlDocs[idx] || {};
-              const aadhaarDoc = aadhaarDocs[idx] || {};
-              return {
-                id: crypto.randomUUID(),
-                name: driverData.name || '',
-                mobileNo: driverData.mobileNo || driverData.contactNo || '',
-                aadhaarNo: driverData.aadharNo || '',
-                licenseNo: dlDoc.documentNo || '',
-                licenseType: driverData.licType || driverData.licenseType || 'LMV',
-                validFrom: dlDoc.validFrom ? dlDoc.validFrom.split('T')[0] : '',
-                validTo: dlDoc.validTill ? dlDoc.validTill.split('T')[0] : '',
-                aadhaarFile: null,
-                aadhaarFileName: '',
-                // ✅ Populated from DB so filename shows without re-upload
-                aadhaarExistingFile: aadhaarDoc.filename
-                  ? aadhaarDoc.filename.substring(aadhaarDoc.filename.lastIndexOf('/') + 1)
-                  : '',
-                dlFile: null,
-                dlFileName: '',
-                // ✅ Populated from DB so filename shows without re-upload
-                dlExistingFile: dlDoc.filename
-                  ? dlDoc.filename.substring(dlDoc.filename.lastIndexOf('/') + 1)
-                  : '',
-                photoFile: null,
-                photoFileName: driverData.driverPhotoName || '',
-              };
-            }));
-          }
-
-          const helpersList = req.employeeDetails.filter((e: any) => e.empJob?.toUpperCase() !== 'DRIVER');
-          if (helpersList.length > 0) {
-            this.helpers.set(helpersList.map((h: any) => ({
-              jobType: h.empJob || 'Helper',
-              name: h.name || '',
-              mobileNo: h.mobileNo || '',
-              aadhaarNo: h.aadharNo || '',
-              file: null,
-              fileName: '',
-            })));
-          }
-        }
+        });
       },
       error: () => this.errorMsg.set('❌ Error loading existing record data.')
     });
+  }
+
+  // ── ✅ FIX: Extracted from loadExistingRequestData — reused for success + fallback paths ──
+  // Broadened DL/Aadhaar document type filters to catch all backend-stored variants
+  private populateFormFields(req: any): void {
+    // ── Status translation ──
+    if (req.reqStatus === 'HOLD') {
+      this.status.set('Need Modification');
+    } else if (req.reqStatus === 'DRAFT') {
+      this.status.set('Draft');
+    } else {
+      this.status.set(req.reqStatus || 'Draft');
+    }
+
+    this.contractorCode.set(req.contractorId || '');
+    this.contractorName.set(req.contractorName || req.contractorId || '');
+    this.natureOfJob.set(req.natureOfJob || '');
+    this.vehicleNumber.set(req.vehicleNo || '');
+
+    const displayType = Object.keys(VEHICLE_TYPE_MAP).find(k => VEHICLE_TYPE_MAP[k] === req.vehicleType);
+    this.vehicleType.set(displayType || req.vehicleType || '');
+
+    if (req.permissionFrom) this.permissionDateFrom.set(req.permissionFrom.split('T')[0]);
+    if (req.permissionTo)   this.permissionDateTo.set(req.permissionTo.split('T')[0]);
+
+    // ── ✅ Broadened type filters to catch all backend-stored variants ──
+    const DL_TYPES      = ['DL', 'LICENSE', 'DRIVING_LICENSE', 'DRIVINGLICENSE'];
+    const AADHAAR_TYPES = ['AADHAAR', 'AADHAR', 'ADHAR'];
+    const PHOTO_TYPES   = ['PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH', 'DRIVERPHOTO'];
+    const DRIVER_DOC_TYPES = [...DL_TYPES, ...AADHAAR_TYPES, ...PHOTO_TYPES];
+
+    // ── Map regular vehicle documents (RC, Insurance, PUC, Fitness, Load Test) ──
+    if (req.vehicleDocuments && req.vehicleDocuments.length > 0) {
+      const regularDocs = req.vehicleDocuments.filter(
+        (d: any) => !DRIVER_DOC_TYPES.includes((d.documentType || '').toUpperCase().replace(/\s+/g, '_'))
+      );
+      if (regularDocs.length > 0) {
+        this.docs.set(regularDocs.map((d: any) => {
+          const matchedType = ALLOWED_DOC_TYPES.find(
+            opt => opt.toLowerCase() === (d.documentType || '').trim().toLowerCase()
+          ) || d.documentType;
+          return {
+            id: crypto.randomUUID(),
+            docType: matchedType,
+            docNo: d.documentNo || '',
+            validUpto: d.validTill
+              ? d.validTill.split('T')[0]
+              : (d.validFrom ? d.validFrom.split('T')[0] : ''),
+            file: null,
+            documentId: d.id || null,
+            existingFile: d.filename
+              ? d.filename.substring(d.filename.lastIndexOf('/') + 1)
+              : 'Attached Document',
+          };
+        }));
+      }
+      // No docs on a pure DRAFT → docs stays [] → user sees empty table with Add Document button
+    }
+
+    // ── Map drivers and helpers ──
+    if (req.employeeDetails && req.employeeDetails.length > 0) {
+      const driverList = req.employeeDetails.filter((e: any) => e.empJob?.toUpperCase() === 'DRIVER');
+
+      const allDocs = req.vehicleDocuments || [];
+
+      // ── ✅ Broadened DL filter catches 'DRIVING_LICENSE' stored by backend positional fallback ──
+      const dlDocs = allDocs.filter(
+        (d: any) => DL_TYPES.includes((d.documentType || '').toUpperCase().replace(/\s+/g, '_'))
+      );
+      const aadhaarDocs = allDocs.filter(
+        (d: any) => AADHAAR_TYPES.includes((d.documentType || '').toUpperCase().replace(/\s+/g, '_'))
+      );
+
+      if (driverList.length > 0) {
+        this.drivers.set(driverList.map((driverData: any, idx: number) => {
+          const dlDoc      = dlDocs[idx]      || {};
+          const aadhaarDoc = aadhaarDocs[idx] || {};
+          return {
+            id: crypto.randomUUID(),
+            name:        driverData.name || '',
+            mobileNo:    driverData.mobileNo || driverData.contactNo || '',
+            aadhaarNo:   driverData.aadharNo || '',
+            licenseNo:   dlDoc.documentNo || '',
+            licenseType: driverData.licType || driverData.licenseType || 'LMV',
+            validFrom:   dlDoc.validFrom ? dlDoc.validFrom.split('T')[0] : '',
+            validTo:     dlDoc.validTill ? dlDoc.validTill.split('T')[0] : '',
+            aadhaarFile: null,
+            aadhaarFileName: '',
+            // ✅ Populated from DB so filename shows without re-upload
+            aadhaarExistingFile: aadhaarDoc.filename
+              ? aadhaarDoc.filename.substring(aadhaarDoc.filename.lastIndexOf('/') + 1)
+              : '',
+            dlFile: null,
+            dlFileName: '',
+            // ✅ Populated from DB so filename shows without re-upload
+            dlExistingFile: dlDoc.filename
+              ? dlDoc.filename.substring(dlDoc.filename.lastIndexOf('/') + 1)
+              : '',
+            photoFile: null,
+            photoFileName: driverData.driverPhotoName || '',
+          };
+        }));
+      }
+
+      const helpersList = req.employeeDetails.filter((e: any) => e.empJob?.toUpperCase() !== 'DRIVER');
+      if (helpersList.length > 0) {
+        this.helpers.set(helpersList.map((h: any) => ({
+          jobType:   h.empJob || 'Helper',
+          name:      h.name || '',
+          mobileNo:  h.mobileNo || '',
+          aadhaarNo: h.aadharNo || '',
+          file:      null,
+          fileName:  '',
+        })));
+      }
+    }
   }
 
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
