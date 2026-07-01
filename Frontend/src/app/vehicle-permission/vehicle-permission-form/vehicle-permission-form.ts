@@ -396,6 +396,39 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
           this.errorMsg.set(`Please upload a file for ${doc.docType}.`); return;
         }
       }
+      // ✅ NEW — Driver section validation
+      for (let idx = 0; idx < this.drivers().length; idx++) {
+        const d = this.drivers()[idx];
+        const label = `Person ${idx + 1} (${d.role || 'Unknown'})`;
+
+        // Case 2: Aadhaar required for ALL roles
+        if (!d.aadhaarNo?.trim()) {
+          this.errorMsg.set(`${label}: Aadhaar Number is required.`); return;
+        }
+        if (!d.aadhaarFile && !d.aadhaarExistingFile) {
+          this.errorMsg.set(`${label}: Aadhaar Copy (file) is required.`); return;
+        }
+
+        // Case 1: DL fields required only when role is Driver
+        if (d.role === 'Driver') {
+          if (!d.licenseNo?.trim()) {
+            this.errorMsg.set(`${label}: License Number is required for Driver.`); return;
+          }
+          if (!d.licenseType?.trim()) {
+            this.errorMsg.set(`${label}: License Type is required for Driver.`); return;
+          }
+          if (!d.validFrom) {
+            this.errorMsg.set(`${label}: License Valid From is required for Driver.`); return;
+          }
+          if (!d.validTo) {
+            this.errorMsg.set(`${label}: License Valid To is required for Driver.`); return;
+          }
+          if (!d.dlFile && !d.dlExistingFile) {
+            this.errorMsg.set(`${label}: Driving License Copy is required for Driver.`); return;
+          }
+        }
+      }
+      // ✅ END NEW
     }
 
     this.errorMsg.set('');

@@ -40,7 +40,7 @@
         <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
           (input)="natureOfJob.set($any($event.target).value)" />
       </div>
-      
+
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
         <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()"
@@ -174,7 +174,7 @@
 
       <div class="vp-grid-2">
 
-        <!-- ✅ NEW: Role dropdown — first field in each driver card -->
+        <!-- Role — always required -->
         <div class="vp-field">
           <label class="vp-label">Role <span style="color: red;">*</span></label>
           <select class="vp-select" [(ngModel)]="driver.role">
@@ -185,22 +185,28 @@
           </select>
         </div>
 
+        <!-- Driver Name — always required -->
         <div class="vp-field">
-          <label class="vp-label">Driver Name</label>
+          <label class="vp-label">Driver Name <span style="color: red;">*</span></label>
           <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
         </div>
+
+        <!-- Contact Number — NOT required -->
         <div class="vp-field">
           <label class="vp-label">Contact Number</label>
           <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" />
         </div>
+
+        <!-- Aadhaar Number — always required -->
         <div class="vp-field">
-          <label class="vp-label">Aadhaar Number</label>
+          <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
           <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
         </div>
 
         <!-- ✅ FIX 2: Show existing aadhaar file from DB on edit, without requiring re-upload -->
+        <!-- Aadhaar Copy — always required for all 4 roles -->
         <div class="vp-field">
-          <label class="vp-label">Aadhaar Copy</label>
+          <label class="vp-label">Aadhaar Copy <span style="color: red;">*</span></label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverAadhaarFile($event, driver)" />
           @if (driver.aadhaarFileName) {
             <span class="vp-filename" style="color: #28a745;">
@@ -213,26 +219,59 @@
           }
         </div>
 
+        <!-- License Number — required ONLY when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">License Number</label>
+          <label class="vp-label">
+            License Number
+            @if (driver.role === 'Driver') {
+              <span style="color: red;">*</span>
+            }
+          </label>
           <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
         </div>
+
+        <!-- License Type — required ONLY when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">License Type</label>
+          <label class="vp-label">
+            License Type
+            @if (driver.role === 'Driver') {
+              <span style="color: red;">*</span>
+            }
+          </label>
           <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [(ngModel)]="driver.licenseType" />
         </div>
+
+        <!-- License Valid From — required ONLY when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">License Valid From</label>
+          <label class="vp-label">
+            License Valid From
+            @if (driver.role === 'Driver') {
+              <span style="color: red;">*</span>
+            }
+          </label>
           <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" />
         </div>
+
+        <!-- License Valid To — required ONLY when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">License Valid To</label>
+          <label class="vp-label">
+            License Valid To
+            @if (driver.role === 'Driver') {
+              <span style="color: red;">*</span>
+            }
+          </label>
           <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
         </div>
 
         <!-- ✅ FIX 3: Show existing DL file from DB on edit, without requiring re-upload -->
+        <!-- Driving License Copy — required ONLY when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">Driving License Copy</label>
+          <label class="vp-label">
+            Driving License Copy
+            @if (driver.role === 'Driver') {
+              <span style="color: red;">*</span>
+            }
+          </label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
           @if (driver.dlFileName) {
             <span class="vp-filename" style="color: #28a745;">
@@ -245,12 +284,14 @@
           }
         </div>
 
+        <!-- Driver Photograph — NOT required -->
         <div class="vp-field">
           <label class="vp-label">Driver Photograph</label>
           <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
           @if (driver.photoFileName) { <span class="vp-filename" style="color: #28a745;"><i
               class="bi bi-check-circle-fill"></i> {{ driver.photoFileName }}</span> }
         </div>
+
       </div>
     </div>
     }
