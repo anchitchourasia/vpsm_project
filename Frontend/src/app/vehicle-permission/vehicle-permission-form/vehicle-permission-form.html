@@ -244,57 +244,7 @@
     }
   </div>
 
-  <div class="vp-section">
-    <div class="vp-section-title-row">
-      <span class="vp-section-title">Additional Helper Details</span>
-      <button class="vp-btn-add" (click)="addHelper()">
-        <i class="bi bi-plus-circle-fill"></i> Add Person
-      </button>
-    </div>
-    <div class="vp-table-wrap">
-      <table class="vp-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Job Type</th>
-            <th>Name</th>
-            <th>Mobile No.</th>
-            <th>Aadhaar No.</th>
-            <th>Documents</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          @if (helpers().length === 0) {
-          <tr>
-            <td colspan="7" class="vp-empty-row">No Additional Helper Added</td>
-          </tr>
-          }
-          @for (h of helpers(); track $index) {
-          <tr>
-            <td>{{ $index + 1 }}</td>
-            <td>
-              <select class="vp-cell-select" [(ngModel)]="h.jobType">
-                <option value="">Select</option>
-                @for (j of jobTypeOptions; track j) { <option [value]="j">{{ j }}</option> }
-              </select>
-            </td>
-            <td><input class="vp-cell-input" type="text" placeholder="Full name" [(ngModel)]="h.name" /></td>
-            <td><input class="vp-cell-input" type="tel" placeholder="Mobile" [(ngModel)]="h.mobileNo" /></td>
-            <td><input class="vp-cell-input" type="text" placeholder="Aadhaar" [(ngModel)]="h.aadhaarNo" /></td>
-            <td>
-              <div class="vp-file-cell">
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onHelperFile($event, $index)" />
-                @if (h.fileName) { <span class="vp-filename" style="color: #28a745;">{{ h.fileName }}</span> }
-              </div>
-            </td>
-            <td><button class="vp-btn-del" (click)="removeHelper($index)"><i class="bi bi-trash-fill"></i></button></td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </div>
+
 
   <div class="vp-actions">
     <button class="vp-btn-secondary" (click)="saveDraft()" [disabled]="isSaving() || isSubmitting()">

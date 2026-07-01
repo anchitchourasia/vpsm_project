@@ -56,14 +56,7 @@ function emptyDriver(): DriverPerson {
   };
 }
 
-interface HelperPerson {
-  jobType: string;
-  name: string;
-  mobileNo: string;
-  aadhaarNo: string;
-  file: File | null;
-  fileName: string;
-}
+
 
 const VEHICLE_TYPE_MAP: Record<string, string> = {
   'Two Wheeler': 'TWO_WHEEL',
@@ -173,15 +166,7 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
     if (f) { driver.photoFile = f; driver.photoFileName = f.name; }
   }
 
-  readonly jobTypeOptions = ['Helper', 'Supervisor', 'Technician', 'Laborer', 'Other'];
-  helpers = signal<HelperPerson[]>([]);
 
-  addHelper(): void { this.helpers.update(h => [...h, { jobType: '', name: '', mobileNo: '', aadhaarNo: '', file: null, fileName: '' }]); }
-  removeHelper(i: number): void { this.helpers.update(h => h.filter((_, idx) => idx !== i)); }
-  onHelperFile(event: Event, i: number): void {
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-    this.helpers.update(h => { const c = [...h]; c[i] = { ...c[i], file, fileName: file?.name ?? '' }; return c; });
-  }
 
   isSaving = signal(false);
   isSubmitting = signal(false);
@@ -367,17 +352,7 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
         }));
       }
 
-      const helpersList = req.employeeDetails.filter((e: any) => e.empJob?.toUpperCase() !== 'DRIVER');
-      if (helpersList.length > 0) {
-        this.helpers.set(helpersList.map((h: any) => ({
-          jobType:   h.empJob || 'Helper',
-          name:      h.name || '',
-          mobileNo:  h.mobileNo || '',
-          aadhaarNo: h.aadharNo || '',
-          file:      null,
-          fileName:  '',
-        })));
-      }
+ 
     }
   }
 
@@ -493,14 +468,7 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
             driverPhotoName: d.photoFileName || undefined,
           });
         });
-        this.helpers().filter(h => h.name.trim()).forEach(h => {
-          personnel.push({
-            empJob: h.jobType?.toUpperCase() || 'HELPER', empType: 'UNREGISTERED',
-            aadharNo: h.aadhaarNo?.trim() || undefined,
-            name: h.name.trim(),
-            mobileNo: h.mobileNo || undefined,
-          });
-        });
+     
 
         const step3$ = personnel.length > 0
           ? forkJoin(personnel.map(p => this.cvps.addPersonnel(reqNo, p).pipe(catchError(err => of(err)))))
@@ -539,7 +507,6 @@ export class VehiclePermissionForm implements OnInit, OnDestroy {
     this.vehicleType.set('');
     this.docs.set([]);
     this.drivers.set([emptyDriver()]);
-    this.helpers.set([]);
     this.savedRequestNo.set(null);
     this.status.set('Draft');
     this.saveMsg.set('');
