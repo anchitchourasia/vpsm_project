@@ -59,21 +59,19 @@ function emptyDriver(): DriverPerson {
   };
 }
 /**
- * Safely converts backend date values to 'YYYY-MM-DD' string.
+ * Safely converts a backend date value to 'YYYY-MM-DD' string.
  * Handles both:
- *   - String:  "2025-06-15T00:00:00" or "2025-06-15"
- *   - Array:   [2025, 6, 15]  ← Jackson default LocalDate serialization
+ *   - Array:  [2025, 6, 15]  ← Jackson default for Java LocalDate (NO @JsonFormat)
+ *   - String: "2025-06-15T00:00:00" or "2025-06-15"
  */
 function parseBackendDate(val: any): string {
   if (!val) return '';
-  // Array format [YYYY, M, D] from Java LocalDate
   if (Array.isArray(val) && val.length >= 3) {
     const y = val[0];
     const m = String(val[1]).padStart(2, '0');
     const d = String(val[2]).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
-  // String format
   if (typeof val === 'string') return val.split('T')[0];
   return '';
 }
@@ -309,8 +307,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const displayType = Object.keys(VEHICLE_TYPE_MAP).find(k => VEHICLE_TYPE_MAP[k] === req.vehicleType);
     this.vehicleType.set(displayType || 'Other');
 
-    if (req.permissionFrom) this.permissionDateFrom.set(req.permissionFrom.split('T')[0]);
-    if (req.permissionTo) this.permissionDateTo.set(req.permissionTo.split('T')[0]);
+    this.permissionDateFrom.set(parseBackendDate(req.permissionFrom));
+    this.permissionDateTo.set(parseBackendDate(req.permissionTo));
 
     // ── Vehicle Documents (RC, Insurance, PUC, Fitness, Load Test) ──
     if (req.vehicleDocuments && req.vehicleDocuments.length > 0) {
