@@ -47,7 +47,7 @@ export const routes: Routes = [
   { path: 'pass-list', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
 
   // VEHICLE PERMISSION — protected
-  { path: 'vehicle-permission/add', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-form/vehicle-permission-form').then(m => m.VehiclePermissionForm) },
+  { path: 'vehicle-permission/add', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-form/vehicle-permission-form').then(m => m.VehiclePermissionFormComponent) },
   { path: 'vehicle-permission/list', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-list/vehicle-permission-list').then(m => m.VehiclePermissionList) },
   { path: 'vehicle-permission/confirmer', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/contractor-confirmer/contractor-confirmer').then(m => m.ContractorConfirmerComponent) },
   // ✅ NEW route added by colleague — add this to your v6.4 app.routes.ts

@@ -183,9 +183,9 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     this.actionError.set('');
 
     const payload = {
-      action: targetAction,
+      action: targetAction as 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD',
       remarks: this.actionRemark().trim(),
-      empNo: this.auth.empCode() || 'SYSTEM' 
+      empNo: this.auth.empCode() || 'SYSTEM'
     };
 
     this.cvps.executeWorkflowAction(requestNo, payload)
