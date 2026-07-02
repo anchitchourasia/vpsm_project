@@ -201,31 +201,36 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   onContractorCodeChange(typedCode: string): void {
     const cleanCode = typedCode.trim().toUpperCase();
     this.contractorCode.set(cleanCode);
-    if (!cleanCode) { this.contractorName.set(''); this.errorMsg.set(''); return; }
+    this.contractorName.set('');
+    this.errorMsg.set('');
+
+    if (!cleanCode) return;
 
     this.cvps.fetchContractorDetails().pipe(
-      timeout(12000), takeUntil(this.destroy$),
-      catchError(() => of([]))
+      timeout(12000),
+      takeUntil(this.destroy$),
+      catchError(() => {
+        this.errorMsg.set('⚠️ Could not reach employee server. Check connectivity.');
+        return of([]);
+      })
     ).subscribe((rows: any[]) => {
-      if (!rows || rows.length === 0) return;
+      if (!rows || rows.length === 0) {
+        this.errorMsg.set('⚠️ Employee server returned no data.');
+        return;
+      }
 
-      // Backend returns array rows [empCode, empName, dept, ...] OR objects
-      const match = (rows || []).find(r => {
-        const code = Array.isArray(r)
-          ? String(r[0] || '').trim().toUpperCase()
-          : String(r.empCode || r.employeeCode || r.EMP_CODE || '').trim().toUpperCase();
-        return code === cleanCode;
-      });
+      // API response shape: { empCode, name, contractorCode, contractorNo, empType, ... }
+      // User types the contractorCode (e.g. "CTR001") — match on that field
+      const match = rows.find(r =>
+        String(r.contractorCode || '').trim().toUpperCase() === cleanCode
+      );
 
       if (match) {
-        const name = Array.isArray(match)
-          ? String(match[1] || '')
-          : String(match.empName || match.employeeName || match.EMP_NAME || '');
-        this.contractorName.set(name.toUpperCase());
+        this.contractorName.set(String(match.name || '').trim().toUpperCase());
         this.errorMsg.set('');
       } else {
         this.contractorName.set('');
-        // Don't show error yet — contractor may be external/unregistered
+        this.errorMsg.set(`⚠️ Contractor code "${cleanCode}" not found in records.`);
       }
     });
   }

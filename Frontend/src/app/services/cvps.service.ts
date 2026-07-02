@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { API_CONFIG, CVPS_URLS } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 
 export interface CvpsRequest {
   requestNo?: number;
@@ -188,11 +188,14 @@ export class CvpsService {
     return this.http.get(API_CONFIG.CVPS_DOWNLOAD_EXCEL, { responseType: 'blob' });
   }
 
-  // ── 13. GET — Contractor details for name lookup ─────────────────────
-  // Calls main VPMS backend (port 8080), not CVPS (port 8086)
-  fetchContractorDetails(): Observable<any[]> {
-    return this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT);   // ← use the defined constant
-  }
+  // ── 13. GET — Employee/Contractor details for name auto-lookup ──────
+fetchContractorDetails(): Observable<any[]> {
+  const headers = new HttpHeaders({
+    'x-api-key'   : API_CONFIG.API_KEY,
+    'Accept'      : 'application/json',
+  });
+  return this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers });
+}
 
   // ── 14. POST — Upload personnel documents (DL, Aadhaar, Photo) ───────
   // ✅ FIX 3: added for vehicle-permission-form.ts uploadPersonnelDocuments()
