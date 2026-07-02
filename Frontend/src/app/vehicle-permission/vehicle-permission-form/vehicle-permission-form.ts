@@ -161,17 +161,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   addDriver(): void { this.drivers.update(d => [...d, emptyDriver()]); }
   removeDriver(i: number): void { this.drivers.update(d => d.filter((_, idx) => idx !== i)); }
 
-  onDriverAadhaarFile(e: Event, driver: DriverPerson) { 
-    const f = (e.target as HTMLInputElement).files?.[0]; 
-    if (f) { driver.aadhaarFile = f; driver.aadhaarFileName = f.name; } 
+  onDriverAadhaarFile(e: Event, driver: DriverPerson) {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (f) { driver.aadhaarFile = f; driver.aadhaarFileName = f.name; }
   }
-  onDriverDlFile(e: Event, driver: DriverPerson) { 
-    const f = (e.target as HTMLInputElement).files?.[0]; 
-    if (f) { driver.dlFile = f; driver.dlFileName = f.name; } 
+  onDriverDlFile(e: Event, driver: DriverPerson) {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (f) { driver.dlFile = f; driver.dlFileName = f.name; }
   }
-  onDriverPhotoFile(e: Event, driver: DriverPerson) { 
-    const f = (e.target as HTMLInputElement).files?.[0]; 
-    if (f) { driver.photoFile = f; driver.photoFileName = f.name; } 
+  onDriverPhotoFile(e: Event, driver: DriverPerson) {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (f) { driver.photoFile = f; driver.photoFileName = f.name; }
   }
 
   readonly jobTypeOptions = ['Helper', 'Supervisor', 'Technician', 'Laborer', 'Other'];
@@ -199,7 +199,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onContractorCodeChange(typedCode: string): void {
-    const cleanCode = typedCode.trim();
+    const cleanCode = typedCode.trim().toUpperCase();
     this.contractorCode.set(cleanCode);
     if (!cleanCode) { this.contractorName.set(''); this.errorMsg.set(''); return; }
 
@@ -208,12 +208,24 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       catchError(() => of([]))
     ).subscribe((rows: any[]) => {
       if (!rows || rows.length === 0) return;
-      const match = rows.find(r => (r.contractorNo && String(r.contractorNo).toUpperCase() === cleanCode.toUpperCase()) || (r.contractorCode && String(r.contractorCode).toUpperCase() === cleanCode.toUpperCase()) || (r.id && String(r.id) === cleanCode));
+
+      // Backend returns array rows [empCode, empName, dept, ...] OR objects
+      const match = (rows || []).find(r => {
+        const code = Array.isArray(r)
+          ? String(r[0] || '').trim().toUpperCase()
+          : String(r.empCode || r.employeeCode || r.EMP_CODE || '').trim().toUpperCase();
+        return code === cleanCode;
+      });
+
       if (match) {
-        this.contractorName.set(String(match.contractorName || match.name || match.employeeName || '').toUpperCase());
+        const name = Array.isArray(match)
+          ? String(match[1] || '')
+          : String(match.empName || match.employeeName || match.EMP_NAME || '');
+        this.contractorName.set(name.toUpperCase());
         this.errorMsg.set('');
       } else {
         this.contractorName.set('');
+        // Don't show error yet — contractor may be external/unregistered
       }
     });
   }
@@ -255,7 +267,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         if (req.employeeDetails && req.employeeDetails.length > 0) {
           const driverList = req.employeeDetails.filter((e: any) => e.empJob?.toUpperCase() === 'DRIVER');
-          
+
           const dlDocs = (req.vehicleDocuments || []).filter((d: any) => ['DL', 'LICENSE', 'DRIVING_LICENSE'].includes(d.documentType?.toUpperCase()));
           const aadhaarDocs = (req.vehicleDocuments || []).filter((d: any) => ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(d.documentType?.toUpperCase()));
 
@@ -263,7 +275,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             this.drivers.set(driverList.map((driverData: any, idx: number) => {
               const dlDoc = dlDocs[idx] || {};
               const aadhaarDoc = aadhaarDocs[idx] || {};
-              
+
               const resolvedLicenseVal = driverData.licenseNo || driverData.licenseNumber || dlDoc.documentNo || 'DL-22334455';
 
               // Extract clean file names from text path string safely
@@ -275,21 +287,21 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
                 name: driverData.name || '',
                 mobileNo: driverData.mobileNo || (driverData.empNo ? String(driverData.empNo) : '') || driverData.contactNo || '4554',
                 aadhaarNo: driverData.aadharNo || driverData.aadhaarNo || '45454',
-                
+
                 licenseNo: resolvedLicenseVal,
                 licenseNumber: resolvedLicenseVal,
-                
+
                 licenseType: driverData.licType || driverData.licenseType || 'LMV',
                 validFrom: driverData.validFrom ? driverData.validFrom.split('T')[0] : (dlDoc.validFrom ? dlDoc.validFrom.split('T')[0] : '2021-04-10'),
                 validTo: driverData.validTo || driverData.validTill ? (driverData.validTo || driverData.validTill).split('T')[0] : (dlDoc.validTill ? dlDoc.validTill.split('T')[0] : '2036-04-09'),
-                
+
                 aadhaarFile: null,
                 // ✅ FIX: Directly assigned the extracted file names so they display next to buttons
                 aadhaarFileName: driverData.aadhaarFileName || cleanAadhaarName || 'Document_Attached.pdf',
                 dlFile: null,
                 // ✅ FIX: Directly assigned the extracted file names so they display next to buttons
                 dlFileName: driverData.dlFileName || cleanDlName || 'Document_Attached.pdf',
-                
+
                 photoFile: null,
                 photoFileName: driverData.driverPhotoName || driverData.photoFileName || ''
               };
@@ -344,13 +356,13 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       vehicleType: vehicleTypeCode,
       permissionFrom: `${this.permissionDateFrom()}T00:00:00`,
       permissionTo: `${this.permissionDateTo()}T23:59:59`,
-      reqStatus: 'CREATED', 
+      reqStatus: 'CREATED',
       createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),
     };
 
     const activeId = this.savedRequestNo();
     const isModification = !!activeId;
-    
+
     if (isModification) {
       step1Payload.requestNo = activeId;
     }
@@ -370,14 +382,14 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         const personnel: any[] = [];
         this.drivers().filter(d => d.name.trim()).forEach(d => {
-          personnel.push({ 
-            empJob: 'DRIVER', 
-            empType: 'UNREGISTERED', 
-            aadharNo: d.aadhaarNo?.trim() || undefined, 
-            name: d.name.trim(), 
-            mobileNo: d.mobileNo?.trim() || undefined, 
+          personnel.push({
+            empJob: 'DRIVER',
+            empType: 'UNREGISTERED',
+            aadharNo: d.aadhaarNo?.trim() || undefined,
+            name: d.name.trim(),
+            mobileNo: d.mobileNo?.trim() || undefined,
             driverPhotoName: d.photoFileName || undefined,
-            _driverRef: d 
+            _driverRef: d
           });
         });
         this.helpers().filter(h => h.name.trim()).forEach(h => {
@@ -455,7 +467,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       vehicleType: vehicleTypeCode,
       permissionFrom: this.permissionDateFrom() ? `${this.permissionDateFrom()}T00:00:00` : `${this.reqDate()}T00:00:00`,
       permissionTo: this.permissionDateTo() ? `${this.permissionDateTo()}T23:59:59` : `${this.reqDate()}T23:59:59`,
-      reqStatus: targetStatus, 
+      reqStatus: targetStatus,
       createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),
     };
 
@@ -477,12 +489,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         const personnel: any[] = [];
         this.drivers().filter(d => d.name.trim()).forEach(d => {
-          personnel.push({ 
-            empJob: 'DRIVER', 
-            empType: 'UNREGISTERED', 
-            aadharNo: d.aadhaarNo?.trim() || undefined, 
-            name: d.name.trim(), 
-            mobileNo: d.mobileNo?.trim() || undefined, 
+          personnel.push({
+            empJob: 'DRIVER',
+            empType: 'UNREGISTERED',
+            aadharNo: d.aadhaarNo?.trim() || undefined,
+            name: d.name.trim(),
+            mobileNo: d.mobileNo?.trim() || undefined,
             driverPhotoName: d.photoFileName || undefined,
             _driverRef: d
           });

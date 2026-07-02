@@ -188,10 +188,10 @@ export class CvpsService {
     return this.http.get(API_CONFIG.CVPS_DOWNLOAD_EXCEL, { responseType: 'blob' });
   }
 
-  // ── 13. GET — Contractor details for code lookup ─────────────────────
-  // ✅ FIX 2: added for vehicle-permission-form.ts fetchContractorDetails()
+  // ── 13. GET — Contractor details for name lookup ─────────────────────
+  // Calls main VPMS backend (port 8080), not CVPS (port 8086)
   fetchContractorDetails(): Observable<any[]> {
-    return this.http.get<any[]>(`${API_CONFIG.BASE_URL}/api/reports/employee-department`);
+    return this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT);   // ← use the defined constant
   }
 
   // ── 14. POST — Upload personnel documents (DL, Aadhaar, Photo) ───────
