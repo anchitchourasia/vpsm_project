@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil, catchError, of } from 'rxjs'; // 🟢 Added catchError and of for clean stream fallback
-import { CvpsService, WorkflowAction } from '../../services/cvps.service';
+import { CvpsService } from '../../services/cvps.service';
 import { AuthService } from '../../core/auth.service';
 
 interface CvpsRequestRecord {
@@ -80,7 +80,7 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     this.hasError.set(false);
 
     // Fetching requests in 'CREATED' status for Confirmer approval queue
-    this.cvps.getByStatus('CREATED')
+    this.cvps.getRequestsByStatus('CREATED')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data: any[]) => {
@@ -178,17 +178,17 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     this.submitAction(p.requestNo, 'REJECT');
   }
 
-  private submitAction(requestNo: number, targetAction: 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD'): void {
+  private submitAction(requestNo: number, targetAction: string): void {
     this.isActing.set(true);
     this.actionError.set('');
 
-    const payload: WorkflowAction = {
+    const payload = {
       action: targetAction,
       remarks: this.actionRemark().trim(),
-      empNo: this.auth.empCode() || 'SYSTEM'
+      empNo: this.auth.empCode() || 'SYSTEM' 
     };
 
-    this.cvps.doWorkflowAction(requestNo, payload)
+    this.cvps.executeWorkflowAction(requestNo, payload)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
