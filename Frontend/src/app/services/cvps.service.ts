@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, throwError } from 'rxjs';
 import { API_CONFIG, CVPS_URLS } from '../core/api.config';
+import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 
@@ -154,6 +155,12 @@ export class CvpsService {
   getByVehicleNo(vehicleNo: string): Observable<CvpsRequest> {
     return this.http.get<CvpsRequest>(
       CVPS_URLS.getByVehicle(vehicleNo.trim().toUpperCase())
+    );
+  }
+  // ── 7b. GET — Full record by requestNo (eager loads vehicleDocuments) ──
+  getByRequestNo(requestNo: number): Observable<CvpsRequest> {
+    return this.http.get<CvpsRequest>(
+      `${environment.cvpsBaseUrl}/api/v1/permissions/request/${requestNo}`
     );
   }
 

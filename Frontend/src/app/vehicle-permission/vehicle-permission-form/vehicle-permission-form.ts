@@ -58,6 +58,26 @@ function emptyDriver(): DriverPerson {
     photoFile: null, photoFileName: '',
   };
 }
+/**
+ * Safely converts backend date values to 'YYYY-MM-DD' string.
+ * Handles both:
+ *   - String:  "2025-06-15T00:00:00" or "2025-06-15"
+ *   - Array:   [2025, 6, 15]  ← Jackson default LocalDate serialization
+ */
+function parseBackendDate(val: any): string {
+  if (!val) return '';
+  // Array format [YYYY, M, D] from Java LocalDate
+  if (Array.isArray(val) && val.length >= 3) {
+    const y = val[0];
+    const m = String(val[1]).padStart(2, '0');
+    const d = String(val[2]).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  // String format
+  if (typeof val === 'string') return val.split('T')[0];
+  return '';
+}
+
 
 // ── KEPT from v6.4 — helpers section ──
 interface HelperPerson {
@@ -243,40 +263,31 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   private loadExistingRequestData(requestNo: number): void {
-    // ── STEP 1: Get the summary list to find vehicleNo for this requestNo ──
     this.cvps.getAllRequests().pipe(takeUntil(this.destroy$)).subscribe({
       next: (requests: any[]) => {
         const summary = requests.find(r => r.requestNo === requestNo);
-        if (!summary) {
-          this.errorMsg.set('❌ Request not found.');
-          return;
-        }
+        if (!summary) { this.errorMsg.set('❌ Request not found.'); return; }
 
-        const vehicleNo = summary.vehicleNo?.trim().toUpperCase();
-        if (!vehicleNo) {
-          // No vehicleNo yet (edge case on very first save) — fall back to summary
+        // ── If summary already has vehicleDocuments populated, use it directly ──
+        if (summary.vehicleDocuments && summary.vehicleDocuments.length > 0) {
           this.populateFormFields(summary);
           return;
         }
 
-        // ── STEP 2: Fetch FULL single record by vehicleNo ──
-        // This forces the backend to eager-load vehicleDocuments & employeeDetails
+        // ── Otherwise do 2nd fetch by vehicleNo ──
+        const vehicleNo = summary.vehicleNo?.trim().toUpperCase();
+        if (!vehicleNo) { this.populateFormFields(summary); return; }
+
         this.cvps.getByVehicleNo(vehicleNo).pipe(takeUntil(this.destroy$)).subscribe({
           next: (req: any) => {
-            // Safety: if vehicleNo has a newer requestNo, fall back to summary
-            if (!req || req.requestNo !== requestNo) {
-              this.populateFormFields(summary);
-            } else {
-              this.populateFormFields(req);
-            }
+            const hasDocuments = req?.vehicleDocuments && req.vehicleDocuments.length > 0;
+            // Use whichever response has documents
+            this.populateFormFields(hasDocuments ? req : summary);
           },
-          error: () => {
-            // Single-record fetch failed — still populate basic fields from summary
-            this.populateFormFields(summary);
-          }
+          error: () => this.populateFormFields(summary)
         });
       },
-      error: () => this.errorMsg.set('❌ Error loading current modification values.')
+      error: () => this.errorMsg.set('❌ Error loading modification values.')
     });
   }
 
@@ -317,9 +328,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             id: crypto.randomUUID(),
             docType: matchedType,
             docNo: d.documentNo || '',
-            validUpto: d.validTill
-              ? d.validTill.split('T')[0]
-              : (d.validFrom ? d.validFrom.split('T')[0] : ''),
+            validUpto: parseBackendDate(d.validTill) || parseBackendDate(d.validFrom) || '',
             file: null,
             documentId: d.id || null,
             existingFile: d.filename
@@ -359,8 +368,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             licenseNo: resolvedLicenseVal,
             licenseNumber: resolvedLicenseVal,
             licenseType: driverData.licType || driverData.licenseType || 'LMV',
-            validFrom: dlDoc.validFrom ? dlDoc.validFrom.split('T')[0] : (driverData.validFrom ? driverData.validFrom.split('T')[0] : ''),
-            validTo: dlDoc.validTill ? dlDoc.validTill.split('T')[0] : (driverData.validTo ? driverData.validTo.split('T')[0] : ''),
+            validFrom: parseBackendDate(dlDoc.validFrom) || parseBackendDate(driverData.validFrom) || '',
+            validTo: parseBackendDate(dlDoc.validTill) || parseBackendDate(driverData.validTo) || '',
             aadhaarFile: null,
             aadhaarFileName: driverData.aadhaarFileName || cleanAadhaarName || '',
             dlFile: null,
