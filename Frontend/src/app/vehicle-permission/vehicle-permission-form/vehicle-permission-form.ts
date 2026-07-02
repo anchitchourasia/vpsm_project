@@ -4,66 +4,103 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, finalize, switchMap, takeUntil, timeout, map } from 'rxjs/operators';
+import { catchError, finalize, switchMap, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { CvpsService, CvpsPersonnel } from '../../services/cvps.service';
-import { HttpClient, HttpHeaders } from '@angular/common/http';  // ← added HttpClient
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERFACES
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface DocEntry {
-  id: string;
-  docType: string;
-  docNo: string;
-  validUpto: string;
-  file: File | null;
-  documentId?: number;
-  existingFile?: string;
+  id         : string;
+  docType    : string;
+  docNo      : string;
+  validUpto  : string;
+  file       : File | null;
+  documentId?: number;    // set when doc was already saved → triggers replace flow
+  existingFile?: string;  // filename shown in edit mode (green tick)
 }
 
+interface DriverPerson {
+  id                 : string;
+  role               : string;   // Driver / Conductor / Helper / Other
+  name               : string;
+  mobileNo           : string;
+  aadhaarNo          : string;
+  licenseNo          : string;
+  licenseNumber?     : string;
+  licenseType        : string;
+  validFrom          : string;
+  validTo            : string;
+  aadhaarFile        : File | null;
+  aadhaarFileName    : string;
+  aadhaarExistingFile: string;   // shown when no new file chosen in edit mode
+  dlFile             : File | null;
+  dlFileName         : string;
+  dlExistingFile     : string;   // shown when no new file chosen in edit mode
+  photoFile          : File | null;
+  photoFileName      : string;
+}
+
+interface HelperPerson {
+  jobType  : string;
+  name     : string;
+  mobileNo : string;
+  aadhaarNo: string;
+  file     : File | null;
+  fileName : string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ALLOWED_DOC_TYPES = ['RC', 'Insurance', 'PUC', 'Fitness', 'Load Test'];
+
+// documentType values that belong to DRIVER — must NOT appear in vehicle-docs section
+const DRIVER_DOC_TYPES_UPPER = [
+  'DL', 'LICENSE', 'DRIVING_LICENSE',
+  'AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD',
+  'PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH',
+];
+
+const VEHICLE_TYPE_MAP: Record<string, string> = {
+  'Two Wheeler' : 'TWO_WHEEL',
+  'Four Wheeler': 'FOUR_WHEEL',
+  'Heavy Vehicle': 'HEAVY',
+  'Tractor'     : 'TRACTOR',
+  'Crane'       : 'CRANE',
+  'JCB'         : 'JCB',
+  'Fork Lift'   : 'FORKLIFT',
+  'Other'       : 'OTHER',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACTORY HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 function emptyDoc(): DocEntry {
   return { id: crypto.randomUUID(), docType: '', docNo: '', validUpto: '', file: null };
 }
 
-// ── MERGED: added role, aadhaarExistingFile, dlExistingFile from v6.8 ──
-interface DriverPerson {
-  id: string;
-  role: string;                  // ✅ v6.8 — Driver / Conductor / Helper / Other
-  name: string;
-  mobileNo: string;
-  aadhaarNo: string;
-  licenseNo: string;
-  licenseNumber?: string;        // kept from v6.4
-  licenseType: string;
-  validFrom: string;
-  validTo: string;
-  aadhaarFile: File | null;
-  aadhaarFileName: string;
-  aadhaarExistingFile: string;   // ✅ v6.8 — shows existing file in edit mode
-  dlFile: File | null;
-  dlFileName: string;
-  dlExistingFile: string;        // ✅ v6.8 — shows existing file in edit mode
-  photoFile: File | null;
-  photoFileName: string;
-}
-
 function emptyDriver(): DriverPerson {
   return {
-    id: crypto.randomUUID(),
-    role: 'Driver',
+    id: crypto.randomUUID(), role: 'Driver',
     name: '', mobileNo: '', aadhaarNo: '',
     licenseNo: '', licenseNumber: '', licenseType: '', validFrom: '', validTo: '',
     aadhaarFile: null, aadhaarFileName: '', aadhaarExistingFile: '',
-    dlFile: null, dlFileName: '', dlExistingFile: '',
-    photoFile: null, photoFileName: '',
+    dlFile: null,     dlFileName: '',     dlExistingFile: '',
+    photoFile: null,  photoFileName: '',
   };
 }
-/**
- * Safely converts a backend date value to 'YYYY-MM-DD' string.
- * Handles both:
- *   - Array:  [2025, 6, 15]  ← Jackson default for Java LocalDate (NO @JsonFormat)
- *   - String: "2025-06-15T00:00:00" or "2025-06-15"
- */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATE PARSER — handles BOTH formats from Java/Jackson:
+//   Array  → [2025, 6, 15]        (LocalDate without @JsonFormat)
+//   String → "2025-06-15T00:00"  (LocalDateTime)
+// ─────────────────────────────────────────────────────────────────────────────
 function parseBackendDate(val: any): string {
   if (!val) return '';
   if (Array.isArray(val) && val.length >= 3) {
@@ -76,86 +113,69 @@ function parseBackendDate(val: any): string {
   return '';
 }
 
-
-// ── KEPT from v6.4 — helpers section ──
-interface HelperPerson {
-  jobType: string;
-  name: string;
-  mobileNo: string;
-  aadhaarNo: string;
-  file: File | null;
-  fileName: string;
-}
-
-const VEHICLE_TYPE_MAP: Record<string, string> = {
-  'Two Wheeler': 'TWO_WHEEL',
-  'Four Wheeler': 'FOUR_WHEEL',
-  'Heavy Vehicle': 'HEAVY',
-  'Tractor': 'TRACTOR',
-  'Crane': 'CRANE',
-  'JCB': 'JCB',
-  'Fork Lift': 'FORKLIFT',
-  'Other': 'OTHER',
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Component({
-  selector: 'app-vehicle-permission-form',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
+  selector   : 'app-vehicle-permission-form',
+  standalone : true,
+  imports    : [CommonModule, FormsModule],
   templateUrl: './vehicle-permission-form.html',
-  styleUrl: './vehicle-permission-form.css',
+  styleUrl   : './vehicle-permission-form.css',
 })
 export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private auth = inject(AuthService);
-  private cvps = inject(CvpsService);
+  private router   = inject(Router);
+  private route    = inject(ActivatedRoute);
+  private auth     = inject(AuthService);
+  private cvps     = inject(CvpsService);
+  private http     = inject(HttpClient);
   private destroy$ = new Subject<void>();
-  private http = inject(HttpClient);  // ✅ v6.8
 
-  readonly formNo = 'W-OHS-SECURITY-12';
+  // ── Header ──────────────────────────────────────────────────────────────────
+  readonly formNo      = 'W-OHS-SECURITY-12';
   readonly companyName = 'HEG Limited, Mandideep';
   readonly requestDate = signal(new Date().toLocaleDateString('en-GB'));
-  readonly department = signal(this.auth.department() || 'Security');
-  readonly category = 'Vehicle Entry';
+  readonly department  = signal(this.auth.department() || 'Security');
+  readonly category    = 'Vehicle Entry';
 
   status = signal('Draft');
 
-  contractorCode = signal('');
-  contractorName = signal('');
-  reqDate = signal(new Date().toISOString().split('T')[0]);
-  natureOfJob = signal('');
+  // ── General Information ─────────────────────────────────────────────────────
+  contractorCode     = signal('');
+  contractorName     = signal('');
+  reqDate            = signal(new Date().toISOString().split('T')[0]);
+  natureOfJob        = signal('');
   permissionDateFrom = signal('');
-  permissionDateTo = signal('');
+  permissionDateTo   = signal('');
 
+  // ── Vehicle Information ─────────────────────────────────────────────────────
   vehicleNumber = signal('');
-  vehicleType = signal('');
+  vehicleType   = signal('');
 
-  readonly vehicleTypeOptions = [
-    'Two Wheeler', 'Four Wheeler', 'Heavy Vehicle',
-    'Tractor', 'Crane', 'JCB', 'Fork Lift', 'Other',
-  ];
+  readonly vehicleTypeOptions = ['Two Wheeler','Four Wheeler','Heavy Vehicle','Tractor','Crane','JCB','Fork Lift','Other'];
+  readonly driverRoleOptions  = ['Driver','Conductor','Helper','Other'];
+  readonly jobTypeOptions     = ['Helper','Supervisor','Technician','Laborer','Other'];
+  readonly ALLOWED_DOC_TYPES  = ALLOWED_DOC_TYPES;
 
-  // ✅ v6.8 — role dropdown for driver cards
-  readonly driverRoleOptions = ['Driver', 'Conductor', 'Helper', 'Other'];
-
-  // ── KEPT from v6.4 ──
-  readonly jobTypeOptions = ['Helper', 'Supervisor', 'Technician', 'Laborer', 'Other'];
-
-  readonly ALLOWED_DOC_TYPES = ALLOWED_DOC_TYPES;
+  // ── Required Documents ──────────────────────────────────────────────────────
   docs = signal<DocEntry[]>([]);
 
   addDoc(): void {
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
   }
-  removeDoc(i: number): void { this.docs.update(d => d.filter((_, idx) => idx !== i)); }
+
+  removeDoc(i: number): void {
+    this.docs.update(d => d.filter((_, idx) => idx !== i));
+  }
 
   availableDocTypes(currentDoc: DocEntry): string[] {
-    const used = this.docs().filter(d => d !== currentDoc).map(d => d.docType).filter(Boolean);
+    const used      = this.docs().filter(d => d !== currentDoc).map(d => d.docType).filter(Boolean);
     const available = ALLOWED_DOC_TYPES.filter(t => !used.includes(t));
-    if (currentDoc.docType && !available.includes(currentDoc.docType)) return [currentDoc.docType, ...available];
+    if (currentDoc.docType && !available.includes(currentDoc.docType))
+      return [currentDoc.docType, ...available];
     return available;
   }
 
@@ -164,57 +184,83 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if (dupe.length > 0) {
       setTimeout(() => { doc.docType = ''; }, 0);
       this.errorMsg.set(`${doc.docType} is already added. Each type can appear only once.`);
-    } else { this.errorMsg.set(''); }
+    } else {
+      this.errorMsg.set('');
+    }
   }
 
   onDocNoInput(event: Event, doc: DocEntry): void {
     const input = event.target as HTMLInputElement;
-    doc.docNo = input.value.toUpperCase();
+    doc.docNo   = input.value.toUpperCase();
     input.value = doc.docNo;
   }
 
   onDocFileSelected(event: Event, doc: DocEntry): void {
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
-    this.docs.update(list => list.map(d => d.id === doc.id ? { ...d, file: input.files![0], existingFile: undefined } : d));
+    // Preserve documentId so we know it's a REPLACE; clear existingFile display
+    this.docs.update(list =>
+      list.map(d => d.id === doc.id
+        ? { ...d, file: input.files![0], existingFile: undefined }
+        : d
+      )
+    );
   }
 
-  docAlreadyUploaded(doc: DocEntry): boolean { return !!doc.documentId && !!doc.existingFile && !doc.file; }
-  shortName(name: string): string { return name.length > 18 ? name.substring(0, 15) + '...' : name; }
+  /** Returns true when doc was previously saved — shows green tick + Replace button */
+  docAlreadyUploaded(doc: DocEntry): boolean {
+    return !!doc.documentId && !!doc.existingFile && !doc.file;
+  }
 
-  // ── Drivers ──
+  shortName(name: string): string {
+    return name.length > 18 ? name.substring(0, 15) + '...' : name;
+  }
+
+  // ── Drivers ─────────────────────────────────────────────────────────────────
   drivers = signal<DriverPerson[]>([emptyDriver()]);
-  addDriver(): void { this.drivers.update(d => [...d, emptyDriver()]); }
+
+  addDriver(): void    { this.drivers.update(d => [...d, emptyDriver()]); }
   removeDriver(i: number): void { this.drivers.update(d => d.filter((_, idx) => idx !== i)); }
 
-  // ✅ v6.8 — clear existingFile when user picks a new file
-  onDriverAadhaarFile(e: Event, driver: DriverPerson) {
+  onDriverAadhaarFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
     if (f) { driver.aadhaarFile = f; driver.aadhaarFileName = f.name; driver.aadhaarExistingFile = ''; }
   }
-  onDriverDlFile(e: Event, driver: DriverPerson) {
+
+  onDriverDlFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
     if (f) { driver.dlFile = f; driver.dlFileName = f.name; driver.dlExistingFile = ''; }
   }
-  onDriverPhotoFile(e: Event, driver: DriverPerson) {
+
+  onDriverPhotoFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
     if (f) { driver.photoFile = f; driver.photoFileName = f.name; }
   }
 
-  // ── KEPT from v6.4 — Helpers ──
+  // ── Helpers ─────────────────────────────────────────────────────────────────
   helpers = signal<HelperPerson[]>([]);
-  addHelper(): void { this.helpers.update(h => [...h, { jobType: '', name: '', mobileNo: '', aadhaarNo: '', file: null, fileName: '' }]); }
-  removeHelper(i: number): void { this.helpers.update(h => h.filter((_, idx) => idx !== i)); }
+
+  addHelper(): void {
+    this.helpers.update(h => [...h, { jobType: '', name: '', mobileNo: '', aadhaarNo: '', file: null, fileName: '' }]);
+  }
+  removeHelper(i: number): void {
+    this.helpers.update(h => h.filter((_, idx) => idx !== i));
+  }
   onHelperFile(event: Event, i: number): void {
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.helpers.update(h => { const c = [...h]; c[i] = { ...c[i], file, fileName: file?.name ?? '' }; return c; });
   }
 
-  isSaving = signal(false);
-  isSubmitting = signal(false);
-  saveMsg = signal('');
-  errorMsg = signal('');
+  // ── State flags ─────────────────────────────────────────────────────────────
+  isSaving       = signal(false);
+  isSubmitting   = signal(false);
+  saveMsg        = signal('');
+  errorMsg       = signal('');
   savedRequestNo = signal<number | null>(null);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LIFECYCLE
+  // ─────────────────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
@@ -227,7 +273,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ✅ v6.8 contractor lookup with x-api-key header + correct contractorCode field match
+  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CONTRACTOR CODE AUTO-LOOKUP
+  // ─────────────────────────────────────────────────────────────────────────────
+
   onContractorCodeChange(typedCode: string): void {
     const cleanCode = typedCode.trim().toUpperCase();
     this.contractorCode.set(cleanCode);
@@ -247,9 +298,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       })
     ).subscribe((rows: any[]) => {
       if (!rows || rows.length === 0) { this.errorMsg.set('Could not fetch employee list.'); return; }
-      const match = rows.find(r =>
-        r.contractorCode && String(r.contractorCode).toUpperCase() === cleanCode
-      );
+      const match = rows.find(r => r.contractorCode && String(r.contractorCode).toUpperCase() === cleanCode);
       if (match) {
         this.contractorName.set(String(match.name || '').toUpperCase());
         this.errorMsg.set('');
@@ -260,198 +309,237 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LOAD EXISTING REQUEST (EDIT MODE)
+  // ─────────────────────────────────────────────────────────────────────────────
+
   private loadExistingRequestData(requestNo: number): void {
     this.cvps.getAllRequests().pipe(takeUntil(this.destroy$)).subscribe({
       next: (requests: any[]) => {
-        const summary = requests.find(r => r.requestNo === requestNo);
-        if (!summary) { this.errorMsg.set('❌ Request not found.'); return; }
+        const record = requests.find(r => r.requestNo === requestNo);
+        if (!record) { this.errorMsg.set('❌ Request not found.'); return; }
 
-        // ── If summary already has vehicleDocuments populated, use it directly ──
-        if (summary.vehicleDocuments && summary.vehicleDocuments.length > 0) {
-          this.populateFormFields(summary);
+        // vehicleDocuments is FetchType.EAGER on backend — always present in summary list
+        if (record.vehicleDocuments && record.vehicleDocuments.length > 0) {
+          this.populateFormFields(record);
           return;
         }
 
-        // ── Otherwise do 2nd fetch by vehicleNo ──
-        const vehicleNo = summary.vehicleNo?.trim().toUpperCase();
-        if (!vehicleNo) { this.populateFormFields(summary); return; }
+        // Fallback: fetch by vehicleNo (same EAGER entity, different endpoint)
+        const vehicleNo = record.vehicleNo?.trim().toUpperCase();
+        if (!vehicleNo) { this.populateFormFields(record); return; }
 
         this.cvps.getByVehicleNo(vehicleNo).pipe(takeUntil(this.destroy$)).subscribe({
-          next: (req: any) => {
-            const hasDocuments = req?.vehicleDocuments && req.vehicleDocuments.length > 0;
-            // Use whichever response has documents
-            this.populateFormFields(hasDocuments ? req : summary);
-          },
-          error: () => this.populateFormFields(summary)
+          next : (full: any) => this.populateFormFields(
+            (full?.vehicleDocuments?.length > 0) ? full : record
+          ),
+          error: () => this.populateFormFields(record),
         });
       },
-      error: () => this.errorMsg.set('❌ Error loading modification values.')
+      error: () => this.errorMsg.set('❌ Error loading existing request data.'),
     });
   }
 
-  // ── Extracted population logic — called from both success & fallback paths ──
+  // ─────────────────────────────────────────────────────────────────────────────
+  // POPULATE FORM FIELDS FROM API RESPONSE
+  // ─────────────────────────────────────────────────────────────────────────────
+
   private populateFormFields(req: any): void {
-    if (req.reqStatus === 'HOLD') {
-      this.status.set('Need Modification');
-    } else if (req.reqStatus === 'SAVED') {
-      this.status.set('Saved');
-    } else {
-      this.status.set(req.reqStatus || 'Modification');
-    }
 
-    this.contractorCode.set(req.contractorId || '');
-    this.contractorName.set(req.contractorName || req.contractorId || '');
-    this.natureOfJob.set(req.natureOfJob || '');
-    this.vehicleNumber.set(req.vehicleNo || '');
+    // Status pill
+    const s = (req.reqStatus || '').toUpperCase();
+    if      (s === 'HOLD' ) this.status.set('Need Modification');
+    else if (s === 'SAVED') this.status.set('Saved');
+    else                    this.status.set(req.reqStatus || 'Modification');
 
-    const displayType = Object.keys(VEHICLE_TYPE_MAP).find(k => VEHICLE_TYPE_MAP[k] === req.vehicleType);
-    this.vehicleType.set(displayType || 'Other');
+    // Basic fields
+    this.contractorCode.set(req.contractorId   || '');
+    this.contractorName.set(req.contractorName  || req.contractorId || '');
+    this.natureOfJob.set(req.natureOfJob         || '');
+    this.vehicleNumber.set(req.vehicleNo          || '');
 
+    const displayType = Object.keys(VEHICLE_TYPE_MAP)
+      .find(k => VEHICLE_TYPE_MAP[k] === req.vehicleType);
+    this.vehicleType.set(displayType || req.vehicleType || 'Other');
+
+    // Dates — parseBackendDate handles [Y,M,D] array AND ISO string
     this.permissionDateFrom.set(parseBackendDate(req.permissionFrom));
     this.permissionDateTo.set(parseBackendDate(req.permissionTo));
 
-    // ── Vehicle Documents (RC, Insurance, PUC, Fitness, Load Test) ──
-    if (req.vehicleDocuments && req.vehicleDocuments.length > 0) {
-      const regularDocs = req.vehicleDocuments.filter(
-        (d: any) => !['DL', 'PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH', 'AADHAAR',
-          'AADHAR', 'ADHAR', 'DRIVING_LICENSE', 'AADHAAR_CARD']
-          .includes(d.documentType?.toUpperCase())
-      );
-      if (regularDocs.length > 0) {
-        this.docs.set(regularDocs.map((d: any) => {
-          const matchedType = ALLOWED_DOC_TYPES.find(
+    // ✅ FIX 1 + FIX 2: Required Documents — ALWAYS call docs.set()
+    // Even empty array clears stale docs from previous edit session.
+    const allVehicleDocs: any[] = req.vehicleDocuments || [];
+
+    const regularDocs = allVehicleDocs.filter(
+      (d: any) => d.documentType &&
+        !DRIVER_DOC_TYPES_UPPER.includes(d.documentType.trim().toUpperCase())
+    );
+
+    // Always set — even if regularDocs is [] (critical fix)
+    this.docs.set(
+      regularDocs.map((d: any) => {
+        const matchedType =
+          ALLOWED_DOC_TYPES.find(
             opt => opt.toLowerCase() === (d.documentType || '').trim().toLowerCase()
           ) || d.documentType;
-          return {
-            id: crypto.randomUUID(),
-            docType: matchedType,
-            docNo: d.documentNo || '',
-            validUpto: parseBackendDate(d.validTill) || parseBackendDate(d.validFrom) || '',
-            file: null,
-            documentId: d.id || null,
-            existingFile: d.filename
-              ? d.filename.substring(d.filename.lastIndexOf('/') + 1)
-              : 'Attached Document',
-          };
-        }));
-      }
-    }
 
-    // ── Drivers ──
-    if (req.employeeDetails && req.employeeDetails.length > 0) {
-      const driverList = req.employeeDetails.filter(
-        (e: any) => e.empJob?.toUpperCase() === 'DRIVER'
-      );
-      const dlDocs = (req.vehicleDocuments || []).filter(
-        (d: any) => ['DL', 'LICENSE', 'DRIVING_LICENSE'].includes(d.documentType?.toUpperCase())
-      );
-      const aadhaarDocs = (req.vehicleDocuments || []).filter(
-        (d: any) => ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(d.documentType?.toUpperCase())
-      );
+        // ✅ FIX 2: parseBackendDate handles Jackson [YYYY,M,D] array
+        const validUptoStr =
+          parseBackendDate(d.validTill) || parseBackendDate(d.validFrom) || '';
 
-      if (driverList.length > 0) {
-        this.drivers.set(driverList.map((driverData: any, idx: number) => {
-          const dlDoc = dlDocs[idx] || {};
+        return {
+          id          : crypto.randomUUID(),
+          docType     : matchedType,
+          docNo       : d.documentNo || '',
+          validUpto   : validUptoStr,
+          file        : null,
+          documentId  : d.id    || null,
+          existingFile: d.filename
+            ? d.filename.substring(d.filename.lastIndexOf('/') + 1)
+            : 'Attached Document',
+        } as DocEntry;
+      })
+    );
+
+    // ✅ FIX 3: Drivers — role + aadhaarExistingFile + dlExistingFile now included
+    const allPersonnel: any[] = req.employeeDetails || [];
+    const driverList: any[]   = allPersonnel.filter(e => e.empJob?.toUpperCase() === 'DRIVER');
+    const helpersList: any[]  = allPersonnel.filter(e => e.empJob?.toUpperCase() !== 'DRIVER');
+
+    const dlDocs      = allVehicleDocs.filter((d: any) =>
+      ['DL','LICENSE','DRIVING_LICENSE'].includes(d.documentType?.toUpperCase()));
+    const aadhaarDocs = allVehicleDocs.filter((d: any) =>
+      ['AADHAAR','AADHAR','ADHAR','AADHAAR_CARD'].includes(d.documentType?.toUpperCase()));
+
+    if (driverList.length > 0) {
+      this.drivers.set(
+        driverList.map((driverData: any, idx: number) => {
+          const dlDoc      = dlDocs[idx]      || {};
           const aadhaarDoc = aadhaarDocs[idx] || {};
-          const resolvedLicenseVal = driverData.licenseNo || driverData.licenseNumber || dlDoc.documentNo || '';
+
+          const resolvedLicense =
+            driverData.licenseNo || driverData.licenseNumber || dlDoc.documentNo || '';
+
           const cleanAadhaarName = aadhaarDoc.filename
             ? aadhaarDoc.filename.substring(aadhaarDoc.filename.lastIndexOf('/') + 1) : '';
           const cleanDlName = dlDoc.filename
             ? dlDoc.filename.substring(dlDoc.filename.lastIndexOf('/') + 1) : '';
-          return {
-            id: crypto.randomUUID(),
-            name: driverData.name || '',
-            mobileNo: driverData.mobileNo || driverData.contactNo || '',
-            aadhaarNo: driverData.aadharNo || driverData.aadhaarNo || '',
-            licenseNo: resolvedLicenseVal,
-            licenseNumber: resolvedLicenseVal,
-            licenseType: driverData.licType || driverData.licenseType || 'LMV',
-            validFrom: parseBackendDate(dlDoc.validFrom) || parseBackendDate(driverData.validFrom) || '',
-            validTo: parseBackendDate(dlDoc.validTill) || parseBackendDate(driverData.validTo) || '',
-            aadhaarFile: null,
-            aadhaarFileName: driverData.aadhaarFileName || cleanAadhaarName || '',
-            dlFile: null,
-            dlFileName: driverData.dlFileName || cleanDlName || '',
-            photoFile: null,
-            photoFileName: driverData.driverPhotoName || driverData.photoFileName || '',
-          };
-        }));
-      } else {
-        this.drivers.set([emptyDriver()]);
-      }
 
-      // ── Helpers ──
-      const helpersList = req.employeeDetails.filter(
-        (e: any) => e.empJob?.toUpperCase() !== 'DRIVER'
+          return {
+            id                 : crypto.randomUUID(),
+            role               : driverData.empJob || 'Driver',    // ✅ FIX 3a
+            name               : driverData.name || '',
+            mobileNo           : driverData.mobileNo || driverData.contactNo || '',
+            aadhaarNo          : driverData.aadharNo || driverData.aadhaarNo || '',
+            licenseNo          : resolvedLicense,
+            licenseNumber      : resolvedLicense,
+            licenseType        : driverData.licType || driverData.licenseType || 'LMV',
+            validFrom          : parseBackendDate(dlDoc.validFrom)  || parseBackendDate(driverData.validFrom) || '',
+            validTo            : parseBackendDate(dlDoc.validTill)  || parseBackendDate(driverData.validTo)   || '',
+            aadhaarFile        : null,
+            aadhaarFileName    : driverData.aadhaarFileName || cleanAadhaarName || '',
+            aadhaarExistingFile: cleanAadhaarName || '',            // ✅ FIX 3b
+            dlFile             : null,
+            dlFileName         : driverData.dlFileName || cleanDlName || '',
+            dlExistingFile     : cleanDlName || '',                 // ✅ FIX 3c
+            photoFile          : null,
+            photoFileName      : driverData.driverPhotoName || driverData.photoFileName || '',
+          } as DriverPerson;
+        })
       );
-      if (helpersList.length > 0) {
-        this.helpers.set(helpersList.map((h: any) => ({
-          jobType: h.empJob || 'Helper',
-          name: h.name || '',
-          mobileNo: h.mobileNo || '',
-          aadhaarNo: h.aadharNo || '',
-          file: null,
-          fileName: '',
-        })));
-      }
     } else {
       this.drivers.set([emptyDriver()]);
     }
+
+    if (helpersList.length > 0) {
+      this.helpers.set(
+        helpersList.map((h: any) => ({
+          jobType  : h.empJob  || 'Helper',
+          name     : h.name    || '',
+          mobileNo : h.mobileNo || '',
+          aadhaarNo: h.aadharNo || '',
+          file     : null,
+          fileName : '',
+        }))
+      );
+    }
   }
 
-  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SAVE / SUBMIT
+  // ─────────────────────────────────────────────────────────────────────────────
 
-  saveDraft(): void { this.processFormSubmission('SAVED'); }
+  saveDraft() : void { this.processFormSubmission('SAVED');   }
   submitForm(): void { this.processFormSubmission('CREATED'); }
 
   private processFormSubmission(targetStatus: string): void {
-    if (!this.contractorCode().trim()) { this.errorMsg.set('Contractor Code is required.'); return; }
-    if (!this.contractorName().trim()) { this.errorMsg.set('Contractor Name is required.'); return; }
-    if (!this.vehicleNumber().trim()) { this.errorMsg.set('Vehicle Number is required.'); return; }
-    if (!this.vehicleType()) { this.errorMsg.set('Vehicle Type is required.'); return; }
 
+    // Basic validation (always enforced)
+    if (!this.contractorCode().trim()) { this.errorMsg.set('Contractor Code is required.');  return; }
+    if (!this.contractorName().trim()) { this.errorMsg.set('Contractor Name is required.');  return; }
+    if (!this.vehicleNumber().trim())  { this.errorMsg.set('Vehicle Number is required.');   return; }
+    if (!this.vehicleType())           { this.errorMsg.set('Vehicle Type is required.');     return; }
+    if (!this.natureOfJob().trim())    { this.errorMsg.set('Nature of Job is required.');    return; }
+
+    // Strict validation only on final SUBMIT
     if (targetStatus === 'CREATED') {
-      const todayStr = this.reqDate();
-      if (!this.permissionDateFrom() || this.permissionDateFrom() < todayStr) { this.errorMsg.set('Permission Date From cannot be blank or a past date.'); return; }
-      if (!this.permissionDateTo() || this.permissionDateTo() < this.permissionDateFrom()) { this.errorMsg.set('Permission Date To is invalid.'); return; }
-
-      for (const doc of this.docs()) {
-        if (!doc.docType || !doc.docNo.trim() || !doc.validUpto) { this.errorMsg.set(`Incomplete details for Document: ${doc.docType || 'Unknown'}`); return; }
-        if (!doc.file && !this.docAlreadyUploaded(doc)) { this.errorMsg.set(`Please upload a file for ${doc.docType}.`); return; }
+      const today = this.reqDate();
+      if (!this.permissionDateFrom() || this.permissionDateFrom() < today) {
+        this.errorMsg.set('Permission Date From cannot be blank or a past date.'); return;
       }
-
-      // ✅ v6.8 — role-aware driver validation
+      if (!this.permissionDateTo() || this.permissionDateTo() < this.permissionDateFrom()) {
+        this.errorMsg.set('Permission Date To is invalid.'); return;
+      }
+      for (const doc of this.docs()) {
+        if (!doc.docType || !doc.docNo.trim() || !doc.validUpto) {
+          this.errorMsg.set(`Incomplete details for Document: ${doc.docType || 'Unknown'}`); return;
+        }
+        if (!doc.file && !this.docAlreadyUploaded(doc)) {
+          this.errorMsg.set(`Please upload a file for ${doc.docType}.`); return;
+        }
+      }
       for (let idx = 0; idx < this.drivers().length; idx++) {
-        const d = this.drivers()[idx];
+        const d     = this.drivers()[idx];
         const label = `Person ${idx + 1} (${d.role || 'Unknown'})`;
-        if (!d.aadhaarNo?.trim()) { this.errorMsg.set(`${label}: Aadhaar Number is required.`); return; }
-        if (!d.aadhaarFile && !d.aadhaarExistingFile) { this.errorMsg.set(`${label}: Aadhaar Copy is required.`); return; }
+        if (!d.aadhaarNo?.trim()) {
+          this.errorMsg.set(`${label}: Aadhaar Number is required.`); return;
+        }
+        if (!d.aadhaarFile && !d.aadhaarExistingFile) {
+          this.errorMsg.set(`${label}: Aadhaar Copy is required.`); return;
+        }
         if (d.role === 'Driver') {
-          if (!d.licenseNo?.trim()) { this.errorMsg.set(`${label}: License Number is required for Driver.`); return; }
-          if (!d.licenseType?.trim()) { this.errorMsg.set(`${label}: License Type is required for Driver.`); return; }
-          if (!d.validFrom) { this.errorMsg.set(`${label}: License Valid From is required for Driver.`); return; }
-          if (!d.validTo) { this.errorMsg.set(`${label}: License Valid To is required for Driver.`); return; }
-          if (!d.dlFile && !d.dlExistingFile) { this.errorMsg.set(`${label}: Driving License Copy is required for Driver.`); return; }
+          if (!d.licenseNo?.trim())   { this.errorMsg.set(`${label}: License Number is required.`);     return; }
+          if (!d.licenseType?.trim()) { this.errorMsg.set(`${label}: License Type is required.`);      return; }
+          if (!d.validFrom)           { this.errorMsg.set(`${label}: License Valid From is required.`); return; }
+          if (!d.validTo)             { this.errorMsg.set(`${label}: License Valid To is required.`);   return; }
+          if (!d.dlFile && !d.dlExistingFile) {
+            this.errorMsg.set(`${label}: Driving License Copy is required.`); return;
+          }
         }
       }
     }
 
-    if (!this.natureOfJob().trim()) { this.errorMsg.set('Nature of Job is required.'); return; }
     this.errorMsg.set('');
     this.isSubmitting.set(true);
     if (targetStatus === 'SAVED') this.isSaving.set(true);
 
-    const vehicleTypeCode = VEHICLE_TYPE_MAP[this.vehicleType()] || this.vehicleType().substring(0, 10).toUpperCase();
+    const vehicleTypeCode =
+      VEHICLE_TYPE_MAP[this.vehicleType()] ||
+      this.vehicleType().substring(0, 10).toUpperCase();
 
-    const step1Payload = {
-      contractorId: this.contractorCode().trim().toUpperCase().substring(0, 9),
-      natureOfJob: this.natureOfJob().trim(),
-      vehicleNo: this.vehicleNumber().trim().toUpperCase().replace(/\s/g, ''),
-      vehicleType: vehicleTypeCode,
-      permissionFrom: this.permissionDateFrom() ? `${this.permissionDateFrom()}T00:00:00` : `${this.reqDate()}T00:00:00`,
-      permissionTo: this.permissionDateTo() ? `${this.permissionDateTo()}T23:59:59` : `${this.reqDate()}T23:59:59`,
-      reqStatus: targetStatus,
-      createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),
+    const step1Payload: any = {
+      contractorId  : this.contractorCode().trim().toUpperCase().substring(0, 9),
+      natureOfJob   : this.natureOfJob().trim(),
+      vehicleNo     : this.vehicleNumber().trim().toUpperCase().replace(/\s/g, ''),
+      vehicleType   : vehicleTypeCode,
+      permissionFrom: this.permissionDateFrom()
+        ? `${this.permissionDateFrom()}T00:00:00`
+        : `${this.reqDate()}T00:00:00`,
+      permissionTo  : this.permissionDateTo()
+        ? `${this.permissionDateTo()}T23:59:59`
+        : `${this.reqDate()}T23:59:59`,
+      reqStatus     : targetStatus,
+      createdBy     : (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),
     };
 
     const activeId = this.savedRequestNo();
@@ -466,50 +554,100 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         const reqNo = created?.requestNo || activeId!;
         this.savedRequestNo.set(reqNo);
 
-        const docsToUpload = this.docs().filter(d => d.file !== null && d.docType);
+        // ✅ FIX 4: split new uploads vs replace-existing
+        const docsNew     = this.docs().filter(d => d.file !== null && !d.documentId && d.docType);
+        const docsReplace = this.docs().filter(d => d.file !== null &&  d.documentId && d.docType);
 
-        // ✅ v6.8 — bundle driver Aadhaar/DL/Photo into uploadAllDocuments
-        const extraDocs: { docType: string; docNo: string; validFrom: string; validTo: string; file: File }[] = [];
+        // Batch: vehicle docs (new only) + driver files
+        const vehicleDocEntries: { docType: string; docNo: string; validFrom: string; validTo: string; file: File }[] = [];
+
+        docsNew.forEach(d => vehicleDocEntries.push({
+          docType  : d.docType,
+          docNo    : d.docNo,
+          validFrom: this.permissionDateFrom() || this.reqDate(),
+          validTo  : d.validUpto || '',
+          file     : d.file!,
+        }));
+
         this.drivers().forEach(d => {
-          if (d.aadhaarFile) extraDocs.push({ docType: 'AADHAAR', docNo: d.aadhaarNo || 'N/A', validFrom: this.permissionDateFrom() || this.reqDate(), validTo: this.permissionDateTo(), file: d.aadhaarFile });
-          if (d.dlFile) extraDocs.push({ docType: 'DL', docNo: d.licenseNo || 'N/A', validFrom: d.validFrom || this.permissionDateFrom() || this.reqDate(), validTo: d.validTo || this.permissionDateTo(), file: d.dlFile });
-          if (d.photoFile) extraDocs.push({ docType: 'DRIVER_PHOTO', docNo: 'N/A', validFrom: this.permissionDateFrom() || this.reqDate(), validTo: this.permissionDateTo(), file: d.photoFile });
-        });
-
-        const allDocs = [
-          ...docsToUpload.map(d => ({ docType: d.docType, docNo: d.docNo, validFrom: this.permissionDateFrom() || this.reqDate(), validTo: d.validUpto || '', file: d.file! })),
-          ...extraDocs,
-        ];
-        const step2$ = allDocs.length > 0
-          ? this.cvps.uploadAllDocuments(reqNo, allDocs).pipe(catchError(err => of(`WARN:${err.message}`)))
-          : of('NO_DOCS');
-
-        const personnel: any[] = [];
-        this.drivers().filter(d => d.name.trim()).forEach(d => {
-          personnel.push({
-            empJob: (d.role || 'DRIVER').toUpperCase(),   // ✅ v6.8 — uses selected role
-            empType: 'UNREGISTERED',
-            aadharNo: d.aadhaarNo?.trim() || undefined,
-            name: d.name.trim(),
-            mobileNo: d.mobileNo?.trim() || undefined,
-            driverPhotoName: d.photoFileName || undefined,
+          if (d.aadhaarFile) vehicleDocEntries.push({
+            docType: 'AADHAAR', docNo: d.aadhaarNo || 'N/A',
+            validFrom: this.permissionDateFrom() || this.reqDate(),
+            validTo  : this.permissionDateTo(),
+            file     : d.aadhaarFile,
+          });
+          if (d.dlFile) vehicleDocEntries.push({
+            docType: 'DL', docNo: d.licenseNo || 'N/A',
+            validFrom: d.validFrom || this.permissionDateFrom() || this.reqDate(),
+            validTo  : d.validTo   || this.permissionDateTo(),
+            file     : d.dlFile,
+          });
+          if (d.photoFile) vehicleDocEntries.push({
+            docType: 'DRIVER_PHOTO', docNo: 'N/A',
+            validFrom: this.permissionDateFrom() || this.reqDate(),
+            validTo  : this.permissionDateTo(),
+            file     : d.photoFile,
           });
         });
 
-        // ── KEPT from v6.4 — helpers still go as separate personnel ──
+        // Step 2a — upload new docs (batch)
+        const step2a$ = vehicleDocEntries.length > 0
+          ? this.cvps.uploadAllDocuments(reqNo, vehicleDocEntries)
+              .pipe(catchError(err => of(`WARN:${err.message}`)))
+          : of('NO_NEW_DOCS');
+
+        // Step 2b — replace existing docs one-by-one
+        const step2b$ = docsReplace.length > 0
+          ? forkJoin(
+              docsReplace.map(d =>
+                this.cvps.replaceDocument(reqNo, {
+                  docType  : d.docType,
+                  docNo    : d.docNo,
+                  validFrom: this.permissionDateFrom() || this.reqDate(),
+                  validTo  : d.validUpto || '',
+                  file     : d.file!,
+                }).pipe(catchError(err => of(`WARN:${err.message}`)))
+              )
+            )
+          : of([]);
+
+        // Step 3 — personnel
+        const personnel: any[] = [];
+        this.drivers().filter(d => d.name.trim()).forEach(d => {
+          personnel.push({
+            empJob         : (d.role || 'DRIVER').toUpperCase(),
+            empType        : 'UNREGISTERED',
+            aadharNo       : d.aadhaarNo?.trim() || undefined,
+            name           : d.name.trim(),
+            mobileNo       : d.mobileNo?.trim()  || undefined,
+            driverPhotoName: d.photoFileName      || undefined,
+          });
+        });
         this.helpers().filter(h => h.name.trim()).forEach(h => {
-          personnel.push({ empJob: h.jobType?.toUpperCase() || 'HELPER', empType: 'UNREGISTERED', aadharNo: h.aadhaarNo?.trim() || undefined, name: h.name.trim(), mobileNo: h.mobileNo || undefined });
+          personnel.push({
+            empJob  : h.jobType?.toUpperCase() || 'HELPER',
+            empType : 'UNREGISTERED',
+            aadharNo: h.aadhaarNo?.trim() || undefined,
+            name    : h.name.trim(),
+            mobileNo: h.mobileNo || undefined,
+          });
         });
 
         const step3$ = personnel.length > 0
           ? forkJoin(personnel.map(p => this.cvps.addPersonnel(reqNo, p).pipe(catchError(err => of(err)))))
           : of([]);
 
-        return step2$.pipe(switchMap(() => step3$));
+        // Chain: 2a → 2b → 3
+        return step2a$.pipe(
+          switchMap(() => step2b$),
+          switchMap(() => step3$),
+        );
       }),
       finalize(() => { this.isSubmitting.set(false); this.isSaving.set(false); }),
       catchError(err => {
-        this.errorMsg.set(`❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`);
+        this.errorMsg.set(
+          `❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`
+        );
         return of(null);
       })
     ).subscribe(result => {
@@ -527,29 +665,44 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RESET
+  // ─────────────────────────────────────────────────────────────────────────────
+
   reset(): void {
-    this.contractorCode.set(''); this.contractorName.set('');
+    this.contractorCode.set('');
+    this.contractorName.set('');
     this.reqDate.set(new Date().toISOString().split('T')[0]);
-    this.natureOfJob.set(''); this.permissionDateFrom.set(''); this.permissionDateTo.set('');
-    this.vehicleNumber.set(''); this.vehicleType.set('');
+    this.natureOfJob.set('');
+    this.permissionDateFrom.set('');
+    this.permissionDateTo.set('');
+    this.vehicleNumber.set('');
+    this.vehicleType.set('');
     this.docs.set([]);
     this.drivers.set([emptyDriver()]);
-    this.helpers.set([]);         // ✅ kept from v6.4
+    this.helpers.set([]);
     this.savedRequestNo.set(null);
-    this.status.set('Draft'); this.saveMsg.set(''); this.errorMsg.set('');
+    this.status.set('Draft');
+    this.saveMsg.set('');
+    this.errorMsg.set('');
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STATUS CSS HELPER
+  // ─────────────────────────────────────────────────────────────────────────────
 
   getStatusClass(s: string): string {
     switch (s.toLowerCase()) {
-      case 'submitted': case 'created': return 'wf-submitted';
-      case 'confirmed': case 'pending': return 'wf-pending';
-      case 'waiting': return 'wf-waiting';
-      case 'verified': return 'wf-verified';
-      case 'approved': return 'wf-approved';
-      case 'rejected': return 'wf-rejected';
-      case 'need modification': case 'hold': return 'wf-hold';
-      case 'saved': return 'wf-draft';
-      default: return 'wf-waiting';
+      case 'submitted': case 'created' : return 'wf-submitted';
+      case 'confirmed': case 'pending' : return 'wf-pending';
+      case 'waiting'                   : return 'wf-waiting';
+      case 'verified'                  : return 'wf-verified';
+      case 'approved'                  : return 'wf-approved';
+      case 'rejected'                  : return 'wf-rejected';
+      case 'need modification':
+      case 'hold'                      : return 'wf-hold';
+      case 'saved'                     : return 'wf-draft';
+      default                          : return 'wf-waiting';
     }
   }
 }
