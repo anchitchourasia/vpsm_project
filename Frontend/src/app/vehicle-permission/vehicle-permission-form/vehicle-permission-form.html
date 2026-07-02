@@ -7,14 +7,14 @@
         <p class="vp-header-sub">{{ companyName }}</p>
       </div>
     </div>
-    
+
     <div style="display:flex; align-items:center; gap: 15px;">
-       <span class="vp-status-pill" [ngClass]="getStatusClass(status())">{{ status() }}</span>
-       <div class="vp-form-no">{{ formNo }}</div>
+      <span class="vp-status-pill" [ngClass]="getStatusClass(status())">{{ status() }}</span>
+      <div class="vp-form-no">{{ formNo }}</div>
     </div>
   </div>
 
-  @if (saveMsg())  { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
+  @if (saveMsg()) { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
   @if (errorMsg()) { <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div> }
 
   <div class="vp-section">
@@ -22,63 +22,66 @@
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Contractor Code</label>
-        <input class="vp-input" type="text" placeholder="Enter contractor code"
-               [ngModel]="contractorCode()" (ngModelChange)="onContractorCodeChange($event)" />
+        <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode()"
+          (ngModelChange)="onContractorCodeChange($event)" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Contractor Name</label>
-        <input class="vp-input" type="text" placeholder="Contractor name will auto-populate"
-               [value]="contractorName()" readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+        <input class="vp-input" type="text" placeholder="Contractor name will auto-populate" [value]="contractorName()"
+          readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Request Date</label>
-        <input class="vp-input" type="date"
-               [value]="reqDate()" readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+        <input class="vp-input" type="date" [value]="reqDate()" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Nature of Job</label>
-        <input class="vp-input" type="text" placeholder="Describe the work / job"
-               [value]="natureOfJob()" (input)="natureOfJob.set($any($event.target).value)" />
+        <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
+          (input)="natureOfJob.set($any($event.target).value)" />
       </div>
       <!-- <div class="vp-field"></div> -->
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
-        <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()" (input)="permissionDateFrom.set($any($event.target).value)" />
+        <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()"
+          (input)="permissionDateFrom.set($any($event.target).value)" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Permission Date To</label>
-        <input class="vp-input" type="date" [min]="permissionDateFrom() || reqDate()" [value]="permissionDateTo()" (input)="permissionDateTo.set($any($event.target).value)" />
+        <input class="vp-input" type="date" [min]="permissionDateFrom() || reqDate()" [value]="permissionDateTo()"
+          (input)="permissionDateTo.set($any($event.target).value)" />
       </div>
     </div>
   </div>
 
-   <div class="vp-section">
+  <div class="vp-section">
     <div class="vp-section-title">Vehicle Information</div>
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Vehicle Number</label>
-        <input class="vp-input" type="text" placeholder="e.g. MP04 AB 1234"
-               [value]="vehicleNumber()" (input)="vehicleNumber.set($any($event.target).value)" />
+        <input class="vp-input" type="text" placeholder="e.g. MP04 AB 1234" [value]="vehicleNumber()"
+          (input)="vehicleNumber.set($any($event.target).value)" />
       </div>
       <div class="vp-field">
         <label class="vp-label">Vehicle Type</label>
         <select class="vp-select" [value]="vehicleType()" (change)="vehicleType.set($any($event.target).value)">
           <option value="">Select Vehicle</option>
           @for (opt of vehicleTypeOptions; track opt) {
-            <option [value]="opt">{{ opt }}</option>
+          <option [value]="opt">{{ opt }}</option>
           }
         </select>
       </div>
     </div>
   </div>
 
-   <div class="vp-section">
+  <div class="vp-section">
     <div class="vp-section-title-row">
       <span class="vp-section-title">Required Documents</span>
       <span style="margin-left: 15px; font-weight: 600; color: #6c757d; font-size: 0.9rem;">
         {{ docs().length }} / {{ ALLOWED_DOC_TYPES.length }} added
       </span>
-      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDoc()" [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDoc()"
+        [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
         <i class="bi bi-plus-circle-fill"></i> Add Document
       </button>
     </div>
@@ -87,7 +90,13 @@
     <div class="vp-table-wrap">
       <table class="vp-table">
         <thead>
-          <tr><th>Doc Type</th><th>Doc No</th><th>Valid Upto</th><th>File (PDF)</th><th>Action</th></tr>
+          <tr>
+            <th>Doc Type</th>
+            <th>Doc No</th>
+            <th>Valid Upto</th>
+            <th>File (PDF)</th>
+            <th>Action</th>
+          </tr>
         </thead>
         <tbody>
           @for (doc of docs(); track doc.id; let i = $index) {
@@ -98,17 +107,33 @@
                 @for (t of availableDocTypes(doc); track t) { <option [value]="t">{{ t }}</option> }
               </select>
             </td>
-            <td><input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo" (input)="onDocNoInput($event, doc)" maxlength="60" /></td>
+            <td><input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo"
+                (input)="onDocNoInput($event, doc)" maxlength="60" /></td>
             <td><input type="date" class="vp-cell-input" [(ngModel)]="doc.validUpto" [min]="reqDate()" /></td>
             <td>
               <div class="vp-file-cell" style="display: flex; align-items: center; gap: 10px;">
                 @if (docAlreadyUploaded(doc)) {
-                  <span class="vp-filename" [title]="doc.existingFile" style="color: #28a745; font-weight: bold; font-size: 0.85rem;"><i class="bi bi-check-circle-fill"></i> {{ (doc.existingFile && doc.existingFile.length > 20) ? doc.existingFile.substring(0, 17) + '...' : (doc.existingFile || 'Uploaded') }}</span>
-                  <label class="vp-btn-ghost" style="cursor: pointer; padding: 2px 8px; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 4px;" [for]="'doc-file-' + doc.id" title="Replace file"><i class="bi bi-arrow-repeat"></i> Replace<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
+                <span class="vp-filename" [title]="doc.existingFile"
+                  style="color: #28a745; font-weight: bold; font-size: 0.85rem;"><i class="bi bi-check-circle-fill"></i>
+                  {{ (doc.existingFile && doc.existingFile.length > 20) ? doc.existingFile.substring(0, 17) + '...' :
+                  (doc.existingFile || 'Uploaded') }}</span>
+                <label class="vp-btn-ghost"
+                  style="cursor: pointer; padding: 2px 8px; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 4px;"
+                  [for]="'doc-file-' + doc.id" title="Replace file"><i class="bi bi-arrow-repeat"></i> Replace<input
+                    type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id"
+                    (change)="onDocFileSelected($event, doc)" /></label>
                 } @else if (doc.file) {
-                  <label class="vp-btn-ghost" style="cursor: pointer; padding: 2px 8px; font-size: 0.8rem; border: 1px solid #28a745; color: #28a745; border-radius: 4px;" [for]="'doc-file-' + doc.id" title="{{ doc.file.name }}"><i class="bi bi-file-earmark-check-fill"></i> {{ shortName(doc.file.name) }}<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
+                <label class="vp-btn-ghost"
+                  style="cursor: pointer; padding: 2px 8px; font-size: 0.8rem; border: 1px solid #28a745; color: #28a745; border-radius: 4px;"
+                  [for]="'doc-file-' + doc.id" title="{{ doc.file.name }}"><i class="bi bi-file-earmark-check-fill"></i>
+                  {{ shortName(doc.file.name) }}<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;"
+                    [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
                 } @else {
-                  <label class="vp-btn-secondary" style="cursor: pointer; padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #ccc; background: #f8f9fa;" [for]="'doc-file-' + doc.id"><i class="bi bi-cloud-upload"></i> Upload<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id" (change)="onDocFileSelected($event, doc)" /></label>
+                <label class="vp-btn-secondary"
+                  style="cursor: pointer; padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #ccc; background: #f8f9fa;"
+                  [for]="'doc-file-' + doc.id"><i class="bi bi-cloud-upload"></i> Upload<input type="file"
+                    accept=".pdf,.jpg,.jpeg,.png" style="display: none;" [id]="'doc-file-' + doc.id"
+                    (change)="onDocFileSelected($event, doc)" /></label>
                 }
               </div>
             </td>
@@ -120,7 +145,7 @@
     </div>
     }
   </div>
-
+  <!-- ── Driver Information ── -->
   <div class="vp-section">
     <div class="vp-section-title-row" style="margin-bottom: 20px;">
       <span class="vp-section-title">Driver Information</span>
@@ -130,60 +155,107 @@
     </div>
 
     @for (driver of drivers(); track driver.id; let i = $index) {
-      <div style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd; position: relative;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
-          <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Driver {{ i + 1 }}</h4>
-          @if (drivers().length > 1) {
-            <button class="vp-btn-del" (click)="removeDriver(i)"><i class="bi bi-trash-fill"></i> Remove</button>
+    <div
+      style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
+      <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
+        <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Person {{ i + 1 }}</h4>
+        @if (drivers().length > 1) {
+        <button class="vp-btn-del" (click)="removeDriver(i)"><i class="bi bi-trash-fill"></i> Remove</button>
+        }
+      </div>
+
+      <div class="vp-grid-2">
+
+        <!-- ✅ v6.8 Role dropdown -->
+        <div class="vp-field">
+          <label class="vp-label">Role <span style="color: red;">*</span></label>
+          <select class="vp-select" [(ngModel)]="driver.role">
+            <option value="">— Select Role —</option>
+            @for (r of driverRoleOptions; track r) {
+            <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="vp-field">
+          <label class="vp-label">Driver Name <span style="color: red;">*</span></label>
+          <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
+        </div>
+
+        <div class="vp-field">
+          <label class="vp-label">Contact Number</label>
+          <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" />
+        </div>
+
+        <div class="vp-field">
+          <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
+          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
+        </div>
+
+        <!-- ✅ v6.8 Aadhaar file — shows existing file without re-upload -->
+        <div class="vp-field">
+          <label class="vp-label">Aadhaar Copy <span style="color: red;">*</span></label>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverAadhaarFile($event, driver)" />
+          @if (driver.aadhaarFileName) {
+          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
+            driver.aadhaarFileName }}</span>
+          } @else if (driver.aadhaarExistingFile) {
+          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
+            driver.aadhaarExistingFile }}</span>
           }
         </div>
 
-        <div class="vp-grid-2">
-          <div class="vp-field">
-            <label class="vp-label">Driver Name</label>
-            <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">Contact Number</label>
-            <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">Aadhaar Number</label>
-            <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">Aadhaar Copy</label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverAadhaarFile($event, driver)" />
-            @if (driver.aadhaarFileName) { <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.aadhaarFileName }}</span> }
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">License Number</label>
-            <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">License Type</label>
-            <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [(ngModel)]="driver.licenseType" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">License Valid From</label>
-            <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">License Valid To</label>
-            <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">Driving License Copy</label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
-            @if (driver.dlFileName) { <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.dlFileName }}</span> }
-          </div>
-          <div class="vp-field">
-            <label class="vp-label">Driver Photograph</label>
-            <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
-            @if (driver.photoFileName) { <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.photoFileName }}</span> }
-          </div>
+        <!-- ✅ v6.8 DL fields — * only shown when role is Driver -->
+        <div class="vp-field">
+          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
         </div>
+
+        <div class="vp-field">
+          <label class="vp-label">License Type @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [(ngModel)]="driver.licenseType" />
+        </div>
+
+        <div class="vp-field">
+          <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" />
+        </div>
+
+        <div class="vp-field">
+          <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
+        </div>
+
+        <!-- ✅ v6.8 DL file — shows existing file without re-upload -->
+        <div class="vp-field">
+          <label class="vp-label">Driving License Copy @if (driver.role === 'Driver') { <span
+              style="color:red;">*</span> }</label>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
+          @if (driver.dlFileName) {
+          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{ driver.dlFileName
+            }}</span>
+          } @else if (driver.dlExistingFile) {
+          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
+            driver.dlExistingFile }}</span>
+          }
+        </div>
+
+        <div class="vp-field">
+          <label class="vp-label">Driver Photograph</label>
+          <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
+          @if (driver.photoFileName) {
+          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
+            driver.photoFileName }}</span>
+          }
+        </div>
+
       </div>
+    </div>
     }
   </div>
 
