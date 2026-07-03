@@ -80,7 +80,7 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     this.hasError.set(false);
 
     // Fetching requests in 'CREATED' status for Confirmer approval queue
-    this.cvps.getRequestsByStatus('CREATED')
+    this.cvps.getRequestsByStatus('SUBMITTED')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data: any[]) => {
@@ -183,9 +183,9 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     this.actionError.set('');
 
     const payload = {
-      action: targetAction as 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD',
+      action: targetAction,
       remarks: this.actionRemark().trim(),
-      empNo: this.auth.empCode() || 'SYSTEM'
+      empNo: this.auth.empCode() || 'SYSTEM' 
     };
 
     this.cvps.executeWorkflowAction(requestNo, payload)
