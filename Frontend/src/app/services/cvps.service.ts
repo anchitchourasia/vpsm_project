@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable, map, throwError } from 'rxjs';
 import { API_CONFIG, CVPS_URLS } from '../core/api.config';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
@@ -157,10 +157,20 @@ export class CvpsService {
       CVPS_URLS.getByVehicle(vehicleNo.trim().toUpperCase())
     );
   }
-  // ── 7b. GET — Full record by requestNo (eager loads vehicleDocuments) ──
+
+  // ── 7b. GET — Full record by requestNo (uses getAll + filter) ────────
+  // NOTE: Backend has no /request/{id} endpoint in v12.
+  // We call GET /api/v1/permissions (getAll) and filter by requestNo.
+  // EAGER fetch on backend ensures vehicleDocuments + employeeDetails are included.
   getByRequestNo(requestNo: number): Observable<CvpsRequest> {
-    return this.http.get<CvpsRequest>(
-      `${environment.cvpsBaseUrl}/api/v1/permissions/request/${requestNo}`
+    return this.http.get<CvpsRequest[]>(API_CONFIG.CVPS_GET_ALL).pipe(
+      map(list => {
+        const found = list.find(r => r.requestNo === requestNo);
+        if (!found) {
+          throw new Error(`Request ${requestNo} not found.`);
+        }
+        return found;
+      })
     );
   }
 
@@ -196,13 +206,13 @@ export class CvpsService {
   }
 
   // ── 13. GET — Employee/Contractor details for name auto-lookup ──────
-fetchContractorDetails(): Observable<any[]> {
-  const headers = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
-    'Accept'      : 'application/json',
-  });
-  return this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers });
-}
+  fetchContractorDetails(): Observable<any[]> {
+    const headers = new HttpHeaders({
+      'x-api-key'   : API_CONFIG.API_KEY,
+      'Accept'      : 'application/json',
+    });
+    return this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers });
+  }
 
   // ── 14. POST — Upload personnel documents (DL, Aadhaar, Photo) ───────
   // ✅ FIX 3: added for vehicle-permission-form.ts uploadPersonnelDocuments()
