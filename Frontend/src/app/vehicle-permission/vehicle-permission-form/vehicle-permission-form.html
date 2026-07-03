@@ -170,7 +170,8 @@
         <!-- ✅ v6.8 Role dropdown -->
         <div class="vp-field">
           <label class="vp-label">Role <span style="color: red;">*</span></label>
-          <select class="vp-select" [(ngModel)]="driver.role">
+          <select class="vp-select" [ngModel]="driver.role"
+            (ngModelChange)="updateDriverField(driver.id, 'role', $event)">
             <option value="">— Select Role —</option>
             @for (r of driverRoleOptions; track r) {
             <option [value]="r">{{ r }}</option>
@@ -180,17 +181,20 @@
 
         <div class="vp-field">
           <label class="vp-label">Driver Name <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
+          <input class="vp-input" type="text" placeholder="Full name" [ngModel]="driver.name"
+            (ngModelChange)="updateDriverField(driver.id, 'name', $event)" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">Contact Number</label>
-          <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" />
+          <input class="vp-input" type="tel" placeholder="10-digit mobile" [ngModel]="driver.mobileNo"
+            (ngModelChange)="updateDriverField(driver.id, 'mobileNo', $event)" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
+          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [ngModel]="driver.aadhaarNo"
+            (ngModelChange)="updateDriverField(driver.id, 'aadhaarNo', $event)" />
         </div>
 
         <!-- ✅ v6.8 Aadhaar file — shows existing file without re-upload -->
@@ -210,25 +214,29 @@
         <div class="vp-field">
           <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>
             }</label>
-          <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
+          <input class="vp-input" type="text" placeholder="DL number" [ngModel]="driver.licenseNo"
+            (ngModelChange)="updateDriverField(driver.id, 'licenseNo', $event)" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">License Type @if (driver.role === 'Driver') { <span style="color:red;">*</span>
             }</label>
-          <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [(ngModel)]="driver.licenseType" />
+          <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [ngModel]="driver.licenseType"
+            (ngModelChange)="updateDriverField(driver.id, 'licenseType', $event)" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span>
             }</label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" />
+          <input class="vp-input" type="date" [ngModel]="driver.validFrom"
+            (ngModelChange)="updateDriverField(driver.id, 'validFrom', $event)" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span>
             }</label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
+          <input class="vp-input" type="date" [ngModel]="driver.validTo"
+            (ngModelChange)="updateDriverField(driver.id, 'validTo', $event)" />
         </div>
 
         <!-- ✅ v6.8 DL file — shows existing file without re-upload -->

@@ -217,17 +217,55 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   onDriverAadhaarFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) { driver.aadhaarFile = f; driver.aadhaarFileName = f.name; driver.aadhaarExistingFile = ''; }
+    if (!f) return;
+
+    this.drivers.update(list =>
+      list.map(d =>
+        d.id === driver.id
+          ? {
+            ...d,
+            aadhaarFile: f,
+            aadhaarFileName: f.name,
+            aadhaarExistingFile: ''
+          }
+          : d
+      )
+    );
   }
 
   onDriverDlFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) { driver.dlFile = f; driver.dlFileName = f.name; driver.dlExistingFile = ''; }
+    if (!f) return;
+
+    this.drivers.update(list =>
+      list.map(d =>
+        d.id === driver.id
+          ? {
+            ...d,
+            dlFile: f,
+            dlFileName: f.name,
+            dlExistingFile: ''
+          }
+          : d
+      )
+    );
   }
 
   onDriverPhotoFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) { driver.photoFile = f; driver.photoFileName = f.name; }
+    if (!f) return;
+
+    this.drivers.update(list =>
+      list.map(d =>
+        d.id === driver.id
+          ? {
+            ...d,
+            photoFile: f,
+            photoFileName: f.name
+          }
+          : d
+      )
+    );
   }
 
   helpers = signal<HelperPerson[]>([]);
@@ -242,6 +280,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.helpers.update(h => { const c = [...h]; c[i] = { ...c[i], file, fileName: file?.name ?? '' }; return c; });
   }
+
 
   isSaving = signal(false);
   isSubmitting = signal(false);
@@ -674,6 +713,9 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.saveMsg.set('');
     this.errorMsg.set('');
   }
+  trackByDriverId(index: number, driver: DriverPerson): string {
+    return driver.id;
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // STATUS CSS HELPER
@@ -692,5 +734,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       case 'saved': return 'wf-draft';
       default: return 'wf-waiting';
     }
+  }
+  updateDriverField(id: string, field: keyof DriverPerson, value: any): void {
+    this.drivers.update(list =>
+      list.map(d => d.id === id ? { ...d, [field]: value } : d)
+    );
   }
 }
