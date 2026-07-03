@@ -86,7 +86,7 @@ function emptyDoc(): DocEntry {
 
 function emptyDriver(): DriverPerson {
   return {
-    id: crypto.randomUUID(), role: 'Driver',
+    id: crypto.randomUUID(), role: '',
     name: '', mobileNo: '', aadhaarNo: '',
     licenseNo: '', licenseNumber: '', licenseType: '', validFrom: '', validTo: '',
     aadhaarFile: null, aadhaarFileName: '', aadhaarExistingFile: '',
@@ -132,26 +132,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   private cvps = inject(CvpsService);
   private http = inject(HttpClient);
   private destroy$ = new Subject<void>();
-  private isDriverRole(role: string): boolean {
-    return (role || '').trim().toUpperCase() === 'DRIVER';
-  }
-
-  needsLicenseFields(role: string): boolean {
-    return this.isDriverRole(role);
-  }
-
-  needsAadhaarForRole(role: string): boolean {
-    return ['DRIVER', 'CONDUCTOR', 'HELPER', 'OTHER'].includes((role || '').trim().toUpperCase());
-  }
-
-  needsPhotoForRole(role: string): boolean {
-    return this.isDriverRole(role);
-  }
-
-  private roleLabel(role: string): string {
-    const value = (role || '').trim();
-    return value || 'Person';
-  }
 
   readonly formNo = 'W-OHS-SECURITY-12';
   readonly companyName = 'HEG Limited, Mandideep';
@@ -235,18 +215,22 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   addDriver(): void { this.drivers.update(d => [...d, emptyDriver()]); }
   removeDriver(i: number): void { this.drivers.update(d => d.filter((_, idx) => idx !== i)); }
 
-  onDriverAadhaarFile(e: Event, driver: DriverPerson): void {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
-
-    this.drivers.update(list =>
-      list.map(d =>
-        d.id === driver.id
-          ? { ...d, aadhaarFile: f, aadhaarFileName: f.name, aadhaarExistingFile: '' }
-          : d
-      )
-    );
+  private isDriverRole(role: string): boolean {
+    return (role || '').trim().toUpperCase() === 'DRIVER';
   }
+
+  needsLicenseFields(role: string): boolean {
+    return this.isDriverRole(role);
+  }
+
+  needsAadhaarForRole(role: string): boolean {
+    return ['DRIVER', 'CONDUCTOR', 'HELPER', 'OTHER'].includes((role || '').trim().toUpperCase());
+  }
+
+  needsPhotoForRole(role: string): boolean {
+    return this.isDriverRole(role);
+  }
+
   onDriverRoleChange(driverId: string, role: string): void {
     this.drivers.update(list =>
       list.map(d => {
@@ -275,30 +259,19 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     );
   }
 
+  onDriverAadhaarFile(e: Event, driver: DriverPerson): void {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (f) { driver.aadhaarFile = f; driver.aadhaarFileName = f.name; driver.aadhaarExistingFile = ''; }
+  }
+
   onDriverDlFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
-
-    this.drivers.update(list =>
-      list.map(d =>
-        d.id === driver.id
-          ? { ...d, dlFile: f, dlFileName: f.name, dlExistingFile: '' }
-          : d
-      )
-    );
+    if (f) { driver.dlFile = f; driver.dlFileName = f.name; driver.dlExistingFile = ''; }
   }
 
   onDriverPhotoFile(e: Event, driver: DriverPerson): void {
     const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
-
-    this.drivers.update(list =>
-      list.map(d =>
-        d.id === driver.id
-          ? { ...d, photoFile: f, photoFileName: f.name }
-          : d
-      )
-    );
+    if (f) { driver.photoFile = f; driver.photoFileName = f.name; }
   }
 
   helpers = signal<HelperPerson[]>([]);
@@ -313,7 +286,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.helpers.update(h => { const c = [...h]; c[i] = { ...c[i], file, fileName: file?.name ?? '' }; return c; });
   }
-
 
   isSaving = signal(false);
   isSubmitting = signal(false);
@@ -424,10 +396,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.permissionDateFrom.set(parseBackendDate(req.permissionFrom));
     this.permissionDateTo.set(parseBackendDate(req.permissionTo));
 
-    // ✅ ONE declaration — reused for both vehicle docs AND driver doc lookup below
     const allVehicleDocs: any[] = req.vehicleDocuments || [];
 
-    // ── Vehicle Documents ──────────────────────────────────────────────
     const regularDocs = allVehicleDocs.filter(
       (d: any) => d.documentType &&
         !DRIVER_DOC_TYPES_UPPER.includes(d.documentType.trim().toUpperCase())
@@ -457,7 +427,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       })
     );
 
-    // ── Personnel ──────────────────────────────────────────────────────
     const allPersonnel: any[] = req.employeeDetails || [];
     const driverList: any[] = allPersonnel.filter(
       (e: any) => (e.empJob || '').toUpperCase() === 'DRIVER'
@@ -466,7 +435,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       (e: any) => (e.empJob || '').toUpperCase() !== 'DRIVER'
     );
 
-    // ✅ FIX — reuse allVehicleDocs declared above (NO second const declaration)
     const dlDocs = allVehicleDocs.filter((d: any) =>
       ['DL', 'LICENSE', 'DRIVING_LICENSE'].includes((d.documentType || '').toUpperCase())
     );
@@ -562,55 +530,36 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       }
       for (let idx = 0; idx < this.drivers().length; idx++) {
         const d = this.drivers()[idx];
-        const label = `Person ${idx + 1} (${this.roleLabel(d.role)})`;
+        const role = (d.role || '').trim();
+        const label = `Person ${idx + 1} (${role || 'Unknown'})`;
 
-        if (!d.role?.trim()) {
-          this.errorMsg.set(`Person ${idx + 1}: Role is required.`);
-          return;
+        if (!role) {
+          this.errorMsg.set(`Person ${idx + 1}: Role is required.`); return;
         }
-
         if (!d.name?.trim()) {
-          this.errorMsg.set(`${label}: Name is required.`);
-          return;
+          this.errorMsg.set(`${label}: Name is required.`); return;
         }
-
-        if (this.needsAadhaarForRole(d.role)) {
+        if (this.needsAadhaarForRole(role)) {
           if (!d.aadhaarNo?.trim()) {
-            this.errorMsg.set(`${label}: Aadhaar Number is required.`);
-            return;
+            this.errorMsg.set(`${label}: Aadhaar Number is required.`); return;
           }
           if (!d.aadhaarFile && !d.aadhaarExistingFile) {
-            this.errorMsg.set(`${label}: Aadhaar Copy is required.`);
-            return;
+            this.errorMsg.set(`${label}: Aadhaar Copy is required.`); return;
           }
         }
-
-        if (this.needsLicenseFields(d.role)) {
-          if (!d.licenseNo?.trim()) {
-            this.errorMsg.set(`${label}: License Number is required.`);
-            return;
-          }
-          if (!d.licenseType?.trim()) {
-            this.errorMsg.set(`${label}: License Type is required.`);
-            return;
-          }
-          if (!d.validFrom) {
-            this.errorMsg.set(`${label}: License Valid From is required.`);
-            return;
-          }
-          if (!d.validTo) {
-            this.errorMsg.set(`${label}: License Valid To is required.`);
-            return;
-          }
+        if (this.needsLicenseFields(role)) {
+          if (!d.licenseNo?.trim()) { this.errorMsg.set(`${label}: License Number is required.`); return; }
+          if (!d.licenseType?.trim()) { this.errorMsg.set(`${label}: License Type is required.`); return; }
+          if (!d.validFrom) { this.errorMsg.set(`${label}: License Valid From is required.`); return; }
+          if (!d.validTo) { this.errorMsg.set(`${label}: License Valid To is required.`); return; }
           if (!d.dlFile && !d.dlExistingFile) {
-            this.errorMsg.set(`${label}: Driving License Copy is required.`);
-            return;
+            this.errorMsg.set(`${label}: Driving License Copy is required.`); return;
           }
         }
-
-        if (this.needsPhotoForRole(d.role) && !d.photoFile && !d.photoFileName) {
-          this.errorMsg.set(`${label}: Driver Photograph is required.`);
-          return;
+        if (this.needsPhotoForRole(role)) {
+          if (!d.photoFile && !d.photoFileName) {
+            this.errorMsg.set(`${label}: Driver Photograph is required.`); return;
+          }
         }
       }
     }
@@ -780,9 +729,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.saveMsg.set('');
     this.errorMsg.set('');
   }
-  trackByDriverId(index: number, driver: DriverPerson): string {
-    return driver.id;
-  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // STATUS CSS HELPER
@@ -801,10 +747,5 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       case 'saved': return 'wf-draft';
       default: return 'wf-waiting';
     }
-  }
-  updateDriverField(id: string, field: keyof DriverPerson, value: any): void {
-    this.drivers.update(list =>
-      list.map(d => d.id === id ? { ...d, [field]: value } : d)
-    );
   }
 }
