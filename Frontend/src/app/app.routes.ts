@@ -57,6 +57,7 @@ export const routes: Routes = [
     loadComponent: () => import('./vehicle-permission/contractor-confirmer/contractor-confirmer')
       .then(m => m.ContractorConfirmerComponent)
   },
+  { path: 'vehicle-permission/approver', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/contractor-approver/contractor-approver').then(m => m.ContractorApproverComponent) },
   // FALLBACK — redirect to home (guard will catch unauthenticated → login)
   { path: '**', redirectTo: '' },
 ];

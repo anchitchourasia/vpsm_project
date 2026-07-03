@@ -140,7 +140,7 @@
                     <i class="bi bi-eye-fill"></i> View
                   </button>
 
-                  @if (isUploader() && (r.reqStatus === 'SAVED' || r.reqStatus === 'HOLD' || r.reqStatus === 'DRAFT')) {
+                 @if (isUploader() && (r.reqStatus === 'SAVED' || r.reqStatus === 'MODIFY' || r.reqStatus === 'HOLD' || r.reqStatus === 'DRAFT')) {
                     <button class="vpl-btn-view" (click)="editRecord(r)" 
                             style="background-color: #AC9457; margin-left: 6px; color: white;" 
                             title="Edit & Resubmit Form">
@@ -268,7 +268,7 @@
 
         <div class="vpl-action-btns">
 
-          @if (isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') {
+          @if (isConfirmer() && (selectedRecord()!.reqStatus === 'SUBMITTED' || selectedRecord()!.reqStatus === 'CREATED')) {
             <button class="vpl-action-btn vpl-action-confirm" (click)="doAction('CONFIRM')"
                     [disabled]="workflowLoading()">
               <i class="bi bi-check2-circle"></i>
@@ -293,7 +293,7 @@
           }
 
           @if (
-            !(isConfirmer() && selectedRecord()!.reqStatus === 'CREATED') &&
+            !(isConfirmer() && (selectedRecord()!.reqStatus === 'SUBMITTED' || selectedRecord()!.reqStatus === 'CREATED')) &&
             !(isApprover() && selectedRecord()!.reqStatus === 'CONFIRMED')
           ) {
             <div class="vpl-no-action">

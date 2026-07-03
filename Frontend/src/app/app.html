@@ -165,6 +165,11 @@
             <i class="bi bi-circle-fill sb-child-dot"></i> Permission for Confirmer
           </a>
           }
+          @if (auth.isApprover()) {
+          <a routerLink="/vehicle-permission/approver" class="sb-child" (click)="$event.stopPropagation()">
+            <i class="bi bi-circle-fill sb-child-dot" style="color: #6a1b9a;"></i> Permission for Approver
+          </a>
+          }
         </div>
       </div>
       }

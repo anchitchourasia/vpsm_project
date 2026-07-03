@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import { Component, signal, computed, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -38,15 +31,14 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
   errorMsg     = signal('');
   allRecords   = signal<CvpsRequest[]>([]);
 
-  // Status options aligned with backend CVPS_STATUS constants
+  // ── Dropdown filters whitelisted to support SUBMITTED and MODIFY status parameters cleanly ──
   readonly statusOptions = [
     { value: 'ALL',                    label: 'All Statuses'   },
-    { value: CVPS_STATUS.CREATED,      label: 'Created'        },
-    { value: CVPS_STATUS.CONFIRMED,    label: 'Confirmed'      },
-    { value: CVPS_STATUS.APPROVED,     label: 'Approved'       },
-    { value: CVPS_STATUS.REJECTED,     label: 'Rejected'       },
-    { value: CVPS_STATUS.HOLD,         label: 'On Hold'        },
-    // ── 🟢 DEEP FIX: Added explicit selector bound hook for saved entries ──
+    { value: 'SUBMITTED',              label: 'Submitted'      },
+    { value: 'CONFIRMED',              label: 'Confirmed'      },
+    { value: 'APPROVED',               label: 'Approved'       },
+    { value: 'REJECTED',               label: 'Rejected'       },
+    { value: 'MODIFY',                 label: 'Modify'         },
     { value: 'SAVED',                  label: 'Saved'          },
   ];
 
@@ -102,7 +94,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
   ngOnInit(): void { this.loadRecords(); }
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  // ── Load records — filtered by contractorId for non-authority users ──
   loadRecords(): void {
     this.isLoading.set(true);
     this.errorMsg.set('');
@@ -114,9 +105,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
         return of([]);
       })
     ).subscribe(records => {
-      // ── CONTRACTOR SCOPE FILTER ─────────────────────────────
-      // UPLOADER / CONFIRMER / APPROVER / ADMIN → see ALL records
-      // EMPLOYEE (Regular)                      → see ONLY their own contractorId records
       const canSeeAll = this.auth.isConfirmer() || this.auth.isApprover() || this.auth.isUploader();
       if (canSeeAll) {
         this.allRecords.set(records);
@@ -139,8 +127,19 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     this.currentPage.set(1);
   }
 
-  // ── Phase B: Open / Close Action Panel ────────────────────────
+  // ── Modified View Action Routing Rules ─────────────────────────
   openPanel(record: CvpsRequest): void {
+    const s = (record.reqStatus || '').toUpperCase();
+    
+    // ── 🟢 FIXED: If status is SUBMITTED, CONFIRMED, or APPROVED, bypass side drawer panel and redirect straight to form view mode ──
+    if (s === 'SUBMITTED' || s === 'CONFIRMED' || s === 'APPROVED' || s === 'CREATED') {
+      this.router.navigate(['/vehicle-permission/add'], { 
+        queryParams: { edit: record.requestNo, view: 'true' } 
+      });
+      return;
+    }
+
+    // Maintains original side drawer layout context for SAVED, MODIFY, and REJECTED rows
     this.selectedRecord.set(record);
     this.workflowRemarks.set('');
     this.workflowMsg.set('');
@@ -153,7 +152,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     this.selectedRecord.set(null);
   }
 
-  // ── Phase B: Execute Workflow Action ──────────────────────────
   doAction(action: 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD'): void {
     const rec = this.selectedRecord();
     if (!rec?.requestNo) return;
@@ -190,7 +188,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     });
   }
 
-  // ── Phase B: Download a document from the panel ───────────────
   downloadDoc(docId: number | undefined, filename: string): void {
     if (!docId) return;
     this.cvps.downloadDocument(docId).pipe(
@@ -201,7 +198,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     });
   }
 
-  // ── Phase C: Gate Validation ──────────────────────────────────
   toggleGatePanel(): void {
     this.showGatePanel.update(v => !v);
     this.gateVehicleNo.set('');
@@ -229,7 +225,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     ).subscribe(result => { if (result) this.gateResult.set(result); });
   }
 
-  // ── Excel Download ─────────────────────────────────────────────
   downloadExcel(): void {
     this.excelLoading.set(true);
     this.cvps.downloadExcelReport().pipe(
@@ -241,7 +236,6 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     });
   }
 
-  // ── Helpers ────────────────────────────────────────────────────
   getDriverName(r: CvpsRequest): string {
     const driver = r.employeeDetails?.find(e => e.empJob?.toUpperCase() === 'DRIVER');
     return driver?.name || '—';
@@ -254,36 +248,36 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     return `${day}/${m}/${y}`;
   }
 
+  // ── Badge styling mappings aligned with new status variables ──
   getStatusClass(s: string | undefined): string {
     switch ((s || '').toUpperCase()) {
       case 'APPROVED' : return 'vpl-badge-approved';
       case 'CONFIRMED': return 'vpl-badge-confirmed';
-      case 'CREATED'  : return 'vpl-badge-submitted';
-      case 'HOLD'     : return 'vpl-badge-pending';
+      case 'SUBMITTED': case 'CREATED': return 'vpl-badge-submitted';
+      case 'MODIFY'   : case 'HOLD'   : return 'vpl-badge-pending';
       case 'REJECTED' : return 'vpl-badge-rejected';
-      // ── 🟢 DEEP FIX: Map styling boundary for SAVED status instances ──
       case 'SAVED'    : return 'vpl-badge-draft';
       default         : return 'vpl-badge-draft';
     }
   }
 
+  // ── Label clean text translators aligned with new criteria ──
   getStatusLabel(s: string | undefined): string {
     switch ((s || '').toUpperCase()) {
-      case 'CREATED'  : return 'Created';
+      case 'SUBMITTED': case 'CREATED': return 'Submitted';
       case 'CONFIRMED': return 'Confirmed';
       case 'APPROVED' : return 'Approved';
       case 'REJECTED' : return 'Rejected';
-      case 'HOLD'     : return 'On Hold';
-      // ── 🟢 DEEP FIX: Map clear-text display name label for template loops ──
+      case 'MODIFY'   : case 'HOLD'   : return 'Modify';
       case 'SAVED'    : return 'Saved';
       default         : return s || '—';
     }
   }
 
+  // ── Modification access control whitelists includes new 'MODIFY' string ──
   canModify(r: CvpsRequest): boolean {
     const s = (r.reqStatus || '').toUpperCase();
-    // ── 🟢 DEEP FIX: Allow authorization to edit records sitting at SAVED status ──
-    return this.isUploader() && (s === 'CREATED' || s === 'HOLD' || s === 'SAVED');
+    return this.isUploader() && (s === 'MODIFY' || s === 'SAVED' || s === 'HOLD');
   }
 
   editRecord(record: CvpsRequest): void {
@@ -294,10 +288,3 @@ export class VehiclePermissionList implements OnInit, OnDestroy {
     });
   }
 }
-
-
-
-
-
-
-

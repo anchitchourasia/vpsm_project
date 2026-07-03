@@ -1,7 +1,10 @@
-// Frontend/src/app/app.ts
+
+
+
+
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { CommonModule }    from '@angular/common';
+import { CommonModule }     from '@angular/common';
 import { PassStateService } from './services/pass-state.service';
 import { AuthService }      from './core/auth.service';
 
@@ -39,16 +42,9 @@ export class App implements OnInit {
 
   isMenuOpen(menu: string): boolean { return this.openMenus().has(menu); }
 
-  // ── Pass Entry ────────────────────────────────────
-  // Interview Term: "SPA Navigation vs window.open"
-  // window.open opens a NEW browser tab — Angular re-bootstraps from scratch
-  // so session signal is lost and authGuard blocks access.
-  // router.navigate stays in the SAME Angular app — session signal is alive.
   openPassEntry(): void { this.router.navigate(['/pass-entry']); }
 
   ngOnInit(): void {
-    // ✅ sessionReady.set(true) immediately — no localStorage, no API call
-    // authGuard handles redirect to /login if not logged in
     this.auth.tryRestoreSession();
   }
 }
