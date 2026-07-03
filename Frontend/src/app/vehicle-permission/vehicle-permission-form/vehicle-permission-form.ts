@@ -132,6 +132,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   private cvps = inject(CvpsService);
   private http = inject(HttpClient);
   private destroy$ = new Subject<void>();
+  private isDriverRole(role: string): boolean {
+    return (role || '').trim().toUpperCase() === 'DRIVER';
+  }
+
+  needsLicenseFields(role: string): boolean {
+    return this.isDriverRole(role);
+  }
+
+  needsAadhaarForRole(role: string): boolean {
+    return ['DRIVER', 'CONDUCTOR', 'HELPER', 'OTHER'].includes((role || '').trim().toUpperCase());
+  }
+
+  needsPhotoForRole(role: string): boolean {
+    return this.isDriverRole(role);
+  }
+
+  private roleLabel(role: string): string {
+    const value = (role || '').trim();
+    return value || 'Person';
+  }
 
   readonly formNo = 'W-OHS-SECURITY-12';
   readonly companyName = 'HEG Limited, Mandideep';
@@ -222,14 +242,36 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.drivers.update(list =>
       list.map(d =>
         d.id === driver.id
-          ? {
-            ...d,
-            aadhaarFile: f,
-            aadhaarFileName: f.name,
-            aadhaarExistingFile: ''
-          }
+          ? { ...d, aadhaarFile: f, aadhaarFileName: f.name, aadhaarExistingFile: '' }
           : d
       )
+    );
+  }
+  onDriverRoleChange(driverId: string, role: string): void {
+    this.drivers.update(list =>
+      list.map(d => {
+        if (d.id !== driverId) return d;
+
+        const next = { ...d, role };
+
+        if (!this.needsLicenseFields(role)) {
+          next.licenseNo = '';
+          next.licenseNumber = '';
+          next.licenseType = '';
+          next.validFrom = '';
+          next.validTo = '';
+          next.dlFile = null;
+          next.dlFileName = '';
+          next.dlExistingFile = '';
+        }
+
+        if (!this.needsPhotoForRole(role)) {
+          next.photoFile = null;
+          next.photoFileName = '';
+        }
+
+        return next;
+      })
     );
   }
 
@@ -240,12 +282,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.drivers.update(list =>
       list.map(d =>
         d.id === driver.id
-          ? {
-            ...d,
-            dlFile: f,
-            dlFileName: f.name,
-            dlExistingFile: ''
-          }
+          ? { ...d, dlFile: f, dlFileName: f.name, dlExistingFile: '' }
           : d
       )
     );
@@ -258,11 +295,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.drivers.update(list =>
       list.map(d =>
         d.id === driver.id
-          ? {
-            ...d,
-            photoFile: f,
-            photoFileName: f.name
-          }
+          ? { ...d, photoFile: f, photoFileName: f.name }
           : d
       )
     );
@@ -529,21 +562,55 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       }
       for (let idx = 0; idx < this.drivers().length; idx++) {
         const d = this.drivers()[idx];
-        const label = `Person ${idx + 1} (${d.role || 'Unknown'})`;
-        if (!d.aadhaarNo?.trim()) {
-          this.errorMsg.set(`${label}: Aadhaar Number is required.`); return;
+        const label = `Person ${idx + 1} (${this.roleLabel(d.role)})`;
+
+        if (!d.role?.trim()) {
+          this.errorMsg.set(`Person ${idx + 1}: Role is required.`);
+          return;
         }
-        if (!d.aadhaarFile && !d.aadhaarExistingFile) {
-          this.errorMsg.set(`${label}: Aadhaar Copy is required.`); return;
+
+        if (!d.name?.trim()) {
+          this.errorMsg.set(`${label}: Name is required.`);
+          return;
         }
-        if (d.role === 'Driver') {
-          if (!d.licenseNo?.trim()) { this.errorMsg.set(`${label}: License Number is required.`); return; }
-          if (!d.licenseType?.trim()) { this.errorMsg.set(`${label}: License Type is required.`); return; }
-          if (!d.validFrom) { this.errorMsg.set(`${label}: License Valid From is required.`); return; }
-          if (!d.validTo) { this.errorMsg.set(`${label}: License Valid To is required.`); return; }
-          if (!d.dlFile && !d.dlExistingFile) {
-            this.errorMsg.set(`${label}: Driving License Copy is required.`); return;
+
+        if (this.needsAadhaarForRole(d.role)) {
+          if (!d.aadhaarNo?.trim()) {
+            this.errorMsg.set(`${label}: Aadhaar Number is required.`);
+            return;
           }
+          if (!d.aadhaarFile && !d.aadhaarExistingFile) {
+            this.errorMsg.set(`${label}: Aadhaar Copy is required.`);
+            return;
+          }
+        }
+
+        if (this.needsLicenseFields(d.role)) {
+          if (!d.licenseNo?.trim()) {
+            this.errorMsg.set(`${label}: License Number is required.`);
+            return;
+          }
+          if (!d.licenseType?.trim()) {
+            this.errorMsg.set(`${label}: License Type is required.`);
+            return;
+          }
+          if (!d.validFrom) {
+            this.errorMsg.set(`${label}: License Valid From is required.`);
+            return;
+          }
+          if (!d.validTo) {
+            this.errorMsg.set(`${label}: License Valid To is required.`);
+            return;
+          }
+          if (!d.dlFile && !d.dlExistingFile) {
+            this.errorMsg.set(`${label}: Driving License Copy is required.`);
+            return;
+          }
+        }
+
+        if (this.needsPhotoForRole(d.role) && !d.photoFile && !d.photoFileName) {
+          this.errorMsg.set(`${label}: Driver Photograph is required.`);
+          return;
         }
       }
     }
