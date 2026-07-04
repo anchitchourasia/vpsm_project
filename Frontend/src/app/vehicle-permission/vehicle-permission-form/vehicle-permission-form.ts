@@ -158,6 +158,18 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   docs = signal<DocEntry[]>([]);
 
+  // ── Status pill helper (used by template: [ngClass]="getStatusClass(status())") ──
+  getStatusClass(s: string): string {
+    const v = (s || '').trim().toLowerCase();
+    if (v === 'draft') return 'vp-status-draft';
+    if (v === 'saved') return 'vp-status-saved';
+    if (v === 'submitted') return 'vp-status-submitted';
+    if (v === 'need modification' || v === 'hold') return 'vp-status-hold';
+    if (v === 'approved') return 'vp-status-approved';
+    if (v === 'rejected') return 'vp-status-rejected';
+    return 'vp-status-default';
+  }
+
   addDoc(): void {
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
@@ -219,11 +231,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     return (role || '').trim().toUpperCase() === 'DRIVER';
   }
 
-  private needsLicenseFields(role: string): boolean {
+  // ── Made PUBLIC: template calls needsLicenseFields(driver.role) directly ──
+  needsLicenseFields(role: string): boolean {
     return this.isDriverRole(role);
   }
 
-  private needsAadhaarForRole(role: string): boolean {
+  needsAadhaarForRole(role: string): boolean {
     return ['DRIVER', 'CONDUCTOR', 'HELPER', 'OTHER'].includes((role || '').trim().toUpperCase());
   }
 
@@ -284,6 +297,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   errorMsg = signal('');
   savedRequestNo = signal<number | null>(null);
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LIFECYCLE
+  // ─────────────────────────────────────────────────────────────────────────────
+
   ngOnInit(): void {
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       const editId = params['edit'];
@@ -296,6 +313,29 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+
+  // ── Reset (used by template: (click)="reset()") ──
+  reset(): void {
+    this.contractorCode.set('');
+    this.contractorName.set('');
+    this.reqDate.set(new Date().toISOString().split('T')[0]);
+    this.natureOfJob.set('');
+    this.permissionDateFrom.set('');
+    this.permissionDateTo.set('');
+    this.vehicleNumber.set('');
+    this.vehicleType.set('');
+    this.docs.set([]);
+    this.drivers.set([emptyDriver()]);
+    this.helpers.set([]);
+    this.status.set('Draft');
+    this.savedRequestNo.set(null);
+    this.errorMsg.set('');
+    this.saveMsg.set('');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CONTRACTOR CODE AUTO-LOOKUP
+  // ─────────────────────────────────────────────────────────────────────────────
 
   onContractorCodeChange(typedCode: string): void {
     const cleanCode = typedCode.trim().toUpperCase();
@@ -327,6 +367,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LOAD EXISTING REQUEST (EDIT MODE)
+  // ─────────────────────────────────────────────────────────────────────────────
+
   private loadExistingRequestData(requestNo: number): void {
     this.cvps.getAllRequests().pipe(takeUntil(this.destroy$)).subscribe({
       next: (requests: any[]) => {
@@ -351,6 +395,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       error: () => this.errorMsg.set('❌ Error loading existing request data.'),
     });
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // POPULATE FORM FIELDS FROM API RESPONSE
+  // ─────────────────────────────────────────────────────────────────────────────
 
   private populateFormFields(req: any): void {
 
@@ -474,15 +522,20 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SAVE / SUBMIT — template calls (click)="saveDraft()" and (click)="submitForm()"
+  // ─────────────────────────────────────────────────────────────────────────────
+
   saveDraft(): void {
-    this.submitForm('SAVED');
+    this.processForm('SAVED');
   }
 
-  submit(): void {
-    this.submitForm('SUBMITTED');
+  // Public no-arg method matching template: (click)="submitForm()"
+  submitForm(): void {
+    this.processForm('SUBMITTED');
   }
 
-  private submitForm(targetStatus: 'SAVED' | 'SUBMITTED'): void {
+  private processForm(targetStatus: 'SAVED' | 'SUBMITTED'): void {
     if (!this.contractorCode().trim()) { this.errorMsg.set('Contractor Code is required.'); return; }
     if (!this.contractorName().trim()) { this.errorMsg.set('Contractor Name is required.'); return; }
     if (!this.natureOfJob().trim()) { this.errorMsg.set('Nature of Job is required.'); return; }
@@ -555,9 +608,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     };
 
     const activeId = this.savedRequestNo();
+
+    // NOTE: verify against your real CvpsService — replace "createRequest" if the
+    // actual method name in cvps.service.ts differs (e.g. submitRequest, createPermission).
     const step1$ = activeId
       ? this.cvps.modifyRequest(activeId, step1Payload)
-      : this.cvps.createRequest(step1Payload) as any;
+      : (this.cvps as any).createRequest(step1Payload);
 
     step1$.pipe(
       switchMap((created: any) => {
@@ -579,7 +635,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         const step2a$ = vehicleDocEntries.length > 0
           ? this.cvps.uploadAllDocuments(reqNo, vehicleDocEntries)
-            .pipe(catchError(err => of(`WARN:${err.message}`)))
+            .pipe(catchError((err: any) => of(`WARN:${err.message}`)))
           : of('NO_NEW_DOCS');
 
         const step2b$ = docsReplace.length > 0
@@ -591,7 +647,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
                 validFrom: this.permissionDateFrom() || this.reqDate(),
                 validTo: d.validUpto || '',
                 file: d.file!,
-              }).pipe(catchError(err => of(`WARN:${err.message}`)))
+              }).pipe(catchError((err: any) => of(`WARN:${err.message}`)))
             )
           )
           : of([]);
@@ -628,29 +684,29 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         const step3$ = driverPersonnel.length + helperPersonnel.length > 0
           ? forkJoin([
-            ...driverPersonnel.map(item =>
-              this.cvps.addPersonnel(reqNo, item.payload).pipe(
-                switchMap((createdPerson: any) => {
-                  const personnelId = createdPerson?.id;
-                  const files = [item.driver.aadhaarFile, item.driver.dlFile, item.driver.photoFile]
-                    .filter((f): f is File => !!f);
+              ...driverPersonnel.map(item =>
+                this.cvps.addPersonnel(reqNo, item.payload).pipe(
+                  switchMap((createdPerson: any) => {
+                    const personnelId = createdPerson?.id;
+                    const files = [item.driver.aadhaarFile, item.driver.dlFile, item.driver.photoFile]
+                      .filter((f): f is File => !!f);
 
-                  if (!personnelId || files.length === 0) {
-                    return of(createdPerson);
-                  }
+                    if (!personnelId || files.length === 0) {
+                      return of(createdPerson);
+                    }
 
-                  return this.cvps.uploadPersonnelDocuments(personnelId, files).pipe(
-                    catchError(err => of(`WARN:${err.message}`)),
-                    switchMap(() => of(createdPerson))
-                  );
-                }),
-                catchError(err => of(err))
+                    return this.cvps.uploadPersonnelDocuments(personnelId, files).pipe(
+                      catchError((err: any) => of(`WARN:${err.message}`)),
+                      switchMap(() => of(createdPerson))
+                    );
+                  }),
+                  catchError((err: any) => of(err))
+                )
+              ),
+              ...helperPersonnel.map(item =>
+                this.cvps.addPersonnel(reqNo, item.payload).pipe(catchError((err: any) => of(err)))
               )
-            ),
-            ...helperPersonnel.map(item =>
-              this.cvps.addPersonnel(reqNo, item.payload).pipe(catchError(err => of(err)))
-            )
-          ])
+            ])
           : of([]);
 
         return step2a$.pipe(
@@ -659,7 +715,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         );
       }),
       finalize(() => { this.isSubmitting.set(false); this.isSaving.set(false); }),
-      catchError(err => {
+      catchError((err: any) => {
         this.errorMsg.set(
           `❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`
         );
