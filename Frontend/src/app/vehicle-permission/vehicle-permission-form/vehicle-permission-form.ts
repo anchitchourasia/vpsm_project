@@ -528,11 +528,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.permissionDateFrom.set(parseBackendDate(req.permissionFrom));
     this.permissionDateTo.set(parseBackendDate(req.permissionTo));
 
-    const allVehicleDocs: any[] = this.getVehicleDocsFrom(req);
+    const allVehicleDocs: any[] = Array.isArray(req.vehicleDocuments) ? req.vehicleDocuments : [];
 
     const regularDocs = allVehicleDocs.filter(
-      (d: any) =>
-        d.documentType &&
+      (d: any) => d.documentType &&
         !DRIVER_DOC_TYPES_UPPER.includes(String(d.documentType).trim().toUpperCase())
     );
 
@@ -548,14 +547,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         else if (upperType === 'FITNESS') matchedType = 'Fitness';
         else if (upperType === 'LOAD TEST' || upperType === 'LOAD_TEST') matchedType = 'Load Test';
 
-        const validUptoStr =
-          parseBackendDate(d.validTill) || parseBackendDate(d.validFrom) || '';
-
         return {
           id: crypto.randomUUID(),
           docType: matchedType,
           docNo: d.documentNo || '',
-          validUpto: validUptoStr,
+          validUpto: parseBackendDate(d.validTill) || parseBackendDate(d.validFrom) || '',
           file: null,
           documentId: d.id || null,
           existingFile: d.filename
@@ -565,62 +561,60 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       })
     );
 
-    const allPersonnel: any[] = this.getPersonnelFrom(req);
+    const allPersonnel: any[] = Array.isArray(req.employeeDetails) ? req.employeeDetails : [];
 
-    const driverList: any[] = allPersonnel.filter(
-      (e: any) => (e.empJob || '').toUpperCase() === 'DRIVER'
-    );
-
-    const helpersList: any[] = allPersonnel.filter(
-      (e: any) => (e.empJob || '').toUpperCase() !== 'DRIVER'
+    const personnelCards: any[] = allPersonnel.filter((e: any) =>
+      ['DRIVER', 'CONDUCTOR', 'HELPER', 'OTHER'].includes((e.empJob || '').toUpperCase())
     );
 
     const dlDocs = allVehicleDocs.filter((d: any) =>
       ['DL', 'LICENSE', 'DRIVING_LICENSE'].includes((d.documentType || '').toUpperCase())
     );
-
     const aadhaarDocs = allVehicleDocs.filter((d: any) =>
       ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes((d.documentType || '').toUpperCase())
     );
-
     const photoDocs = allVehicleDocs.filter((d: any) =>
       ['PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH'].includes((d.documentType || '').toUpperCase())
     );
 
-    if (driverList.length > 0) {
+    if (personnelCards.length > 0) {
       this.drivers.set(
-        driverList.map((driverData: any, idx: number) => {
-          const dlDoc = dlDocs[idx] || {};
+        personnelCards.map((personData: any, idx: number) => {
+          const role = (personData.empJob || 'OTHER').toUpperCase();
+          const isRealDriver = role === 'DRIVER';
+
+          const dlDoc = isRealDriver ? (dlDocs[idx] || {}) : {};
           const aadhaarDoc = aadhaarDocs[idx] || {};
-          const photoDoc = photoDocs[idx] || {};
+          const photoDoc = isRealDriver ? (photoDocs[idx] || {}) : {};
 
           const cleanAadhaarName = aadhaarDoc.filename
             ? aadhaarDoc.filename.substring(aadhaarDoc.filename.lastIndexOf('/') + 1)
             : '';
-
           const cleanDlName = dlDoc.filename
             ? dlDoc.filename.substring(dlDoc.filename.lastIndexOf('/') + 1)
             : '';
-
           const cleanPhotoName = photoDoc.filename
             ? photoDoc.filename.substring(photoDoc.filename.lastIndexOf('/') + 1)
             : '';
 
-          const resolvedLicense = driverData.licenseNo || dlDoc.documentNo || '';
+          const resolvedRole =
+            role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+
+          const resolvedLicense = isRealDriver
+            ? (personData.licenseNo || dlDoc.documentNo || '')
+            : '';
 
           return {
             id: crypto.randomUUID(),
-            role: driverData.empJob
-              ? driverData.empJob.charAt(0).toUpperCase() + driverData.empJob.slice(1).toLowerCase()
-              : 'Driver',
-            name: driverData.name || '',
-            mobileNo: driverData.mobileNo || '',
-            aadhaarNo: driverData.aadharNo || '',
+            role: resolvedRole,
+            name: personData.name || '',
+            mobileNo: personData.mobileNo || '',
+            aadhaarNo: personData.aadharNo || '',
             licenseNo: resolvedLicense,
             licenseNumber: resolvedLicense,
-            licenseType: driverData.licenseType || '',
-            validFrom: parseBackendDate(driverData.validFrom) || parseBackendDate(dlDoc.validFrom) || '',
-            validTo: parseBackendDate(driverData.validTo) || parseBackendDate(dlDoc.validTill) || '',
+            licenseType: isRealDriver ? (personData.licenseType || '') : '',
+            validFrom: isRealDriver ? (parseBackendDate(personData.validFrom) || parseBackendDate(dlDoc.validFrom) || '') : '',
+            validTo: isRealDriver ? (parseBackendDate(personData.validTo) || parseBackendDate(dlDoc.validTill) || '') : '',
             aadhaarFile: null,
             aadhaarFileName: cleanAadhaarName,
             aadhaarExistingFile: cleanAadhaarName,
@@ -628,13 +622,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             dlFileName: cleanDlName,
             dlExistingFile: cleanDlName,
             photoFile: null,
-            photoFileName: driverData.driverPhotoName || cleanPhotoName || '',
+            photoFileName: cleanPhotoName || personData.driverPhotoName || '',
           } as DriverPerson;
         })
       );
     } else {
       this.drivers.set([emptyDriver()]);
     }
+
+    const helpersList: any[] = allPersonnel.filter(
+      (e: any) => !['DRIVER', 'CONDUCTOR', 'HELPER', 'OTHER'].includes((e.empJob || '').toUpperCase())
+    );
 
     if (helpersList.length > 0) {
       this.helpers.set(
@@ -844,21 +842,21 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         const step2a$ = vehicleDocEntries.length > 0
           ? this.cvps.uploadAllDocuments(reqNo, vehicleDocEntries)
-              .pipe(catchError(err => of(`WARN:${err.message}`)))
+            .pipe(catchError(err => of(`WARN:${err.message}`)))
           : of('NO_NEW_DOCS');
 
         const step2b$ = docsReplace.length > 0
           ? forkJoin(
-              docsReplace.map(d =>
-                this.cvps.replaceDocument(reqNo, {
-                  docType: d.docType,
-                  docNo: d.docNo,
-                  validFrom: this.permissionDateFrom() || this.reqDate(),
-                  validTo: d.validUpto || '',
-                  file: d.file!,
-                }).pipe(catchError(err => of(`WARN:${err.message}`)))
-              )
+            docsReplace.map(d =>
+              this.cvps.replaceDocument(reqNo, {
+                docType: d.docType,
+                docNo: d.docNo,
+                validFrom: this.permissionDateFrom() || this.reqDate(),
+                validTo: d.validUpto || '',
+                file: d.file!,
+              }).pipe(catchError(err => of(`WARN:${err.message}`)))
             )
+          )
           : of([]);
 
         const personnel: any[] = [];
@@ -890,10 +888,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
         const step3$ = personnel.length > 0
           ? forkJoin(
-              personnel.map(p =>
-                this.cvps.addPersonnel(reqNo, p).pipe(catchError(err => of(err)))
-              )
+            personnel.map(p =>
+              this.cvps.addPersonnel(reqNo, p).pipe(catchError(err => of(err)))
             )
+          )
           : of([]);
 
         return step2a$.pipe(

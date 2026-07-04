@@ -159,10 +159,11 @@
   </div>
 
   <!-- ── Driver Information ── -->
+  <!-- ── Driver Information ── -->
   <div class="vp-section">
     <div class="vp-section-title-row" style="margin-bottom: 20px;">
       <span class="vp-section-title">Driver Information</span>
-      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()">
+      <button type="button" class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()">
         <i class="bi bi-person-plus-fill"></i> Add Driver
       </button>
     </div>
@@ -170,11 +171,15 @@
     @for (driver of drivers(); track driver.id; let i = $index) {
     <div
       style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
+
       <div
         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
         <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Person {{ i + 1 }}</h4>
+
         @if (drivers().length > 1) {
-        <button class="vp-btn-del" (click)="removeDriver(i)"><i class="bi bi-trash-fill"></i> Remove</button>
+        <button type="button" class="vp-btn-del" (click)="removeDriver(i)">
+          <i class="bi bi-trash-fill"></i> Remove
+        </button>
         }
       </div>
 
@@ -208,12 +213,15 @@
         <div class="vp-field">
           <label class="vp-label">Aadhaar Copy <span style="color: red;">*</span></label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverAadhaarFile($event, driver)" />
+
           @if (driver.aadhaarFileName) {
-          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
-            driver.aadhaarFileName }}</span>
+          <span class="vp-filename" style="color: #28a745;">
+            <i class="bi bi-check-circle-fill"></i> {{ driver.aadhaarFileName }}
+          </span>
           } @else if (driver.aadhaarExistingFile) {
-          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
-            driver.aadhaarExistingFile }}</span>
+          <span class="vp-filename" style="color: #28a745;">
+            <i class="bi bi-check-circle-fill"></i> {{ driver.aadhaarExistingFile }}
+          </span>
           }
         </div>
 
@@ -241,22 +249,27 @@
         <div class="vp-field">
           <label class="vp-label">Driving License Copy <span style="color:red;">*</span></label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
+
           @if (driver.dlFileName) {
-          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
-            driver.dlFileName }}</span>
+          <span class="vp-filename" style="color: #28a745;">
+            <i class="bi bi-check-circle-fill"></i> {{ driver.dlFileName }}
+          </span>
           } @else if (driver.dlExistingFile) {
-          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
-            driver.dlExistingFile }}</span>
+          <span class="vp-filename" style="color: #28a745;">
+            <i class="bi bi-check-circle-fill"></i> {{ driver.dlExistingFile }}
+          </span>
           }
         </div>
         }
 
         <div class="vp-field">
-          <label class="vp-label">Driver Photograph @if (needsPhotoForRole(driver.role)) { <span style="color:red;">*</span> }</label>
+          <label class="vp-label">Driver Photograph</label>
           <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
+
           @if (driver.photoFileName) {
-          <span class="vp-filename" style="color: #28a745;"><i class="bi bi-check-circle-fill"></i> {{
-            driver.photoFileName }}</span>
+          <span class="vp-filename" style="color: #28a745;">
+            <i class="bi bi-check-circle-fill"></i> {{ driver.photoFileName }}
+          </span>
           }
         </div>
 
