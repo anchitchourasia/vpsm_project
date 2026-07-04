@@ -277,10 +277,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.errorMsg.set('');
     if (!cleanCode) return;
 
-    this.http.get<any[]>(
-      `${API_CONFIG.BASE_URL}/api/reports/employee-department`,
-      { headers: new HttpHeaders({ 'x-api-key': API_CONFIG.API_KEY, 'Content-Type': 'application/json' }) }
-    ).pipe(
+    this.cvps.fetchContractorDetails().pipe(
       timeout(12000),
       takeUntil(this.destroy$),
       catchError(() => {
@@ -305,9 +302,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   // ─────────────────────────────────────────────────────────────────────────────
 
   private loadExistingRequestData(requestNo: number): void {
-    this.cvps.getAllRequests().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (requests: any[]) => {
-        const record = requests.find(r => r.requestNo === requestNo);
+    this.cvps.getByRequestNo(requestNo).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (record: any) => {
         if (!record) { this.errorMsg.set('❌ Request not found.'); return; }
 
         if (record.vehicleDocuments && record.vehicleDocuments.length > 0) {
@@ -352,7 +348,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.permissionDateFrom.set(parseBackendDate(req.permissionFrom));
     this.permissionDateTo.set(parseBackendDate(req.permissionTo));
 
-    // ✅ ONE declaration — reused for both vehicle docs AND driver doc lookup below
     const allVehicleDocs: any[] = req.vehicleDocuments || [];
 
     // ── Vehicle Documents ──────────────────────────────────────────────
@@ -394,7 +389,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       (e: any) => (e.empJob || '').toUpperCase() !== 'DRIVER'
     );
 
-    // ✅ FIX — reuse allVehicleDocs declared above (NO second const declaration)
     const dlDocs = allVehicleDocs.filter((d: any) =>
       ['DL', 'LICENSE', 'DRIVING_LICENSE'].includes((d.documentType || '').toUpperCase())
     );
@@ -557,27 +551,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           file: d.file!,
         }));
 
-        this.drivers().forEach(d => {
-          if (d.aadhaarFile) vehicleDocEntries.push({
-            docType: 'AADHAAR', docNo: d.aadhaarNo || 'N/A',
-            validFrom: this.permissionDateFrom() || this.reqDate(),
-            validTo: this.permissionDateTo(),
-            file: d.aadhaarFile,
-          });
-          if (d.dlFile) vehicleDocEntries.push({
-            docType: 'DL', docNo: d.licenseNo || 'N/A',
-            validFrom: d.validFrom || this.permissionDateFrom() || this.reqDate(),
-            validTo: d.validTo || this.permissionDateTo(),
-            file: d.dlFile,
-          });
-          if (d.photoFile) vehicleDocEntries.push({
-            docType: 'DRIVER_PHOTO', docNo: 'N/A',
-            validFrom: this.permissionDateFrom() || this.reqDate(),
-            validTo: this.permissionDateTo(),
-            file: d.photoFile,
-          });
-        });
-
         const step2a$ = vehicleDocEntries.length > 0
           ? this.cvps.uploadAllDocuments(reqNo, vehicleDocEntries)
             .pipe(catchError(err => of(`WARN:${err.message}`)))
@@ -610,6 +583,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             validFrom: d.validFrom || undefined,
             validTo: d.validTo || undefined,
             driverPhotoName: d.photoFileName || undefined,
+            // Track files attached for nested switchMap pipeline upload
+            _files: [d.dlFile, d.aadhaarFile, d.photoFile].filter((f): f is File => f !== null)
           });
         });
         this.helpers().filter(h => h.name.trim()).forEach(h => {
@@ -619,11 +594,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             aadharNo: h.aadhaarNo?.trim() || undefined,
             name: h.name.trim(),
             mobileNo: h.mobileNo || undefined,
+            _files: h.file ? [h.file] : []
           });
         });
 
         const step3$ = personnel.length > 0
-          ? forkJoin(personnel.map(p => this.cvps.addPersonnel(reqNo, p).pipe(catchError(err => of(err)))))
+          ? forkJoin(
+              personnel.map(p => 
+                this.cvps.addPersonnel(reqNo, p).pipe(
+                  switchMap((savedPerson: any) => {
+                    if (p._files && p._files.length > 0 && savedPerson?.id) {
+                      return this.cvps.uploadPersonnelDocuments(savedPerson.id, p._files).pipe(
+                        catchError(err => of(`WARN_PERS_DOC:${err.message}`))
+                      );
+                    }
+                    return of(savedPerson);
+                  }),
+                  catchError(err => of(err))
+                )
+              )
+            )
           : of([]);
 
         return step2a$.pipe(
