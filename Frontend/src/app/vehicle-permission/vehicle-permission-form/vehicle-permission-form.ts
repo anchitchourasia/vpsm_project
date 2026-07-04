@@ -548,7 +548,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         else if (upperType === 'LOAD TEST' || upperType === 'LOAD_TEST') matchedType = 'Load Test';
 
         return {
-          id: crypto.randomUUID(),
+          id: driverData.id ? String(driverData.id) : crypto.randomUUID(),
           docType: matchedType,
           docNo: d.documentNo || '',
           validUpto: parseBackendDate(d.validTill) || parseBackendDate(d.validFrom) || '',
