@@ -134,6 +134,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   readonly department = signal(this.auth.department() || 'Security');
   readonly category = 'Vehicle Entry';
 
+
   status = signal('Draft');
 
   contractorCode = signal('');
@@ -688,29 +689,29 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     const newDocs$ = docsNew.length > 0
       ? this.cvps.uploadAllDocuments(
-          requestNo,
-          docsNew.map(d => ({
+        requestNo,
+        docsNew.map(d => ({
+          docType: d.docType,
+          docNo: d.docNo,
+          validFrom: this.permissionDateFrom() || this.reqDate(),
+          validTo: d.validUpto || '',
+          file: d.file!,
+        }))
+      ).pipe(catchError(err => of(err)))
+      : of('NO_NEW_DOCS');
+
+    const replaceDocs$ = docsReplace.length > 0
+      ? forkJoin(
+        docsReplace.map(d =>
+          this.cvps.replaceDocument(requestNo, {
             docType: d.docType,
             docNo: d.docNo,
             validFrom: this.permissionDateFrom() || this.reqDate(),
             validTo: d.validUpto || '',
             file: d.file!,
-          }))
-        ).pipe(catchError(err => of(err)))
-      : of('NO_NEW_DOCS');
-
-    const replaceDocs$ = docsReplace.length > 0
-      ? forkJoin(
-          docsReplace.map(d =>
-            this.cvps.replaceDocument(requestNo, {
-              docType: d.docType,
-              docNo: d.docNo,
-              validFrom: this.permissionDateFrom() || this.reqDate(),
-              validTo: d.validUpto || '',
-              file: d.file!,
-            }).pipe(catchError(err => of(err)))
-          )
+          }).pipe(catchError(err => of(err)))
         )
+      )
       : of([]);
 
     return newDocs$.pipe(
@@ -785,7 +786,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         this.savedRequestNo.set(requestNo);
 
         if (targetStatus === 'SAVED') {
-          return of(createResponse);
+          return this.cvps.modifyRequest(requestNo, this.buildMasterPayload('SAVED'));
         }
 
         return this.uploadVehicleDocumentsForCreate(requestNo).pipe(
