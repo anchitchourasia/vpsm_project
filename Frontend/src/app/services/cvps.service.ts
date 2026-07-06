@@ -1,9 +1,49 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, throwError } from 'rxjs';
 import { API_CONFIG, CVPS_URLS } from '../core/api.config';
-import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+
+export interface CvpsVehicleDoc {
+  id?: number;
+  documentType: string;
+  documentNo: string;
+  validFrom: string;
+  validTill?: string;
+  filename?: string;
+}
+
+export interface CvpsPersonnelDocument {
+  documentNo: string;
+  documentType: string;
+  fileName: string;
+  validFrom: string;
+  validTill?: string;
+}
+
+export interface CvpsPersonnel {
+  id?: number;
+  empJob: string;
+  empType: string;
+  empNo?: number | null;
+  aadharNo?: string;
+  name: string;
+  mobileNo?: string;
+  licenseNo?: string;
+  licenseType?: string;
+  validFrom?: string;
+  validTo?: string;
+  driverPhotoName?: string;
+  documents?: CvpsPersonnelDocument[];
+}
+
+export interface CvpsHistory {
+  historyId?: number;
+  actionTaken: string;
+  empNo: string;
+  remarks?: string;
+  actionDate?: string;
+}
 
 export interface CvpsRequest {
   requestNo?: number;
@@ -21,23 +61,54 @@ export interface CvpsRequest {
   requestHistories?: CvpsHistory[];
 }
 
-export interface CvpsVehicleDoc {
-  id?: number;
-  documentType: string;
-  documentNo: string;
-  validFrom: string;
-  validTill?: string;
-  filename?: string;
+export interface CreateRequestRequestDTO {
+  createdDate?: string;
+  permissionFrom: string;
+  permissionTo: string;
+  contractorId: string;
+  createdBy: string;
+  vehicleType: string;
+  reqStatus?: string;
+  vehicleNo: string;
+  natureOfJob: string;
+  requestId?: number;
 }
 
-export interface CvpsPersonnel {
-  id?: number;
-  empJob: string;
-  empType: string;
-  empNo?: number;
-  aadharNo?: string;
+export interface VehicleDocumentDTO {
+  documentNo: string;
+  documentType: string;
+  fileName: string;
+  validFrom: string;
+  validTill?: string;
+}
+
+export interface EmployeeDocumentDTO {
+  documentNo: string;
+  documentType: string;
+  fileName: string;
+  validFrom: string;
+  validTill?: string;
+}
+
+export interface EmployeeDTO {
+  empNo?: number | null;
   name: string;
-  mobileNo?: string;        // ✅ FIX 1: added for contractor-approver.html
+  mobileNo?: string;
+  empType: string;
+  empJob: string;
+  documents?: EmployeeDocumentDTO[];
+}
+
+export interface CreateRequestDTO {
+  request: CreateRequestRequestDTO;
+  vehicleDocuments: VehicleDocumentDTO[];
+  employees: EmployeeDTO[];
+}
+
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  requestNo: number;
 }
 
 export interface WorkflowAction {
@@ -46,20 +117,15 @@ export interface WorkflowAction {
   remarks: string;
 }
 
-export interface CvpsHistory {
-  historyId?: number;
-  actionTaken: string;
-  empNo: string;
-  remarks?: string;
-  actionDate?: string;
-}
-
 export const CVPS_STATUS = {
   CREATED: 'CREATED',
   CONFIRMED: 'CONFIRMED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
   HOLD: 'HOLD',
+  MODIFY: 'MODIFY',
+  SAVED: 'SAVED',
+  SUBMITTED: 'SUBMITTED',
 } as const;
 
 export type CvpsStatusType = typeof CVPS_STATUS[keyof typeof CVPS_STATUS];
@@ -70,15 +136,20 @@ export class CvpsService {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
 
-  // ── 1. POST — Create new request ────────────────────────────────────
-  createRequest(payload: CvpsRequest): Observable<CvpsRequest> {
+  createRequest(payload: CreateRequestDTO): Observable<ApiResponse> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required.'));
     }
-    return this.http.post<CvpsRequest>(API_CONFIG.CVPS_BASE, payload);
+    return this.http.post<ApiResponse>(API_CONFIG.CVPS_BASE, payload);
   }
 
-  // ── 2. POST — Upload all vehicle documents ───────────────────────────
+  modifyRequest(requestNo: number, payload: CvpsRequest): Observable<CvpsRequest> {
+    if (!this.auth.isUploader()) {
+      return throwError(() => new Error('Access Denied: UPLOADER role required.'));
+    }
+    return this.http.put<CvpsRequest>(CVPS_URLS.modify(requestNo), payload);
+  }
+
   uploadAllDocuments(
     requestNo: number,
     docs: { docType: string; docNo: string; validFrom: string; validTo: string; file: File }[]
@@ -95,12 +166,12 @@ export class CvpsService {
       fd.append('files', d.file, d.file.name);
     });
     return this.http.post<string>(
-      CVPS_URLS.uploadDocs(requestNo), fd,
+      CVPS_URLS.uploadDocs(requestNo),
+      fd,
       { responseType: 'text' as 'json' }
     );
   }
 
-  // ── 3. POST — Add personnel ──────────────────────────────────────────
   addPersonnel(requestNo: number, payload: CvpsPersonnel): Observable<CvpsPersonnel> {
     if (!this.auth.isUploader()) {
       return throwError(() => new Error('Access Denied: UPLOADER role required.'));
@@ -108,7 +179,6 @@ export class CvpsService {
     return this.http.post<CvpsPersonnel>(CVPS_URLS.addPersonnel(requestNo), payload);
   }
 
-  // ── 4. POST — Workflow action ────────────────────────────────────────
   doWorkflowAction(requestNo: number, payload: WorkflowAction): Observable<CvpsRequest> {
     const action = payload.action.toUpperCase();
     if (action === 'CONFIRM' && !this.auth.isConfirmer()) {
@@ -123,15 +193,6 @@ export class CvpsService {
     return this.http.post<CvpsRequest>(CVPS_URLS.workflowAction(requestNo), payload);
   }
 
-  // ── 5. PUT — Modify existing request ────────────────────────────────
-  modifyRequest(requestNo: number, payload: CvpsRequest): Observable<CvpsRequest> {
-    if (!this.auth.isUploader()) {
-      return throwError(() => new Error('Access Denied: UPLOADER role required.'));
-    }
-    return this.http.put<CvpsRequest>(CVPS_URLS.modify(requestNo), payload);
-  }
-
-  // ── 6. POST — Replace a single document ─────────────────────────────
   replaceDocument(
     requestNo: number,
     doc: { docType: string; docNo: string; validFrom: string; validTo: string; file: File }
@@ -146,22 +207,18 @@ export class CvpsService {
     fd.append('validTill', doc.validTo || '');
     fd.append('file', doc.file, doc.file.name);
     return this.http.post<string>(
-      CVPS_URLS.replaceDoc(requestNo), fd,
+      CVPS_URLS.replaceDoc(requestNo),
+      fd,
       { responseType: 'text' as 'json' }
     );
   }
 
-  // ── 7. GET — By vehicle number ───────────────────────────────────────
   getByVehicleNo(vehicleNo: string): Observable<CvpsRequest> {
     return this.http.get<CvpsRequest>(
       CVPS_URLS.getByVehicle(vehicleNo.trim().toUpperCase())
     );
   }
 
-  // ── 7b. GET — Full record by requestNo (uses getAll + filter) ────────
-  // NOTE: Backend has no /request/{id} endpoint in v12.
-  // We call GET /api/v1/permissions (getAll) and filter by requestNo.
-  // EAGER fetch on backend ensures vehicleDocuments + employeeDetails are included.
   getByRequestNo(requestNo: number): Observable<CvpsRequest> {
     return this.http.get<CvpsRequest[]>(API_CONFIG.CVPS_GET_ALL).pipe(
       map(list => {
@@ -174,25 +231,21 @@ export class CvpsService {
     );
   }
 
-  // ── 8. GET — All requests ────────────────────────────────────────────
   getAllRequests(): Observable<CvpsRequest[]> {
     return this.http.get<CvpsRequest[]>(API_CONFIG.CVPS_GET_ALL);
   }
 
-  // ── 9. GET — Filter by status ────────────────────────────────────────
   getByStatus(status: CvpsStatusType | string): Observable<CvpsRequest[]> {
     const params = new HttpParams().set('status', status.toString().toUpperCase());
     return this.http.get<CvpsRequest[]>(API_CONFIG.CVPS_FILTER, { params });
   }
 
-  // ── 10. GET — Gate validation ────────────────────────────────────────
   validateGatePass(vehicleNo: string): Observable<CvpsRequest> {
     return this.http.get<CvpsRequest>(
       CVPS_URLS.validateGate(vehicleNo.trim().toUpperCase())
     );
   }
 
-  // ── 11. GET — Download document blob ────────────────────────────────
   downloadDocument(documentId: number): Observable<Blob> {
     return this.http.get(
       CVPS_URLS.downloadDoc(documentId),
@@ -200,39 +253,31 @@ export class CvpsService {
     );
   }
 
-  // ── 12. GET — Download Excel report ─────────────────────────────────
   downloadExcelReport(): Observable<Blob> {
     return this.http.get(API_CONFIG.CVPS_DOWNLOAD_EXCEL, { responseType: 'blob' });
   }
 
-  // ── 13. GET — Employee/Contractor details for name auto-lookup ──────
   fetchContractorDetails(): Observable<any[]> {
     const headers = new HttpHeaders({
-      'x-api-key'   : API_CONFIG.API_KEY,
-      'Accept'      : 'application/json',
+      'x-api-key': API_CONFIG.API_KEY,
+      'Accept': 'application/json',
     });
     return this.http.get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers });
   }
 
-  // ── 14. POST — Upload personnel documents (DL, Aadhaar, Photo) ───────
-  // ✅ FIX 3: added for vehicle-permission-form.ts uploadPersonnelDocuments()
   uploadPersonnelDocuments(personnelId: number, files: File[]): Observable<any> {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f, f.name));
     return this.http.post<any>(
-      `${API_CONFIG.CVPS_BASE}/personnel/${personnelId}/upload-documents`, fd
+      `${API_CONFIG.CVPS_BASE}/personnel/${personnelId}/upload-documents`,
+      fd
     );
   }
 
-  // ── 15. ALIAS — getRequestsByStatus → getByStatus ────────────────────
-  // ✅ FIX 4: added for contractor-confirmer.ts getRequestsByStatus()
   getRequestsByStatus(status: string): Observable<CvpsRequest[]> {
     return this.getByStatus(status);
   }
 
-  // ── 16. ALIAS — executeWorkflowAction → doWorkflowAction ─────────────
-  // ✅ FIX 5: added for contractor-confirmer.ts executeWorkflowAction()
-  // Accepts plain string action to avoid strict union type mismatch (TS2345)
   executeWorkflowAction(
     requestNo: number,
     payload: { action: string; empNo: string; remarks: string }
@@ -240,7 +285,6 @@ export class CvpsService {
     return this.doWorkflowAction(requestNo, payload as WorkflowAction);
   }
 
-  // ── UTILITY — Trigger browser file download ──────────────────────────
   triggerBlobDownload(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
