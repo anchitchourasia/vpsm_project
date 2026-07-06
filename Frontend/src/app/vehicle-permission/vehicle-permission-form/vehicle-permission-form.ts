@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, of, forkJoin, Observable } from 'rxjs';
-import { catchError, finalize, switchMap, takeUntil } from 'rxjs/operators';
+import { catchError, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import {
   CvpsService,
@@ -297,6 +297,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.errorMsg.set('');
     if (!cleanCode) return;
 
+    this.resolveContractorName(cleanCode);
+  }
+
+  private resolveContractorName(contractorCode: string): void {
     this.cvps.fetchContractorDetails().pipe(
       takeUntil(this.destroy$),
       catchError(() => {
@@ -305,16 +309,19 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       })
     ).subscribe((rows: any[]) => {
       if (!rows || rows.length === 0) {
-        this.errorMsg.set('Could not fetch employee list.');
+        this.contractorName.set('');
         return;
       }
-      const match = rows.find(r => r.contractorCode && String(r.contractorCode).toUpperCase() === cleanCode);
+
+      const match = rows.find(
+        r => r.contractorCode && String(r.contractorCode).toUpperCase() === contractorCode.toUpperCase()
+      );
+
       if (match) {
         this.contractorName.set(String(match.name || '').toUpperCase());
         this.errorMsg.set('');
       } else {
         this.contractorName.set('');
-        this.errorMsg.set(`⚠️ No contractor found for code: ${cleanCode}`);
       }
     });
   }
@@ -336,13 +343,22 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   private populateFormFields(req: CvpsRequest): void {
     const s = (req.reqStatus || '').toUpperCase();
-    if (s === 'HOLD' || s === 'MODIFY') this.status.set('Need Modification');
-    else if (s === 'SAVED') this.status.set('Saved');
-    else if (s === 'CREATED' || s === 'SUBMITTED') this.status.set('Submitted');
-    else this.status.set(req.reqStatus || 'Modification');
 
-    this.contractorCode.set(req.contractorId || '');
-    this.contractorName.set(req.contractorId || '');
+    if (s === 'SAVED') this.status.set('Saved');
+    else if (s === 'HOLD' || s === 'MODIFY') this.status.set('Need Modification');
+    else if (s === 'CONFIRMED') this.status.set('Confirmed');
+    else if (s === 'APPROVED') this.status.set('Approved');
+    else if (s === 'REJECTED') this.status.set('Rejected');
+    else if (s === 'CREATED' || s === 'SUBMITTED') this.status.set('Submitted');
+    else this.status.set(req.reqStatus || 'Draft');
+
+    const contractorId = req.contractorId || '';
+    this.contractorCode.set(contractorId);
+    this.contractorName.set('');
+    if (contractorId) {
+      this.resolveContractorName(contractorId);
+    }
+
     this.natureOfJob.set(req.natureOfJob || '');
     this.vehicleNumber.set(req.vehicleNo || '');
 
@@ -719,7 +735,15 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         switchMap((updatedRequest: CvpsRequest) => {
           const requestNo = updatedRequest.requestNo || activeId;
           this.savedRequestNo.set(requestNo);
-          return this.uploadVehicleDocumentsForUpdate(requestNo);
+
+          if (targetStatus === 'SAVED') {
+            return of(updatedRequest);
+          }
+
+          return this.uploadVehicleDocumentsForUpdate(requestNo).pipe(
+            switchMap(() => this.uploadPersonnelSequence(requestNo)),
+            tap(() => this.status.set('Submitted'))
+          );
         }),
         takeUntil(this.destroy$),
         catchError(err => {
@@ -759,6 +783,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       switchMap((createResponse: ApiResponse) => {
         const requestNo = createResponse.requestNo;
         this.savedRequestNo.set(requestNo);
+
+        if (targetStatus === 'SAVED') {
+          return of(createResponse);
+        }
 
         return this.uploadVehicleDocumentsForCreate(requestNo).pipe(
           switchMap(() => this.uploadPersonnelSequence(requestNo))
@@ -834,6 +862,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       case 'hold':
         return 'wf-hold';
       case 'saved':
+      case 'draft':
         return 'wf-draft';
       default:
         return 'wf-waiting';
