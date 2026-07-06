@@ -2,16 +2,16 @@ import { Component, signal, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { catchError, finalize, takeUntil, timeout } from 'rxjs/operators';
+import { Subject, of, forkJoin, Observable } from 'rxjs';
+import { catchError, finalize, switchMap, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
-import { Subject, of, Observable } from 'rxjs';
 import {
   CvpsService,
   CvpsRequest,
   CreateRequestDTO,
   VehicleDocumentDTO,
-  EmployeeDTO,
-  EmployeeDocumentDTO
+  ApiResponse,
+  CvpsPersonnel
 } from '../../services/cvps.service';
 
 interface DocEntry {
@@ -298,7 +298,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if (!cleanCode) return;
 
     this.cvps.fetchContractorDetails().pipe(
-      timeout(12000),
       takeUntil(this.destroy$),
       catchError(() => {
         this.errorMsg.set('⚠️ Could not reach employee server. Check connectivity.');
@@ -474,6 +473,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           this.errorMsg.set(`Incomplete details for Document: ${doc.docType || 'Unknown'}`);
           return false;
         }
+        if (!doc.file && !this.docAlreadyUploaded(doc)) {
+          this.errorMsg.set(`Please upload a file for ${doc.docType}.`);
+          return false;
+        }
       }
 
       for (let idx = 0; idx < this.drivers().length; idx++) {
@@ -488,7 +491,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           this.errorMsg.set(`${label}: Aadhaar Number is required.`);
           return false;
         }
-        if (d.role === 'Driver') {
+        if (!d.aadhaarFile && !d.aadhaarExistingFile) {
+          this.errorMsg.set(`${label}: Aadhaar Copy is required.`);
+          return false;
+        }
+
+        if ((d.role || '').toUpperCase() === 'DRIVER') {
           if (!d.licenseNo?.trim()) {
             this.errorMsg.set(`${label}: License Number is required.`);
             return false;
@@ -503,6 +511,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           }
           if (!d.validTo) {
             this.errorMsg.set(`${label}: License Valid To is required.`);
+            return false;
+          }
+          if (!d.dlFile && !d.dlExistingFile) {
+            this.errorMsg.set(`${label}: Driving License Copy is required.`);
             return false;
           }
         }
@@ -543,74 +555,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         validTill: d.validUpto || undefined,
       }));
 
-    const employees: EmployeeDTO[] = [];
-
-    this.drivers()
-      .filter(d => d.name.trim())
-      .forEach(d => {
-        const documents: EmployeeDocumentDTO[] = [
-          {
-            documentNo: d.aadhaarNo?.trim() || '',
-            documentType: 'AADHAAR',
-            fileName: d.aadhaarFile?.name || d.aadhaarExistingFile || 'aadhaar.pdf',
-            validFrom: this.reqDate(),
-            validTill: undefined,
-          }
-        ];
-
-        if ((d.role || '').toUpperCase() === 'DRIVER') {
-          documents.push({
-            documentNo: d.licenseNo?.trim() || '',
-            documentType: 'DL',
-            fileName: d.dlFile?.name || d.dlExistingFile || 'dl.pdf',
-            validFrom: d.validFrom || this.reqDate(),
-            validTill: d.validTo || undefined,
-          });
-
-          if (d.photoFileName) {
-            documents.push({
-              documentNo: d.name.trim().toUpperCase().replace(/\s+/g, '_'),
-              documentType: 'PHOTO',
-              fileName: d.photoFile?.name || d.photoFileName || 'photo.jpg',
-              validFrom: this.reqDate(),
-              validTill: undefined,
-            });
-          }
-        }
-
-        employees.push({
-          empNo: null,
-          name: d.name.trim(),
-          mobileNo: d.mobileNo?.trim() || undefined,
-          empType: 'UNREGISTERED',
-          empJob: (d.role || 'DRIVER').toUpperCase(),
-          documents,
-        });
-      });
-
-    this.helpers()
-      .filter(h => h.name.trim())
-      .forEach(h => {
-        const documents: EmployeeDocumentDTO[] = h.aadhaarNo?.trim()
-          ? [{
-            documentNo: h.aadhaarNo.trim(),
-            documentType: 'AADHAAR',
-            fileName: h.file?.name || h.fileName || 'aadhaar.pdf',
-            validFrom: this.reqDate(),
-            validTill: undefined,
-          }]
-          : [];
-
-        employees.push({
-          empNo: null,
-          name: h.name.trim(),
-          mobileNo: h.mobileNo?.trim() || undefined,
-          empType: 'UNREGISTERED',
-          empJob: (h.jobType || 'HELPER').toUpperCase(),
-          documents,
-        });
-      });
-
     return {
       request: {
         createdDate: undefined,
@@ -622,11 +566,140 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         reqStatus: master.reqStatus,
         vehicleNo: master.vehicleNo,
         natureOfJob: master.natureOfJob,
-        requestId: this.savedRequestNo() || undefined,
+        requestId: undefined,
       },
       vehicleDocuments,
-      employees,
+      employees: []
     };
+  }
+
+  private buildPersonnelPayloads(): Array<{ payload: CvpsPersonnel; files: File[] }> {
+    const personnel: Array<{ payload: CvpsPersonnel; files: File[] }> = [];
+
+    this.drivers()
+      .filter(d => d.name.trim())
+      .forEach(d => {
+        const files: File[] = [];
+        if (d.aadhaarFile) files.push(d.aadhaarFile);
+        if (d.dlFile) files.push(d.dlFile);
+        if (d.photoFile) files.push(d.photoFile);
+
+        personnel.push({
+          payload: {
+            empJob: (d.role || 'DRIVER').toUpperCase(),
+            empType: 'UNREGISTERED',
+            empNo: undefined,
+            aadharNo: d.aadhaarNo?.trim() || undefined,
+            name: d.name.trim(),
+            mobileNo: d.mobileNo?.trim() || undefined,
+            licenseNo: d.licenseNo?.trim() || undefined,
+            licenseType: d.licenseType?.trim() || undefined,
+            validFrom: d.validFrom || undefined,
+            validTo: d.validTo || undefined,
+            driverPhotoName: d.photoFileName || undefined,
+          },
+          files
+        });
+      });
+
+    this.helpers()
+      .filter(h => h.name.trim())
+      .forEach(h => {
+        const files: File[] = [];
+        if (h.file) files.push(h.file);
+
+        personnel.push({
+          payload: {
+            empJob: (h.jobType || 'HELPER').toUpperCase(),
+            empType: 'UNREGISTERED',
+            empNo: undefined,
+            aadharNo: h.aadhaarNo?.trim() || undefined,
+            name: h.name.trim(),
+            mobileNo: h.mobileNo?.trim() || undefined,
+          },
+          files
+        });
+      });
+
+    return personnel;
+  }
+
+  private uploadPersonnelSequence(requestNo: number): Observable<any> {
+    const personnelEntries = this.buildPersonnelPayloads();
+
+    if (personnelEntries.length === 0) {
+      return of([]);
+    }
+
+    return forkJoin(
+      personnelEntries.map(entry =>
+        this.cvps.addPersonnel(requestNo, entry.payload).pipe(
+          switchMap(savedPerson => {
+            if (entry.files.length > 0 && savedPerson?.id) {
+              return this.cvps.uploadPersonnelDocuments(savedPerson.id, entry.files);
+            }
+            return of(savedPerson);
+          }),
+          catchError(err => of(err))
+        )
+      )
+    );
+  }
+
+  private uploadVehicleDocumentsForCreate(requestNo: number): Observable<any> {
+    const docsNew = this.docs().filter(d => d.file !== null && d.docType);
+
+    if (docsNew.length === 0) {
+      return of('NO_VEHICLE_DOC_UPLOAD');
+    }
+
+    const vehicleDocEntries = docsNew.map(d => ({
+      docType: d.docType,
+      docNo: d.docNo,
+      validFrom: this.permissionDateFrom() || this.reqDate(),
+      validTo: d.validUpto || '',
+      file: d.file!,
+    }));
+
+    return this.cvps.uploadAllDocuments(requestNo, vehicleDocEntries).pipe(
+      catchError(err => of(err))
+    );
+  }
+
+  private uploadVehicleDocumentsForUpdate(requestNo: number): Observable<any> {
+    const docsNew = this.docs().filter(d => d.file !== null && !d.documentId && d.docType);
+    const docsReplace = this.docs().filter(d => d.file !== null && !!d.documentId && d.docType);
+
+    const newDocs$ = docsNew.length > 0
+      ? this.cvps.uploadAllDocuments(
+          requestNo,
+          docsNew.map(d => ({
+            docType: d.docType,
+            docNo: d.docNo,
+            validFrom: this.permissionDateFrom() || this.reqDate(),
+            validTo: d.validUpto || '',
+            file: d.file!,
+          }))
+        ).pipe(catchError(err => of(err)))
+      : of('NO_NEW_DOCS');
+
+    const replaceDocs$ = docsReplace.length > 0
+      ? forkJoin(
+          docsReplace.map(d =>
+            this.cvps.replaceDocument(requestNo, {
+              docType: d.docType,
+              docNo: d.docNo,
+              validFrom: this.permissionDateFrom() || this.reqDate(),
+              validTo: d.validUpto || '',
+              file: d.file!,
+            }).pipe(catchError(err => of(err)))
+          )
+        )
+      : of([]);
+
+    return newDocs$.pipe(
+      switchMap(() => replaceDocs$)
+    );
   }
 
   private processFormSubmission(targetStatus: string): void {
@@ -641,30 +714,69 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const activeId = this.savedRequestNo();
     const isUpdate = !!activeId;
 
-    type SubmissionResult = CvpsRequest | { success: boolean; message: string; requestNo: number };
+    if (isUpdate) {
+      this.cvps.modifyRequest(activeId, this.buildMasterPayload(targetStatus)).pipe(
+        switchMap((updatedRequest: CvpsRequest) => {
+          const requestNo = updatedRequest.requestNo || activeId;
+          this.savedRequestNo.set(requestNo);
+          return this.uploadVehicleDocumentsForUpdate(requestNo);
+        }),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.errorMsg.set(
+            `❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`
+          );
+          return of(null);
+        }),
+        finalize(() => {
+          this.isSubmitting.set(false);
+          this.isSaving.set(false);
+        })
+      ).subscribe((result: any) => {
+        if (result === null) return;
 
-    const request$: import('rxjs').Observable<SubmissionResult> = isUpdate
-      ? this.cvps.modifyRequest(activeId, this.buildMasterPayload(targetStatus))
-      : this.cvps.createRequest(this.buildCreatePayload(targetStatus));
+        if (targetStatus === 'SAVED') {
+          this.status.set('Saved');
+          this.saveMsg.set('✅ Form saved successfully!');
+          setTimeout(() => {
+            this.saveMsg.set('');
+            this.router.navigate(['/vehicle-permission/list']);
+          }, 2000);
+        } else {
+          this.status.set('Submitted');
+          this.saveMsg.set('✅ Permission request updated successfully!');
+          setTimeout(() => {
+            this.saveMsg.set('');
+            this.router.navigate(['/vehicle-permission/list']);
+          }, 2500);
+        }
+      });
 
-    request$.pipe(
+      return;
+    }
+
+    this.cvps.createRequest(this.buildCreatePayload(targetStatus)).pipe(
+      switchMap((createResponse: ApiResponse) => {
+        const requestNo = createResponse.requestNo;
+        this.savedRequestNo.set(requestNo);
+
+        return this.uploadVehicleDocumentsForCreate(requestNo).pipe(
+          switchMap(() => this.uploadPersonnelSequence(requestNo))
+        );
+      }),
       takeUntil(this.destroy$),
       catchError(err => {
         this.errorMsg.set(
           `❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`
         );
-        return of<SubmissionResult | null>(null);
+        return of(null);
       }),
       finalize(() => {
         this.isSubmitting.set(false);
         this.isSaving.set(false);
       })
-    ).subscribe((result: SubmissionResult | null) => {
-      if (!result) return;
-
-      if (typeof result === 'object' && 'requestNo' in result && typeof result.requestNo === 'number') {
-        this.savedRequestNo.set(result.requestNo);
-      }
+    ).subscribe((result: any) => {
+      if (result === null) return;
 
       if (targetStatus === 'SAVED') {
         this.status.set('Saved');
