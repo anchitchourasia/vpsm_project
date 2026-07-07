@@ -1,68 +1,61 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { AuthService } from '../core/auth.service';
-import { environment } from '../../environments/environment';
 
-export interface CvpsVehicleDoc {
-  id?: number;
-  documentType: string;
-  documentNo: string;
-  validFrom: string;
-  validTill?: string;
-  filename?: string;
-}
+// export interface CvpsVehicleDoc {
+//   id?: number;
+//   documentType: string;
+//   documentNo: string;
+//   validFrom: string;
+//   validTill?: string;
+//   filename?: string;
+// }
 
-export interface CvpsPersonnelDocument {
-  documentNo: string;
-  documentType: string;
-  fileName: string;
-  validFrom: string;
-  validTill?: string;
-}
+// export interface CvpsPersonnelDocument {
+//   documentNo: string;
+//   documentType: string;
+//   fileName: string;
+//   validFrom: string;
+//   validTill?: string;
+// }
 
-export interface CvpsPersonnel {
-  id?: number;
-  empJob: string;
-  empType: string;
-  empNo?: number | null;
-  aadharNo?: string;
-  name: string;
-  mobileNo?: string;
-  licenseNo?: string;
-  licenseType?: string;
-  validFrom?: string;
-  validTo?: string;
-  driverPhotoName?: string;
-  documents?: CvpsPersonnelDocument[];
-}
+// export interface CvpsPersonnel {
+//   id?: number;
+//   empJob: string;
+//   empType: string;
+//   empNo?: number | null;
+//   name: string;
+//   mobileNo?: string;
+//   documents?: CvpsPersonnelDocument[];
+// }
 
-export interface CvpsHistory {
-  historyId?: number;
-  actionTaken: string;
-  empNo: string;
-  remarks?: string;
-  actionDate?: string;
-}
+// export interface CvpsHistory {
+//   historyId?: number;
+//   actionTaken: string;
+//   empNo: string;
+//   remarks?: string;
+//   actionDate?: string;
+// }
 
-export interface CvpsRequest {
-  requestNo?: number;
-  contractorId: string;
-  natureOfJob: string;
-  vehicleNo: string;
-  vehicleType: string;
-  permissionFrom: string;
-  permissionTo: string;
-  reqStatus?: string;
-  createdBy: string;
-  createdDate?: string;
-  vehicleDocuments?: CvpsVehicleDoc[];
-  employeeDetails?: CvpsPersonnel[];
-  requestHistories?: CvpsHistory[];
-}
+// export interface CvpsRequest {
+//   requestNo?: number;
+//   contractorId: string;
+//   natureOfJob: string;
+//   vehicleNo: string;
+//   vehicleType: string;
+//   permissionFrom: string;
+//   permissionTo: string;
+//   reqStatus?: string;
+//   createdBy: string;
+//   createdDate?: string;
+//   vehicleDocuments?: CvpsVehicleDoc[];
+//   employeeDetails?: CvpsPersonnel[];
+//   requestHistories?: CvpsHistory[];
+// }
 
 export interface CreateRequestRequestDTO {
+  requestNo?: number;  //added this 
   createdDate?: string;
   permissionFrom: string;
   permissionTo: string;
@@ -76,39 +69,21 @@ export interface CreateRequestRequestDTO {
 }
 
 export interface VehicleDocumentDTO {
-
   id?: number;
   documentNo: string;
   documentType: string;
-  filename?: string;
-  validFrom: string;
-  validTill?: string;
-  // file?: File;
-}
-export interface VehicleDocumentResponse {
-  id: number;
-  documentNo: string;
-  documentType: string;
-  filename: string;
-  validFrom: string;
-  validTill?: string;
-}
-export interface VehicleDocumentRequest {
-  id?: number;
-  documentNo: string;
-  documentType: string;
-  validFrom: string;
-  validTill?: string;
-  file?: File;
+  filename?: string | null;
+  validFrom: string | null;
+  validTill?: string | null;
 }
 
 export interface EmployeeDocumentDTO {
   id?: number;
-  documentNo: string;
+  documentNo: string | null;
   documentType: string;
-  filename?: string;
-  validFrom: string;
-  validTill?: string;
+  filename?: string | null;
+  validFrom: string | null;
+  validTill?: string | null;
 }
 
 export interface EmployeeDTO {
@@ -145,6 +120,7 @@ export const CVPS_STATUS = {
   REJECTED: 'REJECTED',
   HOLD: 'HOLD',
   MODIFY: 'MODIFY',
+  MODIFIED: 'MODIFIED',
   SAVED: 'SAVED',
   SUBMITTED: 'SUBMITTED',
 } as const;
@@ -155,7 +131,6 @@ export type CvpsStatusType = typeof CVPS_STATUS[keyof typeof CVPS_STATUS];
 export class CvpsService {
 
   private http = inject(HttpClient);
-  private auth = inject(AuthService);
 
   createRequest(
     payload: CreateRequestDTO,
@@ -178,7 +153,16 @@ export class CvpsService {
       formData
     );
   }
-
+  getAllRequests(): Observable<CreateRequestDTO[]> {
+    return this.http.get<CreateRequestDTO[]>(
+      API_CONFIG.CVPS_GET_ALL_REQUESTS
+    );
+  }
+  deleteRequest(requestNo: number): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(
+      `${API_CONFIG.CVPS_DELETE_REQUEST}/${requestNo}`
+    );
+  }
   getRequestById(
     requestNo: number
   ): Observable<CreateRequestDTO> {
@@ -189,27 +173,27 @@ export class CvpsService {
 
   }
   updateRequest(
-  requestNo: number,
-  payload: CreateRequestDTO,
-  files: File[]
-): Observable<ApiResponse> {
+    requestNo: number,
+    payload: CreateRequestDTO,
+    files: File[]
+  ): Observable<ApiResponse> {
 
-  const formData = new FormData();
+    const formData = new FormData();
 
-  formData.append(
-    'request',
-    JSON.stringify(payload)
-  );
+    formData.append(
+      'request',
+      JSON.stringify(payload)
+    );
 
-  files.forEach(file => {
-    formData.append('files', file, file.name);
-  });
+    files.forEach(file => {
+      formData.append('files', file, file.name);
+    });
 
-  return this.http.put<ApiResponse>(
-    `${API_CONFIG.CVPS_UPDATE_REQUEST}/${requestNo}`,
-    formData
-  );
-}
+    return this.http.put<ApiResponse>(
+      `${API_CONFIG.CVPS_UPDATE_REQUEST}/${requestNo}`,
+      formData
+    );
+  }
 
 
 

@@ -48,10 +48,17 @@ export const routes: Routes = [
 
   // VEHICLE PERMISSION — protected
   { path: 'vehicle-permission/add', canActivate: [authGuard], loadComponent: () => import('./vehicle-permission/vehicle-permission-form/vehicle-permission-form').then(m => m.VehiclePermissionFormComponent) },
-  
+  {
+    path: 'vehicle-permission/list',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./vehicle-permission/vehicle-permission-list/vehicle-permission-list')
+        .then(m => m.VehiclePermissionListComponent)
+  },
+
   // ✅ NEW route added by colleague — add this to your v6.4 app.routes.ts
-  
-  
+
+
   // FALLBACK — redirect to home (guard will catch unauthenticated → login)
   { path: '**', redirectTo: '' },
 ];

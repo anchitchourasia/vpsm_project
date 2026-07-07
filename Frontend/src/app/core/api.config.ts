@@ -47,6 +47,8 @@ export const API_CONFIG = {
   CVPS_CREATE_REQUEST  : `${environment.cvpsBaseUrl}/api/requests/create`,
   CVPS_UPDATE_REQUEST  :  `${environment.cvpsBaseUrl}/api/requests/update`,
   CVPS_GET_REQUEST_BY_ID: `${environment.cvpsBaseUrl}/api/requests`,
+  CVPS_GET_ALL_REQUESTS: `${environment.cvpsBaseUrl}/api/requests`,
+  CVPS_DELETE_REQUEST: `${environment.cvpsBaseUrl}/api/requests`,
   
   
 } as const;
