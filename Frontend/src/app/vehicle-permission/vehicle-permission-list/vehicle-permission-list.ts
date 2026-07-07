@@ -52,6 +52,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
         'REJECTED',
         'HOLD',
         'MODIFY',
+        'MODIFIED',
         'SUBMITTED'
     ];
 
@@ -60,8 +61,12 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
         const status = this.statusFilter().trim().toUpperCase();
 
         return this.rows().filter(row => {
+            const rowStatus = (row.reqStatus || '').trim().toUpperCase();
+
             const matchesStatus =
-                status === 'ALL' || (row.reqStatus || '').toUpperCase() === status;
+                status === 'ALL' ||
+                rowStatus === status ||
+                (status === 'MODIFY' && rowStatus === 'MODIFIED');
 
             const matchesSearch =
                 !search ||
@@ -104,6 +109,8 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
                 finalize(() => this.loading.set(false))
             )
             .subscribe((list: CreateRequestDTO[]) => {
+                console.log('CVPS LIST API:', list);
+
                 this.rows.set(
                     (list || []).map(dto => this.mapToRow(dto))
                         .sort((a, b) => b.requestNo - a.requestNo)
