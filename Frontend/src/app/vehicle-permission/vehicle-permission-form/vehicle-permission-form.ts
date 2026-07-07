@@ -13,6 +13,8 @@ import {
   ApiResponse,
   CvpsPersonnel
 } from '../../services/cvps.service';
+import { environment } from '../../../environments/environment';
+
 
 interface DocEntry {
   id: string;
@@ -43,16 +45,10 @@ interface DriverPerson {
   dlExistingFile: string;
   photoFile: File | null;
   photoFileName: string;
+  photoExistingFile?: string;   // <-- ADD THIS
 }
 
-interface HelperPerson {
-  jobType: string;
-  name: string;
-  mobileNo: string;
-  aadhaarNo: string;
-  file: File | null;
-  fileName: string;
-}
+
 
 const ALLOWED_DOC_TYPES = ['RC', 'Insurance', 'PUC', 'Fitness', 'Load Test'];
 
@@ -97,6 +93,8 @@ function emptyDriver(): DriverPerson {
     dlExistingFile: '',
     photoFile: null,
     photoFileName: '',
+    photoExistingFile: '',
+
   };
 }
 
@@ -136,7 +134,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
 
   status = signal('Draft');
-
+  editingMode = signal(false);
   contractorCode = signal('');
   contractorName = signal('');
   reqDate = signal(new Date().toISOString().split('T')[0]);
@@ -147,14 +145,23 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   vehicleNumber = signal('');
   vehicleType = signal('');
 
-  readonly vehicleTypeOptions = ['Two Wheeler', 'Four Wheeler', 'Heavy Vehicle', 'Tractor', 'Crane', 'JCB', 'Fork Lift', 'Other'];
+  readonly vehicleTypeOptions = [
+    { label: 'Two Wheeler', value: 'TWO_WHEEL' },
+    { label: 'Four Wheeler', value: 'FOUR_WHEEL' },
+    { label: 'Heavy Vehicle', value: 'HEAVY' },
+    { label: 'Tractor', value: 'TRACTOR' },
+    { label: 'Crane', value: 'CRANE' },
+    { label: 'JCB', value: 'JCB' },
+    { label: 'Fork Lift', value: 'FORKLIFT' },
+    { label: 'Other', value: 'OTHER' }
+  ];
   readonly driverRoleOptions = ['Driver', 'Conductor', 'Helper', 'Other'];
   readonly jobTypeOptions = ['Helper', 'Supervisor', 'Technician', 'Laborer', 'Other'];
   readonly ALLOWED_DOC_TYPES = ALLOWED_DOC_TYPES;
 
   docs = signal<DocEntry[]>([]);
   drivers = signal<DriverPerson[]>([emptyDriver()]);
-  helpers = signal<HelperPerson[]>([]);
+
 
   isSaving = signal(false);
   isSubmitting = signal(false);
@@ -163,15 +170,33 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   savedRequestNo = signal<number | null>(null);
 
   ngOnInit(): void {
-    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      const editId = params['edit'];
-      if (editId) {
-        const reqNo = Number(editId);
-        this.savedRequestNo.set(reqNo);
-        this.loadExistingRequestData(reqNo);
-      }
-    });
+
+    this.route.queryParams
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+
+        //  const editId = params['edit'];
+
+        //  if (!editId) {
+        //    return;
+        //  }
+
+        //  const requestNo = Number(editId);
+        const requestNo = 1;
+
+        this.loadRequest(requestNo);
+
+
+        this.editingMode.set(true);
+
+        this.savedRequestNo.set(requestNo);
+
+        this.loadRequest(requestNo);
+
+      });
+
   }
+
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -195,7 +220,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
     return available;
   }
+  getDocumentUrl(fileName: string): string {
 
+    return `${environment.cvpsBaseUrl}/api/documents/download/${fileName}`;
+
+  }
   onDocTypeChange(doc: DocEntry): void {
     const dupe = this.docs().filter(d => d !== doc && d.docType === doc.docType);
     if (dupe.length > 0) {
@@ -241,13 +270,20 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.drivers.update(d => d.filter((_, idx) => idx !== i));
   }
 
-  onDriverAadhaarFile(e: Event, driver: DriverPerson): void {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) {
-      driver.aadhaarFile = f;
-      driver.aadhaarFileName = f.name;
-      driver.aadhaarExistingFile = '';
+  onDriverAadhaarFile(event: Event, driver: DriverPerson): void {
+
+    const file = (event.target as HTMLInputElement).files?.[0];
+
+    if (!file) {
+      return;
     }
+
+    driver.aadhaarFile = file;
+    driver.aadhaarFileName = file.name;
+
+    // Hide old file after selecting new one
+    driver.aadhaarExistingFile = '';
+
   }
 
   onDriverDlFile(e: Event, driver: DriverPerson): void {
@@ -267,29 +303,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
   }
 
-  addHelper(): void {
-    this.helpers.update(h => [...h, {
-      jobType: '',
-      name: '',
-      mobileNo: '',
-      aadhaarNo: '',
-      file: null,
-      fileName: ''
-    }]);
-  }
 
-  removeHelper(i: number): void {
-    this.helpers.update(h => h.filter((_, idx) => idx !== i));
-  }
 
-  onHelperFile(event: Event, i: number): void {
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-    this.helpers.update(h => {
-      const c = [...h];
-      c[i] = { ...c[i], file, fileName: file?.name ?? '' };
-      return c;
-    });
-  }
+
+
+
+
 
   onContractorCodeChange(typedCode: string): void {
     const cleanCode = typedCode.trim().toUpperCase();
@@ -299,6 +318,151 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if (!cleanCode) return;
 
     this.resolveContractorName(cleanCode);
+  }
+  private loadRequest(
+    requestNo: number
+  ): void {
+    console.log('Loading Request:', requestNo);
+
+    this.cvps.getRequestById(requestNo)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+
+        next: dto => {
+          console.log('API RESPONSE:', dto);
+
+          this.fillForm(dto);
+
+        },
+
+        error: err => {
+          console.error('API ERROR:', err);
+
+          this.errorMsg.set(
+            err?.error?.message ||
+            'Unable to load request'
+          );
+
+        }
+
+      });
+
+  }
+  private fillForm(
+    dto: CreateRequestDTO
+  ): void {
+
+    const req = dto.request;
+    this.docs.set(
+
+      dto.vehicleDocuments.map(doc => ({
+
+        id: crypto.randomUUID(),
+
+        docType: doc.documentType,
+
+        docNo: doc.documentNo,
+
+        validUpto: doc.validTill || '',
+
+        file: null,
+
+        documentId: doc.id,
+        existingFile: doc.filename
+      }))
+
+    );
+    this.drivers.set(
+
+      dto.employees.map(emp => {
+        const photoDoc = emp.documents?.find(
+          d => d.documentType === 'PHOTO'
+        );
+
+        const aadhaarDoc = emp.documents?.find(
+          d => d.documentType === 'AADHAAR'
+        );
+
+        const dlDoc = emp.documents?.find(
+          d => d.documentType === 'DRIVING_LICENSE'
+        );
+
+
+        return {
+
+          id: crypto.randomUUID(),
+
+          role: emp.empJob,
+
+          name: emp.name,
+
+          mobileNo: emp.mobileNo || '',
+
+          aadhaarNo: aadhaarDoc?.documentNo || '',
+
+          licenseNo: dlDoc?.documentNo || '',
+
+          licenseType: '',
+
+          validFrom: dlDoc?.validFrom || '',
+
+          validTo: dlDoc?.validTill || '',
+
+          aadhaarFile: null,
+
+          aadhaarFileName: '',
+
+          aadhaarExistingFile:
+            aadhaarDoc?.filename || '',
+
+          dlFile: null,
+
+          dlFileName: '',
+
+          dlExistingFile:
+            dlDoc?.filename || '',
+
+          photoFile: null,
+
+          photoFileName: '',
+          photoExistingFile:
+            photoDoc?.filename || ''
+
+        };
+
+      })
+
+    );
+
+    const contractorId = (req.contractorId || '').trim().toUpperCase();
+
+    this.contractorCode.set(contractorId);
+    this.contractorName.set('');
+
+    if (contractorId) {
+      this.resolveContractorName(contractorId);
+    }
+
+    this.natureOfJob.set(
+      req.natureOfJob || ''
+    );
+
+    this.vehicleNumber.set(
+      req.vehicleNo || ''
+    );
+
+    this.vehicleType.set(
+      req.vehicleType || ''
+    );
+
+    this.permissionDateFrom.set(
+      req.permissionFrom || ''
+    );
+
+    this.permissionDateTo.set(
+      req.permissionTo || ''
+    );
+
   }
 
   private resolveContractorName(contractorCode: string): void {
@@ -315,7 +479,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       }
 
       const match = rows.find(
-        r => r.contractorCode && String(r.contractorCode).toUpperCase() === contractorCode.toUpperCase()
+        r => r.contractorCode && String(r.contractorCode).trim().toUpperCase() === contractorCode.trim().toUpperCase()
       );
 
       if (match) {
@@ -327,20 +491,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadExistingRequestData(requestNo: number): void {
-    this.cvps.getByRequestNo(requestNo).pipe(
-      takeUntil(this.destroy$)
-    ).subscribe({
-      next: (record: CvpsRequest) => {
-        if (!record) {
-          this.errorMsg.set('❌ Request not found.');
-          return;
-        }
-        this.populateFormFields(record);
-      },
-      error: () => this.errorMsg.set('❌ Error loading existing request data.'),
-    });
-  }
 
   private populateFormFields(req: CvpsRequest): void {
     const s = (req.reqStatus || '').toUpperCase();
@@ -426,21 +576,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       );
     } else {
       this.drivers.set([emptyDriver()]);
-    }
-
-    if (helpersList.length > 0) {
-      this.helpers.set(
-        helpersList.map(h => ({
-          jobType: h.empJob || 'Helper',
-          name: h.name || '',
-          mobileNo: h.mobileNo || '',
-          aadhaarNo: h.aadharNo || '',
-          file: null,
-          fileName: '',
-        }))
-      );
-    } else {
-      this.helpers.set([]);
     }
   }
 
@@ -559,165 +694,120 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     };
   }
 
-  private buildCreatePayload(targetStatus: string): CreateRequestDTO {
-    const master = this.buildMasterPayload(targetStatus);
 
-    const vehicleDocuments: VehicleDocumentDTO[] = this.docs()
-      .filter(d => d.docType && d.docNo.trim())
-      .map(d => ({
-        documentNo: d.docNo.trim().toUpperCase(),
-        documentType: d.docType,
-        fileName: d.file?.name || d.existingFile || `${d.docType}_${d.docNo}.pdf`,
-        validFrom: this.permissionDateFrom() || this.reqDate(),
-        validTill: d.validUpto || undefined,
-      }));
+  private buildCreatePayload(): CreateRequestDTO {
 
     return {
+
       request: {
-        createdDate: undefined,
-        permissionFrom: master.permissionFrom,
-        permissionTo: master.permissionTo,
-        contractorId: master.contractorId,
-        createdBy: master.createdBy,
-        vehicleType: master.vehicleType,
-        reqStatus: master.reqStatus,
-        vehicleNo: master.vehicleNo,
-        natureOfJob: master.natureOfJob,
-        requestId: undefined,
+
+        contractorId: this.contractorCode().trim().toUpperCase(),
+
+        natureOfJob: this.natureOfJob().trim(),
+
+        vehicleNo: this.vehicleNumber().trim().toUpperCase(),
+
+        vehicleType: VEHICLE_TYPE_MAP[this.vehicleType()] || 'OTHER',
+
+        permissionFrom: this.permissionDateFrom(),
+
+        permissionTo: this.permissionDateTo(),
+
+        createdBy:
+          (this.auth.empCode() || 'SYSTEM')
+            .substring(0, 9)
+            .toUpperCase()
+
       },
-      vehicleDocuments,
-      employees: []
+
+      vehicleDocuments: this.docs().map(doc => ({
+
+        id: doc.documentId || 0,
+
+        documentType: doc.docType,
+
+        documentNo: doc.docNo,
+
+        validFrom: this.reqDate(),
+
+        validTill: doc.validUpto
+
+      })),
+
+      employees: this.drivers().map(driver => ({
+
+        empNo: null,
+
+        name: driver.name,
+
+        mobileNo: driver.mobileNo,
+
+        empType: driver.role,
+
+        empJob: driver.role,
+
+        documents: [
+
+          {
+            documentType: 'AADHAAR',
+            documentNo: driver.aadhaarNo,
+            validFrom: this.reqDate(),
+            validTill: ''
+          },
+
+          {
+            documentType: 'DRIVING_LICENSE',
+            documentNo: driver.licenseNo,
+            validFrom: driver.validFrom,
+            validTill: driver.validTo
+          }
+
+        ]
+
+      }))
+
     };
+
   }
 
-  private buildPersonnelPayloads(): Array<{ payload: CvpsPersonnel; files: File[] }> {
-    const personnel: Array<{ payload: CvpsPersonnel; files: File[] }> = [];
 
-    this.drivers()
-      .filter(d => d.name.trim())
-      .forEach(d => {
-        const files: File[] = [];
-        if (d.aadhaarFile) files.push(d.aadhaarFile);
-        if (d.dlFile) files.push(d.dlFile);
-        if (d.photoFile) files.push(d.photoFile);
+  private collectFiles(): File[] {
 
-        personnel.push({
-          payload: {
-            empJob: (d.role || 'DRIVER').toUpperCase(),
-            empType: 'UNREGISTERED',
-            empNo: undefined,
-            aadharNo: d.aadhaarNo?.trim() || undefined,
-            name: d.name.trim(),
-            mobileNo: d.mobileNo?.trim() || undefined,
-            licenseNo: d.licenseNo?.trim() || undefined,
-            licenseType: d.licenseType?.trim() || undefined,
-            validFrom: d.validFrom || undefined,
-            validTo: d.validTo || undefined,
-            driverPhotoName: d.photoFileName || undefined,
-          },
-          files
-        });
-      });
+    const files: File[] = [];
 
-    this.helpers()
-      .filter(h => h.name.trim())
-      .forEach(h => {
-        const files: File[] = [];
-        if (h.file) files.push(h.file);
+    // Vehicle docs first
 
-        personnel.push({
-          payload: {
-            empJob: (h.jobType || 'HELPER').toUpperCase(),
-            empType: 'UNREGISTERED',
-            empNo: undefined,
-            aadharNo: h.aadhaarNo?.trim() || undefined,
-            name: h.name.trim(),
-            mobileNo: h.mobileNo?.trim() || undefined,
-          },
-          files
-        });
-      });
+    this.docs().forEach(doc => {
 
-    return personnel;
+      if (doc.file) {
+        files.push(doc.file);
+      }
+
+    });
+
+    // Employee docs next
+
+    this.drivers().forEach(driver => {
+
+      if (driver.aadhaarFile) {
+        files.push(driver.aadhaarFile);
+      }
+
+      if (driver.dlFile) {
+        files.push(driver.dlFile);
+      }
+
+    });
+
+    return files;
+
   }
 
-  private uploadPersonnelSequence(requestNo: number): Observable<any> {
-    const personnelEntries = this.buildPersonnelPayloads();
 
-    if (personnelEntries.length === 0) {
-      return of([]);
-    }
 
-    return forkJoin(
-      personnelEntries.map(entry =>
-        this.cvps.addPersonnel(requestNo, entry.payload).pipe(
-          switchMap(savedPerson => {
-            if (entry.files.length > 0 && savedPerson?.id) {
-              return this.cvps.uploadPersonnelDocuments(savedPerson.id, entry.files);
-            }
-            return of(savedPerson);
-          }),
-          catchError(err => of(err))
-        )
-      )
-    );
-  }
 
-  private uploadVehicleDocumentsForCreate(requestNo: number): Observable<any> {
-    const docsNew = this.docs().filter(d => d.file !== null && d.docType);
 
-    if (docsNew.length === 0) {
-      return of('NO_VEHICLE_DOC_UPLOAD');
-    }
 
-    const vehicleDocEntries = docsNew.map(d => ({
-      docType: d.docType,
-      docNo: d.docNo,
-      validFrom: this.permissionDateFrom() || this.reqDate(),
-      validTo: d.validUpto || '',
-      file: d.file!,
-    }));
-
-    return this.cvps.uploadAllDocuments(requestNo, vehicleDocEntries).pipe(
-      catchError(err => of(err))
-    );
-  }
-
-  private uploadVehicleDocumentsForUpdate(requestNo: number): Observable<any> {
-    const docsNew = this.docs().filter(d => d.file !== null && !d.documentId && d.docType);
-    const docsReplace = this.docs().filter(d => d.file !== null && !!d.documentId && d.docType);
-
-    const newDocs$ = docsNew.length > 0
-      ? this.cvps.uploadAllDocuments(
-        requestNo,
-        docsNew.map(d => ({
-          docType: d.docType,
-          docNo: d.docNo,
-          validFrom: this.permissionDateFrom() || this.reqDate(),
-          validTo: d.validUpto || '',
-          file: d.file!,
-        }))
-      ).pipe(catchError(err => of(err)))
-      : of('NO_NEW_DOCS');
-
-    const replaceDocs$ = docsReplace.length > 0
-      ? forkJoin(
-        docsReplace.map(d =>
-          this.cvps.replaceDocument(requestNo, {
-            docType: d.docType,
-            docNo: d.docNo,
-            validFrom: this.permissionDateFrom() || this.reqDate(),
-            validTo: d.validUpto || '',
-            file: d.file!,
-          }).pipe(catchError(err => of(err)))
-        )
-      )
-      : of([]);
-
-    return newDocs$.pipe(
-      switchMap(() => replaceDocs$)
-    );
-  }
 
   private processFormSubmission(targetStatus: string): void {
     if (!this.validateForm(targetStatus)) return;
@@ -732,24 +822,16 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const isUpdate = !!activeId;
 
     if (isUpdate) {
-      this.cvps.modifyRequest(activeId, this.buildMasterPayload(targetStatus)).pipe(
-        switchMap((updatedRequest: CvpsRequest) => {
-          const requestNo = updatedRequest.requestNo || activeId;
-          this.savedRequestNo.set(requestNo);
+      const payload = this.buildCreatePayload();
+      const files = this.collectFiles();
 
-          if (targetStatus === 'SAVED') {
-            return of(updatedRequest);
-          }
-
-          return this.uploadVehicleDocumentsForUpdate(requestNo).pipe(
-            switchMap(() => this.uploadPersonnelSequence(requestNo)),
-            tap(() => this.status.set('Submitted'))
-          );
-        }),
+      this.cvps.updateRequest(activeId, payload, files).pipe(
         takeUntil(this.destroy$),
         catchError(err => {
           this.errorMsg.set(
-            `❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`
+            err?.error?.message ||
+            err?.message ||
+            'Request update failed'
           );
           return of(null);
         }),
@@ -757,71 +839,74 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           this.isSubmitting.set(false);
           this.isSaving.set(false);
         })
-      ).subscribe((result: any) => {
-        if (result === null) return;
+      ).subscribe((response: ApiResponse | null) => {
+        if (!response) {
+          return;
+        }
+
+        this.savedRequestNo.set(response.requestNo);
 
         if (targetStatus === 'SAVED') {
           this.status.set('Saved');
-          this.saveMsg.set('✅ Form saved successfully!');
-          setTimeout(() => {
-            this.saveMsg.set('');
-            this.router.navigate(['/vehicle-permission/list']);
-          }, 2000);
+          this.saveMsg.set('✅ Form updated successfully!');
         } else {
           this.status.set('Submitted');
           this.saveMsg.set('✅ Permission request updated successfully!');
-          setTimeout(() => {
-            this.saveMsg.set('');
-            this.router.navigate(['/vehicle-permission/list']);
-          }, 2500);
         }
+
+        setTimeout(() => {
+          this.saveMsg.set('');
+          this.router.navigate(['/vehicle-permission/list']);
+        }, 2000);
       });
 
       return;
     }
 
-    this.cvps.createRequest(this.buildCreatePayload(targetStatus)).pipe(
-      switchMap((createResponse: ApiResponse) => {
-        const requestNo = createResponse.requestNo;
-        this.savedRequestNo.set(requestNo);
+    const payload = this.buildCreatePayload();
 
-        if (targetStatus === 'SAVED') {
-          return this.cvps.modifyRequest(requestNo, this.buildMasterPayload('SAVED'));
-        }
+    const files = this.collectFiles();
 
-        return this.uploadVehicleDocumentsForCreate(requestNo).pipe(
-          switchMap(() => this.uploadPersonnelSequence(requestNo))
-        );
-      }),
+    this.cvps.createRequest(payload, files).pipe(
+
       takeUntil(this.destroy$),
-      catchError(err => {
-        this.errorMsg.set(
-          `❌ Process failed: ${err?.error?.message || err?.message || 'Server error. Please try again.'}`
-        );
-        return of(null);
-      }),
-      finalize(() => {
-        this.isSubmitting.set(false);
-        this.isSaving.set(false);
-      })
-    ).subscribe((result: any) => {
-      if (result === null) return;
 
-      if (targetStatus === 'SAVED') {
-        this.status.set('Saved');
-        this.saveMsg.set('✅ Form saved successfully!');
-        setTimeout(() => {
-          this.saveMsg.set('');
-          this.router.navigate(['/vehicle-permission/list']);
-        }, 2000);
-      } else {
-        this.status.set('Submitted');
-        this.saveMsg.set('✅ Permission request submitted successfully!');
-        setTimeout(() => {
-          this.saveMsg.set('');
-          this.router.navigate(['/vehicle-permission/list']);
-        }, 2500);
+      catchError(err => {
+
+        this.errorMsg.set(
+          err?.error?.message ||
+          err?.message ||
+          'Request creation failed'
+        );
+
+        return of(null);
+
+      }),
+
+      finalize(() => {
+
+        this.isSaving.set(false);
+
+        this.isSubmitting.set(false);
+
+      })
+
+    ).subscribe((response: ApiResponse | null) => {
+
+      if (!response) {
+        return;
       }
+
+      this.savedRequestNo.set(
+        response.requestNo
+      );
+
+      this.status.set('Submitted');
+
+      this.saveMsg.set(
+        '✅ Request submitted successfully'
+      );
+
     });
   }
 
@@ -836,7 +921,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.vehicleType.set('');
     this.docs.set([]);
     this.drivers.set([emptyDriver()]);
-    this.helpers.set([]);
     this.savedRequestNo.set(null);
     this.status.set('Draft');
     this.saveMsg.set('');
