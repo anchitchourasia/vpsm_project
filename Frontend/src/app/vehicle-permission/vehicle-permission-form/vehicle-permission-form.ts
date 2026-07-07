@@ -45,7 +45,10 @@ interface DriverPerson {
   dlExistingFile: string;
   photoFile: File | null;
   photoFileName: string;
-  photoExistingFile?: string;   // <-- ADD THIS
+  photoExistingFile?: string;
+  aadhaarDocumentId?: number;
+  dlDocumentId?: number;
+  photoDocumentId?: number;// <-- ADD THIS
 }
 
 
@@ -295,12 +298,24 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
   }
 
-  onDriverPhotoFile(e: Event, driver: DriverPerson): void {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) {
-      driver.photoFile = f;
-      driver.photoFileName = f.name;
+  onDriverPhotoFile(
+    e: Event,
+    driver: DriverPerson
+  ): void {
+
+    const file =
+      (e.target as HTMLInputElement)
+        .files?.[0];
+
+    if (!file) {
+      return;
     }
+
+    driver.photoFile = file;
+
+    driver.photoFileName = file.name;
+
+    driver.photoExistingFile = '';
   }
 
 
@@ -426,7 +441,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
           photoFileName: '',
           photoExistingFile:
-            photoDoc?.filename || ''
+            photoDoc?.filename || '',
+          aadhaarDocumentId: aadhaarDoc?.id,
+          dlDocumentId: dlDoc?.id,
+          photoDocumentId: photoDoc?.id,
 
         };
 
@@ -722,11 +740,16 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
       vehicleDocuments: this.docs().map(doc => ({
 
-        id: doc.documentId || 0,
+        id: doc.documentId,
 
         documentType: doc.docType,
 
         documentNo: doc.docNo,
+
+        filename:
+          doc.file?.name ||
+          doc.existingFile ||
+          '',
 
         validFrom: this.reqDate(),
 
@@ -734,76 +757,96 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
       })),
 
-      employees: this.drivers().map(driver => ({
+      employees: this.drivers().map(driver => {
+        const role = (driver.role || '').trim();
+        const isDriver = role.toUpperCase() === 'DRIVER';
+        const documents: any[] = [];
 
-        empNo: null,
-
-        name: driver.name,
-
-        mobileNo: driver.mobileNo,
-
-        empType: driver.role,
-
-        empJob: driver.role,
-
-        documents: [
-
-          {
+        if (driver.aadhaarNo?.trim()) {
+          documents.push({
             documentType: 'AADHAAR',
-            documentNo: driver.aadhaarNo,
+            documentNo: driver.aadhaarNo.trim(),
+            filename: driver.aadhaarFile?.name || driver.aadhaarExistingFile || '',
             validFrom: this.reqDate(),
-            validTill: ''
-          },
+            validTill: null
+          });
+        }
 
-          {
+        if (isDriver && driver.licenseNo?.trim()) {
+          documents.push({
             documentType: 'DRIVING_LICENSE',
-            documentNo: driver.licenseNo,
-            validFrom: driver.validFrom,
-            validTill: driver.validTo
-          }
+            documentNo: driver.licenseNo.trim(),
+            filename: driver.dlFile?.name || driver.dlExistingFile || '',
+            validFrom: driver.validFrom || null,
+            validTill: driver.validTo || null
+          });
+        }
+        if (
+          driver.photoFile ||
+          driver.photoExistingFile
+        ) {
 
-        ]
+          documents.push({
 
-      }))
+            documentType: 'PHOTO',
 
+            documentNo: '',
+
+            filename:
+              driver.photoFile?.name ||
+              driver.photoExistingFile ||
+              '',
+
+            validFrom: this.reqDate(),
+
+            validTill: null
+
+          });
+
+        }
+
+
+        return {
+          empNo: null,
+          name: driver.name.trim(),
+          mobileNo: driver.mobileNo.trim(),
+          empType: role,
+          empJob: role,
+          documents
+        };
+      })
     };
 
   }
 
 
   private collectFiles(): File[] {
-
     const files: File[] = [];
 
-    // Vehicle docs first
-
     this.docs().forEach(doc => {
-
       if (doc.file) {
         files.push(doc.file);
       }
-
     });
 
-    // Employee docs next
-
     this.drivers().forEach(driver => {
+      const role = (driver.role || '').trim();
+      const isDriver = role.toUpperCase() === 'DRIVER';
 
       if (driver.aadhaarFile) {
         files.push(driver.aadhaarFile);
       }
 
-      if (driver.dlFile) {
+      if (isDriver && driver.dlFile) {
         files.push(driver.dlFile);
       }
-
+      if (driver.photoFile) {
+        files.push(driver.photoFile);
+      }
     });
 
     return files;
-
   }
-
-
 
 
 

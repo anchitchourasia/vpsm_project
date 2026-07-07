@@ -77,22 +77,38 @@ export interface CreateRequestRequestDTO {
 
 export interface VehicleDocumentDTO {
 
-  id: number;
+  id?: number;
   documentNo: string;
   documentType: string;
   filename?: string;
+  validFrom: string;
+  validTill?: string;
+  // file?: File;
+}
+export interface VehicleDocumentResponse {
+  id: number;
+  documentNo: string;
+  documentType: string;
+  filename: string;
+  validFrom: string;
+  validTill?: string;
+}
+export interface VehicleDocumentRequest {
+  id?: number;
+  documentNo: string;
+  documentType: string;
   validFrom: string;
   validTill?: string;
   file?: File;
 }
 
 export interface EmployeeDocumentDTO {
+  id?: number;
   documentNo: string;
   documentType: string;
   filename?: string;
   validFrom: string;
   validTill?: string;
-  file?: File;
 }
 
 export interface EmployeeDTO {
