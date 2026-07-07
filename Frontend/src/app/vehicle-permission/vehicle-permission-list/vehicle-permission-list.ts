@@ -129,7 +129,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             natureOfJob: req.natureOfJob || '',
             permissionFrom: this.formatDate(req.permissionFrom),
             permissionTo: this.formatDate(req.permissionTo),
-            reqStatus: req.reqStatus || 'DRAFT',
+            reqStatus: this.normalizeRequestStatus(req.reqStatus),
             createdBy: req.createdBy || '',
             createdDate: this.formatDate(req.createdDate),
             personnelCount: dto.employees?.length || 0,
@@ -140,6 +140,17 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
     private formatDate(value: string | null | undefined): string {
         if (!value) return '';
         return String(value).split('T')[0];
+    }
+
+    private normalizeRequestStatus(status: string | null | undefined): string {
+        const normalized = (status || '').trim().toUpperCase();
+
+        switch (normalized) {
+            case 'SUBMITTED':
+                return 'SAVED';
+            default:
+                return normalized || 'DRAFT';
+        }
     }
 
     onSearchChange(value: string): void {
@@ -160,6 +171,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             { queryParams: { edit: row.requestNo } }
         );
     }
+
     canEdit(status: string): boolean {
         const normalized = (status || '').trim().toUpperCase();
         return normalized === 'SAVED' || normalized === 'MODIFY' || normalized === 'MODIFIED';
@@ -218,7 +230,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
     }
 
     getStatusClass(status: string): string {
-        switch ((status || '').trim().toUpperCase()) {
+        switch (this.normalizeRequestStatus(status)) {
             case 'SUBMITTED':
             case 'CREATED':
                 return 'wf-submitted';
@@ -253,8 +265,9 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
                 return 'wf-waiting';
         }
     }
+
     getStatusLabel(status: string): string {
-        switch ((status || '').trim().toUpperCase()) {
+        switch (this.normalizeRequestStatus(status)) {
             case 'CREATED':
                 return 'Submitted';
             case 'SAVED':

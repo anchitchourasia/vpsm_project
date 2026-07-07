@@ -166,14 +166,14 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
 
-        const editId = params['edit'];
+        // const editId = params['edit'];
 
-        if (!editId) {
-          return;
-        }
+        // if (!editId) {
+        //   return;
+        // }
 
-        const requestNo = Number(editId);
-        // const requestNo = 1;
+        // const requestNo = Number(editId);
+        const requestNo = 1;
         this.editingMode.set(true);
 
         this.savedRequestNo.set(requestNo);
@@ -367,17 +367,60 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       });
 
   }
+  private formatDate(dateStr: string | null | undefined): string {
+    return dateStr ? dateStr.substring(0, 10) : '';
+  }
+
+  private normalizeDocType(value: string | null | undefined): string {
+    return (value || '').trim().toUpperCase().replace(/\s+/g, '_');
+  }
+
+  private isAadhaarDoc(value: string | null | undefined): boolean {
+    const type = this.normalizeDocType(value);
+    return ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(type);
+  }
+
+  private isDlDoc(value: string | null | undefined): boolean {
+    const type = this.normalizeDocType(value);
+    return ['DL', 'LICENSE', 'DRIVING_LICENSE'].includes(type);
+  }
+
+  private isPhotoDoc(value: string | null | undefined): boolean {
+    const type = this.normalizeDocType(value);
+    return ['PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH'].includes(type);
+  }
+
+  private getExistingFileName(doc: any): string {
+    return (
+      doc?.filename ||
+      doc?.fileName ||
+      doc?.documentName ||
+      doc?.documentPath ||
+      ''
+    );
+  }
+
+
   private fillForm(
     dto: CreateRequestDTO
+
   ): void {
     const req = dto.request;
 
     if ((req as any)?.reqStatus) {
-      this.status.set((req as any).reqStatus);
+      const backendStatus = String((req as any).reqStatus).trim().toUpperCase();
+
+      if (backendStatus === 'SUBMITTED') {
+        this.status.set('Saved');
+      } else if (backendStatus === 'CREATED') {
+        this.status.set('Submitted');
+      } else {
+        this.status.set((req as any).reqStatus);
+      }
     }
 
     if ((req as any)?.createdDate) {
-      this.reqDate.set((req as any).createdDate);
+      this.reqDate.set(this.formatDate((req as any).createdDate));
     }
 
     const vehicleDocuments = dto.vehicleDocuments || [];
@@ -399,15 +442,15 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       employees.length > 0
         ? employees.map(emp => {
           const photoDoc = emp.documents?.find(
-            d => d.documentType === 'PHOTO'
+            d => this.isPhotoDoc(d.documentType)
           );
 
           const aadhaarDoc = emp.documents?.find(
-            d => d.documentType === 'AADHAAR'
+            d => this.isAadhaarDoc(d.documentType)
           );
 
           const dlDoc = emp.documents?.find(
-            d => d.documentType === 'DRIVING_LICENSE'
+            d => this.isDlDoc(d.documentType)
           );
 
           return {
@@ -423,13 +466,13 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             validTo: dlDoc?.validTill || '',
             aadhaarFile: null,
             aadhaarFileName: '',
-            aadhaarExistingFile: aadhaarDoc?.filename || '',
+            aadhaarExistingFile: this.getExistingFileName(aadhaarDoc),
             dlFile: null,
             dlFileName: '',
-            dlExistingFile: dlDoc?.filename || '',
+            dlExistingFile: this.getExistingFileName(dlDoc),
             photoFile: null,
             photoFileName: '',
-            photoExistingFile: photoDoc?.filename || '',
+            photoExistingFile: this.getExistingFileName(photoDoc),
             aadhaarDocumentId: aadhaarDoc?.id,
             dlDocumentId: dlDoc?.id,
             photoDocumentId: photoDoc?.id,
@@ -456,6 +499,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.permissionDateFrom.set(req.permissionFrom || '');
 
     this.permissionDateTo.set(req.permissionTo || '');
+
   }
 
   private resolveContractorName(contractorCode: string): void {
@@ -588,7 +632,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
 
 
-  private buildCreatePayload(): CreateRequestDTO {
+  private buildCreatePayload(targetStatus: string): CreateRequestDTO {
 
     return {
 
@@ -599,7 +643,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         vehicleType: this.vehicleType(),
         permissionFrom: this.permissionDateFrom(),
         permissionTo: this.permissionDateTo(),
-        reqStatus: this.status().trim().toUpperCase(),
+        reqStatus: targetStatus.trim().toUpperCase(),
         createdBy:
           (this.auth.empCode() || 'SYSTEM')
             .substring(0, 9)
@@ -722,7 +766,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const isUpdate = !!activeId;
 
     if (isUpdate) {
-      const payload = this.buildCreatePayload();
+      const payload = this.buildCreatePayload(targetStatus);
       const files = this.collectFiles();
 
       this.cvps.updateRequest(activeId, payload, files).pipe(
@@ -763,7 +807,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const payload = this.buildCreatePayload();
+    const payload = this.buildCreatePayload(targetStatus);
 
     const files = this.collectFiles();
 
