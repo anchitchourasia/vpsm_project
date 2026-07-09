@@ -57,5 +57,8 @@ export const API_CONFIG = {
 // ── CVPS parameterised URL builders (kept separate to avoid const type conflicts) ──
 export const CVPS_URLS = {
   createRequest :  (requestNo: number) => `${environment.cvpsBaseUrl}/create`,
+  workflowApprove : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/approve/${requestNo}`,
+  workflowReject  : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/reject/${requestNo}`,
+  workflowHold    : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/hold/${requestNo}`
   
 };

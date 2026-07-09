@@ -117,74 +117,55 @@
               <div class="vp-file-cell" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
 
                 <!-- Existing file from DB -->
-                @if (doc.existingFile && !doc.file) {
+                <input type="hidden" [ngModel]="doc.existingFile || doc.originalExistingFile || ''"
+                  [name]="'old-doc-' + doc.id" />
+                <input type="hidden" [ngModel]="doc.file?.name || ''" [name]="'new-doc-' + doc.id" />
+                @if (doc.file) {
+                <span class="vp-filename" [title]="doc.file.name"
+                  style="color:#28a745;font-weight:bold;font-size:0.85rem;">
+                  <i class="bi bi-file-earmark-check-fill"></i>
+                  New: {{ shortName(doc.file.name) }}
+                </span>
 
+                @if (doc.existingFile) {
+                <span class="vp-filename" [title]="doc.existingFile" style="color:#6c757d;font-size:0.8rem;">
+                  Old: {{ shortName(doc.existingFile) }}
+                </span>
+                }
 
-
-
-
+                <label class="vp-btn-ghost"
+                  style="cursor:pointer;padding:2px 8px;font-size:0.8rem;border:1px solid #28a745;color:#28a745;border-radius:4px;"
+                  [for]="'doc-file-' + doc.id">
+                  <i class="bi bi-arrow-repeat"></i>
+                  Replace
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'doc-file-' + doc.id"
+                    (change)="onDocFileSelected($event, doc)" />
+                </label>
+                }
+                @else if (doc.existingFile) {
                 <a [href]="getDocumentUrl(doc.existingFile)" download class="btn btn-sm btn-outline-success">
-
                   <i class="bi bi-download"></i>
-                  Download
-
+                  Existing File
                 </a>
 
                 <label class="vp-btn-ghost"
                   style="cursor:pointer;padding:2px 8px;font-size:0.8rem;border:1px solid #ccc;border-radius:4px;"
                   [for]="'doc-file-' + doc.id">
-
                   <i class="bi bi-arrow-repeat"></i>
                   Replace
-
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'doc-file-' + doc.id"
                     (change)="onDocFileSelected($event, doc)" />
-
                 </label>
-
                 }
-
-                <!-- New file selected -->
-                @else if (doc.file) {
-
-                <span class="vp-filename" [title]="doc.file.name"
-                  style="color:#28a745;font-weight:bold;font-size:0.85rem;">
-
-                  <i class="bi bi-file-earmark-check-fill"></i>
-
-                  {{ shortName(doc.file.name) }}
-
-                </span>
-
-                <label class="vp-btn-ghost"
-                  style="cursor:pointer;padding:2px 8px;font-size:0.8rem;border:1px solid #28a745;color:#28a745;border-radius:4px;"
-                  [for]="'doc-file-' + doc.id">
-
-                  <i class="bi bi-arrow-repeat"></i>
-                  Replace
-
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'doc-file-' + doc.id"
-                    (change)="onDocFileSelected($event, doc)" />
-
-                </label>
-
-                }
-
-                <!-- No file -->
                 @else {
-
                 <label class="vp-btn-secondary"
                   style="cursor:pointer;padding:4px 10px;font-size:0.85rem;border-radius:4px;border:1px solid #ccc;background:#f8f9fa;"
                   [for]="'doc-file-' + doc.id">
-
                   <i class="bi bi-cloud-upload"></i>
                   Upload
-
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'doc-file-' + doc.id"
                     (change)="onDocFileSelected($event, doc)" />
-
                 </label>
-
                 }
 
               </div>
@@ -242,6 +223,8 @@
 
         <div class="vp-field">
           <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
+          <input type="hidden" [ngModel]="driver.aadhaarExistingFile || ''" [name]="'old-aadhaar-' + driver.id" />
+          <input type="hidden" [ngModel]="driver.aadhaarFileName || ''" [name]="'new-aadhaar-' + driver.id" />
           <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
         </div>
 
@@ -277,6 +260,8 @@
         <div class="vp-field">
           <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>
             }</label>
+          <input type="hidden" [ngModel]="driver.dlExistingFile || ''" [name]="'old-dl-' + driver.id" />
+          <input type="hidden" [ngModel]="driver.dlFileName || ''" [name]="'new-dl-' + driver.id" />
           <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
         </div>
 
@@ -318,6 +303,8 @@
 
         <div class="vp-field">
           <label class="vp-label">Driver Photograph</label>
+          <input type="hidden" [ngModel]="driver.photoExistingFile || ''" [name]="'old-photo-' + driver.id" />
+          <input type="hidden" [ngModel]="driver.photoFileName || ''" [name]="'new-photo-' + driver.id" />
           <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
           @if (driver.photoFileName) {
 
@@ -343,18 +330,22 @@
   </div>
 
   <div class="vp-actions">
+    @if (!editingMode()) {
     <button class="vp-btn-secondary" (click)="saveDraft()" [disabled]="isSaving() || isSubmitting()">
       @if (isSaving()) { <i class="bi bi-hourglass-split"></i> Saving... }
       @else { <i class="bi bi-floppy-fill"></i> Save Draft }
     </button>
-    <button type="button" (click)="submitForm()">
+    }
 
-      {{ editingMode()
-      ? 'Update Request'
-      : 'Submit Request'
-      }}
-
+    <button type="button" (click)="submitForm()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSubmitting()) {
+      <i class="bi bi-hourglass-split"></i>
+      {{ editingMode() ? 'Updating...' : 'Submitting...' }}
+      } @else {
+      {{ editingMode() ? 'Update Request' : 'Submit Request' }}
+      }
     </button>
-    <button class="vp-btn-ghost" (click)="reset()">Reset</button>
+    <!-- <button class="vp-btn-ghost" (click)="reset()">Reset</button> -->
   </div>
 </div>

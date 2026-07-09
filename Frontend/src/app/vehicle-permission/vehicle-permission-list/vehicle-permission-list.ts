@@ -269,6 +269,8 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
     getStatusLabel(status: string): string {
         switch (this.normalizeRequestStatus(status)) {
             case 'CREATED':
+                return 'Created';
+            case 'SUBMITTED':
                 return 'Submitted';
             case 'SAVED':
                 return 'Saved';
