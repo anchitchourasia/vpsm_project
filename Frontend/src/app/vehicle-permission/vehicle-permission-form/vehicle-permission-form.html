@@ -115,68 +115,60 @@
             <td>
               <input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo"
                 (input)="onDocNoInput($event, doc)" maxlength="60" />
-              </td>
+            </td>
 
             <td>
               <input type="date" class="vp-cell-input" [(ngModel)]="doc.validUpto" [min]="reqDate()" />
             </td>
 
-           
+
             <td>
-  <div class="vp-file-cell">
+              <div class="vp-file-cell">
 
-    @if (doc.file) {
+                @if (doc.file) {
 
-      <span class="text-success">
-        <i class="bi bi-file-earmark-check-fill"></i>
-        {{ shortName(doc.file.name) }}
-      </span>
+                <span class="text-success">
+                  <i class="bi bi-file-earmark-check-fill"></i>
+                  {{ shortName(doc.file.name) }}
+                </span>
 
-      @if (doc.existingFile) {
-        <small class="text-muted">
-          Replaces: {{ shortName(doc.existingFile) }}
-        </small>
-      }
+                @if (doc.existingFile) {
+                <small class="text-muted">
+                  Replaces: {{ shortName(doc.existingFile) }}
+                </small>
+                }
 
-    }
+                }
 
-    @else if (doc.existingFile) {
+                @else if (doc.existingFile) {
 
-      <a
-        [href]="getDocumentUrl(doc.existingFile)"
-        download
-        class="btn btn-sm btn-outline-success">
+                <a [href]="getDocumentUrl(doc.existingFile)" download class="btn btn-sm btn-outline-success">
 
-        <i class="bi bi-download"></i>
-        {{ shortName(doc.existingFile) }}
+                  <i class="bi bi-download"></i>
+                  {{ shortName(doc.existingFile) }}
 
-      </a>
+                </a>
 
-    }
+                }
 
-    <label
-      class="vp-btn-ghost"
-      [for]="'doc-file-' + doc.id">
+                <label class="vp-btn-ghost" [for]="'doc-file-' + doc.id">
 
-      <i class="bi bi-arrow-repeat"></i>
+                  <i class="bi bi-arrow-repeat"></i>
 
-      {{ doc.existingFile ? 'Replace' : 'Upload' }}
+                  {{ doc.existingFile ? 'Replace' : 'Upload' }}
 
-      <input
-        type="file"
-        hidden
-        accept=".pdf,.jpg,.jpeg,.png"
-        [id]="'doc-file-' + doc.id"
-        (change)="onDocFileSelected($event, doc)" />
+                  <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" [id]="'doc-file-' + doc.id"
+                    (change)="onDocFileSelected($event, doc)" />
 
-    </label>
+                </label>
 
-  </div>
-</td>
+              </div>
+            </td>
 
 
             <td>
-              <button class="vp-btn-del" (click)="removeDoc(i)"><i class="bi bi-trash-fill"></i></button></td>
+              <button class="vp-btn-del" (click)="removeDoc(i)"><i class="bi bi-trash-fill"></i></button>
+            </td>
           </tr>
           }
         </tbody>
@@ -228,141 +220,76 @@
         </div>
 
         <div class="vp-field">
-          <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>          
+          <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
           <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
         </div>
 
         <!-- ✅ v6.8 Aadhaar file — shows existing file without re-upload -->
-      <div class="vp-field">
+        <div class="vp-field vp-aadhaar-field">
+          <label class="vp-label">
+            Aadhaar Copy <span style="color:red">*</span>
+          </label>
 
-  <label class="vp-label">
-    Aadhaar Copy <span style="color:red">*</span>
-  </label>
+          <div class="vp-file-cell vp-file-cell-left">
+            <input type="hidden" [ngModel]="driver.aadhaarExistingFile || ''" [name]="'old-aadhaar-' + driver.id" />
 
-  <div class="vp-file-cell"
-       style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input type="hidden" [ngModel]="driver.aadhaarFileName || ''" [name]="'new-aadhaar-' + driver.id" />
 
-    <!-- Keep old filename -->
-    <input
-      type="hidden"
-      [ngModel]="driver.aadhaarExistingFile || ''"
-      [name]="'old-aadhaar-' + driver.id" />
+            @if (driver.aadhaarFile) {
+            <div class="vp-file-stack">
+              <span class="vp-filename vp-filename-new" [title]="driver.aadhaarFile.name">
+                <i class="bi bi-file-earmark-check-fill"></i>
+                New: {{ shortName(driver.aadhaarFile.name) }}
+              </span>
 
-    <!-- New file name -->
-    <input
-      type="hidden"
-      [ngModel]="driver.aadhaarFileName || ''"
-      [name]="'new-aadhaar-' + driver.id" />
+              @if (driver.aadhaarExistingFile) {
+              <span class="vp-filename vp-filename-old" [title]="driver.aadhaarExistingFile">
+                Old: {{ shortName(driver.aadhaarExistingFile) }}
+              </span>
+              }
+            </div>
 
-    <!-- New file selected -->
-    @if (driver.aadhaarFile) {
+            <label class="vp-btn-ghost vp-file-btn" [for]="'aadhaar-file-' + driver.id">
+              <i class="bi bi-arrow-repeat"></i>
+              Replace
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
+                (change)="onDriverAadhaarFile($event, driver)" />
+            </label>
+            }
 
-      <span
-        class="vp-filename"
-        [title]="driver.aadhaarFile.name"
-        style="color:#28a745;font-weight:bold;font-size:0.85rem;">
+            @else if (driver.aadhaarExistingFile) {
+            <a [href]="getDocumentUrl(driver.aadhaarExistingFile)" target="_blank"
+              class="btn btn-sm btn-outline-success vp-file-btn">
+              <i class="bi bi-download"></i>
+              Existing File
+            </a>
 
-        <i class="bi bi-file-earmark-check-fill"></i>
-        New: {{ shortName(driver.aadhaarFile.name) }}
+            <label class="vp-btn-ghost vp-file-btn" [for]="'aadhaar-file-' + driver.id">
+              <i class="bi bi-arrow-repeat"></i>
+              Replace
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
+                (change)="onDriverAadhaarFile($event, driver)" />
+            </label>
+            }
 
-      </span>
+            @else {
+            <label class="vp-btn-secondary vp-file-btn" [for]="'aadhaar-file-' + driver.id">
+              <i class="bi bi-cloud-upload"></i>
+              Upload
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
+                (change)="onDriverAadhaarFile($event, driver)" />
+            </label>
+            }
+          </div>
+        </div>
 
-      @if (driver.aadhaarExistingFile) {
 
-        <span
-          class="vp-filename"
-          [title]="driver.aadhaarExistingFile"
-          style="color:#6c757d;font-size:0.8rem;">
-
-          Old: {{ shortName(driver.aadhaarExistingFile) }}
-
-        </span>
-
-      }
-
-      <label
-        class="vp-btn-ghost"
-        style="cursor:pointer;padding:2px 8px;font-size:0.8rem;border:1px solid #28a745;color:#28a745;border-radius:4px;"
-        [for]="'aadhaar-file-' + driver.id">
-
-        <i class="bi bi-arrow-repeat"></i>
-        Replace
-
-        <input
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          style="display:none;"
-          [id]="'aadhaar-file-' + driver.id"
-          (change)="onDriverAadhaarFile($event, driver)" />
-
-      </label>
-
-    }
-
-    <!-- Existing file only -->
-    @else if (driver.aadhaarExistingFile) {
-
-      <a
-        [href]="getDocumentUrl(driver.aadhaarExistingFile)"
-        target="_blank"
-        class="btn btn-sm btn-outline-success">
-
-        <i class="bi bi-download"></i>
-        Existing File
-
-      </a>
-
-      <label
-        class="vp-btn-ghost"
-        style="cursor:pointer;padding:2px 8px;font-size:0.8rem;border:1px solid #ccc;border-radius:4px;"
-        [for]="'aadhaar-file-' + driver.id">
-
-        <i class="bi bi-arrow-repeat"></i>
-        Replace
-
-        <input
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          style="display:none;"
-          [id]="'aadhaar-file-' + driver.id"
-          (change)="onDriverAadhaarFile($event, driver)" />
-
-      </label>
-
-    }
-
-    <!-- No file -->
-    @else {
-
-      <label
-        class="vp-btn-secondary"
-        style="cursor:pointer;padding:4px 10px;font-size:0.85rem;border-radius:4px;border:1px solid #ccc;background:#f8f9fa;"
-        [for]="'aadhaar-file-' + driver.id">
-
-        <i class="bi bi-cloud-upload"></i>
-        Upload
-
-        <input
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          style="display:none;"
-          [id]="'aadhaar-file-' + driver.id"
-          (change)="onDriverAadhaarFile($event, driver)" />
-
-      </label>
-
-    }
-
-  </div>
-
-</div>
-
-       
 
         <!-- ✅ v6.8 DL fields — * only shown when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>            }</label>
-         
+          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+
           <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
         </div>
 
@@ -385,148 +312,120 @@
         </div>
 
         <!-- ✅ v6.8 DL file — shows existing file without re-upload -->
-       <!-- Driving License Copy -->
-<div class="vp-field">
+        <!-- Driving License Copy -->
+        <div class="vp-field">
 
-  <label class="vp-label">
-    Driving License Copy
-    @if (driver.role === 'Driver') {
-      <span style="color:red">*</span>
-    }
-  </label>
+          <label class="vp-label">
+            Driving License Copy
+            @if (driver.role === 'Driver') {
+            <span style="color:red">*</span>
+            }
+          </label>
 
-  <input
-    type="file"
-    accept=".pdf,.jpg,.jpeg,.png"
-    (change)="onDriverDlFile($event, driver)"
-  />
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
 
-  <!-- Keep old filename -->
-  <input
-    type="hidden"
-    [ngModel]="driver.dlExistingFile || ''"
-    [name]="'old-dl-' + driver.id"
-  />
+          <!-- Keep old filename -->
+          <input type="hidden" [ngModel]="driver.dlExistingFile || ''" [name]="'old-dl-' + driver.id" />
 
-  <!-- New file selected -->
-  @if (driver.dlFileName) {
+          <!-- New file selected -->
+          @if (driver.dlFileName) {
 
-    <div class="mt-1">
+          <div class="mt-1">
 
-      <span class="text-success">
-        <i class="bi bi-check-circle-fill"></i>
-        New: {{ driver.dlFileName }}
-      </span>
+            <span class="text-success">
+              <i class="bi bi-check-circle-fill"></i>
+              New: {{ driver.dlFileName }}
+            </span>
 
-      @if (driver.dlExistingFile) {
-        <div class="mt-1">
-          <small class="text-muted">
-            Old: {{ driver.dlExistingFile }}
-          </small>
+            @if (driver.dlExistingFile) {
+            <div class="mt-1">
+              <small class="text-muted">
+                Old: {{ driver.dlExistingFile }}
+              </small>
+            </div>
+            }
+
+          </div>
+
+          }
+
+          <!-- Existing file from database -->
+          @else if (driver.dlExistingFile) {
+
+          <div class="mt-1">
+
+            <a [href]="getDocumentUrl(driver.dlExistingFile)" download class="btn btn-sm btn-outline-success">
+              <i class="bi bi-download"></i>
+              Download Existing File
+            </a>
+
+            <div class="mt-1">
+              <span class="text-success">
+                <i class="bi bi-check-circle-fill"></i>
+                {{ driver.dlExistingFile }}
+              </span>
+            </div>
+
+          </div>
+
+          }
+
         </div>
-      }
-
-    </div>
-
-  }
-
-  <!-- Existing file from database -->
-  @else if (driver.dlExistingFile) {
-
-    <div class="mt-1">
-
-      <a
-        [href]="getDocumentUrl(driver.dlExistingFile)"
-        download
-        class="btn btn-sm btn-outline-success"
-      >
-        <i class="bi bi-download"></i>
-        Download Existing File
-      </a>
-
-      <div class="mt-1">
-        <span class="text-success">
-          <i class="bi bi-check-circle-fill"></i>
-          {{ driver.dlExistingFile }}
-        </span>
-      </div>
-
-    </div>
-
-  }
-
-</div>
 
         <div class="vp-field">
 
-  <label class="vp-label">
-    Driver Photograph
-  </label>
+          <label class="vp-label">
+            Driver Photograph
+          </label>
 
-  <input
-    type="file"
-    accept=".jpg,.jpeg,.png"
-    (change)="onDriverPhotoFile($event, driver)"
-  />
+          <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
 
-  <!-- Existing filename for update -->
-  <input
-    type="hidden"
-    [ngModel]="driver.photoExistingFile || ''"
-    [name]="'old-photo-' + driver.id"
-  />
+          <!-- Existing filename for update -->
+          <input type="hidden" [ngModel]="driver.photoExistingFile || ''" [name]="'old-photo-' + driver.id" />
 
-  <!-- New file selected -->
-  @if (driver.photoFile) {
+          <!-- New file selected -->
+          @if (driver.photoFile) {
 
-    <div class="mt-1">
+          <div class="mt-1">
 
-      <span
-        class="vp-filename"
-        [title]="driver.photoFile.name"
-        style="color:#28a745;font-weight:600;"
-      >
-        <i class="bi bi-file-earmark-check-fill"></i>
-        New: {{ shortName(driver.photoFile.name) }}
-      </span>
+            <span class="vp-filename" [title]="driver.photoFile.name" style="color:#28a745;font-weight:600;">
+              <i class="bi bi-file-earmark-check-fill"></i>
+              New: {{ shortName(driver.photoFile.name) }}
+            </span>
 
-      @if (driver.photoExistingFile) {
-        <div>
-          <small style="color:#6c757d;">
-            Old: {{ shortName(driver.photoExistingFile) }}
-          </small>
+            @if (driver.photoExistingFile) {
+            <div>
+              <small style="color:#6c757d;">
+                Old: {{ shortName(driver.photoExistingFile) }}
+              </small>
+            </div>
+            }
+
+          </div>
+
+          }
+
+          <!-- Existing file -->
+          @else if (driver.photoExistingFile) {
+
+          <div class="mt-1">
+
+            <a [href]="getDocumentUrl(driver.photoExistingFile)" target="_blank" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-download"></i>
+              Existing Photo
+            </a>
+
+            <div>
+              <small style="color:#28a745;">
+                {{ shortName(driver.photoExistingFile) }}
+              </small>
+            </div>
+
+          </div>
+
+          }
+
         </div>
-      }
-
-    </div>
-
-  }
-
-  <!-- Existing file -->
-  @else if (driver.photoExistingFile) {
-
-    <div class="mt-1">
-
-      <a
-        [href]="getDocumentUrl(driver.photoExistingFile)"
-        target="_blank"
-        class="btn btn-sm btn-outline-success"
-      >
-        <i class="bi bi-download"></i>
-        Existing Photo
-      </a>
-
-      <div>
-        <small style="color:#28a745;">
-          {{ shortName(driver.photoExistingFile) }}
-        </small>
-      </div>
-
-    </div>
-
-  }
-
-</div>
 
       </div>
     </div>
@@ -534,22 +433,26 @@
   </div>
 
   <div class="vp-actions">
-    @if (!editingMode()) {
-    <button class="vp-btn-secondary" (click)="saveDraft()" [disabled]="isSaving() || isSubmitting()">
-      @if (isSaving()) { <i class="bi bi-hourglass-split"></i> Saving... }
-      @else { <i class="bi bi-floppy-fill"></i> Save Draft }
+    <button type="button" class="vp-btn-secondary" (click)="saveDraft()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSaving()) {
+      <i class="bi bi-hourglass-split"></i>
+      Saving...
+      } @else {
+      <i class="bi bi-floppy-fill"></i>
+      Save Draft
+      }
     </button>
-    }
 
-    <button type="button" (click)="submitForm()"
+    <button type="button" class="vp-btn-primary" (click)="submitForm()"
       [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
       @if (isSubmitting()) {
       <i class="bi bi-hourglass-split"></i>
-      {{ editingMode() ? 'Updating...' : 'Submitting...' }}
+      {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
       } @else {
-      {{ editingMode() ? 'Save Draft' : 'Submit Request' }}
+      <i class="bi bi-send-fill"></i>
+      Submit Request
       }
     </button>
-    <!-- <button class="vp-btn-ghost" (click)="reset()">Reset</button> -->
   </div>
 </div>

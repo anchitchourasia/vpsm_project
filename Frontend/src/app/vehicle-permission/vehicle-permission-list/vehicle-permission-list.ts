@@ -146,10 +146,12 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
         const normalized = (status || '').trim().toUpperCase();
 
         switch (normalized) {
-            case 'SUBMITTED':
+            case 'DRAFT':
                 return 'SAVED';
+            case 'MODIFY':
+                return 'MODIFIED';
             default:
-                return normalized || 'DRAFT';
+                return normalized;
         }
     }
 

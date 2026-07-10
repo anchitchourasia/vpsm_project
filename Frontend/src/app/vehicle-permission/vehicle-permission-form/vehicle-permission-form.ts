@@ -503,6 +503,14 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       return null;
     }
   }
+  private extractRequestNo(
+    response: ApiResponse | null,
+    fallback: number | null = null
+  ): number | null {
+    const raw = (response as any)?.data ?? fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
 
   private fillForm(dto: CreateRequestDTO): void {
     const req = dto.request;
@@ -510,13 +518,31 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if ((req as any)?.reqStatus) {
       const backendStatus = String((req as any).reqStatus).trim().toUpperCase();
 
-      // ✅ FIX: Force both SAVED and MODIFIED statuses to resolve as 'Saved' or 'Draft' so the UI displays existing attachments
-      if (backendStatus === 'SAVED' || backendStatus === 'MODIFIED' || backendStatus === 'MODIFY') {
-        this.status.set('Saved');
-      } else if (backendStatus === 'SUBMITTED' || backendStatus === 'CREATED') {
-        this.status.set('Submitted');
-      } else {
-        this.status.set((req as any).reqStatus);
+      switch (backendStatus) {
+        case 'SAVED':
+        case 'DRAFT':
+          this.status.set('Saved');
+          break;
+        case 'CREATED':
+        case 'SUBMITTED':
+          this.status.set('Submitted');
+          break;
+        case 'MODIFIED':
+        case 'MODIFY':
+          this.status.set('Modified');
+          break;
+        case 'HOLD':
+          this.status.set('Hold');
+          break;
+        case 'APPROVED':
+          this.status.set('Approved');
+          break;
+        case 'REJECTED':
+          this.status.set('Rejected');
+          break;
+        default:
+          this.status.set((req as any).reqStatus);
+          break;
       }
     }
 
@@ -751,7 +777,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           //   doc.existingFile ||
           //   doc.file?.name ||
           //   '',
-          filename: doc.file ? doc.file.name : (doc.existingFile || doc.originalExistingFile || ''),
+          filename: doc.file ? doc.file.name : (doc.originalExistingFile || doc.existingFile || ''),
           validFrom: this.reqDate(),
           validTill: doc.validUpto || null
         })),
@@ -783,7 +809,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
               //   driver.aadhaarFile
               //     ? driver.aadhaarFile.name
               //     : driver.aadhaarExistingFile || '',
-              filename: driver.dlFile ? undefined : (driver.dlExistingFile || ''),
+              // filename: driver.dlFile ? undefined : (driver.dlExistingFile || ''),
+              filename:
+                driver.aadhaarFile
+                  ? driver.aadhaarFile.name
+                  : (driver.aadhaarExistingFile || ''),
               validFrom: this.reqDate(),
               validTill: null
             });
@@ -793,6 +823,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             documents.push({
               id: driver.dlDocumentId,
               documentType: 'DRIVING_LICENSE',
+              // documentType: 'DRIVINGLICENSE',
               documentNo: driver.licenseNo.trim(),
               filename:
                 driver.dlFile
@@ -898,20 +929,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         ).subscribe((response: ApiResponse | null) => {
           if (!response) return;
 
-          this.savedRequestNo.set(response.requestNo || activeId);
-
-          if (targetStatus === 'SAVED') {
-            this.status.set('Saved');
-            this.saveMsg.set('✅ Form updated successfully!');
-          } else {
-            this.status.set('Submitted');
-            this.saveMsg.set('✅ Permission request updated successfully!');
+          const resolvedId = this.extractRequestNo(response, activeId);
+          if (resolvedId) {
+            this.savedRequestNo.set(resolvedId);
+            this.editingMode.set(true);
           }
 
-          setTimeout(() => {
-            this.saveMsg.set('');
-            this.router.navigate(['/vehicle-permission/list']);
-          }, 2000);
+          this.saveMsg.set(
+            targetStatus === 'SAVED'
+              ? 'Form updated successfully!'
+              : 'Permission request updated successfully!'
+          );
+
+          if (resolvedId) {
+            this.router.navigate([], {
+              relativeTo: this.route,
+              queryParams: { edit: resolvedId },
+              queryParamsHandling: 'merge',
+              replaceUrl: true
+            });
+          }
         });
 
         return;
@@ -930,14 +967,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         })
       ).subscribe((response: ApiResponse | null) => {
         if (!response) return;
-        this.savedRequestNo.set(response.requestNo);
 
-        if (targetStatus === 'SAVED') {
-          this.status.set('Saved');
-          this.saveMsg.set('✅ Draft saved successfully');
-        } else {
-          this.status.set('Submitted');
-          this.saveMsg.set('✅ Request submitted successfully');
+        const resolvedId = this.extractRequestNo(response, null);
+        if (resolvedId) {
+          this.savedRequestNo.set(resolvedId);
+          this.editingMode.set(true);
+        }
+
+        this.saveMsg.set(
+          targetStatus === 'SAVED'
+            ? 'Draft saved successfully'
+            : 'Request submitted successfully'
+        );
+
+        if (resolvedId) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { edit: resolvedId },
+            queryParamsHandling: 'merge',
+            replaceUrl: true
+          });
         }
       });
     } catch (err: any) {
