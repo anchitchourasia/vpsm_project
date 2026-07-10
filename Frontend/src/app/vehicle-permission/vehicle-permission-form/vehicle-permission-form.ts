@@ -746,11 +746,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           id: doc.documentId,
           documentType: (doc.docType || '').trim(),
           documentNo: (doc.docNo || '').trim(),
-          filename:
-            doc.originalExistingFile ||
-            doc.existingFile ||
-            doc.file?.name ||
-            '',
+          // filename:
+          //   doc.originalExistingFile ||
+          //   doc.existingFile ||
+          //   doc.file?.name ||
+          //   '',
+          filename: doc.file ? doc.file.name : (doc.existingFile || doc.originalExistingFile || ''),
           validFrom: this.reqDate(),
           validTill: doc.validUpto || null
         })),
@@ -778,10 +779,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
               id: driver.aadhaarDocumentId,
               documentType: 'AADHAAR',
               documentNo: (driver.aadhaarNo || '').trim(),
-              filename:
-                driver.aadhaarFile
-                  ? driver.aadhaarFile.name
-                  : driver.aadhaarExistingFile || '',
+              // filename:
+              //   driver.aadhaarFile
+              //     ? driver.aadhaarFile.name
+              //     : driver.aadhaarExistingFile || '',
+              filename: driver.dlFile ? undefined : (driver.dlExistingFile || ''),
               validFrom: this.reqDate(),
               validTill: null
             });
