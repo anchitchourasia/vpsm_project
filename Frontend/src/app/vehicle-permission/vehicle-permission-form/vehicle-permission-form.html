@@ -433,26 +433,32 @@
   </div>
 
   <div class="vp-actions">
-    <button type="button" class="vp-btn-secondary" (click)="saveDraft()"
-      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-      @if (isSaving()) {
+  <button
+    type="button"
+    class="vp-btn-secondary"
+    (click)="saveDraft()"
+   [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+    @if (isSaving()) {
       <i class="bi bi-hourglass-split"></i>
       Saving...
-      } @else {
+    } @else {
       <i class="bi bi-floppy-fill"></i>
       Save Draft
-      }
-    </button>
+    }
+  </button>
 
-    <button type="button" class="vp-btn-primary" (click)="submitForm()"
-      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-      @if (isSubmitting()) {
+  <button
+    type="button"
+    class="vp-btn-primary"
+    (click)="submitForm()"
+    [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+    @if (isSubmitting()) {
       <i class="bi bi-hourglass-split"></i>
       {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
-      } @else {
+    } @else {
       <i class="bi bi-send-fill"></i>
       Submit Request
-      }
-    </button>
-  </div>
+    }
+  </button>
+</div>
 </div>

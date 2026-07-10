@@ -150,6 +150,8 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
                 return 'SAVED';
             case 'MODIFY':
                 return 'MODIFIED';
+            case 'CREATED':
+                return 'SUBMITTED';
             default:
                 return normalized;
         }
@@ -271,7 +273,6 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
     getStatusLabel(status: string): string {
         switch (this.normalizeRequestStatus(status)) {
             case 'CREATED':
-                return 'Created';
             case 'SUBMITTED':
                 return 'Submitted';
             case 'SAVED':

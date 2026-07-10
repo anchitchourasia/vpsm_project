@@ -278,6 +278,32 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   docAlreadyUploaded(doc: DocEntry): boolean {
     return !!doc.documentId && !!(doc.existingFile || doc.originalExistingFile);
   }
+  private isVehicleDocComplete(doc: DocEntry): boolean {
+    return !!(
+      (doc.docType || '').trim() &&
+      (doc.docNo || '').trim() &&
+      doc.validUpto &&
+      (doc.file || this.docAlreadyUploaded(doc))
+    );
+  }
+
+  hasAllRequiredVehicleDocs(): boolean {
+    const docs = this.docs();
+
+    if (docs.length !== this.ALLOWED_DOC_TYPES.length) {
+      return false;
+    }
+
+    const selectedTypes = docs
+      .map(doc => (doc.docType || '').trim())
+      .filter(Boolean);
+
+    const allTypesPresent = this.ALLOWED_DOC_TYPES.every(type =>
+      selectedTypes.includes(type)
+    );
+
+    return allTypesPresent && docs.every(doc => this.isVehicleDocComplete(doc));
+  }
 
   shortName(name: string): string {
     return name.length > 18 ? `${name.substring(0, 15)}...` : name;
@@ -511,39 +537,42 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
+  private setDisplayStatus(rawStatus: string | null | undefined): void {
+    const backendStatus = String(rawStatus || '').trim().toUpperCase();
+
+    switch (backendStatus) {
+      case 'SAVED':
+      case 'DRAFT':
+        this.status.set('Saved');
+        break;
+      case 'CREATED':
+      case 'SUBMITTED':
+        this.status.set('Submitted');
+        break;
+      case 'MODIFIED':
+      case 'MODIFY':
+        this.status.set('Modified');
+        break;
+      case 'HOLD':
+        this.status.set('Hold');
+        break;
+      case 'APPROVED':
+        this.status.set('Approved');
+        break;
+      case 'REJECTED':
+        this.status.set('Rejected');
+        break;
+      default:
+        this.status.set(rawStatus || 'Draft');
+        break;
+    }
+  }
 
   private fillForm(dto: CreateRequestDTO): void {
     const req = dto.request;
 
     if ((req as any)?.reqStatus) {
-      const backendStatus = String((req as any).reqStatus).trim().toUpperCase();
-
-      switch (backendStatus) {
-        case 'SAVED':
-        case 'DRAFT':
-          this.status.set('Saved');
-          break;
-        case 'CREATED':
-        case 'SUBMITTED':
-          this.status.set('Submitted');
-          break;
-        case 'MODIFIED':
-        case 'MODIFY':
-          this.status.set('Modified');
-          break;
-        case 'HOLD':
-          this.status.set('Hold');
-          break;
-        case 'APPROVED':
-          this.status.set('Approved');
-          break;
-        case 'REJECTED':
-          this.status.set('Rejected');
-          break;
-        default:
-          this.status.set((req as any).reqStatus);
-          break;
-      }
+      this.setDisplayStatus((req as any).reqStatus);
     }
 
     if ((req as any)?.createdDate) {
@@ -689,6 +718,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       }
       if (!this.permissionDateTo() || this.permissionDateTo() < this.permissionDateFrom()) {
         this.errorMsg.set('Permission Date To is invalid.');
+        return false;
+      }
+      if (!this.hasAllRequiredVehicleDocs()) {
+        this.errorMsg.set(
+          `All ${this.ALLOWED_DOC_TYPES.length} required vehicle documents must be completed before submitting.`
+        );
         return false;
       }
 
@@ -934,14 +969,19 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             this.savedRequestNo.set(resolvedId);
             this.editingMode.set(true);
           }
-
+          if (targetStatus === 'CREATED') {
+            this.status.set('Submitted');
+          }
           this.saveMsg.set(
             targetStatus === 'SAVED'
               ? 'Form updated successfully!'
-              : 'Permission request updated successfully!'
+              : 'Request submitted successfully!'
           );
 
-          if (resolvedId) {
+
+          if (targetStatus === 'CREATED') {
+            this.router.navigate(['/vehicle-permission/list']);
+          } else if (resolvedId) {
             this.router.navigate([], {
               relativeTo: this.route,
               queryParams: { edit: resolvedId },
@@ -950,7 +990,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             });
           }
         });
-
         return;
       }
 
@@ -980,7 +1019,9 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             : 'Request submitted successfully'
         );
 
-        if (resolvedId) {
+        if (targetStatus === 'CREATED') {
+          this.router.navigate(['/vehicle-permission/list']);
+        } else if (resolvedId) {
           this.router.navigate([], {
             relativeTo: this.route,
             queryParams: { edit: resolvedId },
