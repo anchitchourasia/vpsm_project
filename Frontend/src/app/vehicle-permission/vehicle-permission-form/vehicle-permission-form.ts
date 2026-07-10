@@ -17,18 +17,24 @@ import {
 
 import { environment } from '../../../environments/environment';
 
+//Documents Interface
 interface DocEntry {
   id: string;
   docType: string;
   docNo: string;
   validUpto: string;
+
   file: File | null;
+
   documentId?: number;
-  existingFile?: string;
-  originalExistingFile?: string;
+
+  existingFile?: string;         // Current filename used for save/update
+  originalExistingFile?: string; // Filename loaded from DB (read-only reference)
+
   replaced?: boolean;
 }
 
+//Employee details
 interface DriverPerson {
   id: string;
   role: string;
@@ -52,6 +58,7 @@ interface DriverPerson {
   aadhaarDocumentId?: number;
   dlDocumentId?: number;
   photoDocumentId?: number;
+  dbId?: number;
 }
 
 const ALLOWED_DOC_TYPES = ['RC', 'Insurance', 'PUC', 'Fitness', 'Load Test'];
@@ -247,24 +254,25 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onDocFileSelected(event: Event, doc: DocEntry): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files?.length) return;
 
-    const selectedFile = input.files[0];
+  const file = (event.target as HTMLInputElement).files?.[0];
 
-    const updated = this.docs().map(d =>
+  if (!file) {
+    return;
+  }
+
+  this.docs.update(docs =>
+    docs.map(d =>
       d.id === doc.id
         ? {
-          ...d,
-          file: selectedFile,
-          replaced: true
-        }
+            ...d,
+            file,
+            replaced: true
+          }
         : d
-    );
-
-    this.docs.set(updated);
-    this.lastLoadedDocs.set(this.cloneDocs(updated));
-  }
+    )
+  );
+}
 
   docAlreadyUploaded(doc: DocEntry): boolean {
     return !!doc.documentId && !!(doc.existingFile || doc.originalExistingFile);
@@ -488,12 +496,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if ((req as any)?.reqStatus) {
       const backendStatus = String((req as any).reqStatus).trim().toUpperCase();
 
-      if (backendStatus === 'SAVED') {
+      // ✅ FIX: Force both SAVED and MODIFIED statuses to resolve as 'Saved' or 'Draft' so the UI displays existing attachments
+      if (backendStatus === 'SAVED' || backendStatus === 'MODIFIED' || backendStatus === 'MODIFY') {
         this.status.set('Saved');
       } else if (backendStatus === 'SUBMITTED' || backendStatus === 'CREATED') {
         this.status.set('Submitted');
-      } else if (this.isModifiedLikeStatus(backendStatus)) {
-        this.status.set('Need Modification');
       } else {
         this.status.set((req as any).reqStatus);
       }
@@ -503,9 +510,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       this.reqDate.set(this.formatDate((req as any).createdDate));
     }
 
-    const backendStatus = String((req as any)?.reqStatus || '').trim().toUpperCase();
     const vehicleDocuments = dto.vehicleDocuments || [];
-
     const mappedDocs: DocEntry[] = vehicleDocuments.map(doc => {
       const existing = this.getExistingFileName(doc) || undefined;
 
@@ -522,81 +527,50 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       };
     });
 
-    if (mappedDocs.length > 0) {
-      this.docs.set(mappedDocs);
-      this.lastLoadedDocs.set(this.cloneDocs(mappedDocs));
-    } else if (this.isModifiedLikeStatus(backendStatus)) {
-      const existingDocs = this.lastLoadedDocs().length > 0
-        ? this.lastLoadedDocs()
-        : this.docs();
+    // ✅ FIX: Ensure array state is always populated directly from the valid array passed by the server
+    this.docs.set(mappedDocs);
+    this.lastLoadedDocs.set(this.cloneDocs(mappedDocs));
 
-      this.docs.set(this.cloneDocs(existingDocs));
-    } else {
-      this.docs.set([]);
-    }
     const employees = dto.employees || [];
+    const mappedDrivers: DriverPerson[] = employees.map(emp => {
+      const photoDoc = emp.documents?.find(d => this.isPhotoDoc(d.documentType));
+      const aadhaarDoc = emp.documents?.find(d => this.isAadhaarDoc(d.documentType));
+      const dlDoc = emp.documents?.find(d => this.isDlDoc(d.documentType));
 
-    const mappedDrivers: DriverPerson[] =
-      employees.length > 0
-        ? employees.map(emp => {
-          const photoDoc = emp.documents?.find(
-            d => this.isPhotoDoc(d.documentType)
-          );
-
-          const aadhaarDoc = emp.documents?.find(
-            d => this.isAadhaarDoc(d.documentType)
-          );
-
-          const dlDoc = emp.documents?.find(
-            d => this.isDlDoc(d.documentType)
-          );
-
-          return {
-            id: crypto.randomUUID(),
-            role: (emp.empJob || emp.empType || 'Driver').trim(),
-            name: (emp.name || '').trim(),
-            mobileNo: (emp.mobileNo || '').trim(),
-            aadhaarNo: (aadhaarDoc?.documentNo || '').trim(),
-            licenseNo: (dlDoc?.documentNo || '').trim(),
-            licenseNumber: (dlDoc?.documentNo || '').trim(),
-            licenseType: '',
-            validFrom: this.formatDate(dlDoc?.validFrom),
-            validTo: this.formatDate(dlDoc?.validTill),
-            aadhaarFile: null,
-            aadhaarFileName: '',
-            aadhaarExistingFile: this.getExistingFileName(aadhaarDoc),
-            dlFile: null,
-            dlFileName: '',
-            dlExistingFile: this.getExistingFileName(dlDoc),
-            photoFile: null,
-            photoFileName: '',
-            photoExistingFile: this.getExistingFileName(photoDoc),
-            aadhaarDocumentId: aadhaarDoc?.id,
-            dlDocumentId: dlDoc?.id,
-            photoDocumentId: photoDoc?.id,
-          };
-        })
-        : [];
+      return {
+        id: crypto.randomUUID(),
+        role: (emp.empJob || emp.empType || 'Driver').trim(),
+        name: (emp.name || '').trim(),
+        mobileNo: (emp.mobileNo || '').trim(),
+        aadhaarNo: (aadhaarDoc?.documentNo || '').trim(),
+        licenseNo: (dlDoc?.documentNo || '').trim(),
+        licenseNumber: (dlDoc?.documentNo || '').trim(),
+        licenseType: '',
+        validFrom: this.formatDate(dlDoc?.validFrom),
+        validTo: this.formatDate(dlDoc?.validTill),
+        aadhaarFile: null,
+        aadhaarFileName: '',
+        aadhaarExistingFile: this.getExistingFileName(aadhaarDoc),
+        dlFile: null,
+        dlFileName: '',
+        dlExistingFile: this.getExistingFileName(dlDoc),
+        photoFile: null,
+        photoFileName: '',
+        photoExistingFile: this.getExistingFileName(photoDoc),
+        aadhaarDocumentId: aadhaarDoc?.id,
+        dlDocumentId: dlDoc?.id,
+        photoDocumentId: photoDoc?.id,
+      };
+    });
 
     if (mappedDrivers.length > 0) {
       this.drivers.set(mappedDrivers);
       this.lastLoadedDrivers.set(this.cloneDrivers(mappedDrivers));
-    } else if (this.isModifiedLikeStatus(backendStatus)) {
-      const existingDrivers = this.lastLoadedDrivers().length > 0
-        ? this.lastLoadedDrivers()
-        : this.drivers();
-
-      this.drivers.set(
-        existingDrivers.length > 0
-          ? this.cloneDrivers(existingDrivers)
-          : [emptyDriver()]
-      );
     } else {
       this.drivers.set([emptyDriver()]);
     }
 
     const contractorId = (req.contractorId || '').trim().toUpperCase();
-
     this.contractorCode.set(contractorId);
     this.contractorName.set('');
 
@@ -744,24 +718,33 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase()
       },
 
-      vehicleDocuments: this.docs()
-        .filter(doc =>
-          (doc.docType || '').trim() ||
-          (doc.docNo || '').trim() ||
-          doc.validUpto ||
-          doc.file ||
-          doc.existingFile ||
-          doc.originalExistingFile ||
-          doc.documentId
-        )
-        .map(doc => ({
-          id: doc.documentId,
-          documentType: (doc.docType || '').trim(),
-          documentNo: (doc.docNo || '').trim(),
-          filename: doc.file?.name || doc.existingFile || doc.originalExistingFile || '',
-          validFrom: this.reqDate(),
-          validTill: doc.validUpto || null
-        })),
+     vehicleDocuments: this.docs()
+  .filter(doc =>
+    (doc.docType || '').trim() ||
+    (doc.docNo || '').trim() ||
+    doc.validUpto ||
+    doc.file ||
+    doc.existingFile ||
+    doc.documentId
+  )
+  .map(doc => ({
+    id: doc.documentId,
+
+    documentType: (doc.docType || '').trim(),
+
+    documentNo: (doc.docNo || '').trim(),
+
+    // If new file selected → send new filename
+    // Else → keep existing filename from DB
+    filename:
+      doc.file?.name ||
+      doc.existingFile ||
+      '',
+
+    validFrom: this.reqDate(),
+
+    validTill: doc.validUpto || null
+  })),
 
       employees: this.drivers()
         .filter(driver =>
@@ -782,40 +765,52 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           const documents: any[] = [];
 
           if ((driver.aadhaarNo || '').trim() || driver.aadhaarExistingFile || driver.aadhaarFile || driver.aadhaarDocumentId) {
+            const rawAadhaarName = driver.aadhaarFile?.name || driver.aadhaarExistingFile || '';
             documents.push({
               id: driver.aadhaarDocumentId,
               documentType: 'AADHAAR',
-              documentNo: (driver.aadhaarNo || '').trim(),
-              filename: driver.aadhaarFile?.name || driver.aadhaarExistingFile || '',
+              documentNo: (driver.aadhaarNo || '').trim(), // Keep document number
+              filename:
+  driver.aadhaarFile?.name ||
+  driver.aadhaarExistingFile ||
+  '',
               validFrom: this.reqDate(),
               validTill: null
             });
           }
 
           if (isDriver && ((driver.licenseNo || '').trim() || driver.dlExistingFile || driver.dlFile || driver.dlDocumentId)) {
-            documents.push({
-              id: driver.dlDocumentId,
-              documentType: 'DRIVING_LICENSE',
-              documentNo: (driver.licenseNo || '').trim(),
-              filename: driver.dlFile?.name || driver.dlExistingFile || '',
-              validFrom: driver.validFrom || null,
-              validTill: driver.validTo || null
-            });
+            const rawDlName = driver.dlFile?.name || driver.dlExistingFile || '';
+           documents.push({
+  id: driver.dlDocumentId,
+  documentType: 'DRIVING_LICENSE',
+  documentNo: driver.licenseNo.trim(),
+  filename:
+  driver.dlFile?.name ||
+  driver.dlExistingFile ||
+  '',
+  validFrom: driver.validFrom,
+  validTill: driver.validTo
+});
           }
 
           if (driver.photoFile || driver.photoExistingFile || driver.photoDocumentId) {
+            const rawPhotoName = driver.photoFile?.name || driver.photoExistingFile || '';
             documents.push({
               id: driver.photoDocumentId,
               documentType: 'PHOTO',
-              documentNo: '',
-              filename: driver.photoFile?.name || driver.photoExistingFile || '',
+              documentNo: '', // Keep document number (empty for photo)
+              filename:
+  driver.photoFile?.name ||
+  driver.photoExistingFile ||
+  '',
               validFrom: this.reqDate(),
               validTill: null
             });
           }
 
           return {
-            empNo: null,
+            empNo: driver.dbId || null,
             name: (driver.name || '').trim(),
             mobileNo: (driver.mobileNo || '').trim(),
             empType: role,
@@ -825,221 +820,34 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         })
     };
   }
-  private mergeVehicleDocuments(serverDocs: VehicleDocumentDTO[]): VehicleDocumentDTO[] {
-    const formDocs = this.docs();
+ private collectFiles(): File[] {
 
-    const formDocMap = new Map(
-      formDocs.map(doc => [this.normalizeDocType(doc.docType), doc])
-    );
+  const files: File[] = [];
 
-    const merged = (serverDocs || []).map(serverDoc => {
-      const formDoc = formDocMap.get(this.normalizeDocType(serverDoc.documentType));
-      const serverFile = this.getExistingFileName(serverDoc);
+  this.docs().forEach(doc => {
+    if (doc.file) {
+      files.push(doc.file);
+    }
+  });
 
-      return {
-        id: formDoc?.documentId ?? serverDoc.id,
-        documentType: (formDoc?.docType || serverDoc.documentType || '').trim(),
-        documentNo: (formDoc?.docNo || serverDoc.documentNo || '').trim(),
-        filename:
-          formDoc?.file?.name ||
-          formDoc?.existingFile ||
-          formDoc?.originalExistingFile ||
-          serverFile ||
-          null,
-        validFrom: serverDoc.validFrom || this.reqDate(),
-        validTill: formDoc?.validUpto || serverDoc.validTill || null
-      };
-    });
+  this.drivers().forEach(driver => {
 
-    const existingTypes = new Set(
-      merged.map(doc => this.normalizeDocType(doc.documentType))
-    );
-
-    for (const formDoc of formDocs) {
-      const docTypeKey = this.normalizeDocType(formDoc.docType);
-      if (!docTypeKey || existingTypes.has(docTypeKey)) continue;
-
-      merged.push({
-        id: formDoc.documentId,
-        documentType: (formDoc.docType || '').trim(),
-        documentNo: (formDoc.docNo || '').trim(),
-        filename:
-          formDoc.file?.name ||
-          formDoc.existingFile ||
-          formDoc.originalExistingFile ||
-          null,
-        validFrom: this.reqDate(),
-        validTill: formDoc.validUpto || null
-      });
+    if (driver.aadhaarFile) {
+      files.push(driver.aadhaarFile);
     }
 
-    return merged.filter(doc =>
-      (doc.documentType || '').trim() ||
-      (doc.documentNo || '').trim() ||
-      !!doc.filename
-    );
-  }
-
-  private mergeEmployeeDocuments(serverEmployees: EmployeeDTO[]): EmployeeDTO[] {
-    const formDrivers = this.drivers();
-    const mergedEmployees: EmployeeDTO[] = [];
-
-    const serverByAadhaar = new Map<string, EmployeeDTO>();
-    const serverByName = new Map<string, EmployeeDTO>();
-
-    for (const emp of serverEmployees || []) {
-      const keyName = (emp?.name || '').trim().toUpperCase();
-      const aadhaar = (emp as any)?.aadhaarNo ? String((emp as any).aadhaarNo).trim() : '';
-      if (aadhaar) serverByAadhaar.set(aadhaar, emp);
-      if (keyName) serverByName.set(keyName, emp);
+    if (driver.dlFile) {
+      files.push(driver.dlFile);
     }
 
-    for (const formDriver of formDrivers) {
-      const role = (formDriver?.role || 'Driver').trim();
-      const isDriver = role.toUpperCase() === 'DRIVER';
-
-      const matchedServer =
-        serverByAadhaar.get((formDriver?.aadhaarNo || '').trim()) ||
-        serverByName.get((formDriver?.name || '').trim().toUpperCase());
-
-      const serverDocs = matchedServer?.documents || [];
-
-      const serverAadhaar = serverDocs.find(d => this.isAadhaarDoc(d.documentType));
-      const serverDl = serverDocs.find(d => this.isDlDoc(d.documentType));
-      const serverPhoto = serverDocs.find(d => this.isPhotoDoc(d.documentType));
-
-      const aadhaarServerFile = this.getExistingFileName(serverAadhaar);
-      const dlServerFile = this.getExistingFileName(serverDl);
-      const photoServerFile = this.getExistingFileName(serverPhoto);
-
-      const documents: EmployeeDocumentDTO[] = [];
-
-      const aadhaarFilename =
-        formDriver?.aadhaarFile?.name ||
-        formDriver?.aadhaarExistingFile ||
-        aadhaarServerFile ||
-        null;
-
-      const dlFilename =
-        formDriver?.dlFile?.name ||
-        formDriver?.dlExistingFile ||
-        dlServerFile ||
-        null;
-
-      const photoFilename =
-        formDriver?.photoFile?.name ||
-        formDriver?.photoExistingFile ||
-        photoServerFile ||
-        null;
-
-      if (
-        (formDriver?.aadhaarNo || serverAadhaar?.documentNo || '').trim() ||
-        aadhaarFilename ||
-        formDriver?.aadhaarDocumentId ||
-        serverAadhaar?.id
-      ) {
-        documents.push({
-          id: formDriver?.aadhaarDocumentId ?? serverAadhaar?.id,
-          documentType: 'AADHAAR',
-          documentNo: (formDriver?.aadhaarNo || serverAadhaar?.documentNo || '').trim() || null,
-          filename: aadhaarFilename,
-          validFrom: serverAadhaar?.validFrom || this.reqDate(),
-          validTill: null
-        });
-      }
-
-      if (
-        isDriver &&
-        (
-          (formDriver?.licenseNo || serverDl?.documentNo || '').trim() ||
-          dlFilename ||
-          formDriver?.dlDocumentId ||
-          serverDl?.id
-        )
-      ) {
-        documents.push({
-          id: formDriver?.dlDocumentId ?? serverDl?.id,
-          documentType: 'DRIVING_LICENSE',
-          documentNo: (formDriver?.licenseNo || serverDl?.documentNo || '').trim() || null,
-          filename: dlFilename,
-          validFrom: formDriver?.validFrom || serverDl?.validFrom || null,
-          validTill: formDriver?.validTo || serverDl?.validTill || null
-        });
-      }
-
-      if (photoFilename || formDriver?.photoDocumentId || serverPhoto?.id) {
-        documents.push({
-          id: formDriver?.photoDocumentId ?? serverPhoto?.id,
-          documentType: 'PHOTO',
-          documentNo: null,
-          filename: photoFilename,
-          validFrom: serverPhoto?.validFrom || this.reqDate(),
-          validTill: null
-        });
-      }
-
-      mergedEmployees.push({
-        empNo: matchedServer?.empNo ?? null,
-        name: (formDriver?.name || matchedServer?.name || '').trim(),
-        mobileNo: (formDriver?.mobileNo || matchedServer?.mobileNo || '').trim(),
-        empType: role,
-        empJob: role,
-        documents
-      });
+    if (driver.photoFile) {
+      files.push(driver.photoFile);
     }
 
-    return mergedEmployees.filter(emp =>
-      (emp.name || '').trim() ||
-      (emp.mobileNo || '').trim() ||
-      (emp.documents?.length || 0) > 0
-    );
-  }
+  });
 
-  private buildMergedUpdatePayload(serverDto: CreateRequestDTO, targetStatus: string): CreateRequestDTO {
-    return {
-      request: {
-        ...serverDto.request,
-        contractorId: this.contractorCode().trim().toUpperCase(),
-        natureOfJob: this.natureOfJob().trim(),
-        vehicleNo: this.vehicleNumber().trim().toUpperCase(),
-        vehicleType: this.vehicleType(),
-        permissionFrom: this.permissionDateFrom() || '',
-        permissionTo: this.permissionDateTo() || '',
-        reqStatus: targetStatus.trim().toUpperCase(),
-        createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase()
-      },
-      vehicleDocuments: this.mergeVehicleDocuments(serverDto.vehicleDocuments || []),
-      employees: this.mergeEmployeeDocuments(serverDto.employees || [])
-    };
-  }
-  private async collectFiles(): Promise<File[]> {
-    const files: File[] = [];
-
-    for (const doc of this.docs()) {
-      if (doc.file) {
-        files.push(doc.file);
-      }
-    }
-
-    for (const driver of this.drivers()) {
-      const role = (driver.role || '').trim();
-      const isDriver = role.toUpperCase() === 'DRIVER';
-
-      if (driver.aadhaarFile) {
-        files.push(driver.aadhaarFile);
-      }
-
-      if (isDriver && driver.dlFile) {
-        files.push(driver.dlFile);
-      }
-
-      if (driver.photoFile) {
-        files.push(driver.photoFile);
-      }
-    }
-
-    return files;
-  }
+  return files;
+}
 
   private async processFormSubmission(targetStatus: string): Promise<void> {
     if (!this.validateForm(targetStatus)) return;
@@ -1055,20 +863,20 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     try {
       const files = await this.collectFiles();
+      console.log('===== FILES =====');
+
+      // ✅ FIXED: Instead of calling buildMergedUpdatePayload, build a clean payload directly 
+      const payload = this.buildCreatePayload(targetStatus); // Use the same payload builder for both create and update
+      
+console.log('Payload = ', payload);
+console.log('Payload JSON = ', JSON.stringify(payload, null, 2));
 
       if (isUpdate && activeId) {
-        this.cvps.getRequestById(activeId).pipe(
+        // We directly pass the clean payload to updateRequest, bypassing the broken merge functions!
+        this.cvps.updateRequest(activeId, payload, files).pipe(
           takeUntil(this.destroy$),
-          switchMap(serverDto => {
-            const mergedPayload = this.buildMergedUpdatePayload(serverDto, targetStatus);
-            return this.cvps.updateRequest(activeId, mergedPayload, files);
-          }),
           catchError(err => {
-            this.errorMsg.set(
-              err?.error?.message ||
-              err?.message ||
-              'Request update failed'
-            );
+            this.errorMsg.set(err?.error?.message || err?.message || 'Request update failed');
             return of(null);
           }),
           finalize(() => {
@@ -1097,16 +905,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const payload = this.buildCreatePayload(targetStatus);
-
+      // Fresh creation path
       this.cvps.createRequest(payload, files).pipe(
         takeUntil(this.destroy$),
         catchError(err => {
-          this.errorMsg.set(
-            err?.error?.message ||
-            err?.message ||
-            'Request creation failed'
-          );
+          this.errorMsg.set(err?.error?.message || err?.message || 'Request creation failed');
           return of(null);
         }),
         finalize(() => {
@@ -1115,7 +918,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         })
       ).subscribe((response: ApiResponse | null) => {
         if (!response) return;
-
         this.savedRequestNo.set(response.requestNo);
 
         if (targetStatus === 'SAVED') {
