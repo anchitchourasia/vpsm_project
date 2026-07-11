@@ -12,7 +12,8 @@ import {
   ApiResponse,
   VehicleDocumentDTO,
   EmployeeDTO,
-  EmployeeDocumentDTO
+  EmployeeDocumentDTO,
+  WorkflowAction
 } from '../../services/cvps.service';
 
 import { environment } from '../../../environments/environment';
@@ -32,6 +33,17 @@ interface DocEntry {
   originalExistingFile?: string; // Filename loaded from DB (read-only reference)
 
   replaced?: boolean;
+}
+
+interface WorkflowRemarkEntry {
+  id: string;
+  stage: 'CONFIRMER' | 'APPROVER';
+  action: string;
+  remark: string;
+  byName: string;
+  byEmpCode: string;
+  statusAfter: string;
+  createdAt: string;
 }
 
 //Employee details
@@ -185,6 +197,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   saveMsg = signal('');
   errorMsg = signal('');
   savedRequestNo = signal<number | null>(null);
+  actionRemark = signal('');
+  remarksHistory = signal<WorkflowRemarkEntry[]>([]);
 
 
   ngOnInit(): void {
@@ -202,6 +216,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           this.editingMode.set(false);
           this.isEditDataLoaded.set(true);
           this.savedRequestNo.set(null);
+          this.remarksHistory.set([]);
+          this.actionRemark.set('');
           return;
         }
 
@@ -211,12 +227,15 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           this.errorMsg.set('Invalid request id.');
           this.editingMode.set(false);
           this.isEditDataLoaded.set(true);
+          this.remarksHistory.set([]);
+          this.actionRemark.set('');
           return;
         }
 
         this.editingMode.set(true);
         this.isEditDataLoaded.set(false);
         this.savedRequestNo.set(requestNo);
+        this.loadRemarkHistory(requestNo);
         this.loadRequest(requestNo);
       });
   }
@@ -260,7 +279,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   rejectByConfirmer(): void {
     this.processFormSubmission('REJECTED');
   }
+  sendForModificationByApprover(): void {
+    this.processFormSubmission('HOLD');
+  }
 
+  approveByApprover(): void {
+    this.processFormSubmission('APPROVED');
+  }
+
+  rejectByApprover(): void {
+    this.processFormSubmission('REJECTED');
+  }
   onDocTypeChange(doc: DocEntry): void {
     if (this.isReadOnlyMode()) return;
     const dupe = this.docs().filter(d => d !== doc && d.docType === doc.docType);
@@ -429,6 +458,154 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     this.resolveContractorName(cleanCode);
   }
+  private dedupeVehicleDocuments(docs: any[]): any[] {
+    const map = new Map<string, any>();
+
+    for (const doc of docs || []) {
+      const key = [
+        String(doc?.documentType || '').trim().toUpperCase(),
+        String(doc?.documentNo || '').trim().toUpperCase(),
+        String(doc?.validTill || '').trim(),
+        String(
+          doc?.filename ||
+          doc?.fileName ||
+          doc?.documentName ||
+          doc?.documentPath ||
+          ''
+        ).trim().toUpperCase()
+      ].join('|');
+
+      if (!map.has(key)) {
+        map.set(key, doc);
+      }
+    }
+
+    return Array.from(map.values());
+  }
+
+
+
+  private dedupeDocEntries(docs: DocEntry[]): DocEntry[] {
+    const map = new Map<string, DocEntry>();
+
+    for (const doc of docs || []) {
+      const key = [
+        (doc.docType || '').trim().toUpperCase(),
+        (doc.docNo || '').trim().toUpperCase(),
+        (doc.validUpto || '').trim(),
+        (doc.originalExistingFile || doc.existingFile || doc.file?.name || '').trim().toUpperCase()
+      ].join('|');
+
+      if (!map.has(key)) {
+        map.set(key, doc);
+      }
+    }
+
+    return Array.from(map.values());
+  }
+  private getRemarkStorageKey(requestNo: number): string {
+    return `cvps-remark-history-${requestNo}`;
+  }
+
+  private loadRemarkHistory(requestNo: number): void {
+    try {
+      const raw = localStorage.getItem(this.getRemarkStorageKey(requestNo));
+      const parsed = raw ? JSON.parse(raw) : [];
+      this.remarksHistory.set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      this.remarksHistory.set([]);
+    }
+  }
+
+  private saveRemarkHistory(requestNo: number): void {
+    try {
+      localStorage.setItem(
+        this.getRemarkStorageKey(requestNo),
+        JSON.stringify(this.remarksHistory())
+      );
+    } catch { }
+  }
+
+  private requiresWorkflowRemark(targetStatus: string): boolean {
+    const statusUpper = (targetStatus || '').trim().toUpperCase();
+    if (!(this.isConfirmerMode() || this.isApproverMode())) return false;
+
+    return ['CONFIRMED', 'APPROVED', 'REJECTED', 'MODIFY', 'HOLD'].includes(statusUpper);
+  }
+
+  private validateWorkflowRemark(targetStatus: string): boolean {
+    if (!this.requiresWorkflowRemark(targetStatus)) {
+      return true;
+    }
+
+    const remark = this.actionRemark().trim();
+    if (remark) {
+      return true;
+    }
+
+    const statusUpper = (targetStatus || '').trim().toUpperCase();
+
+    if (statusUpper === 'CONFIRMED') {
+      this.errorMsg.set('Confirmer remark is required before confirm.');
+    } else if (statusUpper === 'APPROVED') {
+      this.errorMsg.set('Approver remark is required before approve.');
+    } else if (statusUpper === 'MODIFY' || statusUpper === 'HOLD') {
+      this.errorMsg.set('Please enter modification remark before proceeding.');
+    } else if (statusUpper === 'REJECTED') {
+      this.errorMsg.set('Please enter rejection remark before proceeding.');
+    } else {
+      this.errorMsg.set('Remark is required.');
+    }
+
+    return false;
+  }
+
+  private buildWorkflowRemarkEntry(targetStatus: string): WorkflowRemarkEntry | null {
+    if (!this.requiresWorkflowRemark(targetStatus)) {
+      return null;
+    }
+
+    const remark = this.actionRemark().trim();
+    if (!remark) {
+      return null;
+    }
+
+    const statusUpper = (targetStatus || '').trim().toUpperCase();
+    const isApprover = this.isApproverMode();
+
+    let action = statusUpper;
+    if (statusUpper === 'CONFIRMED') action = 'Confirmed';
+    else if (statusUpper === 'APPROVED') action = 'Approved';
+    else if (statusUpper === 'MODIFY' || statusUpper === 'HOLD') action = 'Sent for Modification';
+    else if (statusUpper === 'REJECTED') action = 'Rejected';
+
+    return {
+      id: crypto.randomUUID(),
+      stage: isApprover ? 'APPROVER' : 'CONFIRMER',
+      action,
+      remark,
+      byName: this.auth.empName() || (isApprover ? 'Approver' : 'Confirmer'),
+      byEmpCode: this.auth.empCode() || 'SYSTEM',
+      statusAfter: statusUpper,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  private appendWorkflowRemarkAfterSuccess(requestNo: number, targetStatus: string): void {
+    const entry = this.buildWorkflowRemarkEntry(targetStatus);
+    if (!entry) return;
+
+    this.remarksHistory.update(list => [...list, entry]);
+    this.saveRemarkHistory(requestNo);
+    this.actionRemark.set('');
+  }
+
+  formatRemarkDate(value: string): string {
+    if (!value) return '—';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? value : d.toLocaleString('en-GB');
+  }
+
 
   private loadRequest(requestNo: number): void {
     console.log('Loading Request:', requestNo);
@@ -612,7 +789,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       this.reqDate.set(this.formatDate((req as any).createdDate));
     }
 
-    const vehicleDocuments = dto.vehicleDocuments || [];
+    const vehicleDocuments = this.dedupeVehicleDocuments(dto.vehicleDocuments || []);
     const mappedDocs: DocEntry[] = vehicleDocuments.map(doc => {
       const existing = this.getExistingFileName(doc) || undefined;
 
@@ -826,7 +1003,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase()
       },
 
-      vehicleDocuments: this.docs()
+      vehicleDocuments: this.dedupeDocEntries(this.docs())
         .filter(doc =>
           (doc.docType || '').trim() ||
           (doc.docNo || '').trim() ||
@@ -959,25 +1136,30 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const statusUpper = targetStatus.trim().toUpperCase();
 
     if (statusUpper === 'SAVED') {
-  this.status.set('Saved');
-  this.saveMsg.set('Form updated successfully!');
-} else if (statusUpper === 'HOLD' || statusUpper === 'MODIFY' || statusUpper === 'MODIFIED') {
-  this.status.set('Modified');
-  this.saveMsg.set('Request sent for modification successfully!');
-} else if (statusUpper === 'CONFIRMED') {
-  this.status.set('Confirmed');
-  this.saveMsg.set('Request confirmed successfully!');
-} else if (statusUpper === 'REJECTED') {
-  this.status.set('Rejected');
-  this.saveMsg.set('Request rejected successfully!');
-} else {
-  this.status.set('Submitted');
-  this.saveMsg.set('Permission request updated successfully!');
-}
+      this.status.set('Saved');
+      this.saveMsg.set('Form updated successfully!');
+    } else if (statusUpper === 'HOLD' || statusUpper === 'MODIFY' || statusUpper === 'MODIFIED') {
+      this.status.set('Modified');
+      this.saveMsg.set('Request sent for modification successfully!');
+    } else if (statusUpper === 'CONFIRMED') {
+      this.status.set('Confirmed');
+      this.saveMsg.set('Request confirmed successfully!');
+    } else if (statusUpper === 'APPROVED') {
+      this.status.set('Approved');
+      this.saveMsg.set('Request approved successfully!');
+    } else if (statusUpper === 'REJECTED') {
+      this.status.set('Rejected');
+      this.saveMsg.set('Request rejected successfully!');
+    } else {
+      this.status.set('Submitted');
+      this.saveMsg.set('Permission request updated successfully!');
+    }
 
-    const nextUrl = this.isConfirmerMode()
-      ? '/vehicle-permission/confirmer'
-      : '/vehicle-permission/list';
+    const nextUrl = this.isApproverMode()
+      ? '/vehicle-permission/approver'
+      : this.isConfirmerMode()
+        ? '/vehicle-permission/confirmer'
+        : '/vehicle-permission/list';
 
     setTimeout(() => {
       this.saveMsg.set('');
@@ -1055,6 +1237,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
   private async processFormSubmission(targetStatus: string): Promise<void> {
     if (!this.validateForm(targetStatus)) return;
+    if (!this.validateWorkflowRemark(targetStatus)) return;
 
     this.errorMsg.set('');
     this.saveMsg.set('');
@@ -1099,7 +1282,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             this.savedRequestNo.set(resolvedId);
             this.editingMode.set(true);
           }
-          if (this.isConfirmerMode()) {
+          if (this.isConfirmerMode() || this.isApproverMode()) {
             this.handleUpdateSuccess(targetStatus, resolvedId || activeId);
             return;
           }
@@ -1189,6 +1372,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.status.set('Draft');
     this.saveMsg.set('');
     this.errorMsg.set('');
+    this.actionRemark.set('');
+    this.remarksHistory.set([]);
   }
 
   getStatusClass(status: string): string {

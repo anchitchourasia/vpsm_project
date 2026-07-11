@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
@@ -36,6 +37,7 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
   private cvps = inject(CvpsService);
   private auth = inject(AuthService);
   private destroy$ = new Subject<void>();
+  private router = inject(Router);
 
   readonly approverName = computed(() => this.auth.empName() || 'APPROVER');
   readonly empCode = computed(() => this.auth.empCode());
@@ -49,7 +51,7 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
   readonly pageSize = 10;
 
   // ── Selected Details Drawer State ─────────────────────────────
-selectedRecord = signal<ApproverRecord | null>(null);
+  selectedRecord = signal<ApproverRecord | null>(null);
   panelOpen = signal(false);
   actionRemark = signal('');
   actionError = signal('');
@@ -65,63 +67,71 @@ selectedRecord = signal<ApproverRecord | null>(null);
     this.destroy$.next();
     this.destroy$.complete();
   }
+  reviewRequest(record: ApproverRecord): void {
+    this.router.navigate(['/vehicle-permission/form'], {
+      queryParams: {
+        edit: record.requestNo,
+        mode: 'approver'
+      }
+    });
+  }
 
   // ── Load Requests matching CONFIRMED stage ────────────────────
- loadPendingQueue(): void {
-  this.isLoading.set(true);
-  this.errorMsg.set('');
+  loadPendingQueue(): void {
+    this.isLoading.set(true);
+    this.errorMsg.set('');
 
-  this.cvps.getAllRequests().pipe(
-    takeUntil(this.destroy$),
-    finalize(() => this.isLoading.set(false)),
-    catchError(err => {
-      this.errorMsg.set(err?.error?.message || 'Failed to load Approver Queue.');
-      return of([]);
-    })
-  ).subscribe((records: CreateRequestDTO[]) => {
-    const pendingApprovals = (records || [])
-      .map(dto => this.mapDtoToRecord(dto))
-      .filter(r => (r.reqStatus || '').toUpperCase() === 'CONFIRMED');
+    this.cvps.getAllRequests().pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.isLoading.set(false)),
+      catchError(err => {
+        this.errorMsg.set(err?.error?.message || 'Failed to load Approver Queue.');
+        return of([]);
+      })
+    ).subscribe((records: CreateRequestDTO[]) => {
+      const pendingApprovals = (records || [])
+        .map(dto => this.mapDtoToRecord(dto))
+        .filter(r => (r.reqStatus || '').toUpperCase() === 'CONFIRMED');
 
-    this.allRecords.set(pendingApprovals);
-  });
-}
-private mapDtoToRecord(dto: CreateRequestDTO): ApproverRecord {
-  const req = dto.request || ({} as any);
+      this.allRecords.set(pendingApprovals);
+    });
+  }
+  private mapDtoToRecord(dto: CreateRequestDTO): ApproverRecord {
+    const req = dto.request || ({} as any);
 
-  return {
-    requestNo: Number(req.requestNo || 0),
-    contractorId: req.contractorId || '',
-    natureOfJob: req.natureOfJob || '',
-    vehicleNo: req.vehicleNo || '',
-    vehicleType: req.vehicleType || '',
-    permissionFrom: req.permissionFrom || '',
-    permissionTo: req.permissionTo || '',
-    reqStatus: (req.reqStatus || '').toUpperCase(),
-    createdBy: req.createdBy || '',
-    createdDate: req.createdDate || '',
-    employeeDetails: (dto.employees || []).map((emp: any) => ({
-      id: emp.empNo || 0,
-      empJob: emp.empJob || emp.empType || '',
-      empType: emp.empType || '',
-      name: emp.name || '',
-      mobileNo: emp.mobileNo || '',
-      aadharNo: (emp.documents || []).find((d: any) =>
-        ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(
-          String(d.documentType || '').trim().toUpperCase().replace(/\s+/g, '_')
-        )
-      )?.documentNo || ''
-    })),
-    vehicleDocuments: (dto.vehicleDocuments || []).map((doc: any) => ({
-      id: doc.id,
-      documentType: doc.documentType || '',
-      documentNo: doc.documentNo || '',
-      validFrom: doc.validFrom || '',
-      validTill: doc.validTill || '',
-      filename: doc.filename || doc.fileName || doc.documentName || ''
-    }))
-  };
-}
+    return {
+      requestNo: Number(req.requestNo || 0),
+      contractorId: req.contractorId || '',
+      natureOfJob: req.natureOfJob || '',
+      vehicleNo: req.vehicleNo || '',
+      vehicleType: req.vehicleType || '',
+      permissionFrom: req.permissionFrom || '',
+      permissionTo: req.permissionTo || '',
+      reqStatus: (req.reqStatus || '').toUpperCase(),
+      createdBy: req.createdBy || '',
+      createdDate: req.createdDate || '',
+      employeeDetails: (dto.employees || []).map((emp: any) => ({
+        id: emp.empNo || 0,
+        empJob: emp.empJob || emp.empType || '',
+        empType: emp.empType || '',
+        name: emp.name || '',
+        mobileNo: emp.mobileNo || '',
+        aadharNo: (emp.documents || []).find((d: any) =>
+          ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(
+            String(d.documentType || '').trim().toUpperCase().replace(/\s+/g, '_')
+          )
+        )?.documentNo || ''
+      })),
+      vehicleDocuments: (dto.vehicleDocuments || []).map((doc: any) => ({
+        id: doc.id,
+        documentType: doc.documentType || '',
+        documentNo: doc.documentNo || '',
+        validFrom: doc.validFrom || '',
+        validTill: doc.validTill || '',
+        filename: doc.filename || doc.fileName || doc.documentName || ''
+      }))
+    };
+  }
 
   // ── Search & Pagination Computeds ─────────────────────────────
   pendingList = computed(() => {
@@ -165,9 +175,13 @@ private mapDtoToRecord(dto: CreateRequestDTO): ApproverRecord {
   }
 
   // ── Execute Workflow Actions ──────────────────────────────────
+  // ✅ CONTRACTOR-APPROVER.TS KE ANDAR FIXED CODE:
   doWorkflow(action: 'APPROVE' | 'REJECT' | 'HOLD'): void {
     const rec = this.selectedRecord();
-    if (!rec?.requestNo) return;
+    if (!rec?.requestNo) {
+      this.actionError.set('❌ Request Number nahi mila!');
+      return;
+    }
 
     if (!this.actionRemark().trim()) {
       this.actionError.set(`Remarks are required to perform this action.`);
@@ -178,30 +192,53 @@ private mapDtoToRecord(dto: CreateRequestDTO): ApproverRecord {
     this.actionError.set('');
     this.actionSuccess.set('');
 
-    const payload: WorkflowActionPayload = {
-      action,
-      empNo: this.empCode() || 'SYSTEM',
-      remarks: this.actionRemark().trim()
+    const targetStatus = action === 'APPROVE' ? 'APPROVED' : (action === 'REJECT' ? 'REJECTED' : 'HOLD');
+
+    const payload = {
+      request: {
+        contractorId: rec.contractorId,
+        natureOfJob: rec.natureOfJob,
+        vehicleNo: rec.vehicleNo,
+        vehicleType: rec.vehicleType,
+        permissionFrom: rec.permissionFrom,
+        permissionTo: rec.permissionTo,
+        reqStatus: targetStatus,
+        createdBy: this.empCode() || 'SYSTEM'
+      },
+      vehicleDocuments: rec.vehicleDocuments || [],
+      employees: rec.employeeDetails || []
     };
-    this.actionError.set(
-  `Workflow service method is not added in CvpsService yet for action "${action}" on request #${rec.requestNo}.`
-);
-this.isActing.set(false);
-console.log('Approver workflow payload:', payload);
+
+    this.cvps.workflowAction(rec.requestNo, payload, []).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.isActing.set(false))
+    ).subscribe({
+      next: (response) => {
+        this.actionSuccess.set(`✅ Request #${rec.requestNo} successfully "${targetStatus}"!`);
+        this.actionRemark.set('');
+
+        // 👉 FIX: loadRecords() ko fetchApproverRecords() se badla
+        this.loadPendingQueue();
+        this.selectedRecord.set(null);
+      },
+      error: (err) => {
+        this.actionError.set(err?.error?.message || err?.message || '❌ Workflow fail ho gaya.');
+      }
+    });
   }
 
   // ── Document Downloader ───────────────────────────────────────
-downloadDoc(docId: number | undefined, filename: string): void {
-  this.actionError.set(
-    `Document download is not wired in CvpsService yet${docId ? ' for doc #' + docId : ''}.`
-  );
-}
+  downloadDoc(docId: number | undefined, filename: string): void {
+    this.actionError.set(
+      `Document download is not wired in CvpsService yet${docId ? ' for doc #' + docId : ''}.`
+    );
+  }
 
   // ── Helper Utility Maps ───────────────────────────────────────
-getDriverName(r: ApproverRecord): string {
-  const d = r.employeeDetails?.find((e: any) => e.empJob?.toUpperCase() === 'DRIVER');
-  return d?.name || '—';
-}
+  getDriverName(r: ApproverRecord): string {
+    const d = r.employeeDetails?.find((e: any) => e.empJob?.toUpperCase() === 'DRIVER');
+    return d?.name || '—';
+  }
 
   formatDate(d: string | undefined): string {
     if (!d || d.length < 10) return d ?? '—';

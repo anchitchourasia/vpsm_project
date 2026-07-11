@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 export interface CreateRequestRequestDTO {
   requestNo?: number;
@@ -108,6 +109,19 @@ export class CvpsService {
       API_CONFIG.CVPS_CREATE_REQUEST,
       formData
     );
+  }
+
+  workflowAction(requestNo: number, payload: any, files: File[]): Observable<ApiResponse> {
+    const formData = new FormData();
+    formData.append('dto', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    
+    if (files && files.length > 0) {
+      files.forEach(file => formData.append('files', file));
+    } else {
+      formData.append('files', new Blob([], { type: 'application/octet-stream' }));
+    }
+
+    return this.http.put<ApiResponse>(`${environment.cvpsBaseUrl}/api/requests/update/${requestNo}`, formData);
   }
 
   getAllRequests(): Observable<CreateRequestDTO[]> {

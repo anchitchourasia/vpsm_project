@@ -463,60 +463,133 @@
     </div>
     }
   </div>
+  
+  
+  <div class="vp-section">
+    <div class="vp-section-title">Workflow Remarks</div>
 
-  <div class="vp-actions">
-    @if (isConfirmerMode()) {
-    <button
-      type="button"
-      class="vp-btn-secondary"
-      (click)="sendForModificationByConfirmer()"
-      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-      Send for Modification
-    </button>
+    @if (remarksHistory().length > 0) {
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        @for (item of remarksHistory(); track item.id) {
+          <div style="border: 1px solid #e9ecef; border-radius: 10px; padding: 14px; background: #fafbfc;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+              <div style="font-weight:700; color:#1f2937;">
+                {{ item.stage }} - {{ item.action }}
+              </div>
+              <div style="font-size:12px; color:#6b7280;">
+                {{ item.byName }} ({{ item.byEmpCode }}) · {{ formatRemarkDate(item.createdAt) }}
+              </div>
+            </div>
 
-    <button
-      type="button"
-      class="vp-btn-primary"
-      (click)="confirmByConfirmer()"
-      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-      Confirm
-    </button>
-
-    <button
-      type="button"
-      class="vp-btn-del"
-      (click)="rejectByConfirmer()"
-      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-      Reject
-    </button>
+            <div style="margin-top:8px; white-space:pre-wrap; color:#374151;">
+              {{ item.remark }}
+            </div>
+          </div>
+        }
+      </div>
     } @else {
-    <button
-      type="button"
-      class="vp-btn-secondary"
-      (click)="saveDraft()"
-      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-      @if (isSaving()) {
-        <i class="bi bi-hourglass-split"></i>
-        Saving...
-      } @else {
-        <i class="bi bi-floppy-fill"></i>
-        Save Draft
-      }
-    </button>
+      <div style="color:#6c757d; font-size: 0.95rem;">
+        No workflow remarks available yet.
+      </div>
+    }
 
-    <button
-      type="button"
-      class="vp-btn-primary"
-      (click)="submitForm()"
-      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-      @if (isSubmitting()) {
-        <i class="bi bi-hourglass-split"></i>
-        {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
-      } @else {
-        <i class="bi bi-send-fill"></i>
-        Submit Request
-      }
-    </button>
+    @if (isConfirmerMode() || isApproverMode()) {
+      <div class="vp-field" style="margin-top: 18px;">
+        <label class="vp-label">
+          {{ isApproverMode() ? 'Approver Remark' : 'Confirmer Remark' }}
+          <span style="color:red">*</span>
+        </label>
+
+        <textarea
+          class="vp-input"
+          rows="4"
+          placeholder="Write your review remark here..."
+          [ngModel]="actionRemark()"
+          (ngModelChange)="actionRemark.set($event)"
+          style="min-height: 110px; resize: vertical;"></textarea>
+      </div>
     }
   </div>
+
+  
+
+  <div class="vp-actions">
+  @if (isApproverMode()) {
+  <button
+    type="button"
+    class="vp-btn-secondary"
+    (click)="sendForModificationByApprover()"
+    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+    Send for Modification
+  </button>
+
+  <button
+    type="button"
+    class="vp-btn-primary"
+    (click)="approveByApprover()"
+    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+    Approve
+  </button>
+
+  <button
+    type="button"
+    class="vp-btn-del"
+    (click)="rejectByApprover()"
+    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+    Reject
+  </button>
+  } @else if (isConfirmerMode()) {
+  <button
+    type="button"
+    class="vp-btn-secondary"
+    (click)="sendForModificationByConfirmer()"
+    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+    Send for Modification
+  </button>
+
+  <button
+    type="button"
+    class="vp-btn-primary"
+    (click)="confirmByConfirmer()"
+    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+    Confirm
+  </button>
+
+  <button
+    type="button"
+    class="vp-btn-del"
+    (click)="rejectByConfirmer()"
+    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+    Reject
+  </button>
+  } @else {
+  <button
+    type="button"
+    class="vp-btn-secondary"
+    (click)="saveDraft()"
+    [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+    @if (isSaving()) {
+      <i class="bi bi-hourglass-split"></i>
+      Saving...
+    } @else {
+      <i class="bi bi-floppy-fill"></i>
+      Save Draft
+    }
+  </button>
+
+  <button
+    type="button"
+    class="vp-btn-primary"
+    (click)="submitForm()"
+    [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+    @if (isSubmitting()) {
+      <i class="bi bi-hourglass-split"></i>
+      {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
+    } @else {
+      <i class="bi bi-send-fill"></i>
+      Submit Request
+    }
+  </button>
+  }
+</div>
 </div>
