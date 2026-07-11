@@ -141,6 +141,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   readonly requestDate = signal(new Date().toLocaleDateString('en-GB'));
   readonly department = signal(this.auth.department() || 'Security');
   readonly category = 'Vehicle Entry';
+  readonly isConfirmerMode = signal(false);
+  readonly isApproverMode = signal(false);
+
+  isReadOnlyMode(): boolean {
+    return this.isConfirmerMode() || this.isApproverMode();
+  }
 
   status = signal('Draft');
   editingMode = signal(false);
@@ -185,6 +191,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.route.queryParams
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
+        const mode = String(params['mode'] || '').toLowerCase();
+        this.isConfirmerMode.set(mode === 'confirmer');
+        this.isApproverMode.set(mode === 'approver');
+
+
         const editId = params['edit'];
 
         if (!editId) {
@@ -216,11 +227,13 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   addDoc(): void {
+    if (this.isReadOnlyMode()) return;
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
   }
 
   removeDoc(i: number): void {
+    if (this.isReadOnlyMode()) return;
     this.docs.update(d => d.filter((_, idx) => idx !== i));
   }
 
@@ -236,8 +249,20 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   getDocumentUrl(fileName: string): string {
     return `${environment.cvpsBaseUrl}/api/documents/download/${fileName}`;
   }
+  sendForModificationByConfirmer(): void {
+    this.processFormSubmission('MODIFY');
+  }
+
+  confirmByConfirmer(): void {
+    this.processFormSubmission('CONFIRMED');
+  }
+
+  rejectByConfirmer(): void {
+    this.processFormSubmission('REJECTED');
+  }
 
   onDocTypeChange(doc: DocEntry): void {
+    if (this.isReadOnlyMode()) return;
     const dupe = this.docs().filter(d => d !== doc && d.docType === doc.docType);
     if (dupe.length > 0) {
       const duplicateType = doc.docType;
@@ -249,12 +274,14 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onDocNoInput(event: Event, doc: DocEntry): void {
+    if (this.isReadOnlyMode()) return;
     const input = event.target as HTMLInputElement;
     doc.docNo = input.value.toUpperCase();
     input.value = doc.docNo;
   }
 
   onDocFileSelected(event: Event, doc: DocEntry): void {
+    if (this.isReadOnlyMode()) return;
 
     const file = (event.target as HTMLInputElement).files?.[0];
 
@@ -310,14 +337,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   addDriver(): void {
+    if (this.isReadOnlyMode()) return;
     this.drivers.update(d => [...d, emptyDriver()]);
   }
 
   removeDriver(i: number): void {
+    if (this.isReadOnlyMode()) return;
     this.drivers.update(d => d.filter((_, idx) => idx !== i));
   }
 
   onDriverAadhaarFile(event: Event, driver: DriverPerson): void {
+    if (this.isReadOnlyMode()) return;
 
     const file = (event.target as HTMLInputElement).files?.[0];
 
@@ -341,6 +371,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onDriverDlFile(event: Event, driver: DriverPerson): void {
+    if (this.isReadOnlyMode()) return;
 
     const file = (event.target as HTMLInputElement).files?.[0];
 
@@ -365,6 +396,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onDriverPhotoFile(event: Event, driver: DriverPerson): void {
+    if (this.isReadOnlyMode()) return;
 
     const file = (event.target as HTMLInputElement).files?.[0];
 
@@ -388,6 +420,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onContractorCodeChange(typedCode: string): void {
+    if (this.isReadOnlyMode()) return;
     const cleanCode = typedCode.trim().toUpperCase();
     this.contractorCode.set(cleanCode);
     this.contractorName.set('');
@@ -922,6 +955,35 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     return files;
   }
+  private handleUpdateSuccess(targetStatus: string, activeId: number): void {
+    const statusUpper = targetStatus.trim().toUpperCase();
+
+    if (statusUpper === 'SAVED') {
+      this.status.set('Saved');
+      this.saveMsg.set('Form updated successfully!');
+    } else if (statusUpper === 'MODIFY') {
+      this.status.set('Modified');
+      this.saveMsg.set('Request sent for modification successfully!');
+    } else if (statusUpper === 'CONFIRMED') {
+      this.status.set('Confirmed');
+      this.saveMsg.set('Request confirmed successfully!');
+    } else if (statusUpper === 'REJECTED') {
+      this.status.set('Rejected');
+      this.saveMsg.set('Request rejected successfully!');
+    } else {
+      this.status.set('Submitted');
+      this.saveMsg.set('Permission request updated successfully!');
+    }
+
+    const nextUrl = this.isConfirmerMode()
+      ? '/vehicle-permission/confirmer'
+      : '/vehicle-permission/list';
+
+    setTimeout(() => {
+      this.saveMsg.set('');
+      this.router.navigate([nextUrl]);
+    }, 2000);
+  }
 
   private async processFormSubmission(targetStatus: string): Promise<void> {
     if (!this.validateForm(targetStatus)) return;
@@ -968,6 +1030,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           if (resolvedId) {
             this.savedRequestNo.set(resolvedId);
             this.editingMode.set(true);
+          }
+          if (this.isConfirmerMode()) {
+            this.handleUpdateSuccess(targetStatus, resolvedId || activeId);
+            return;
           }
           if (targetStatus === 'CREATED') {
             this.status.set('Submitted');
@@ -1036,6 +1102,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       this.isSubmitting.set(false);
     }
   }
+
 
   reset(): void {
     this.contractorCode.set('');

@@ -22,34 +22,67 @@
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Contractor Code</label>
-        <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode().trim()"
-          (ngModelChange)="onContractorCodeChange($event)" />
+        <input
+          class="vp-input"
+          type="text"
+          placeholder="Enter contractor code"
+          [ngModel]="contractorCode().trim()"
+          (ngModelChange)="onContractorCodeChange($event)"
+          [readonly]="isReadOnlyMode()" />
       </div>
+
       <div class="vp-field">
         <label class="vp-label">Contractor Name</label>
-        <input class="vp-input" type="text" placeholder="Contractor name will auto-populate" [value]="contractorName()"
-          readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
-      </div>
-      <div class="vp-field">
-        <label class="vp-label">Request Date</label>
-        <input class="vp-input" type="date" [value]="reqDate()" readonly
+        <input
+          class="vp-input"
+          type="text"
+          placeholder="Contractor name will auto-populate"
+          [value]="contractorName()"
+          readonly
           style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
+
+      <div class="vp-field">
+        <label class="vp-label">Request Date</label>
+        <input
+          class="vp-input"
+          type="date"
+          [value]="reqDate()"
+          readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+      </div>
+
       <div class="vp-field">
         <label class="vp-label">Nature of Job</label>
-        <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
-          (input)="natureOfJob.set($any($event.target).value)" />
+        <input
+          class="vp-input"
+          type="text"
+          placeholder="Describe the work / job"
+          [value]="natureOfJob()"
+          (input)="natureOfJob.set($any($event.target).value)"
+          [readonly]="isReadOnlyMode()" />
       </div>
-      <!-- <div class="vp-field"></div> -->
+
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
-        <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()"
-          (input)="permissionDateFrom.set($any($event.target).value)" />
+        <input
+          class="vp-input"
+          type="date"
+          [min]="reqDate()"
+          [value]="permissionDateFrom()"
+          (input)="permissionDateFrom.set($any($event.target).value)"
+          [readonly]="isReadOnlyMode()" />
       </div>
+
       <div class="vp-field">
         <label class="vp-label">Permission Date To</label>
-        <input class="vp-input" type="date" [min]="permissionDateFrom() || reqDate()" [value]="permissionDateTo()"
-          (input)="permissionDateTo.set($any($event.target).value)" />
+        <input
+          class="vp-input"
+          type="date"
+          [min]="permissionDateFrom() || reqDate()"
+          [value]="permissionDateTo()"
+          (input)="permissionDateTo.set($any($event.target).value)"
+          [readonly]="isReadOnlyMode()" />
       </div>
     </div>
   </div>
@@ -59,12 +92,22 @@
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Vehicle Number</label>
-        <input class="vp-input" type="text" placeholder="e.g. MP04 AB 1234" [value]="vehicleNumber()"
-          (input)="vehicleNumber.set($any($event.target).value)" />
+        <input
+          class="vp-input"
+          type="text"
+          placeholder="e.g. MP04 AB 1234"
+          [value]="vehicleNumber()"
+          (input)="vehicleNumber.set($any($event.target).value)"
+          [readonly]="isReadOnlyMode()" />
       </div>
+
       <div class="vp-field">
         <label class="vp-label">Vehicle Type</label>
-        <select class="vp-select" [value]="vehicleType()" (change)="vehicleType.set($any($event.target).value)">
+        <select
+          class="vp-select"
+          [value]="vehicleType()"
+          (change)="vehicleType.set($any($event.target).value)"
+          [disabled]="isReadOnlyMode()">
           <option value="">Select Vehicle</option>
 
           @for (opt of vehicleTypeOptions; track opt.value) {
@@ -83,8 +126,11 @@
       <span style="margin-left: 15px; font-weight: 600; color: #6c757d; font-size: 0.9rem;">
         {{ docs().length }} / {{ ALLOWED_DOC_TYPES.length }} added
       </span>
-      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDoc()"
-        [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
+      <button
+        class="vp-btn-add"
+        style="margin-left: auto;"
+        (click)="addDoc()"
+        [disabled]="isReadOnlyMode() || docs().length >= ALLOWED_DOC_TYPES.length">
         <i class="bi bi-plus-circle-fill"></i> Add Document
       </button>
     </div>
@@ -105,28 +151,41 @@
           @for (doc of docs(); track doc.id; let i = $index) {
           <tr>
             <td>
-              <select class="vp-cell-select" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)">
+              <select
+                class="vp-cell-select"
+                [(ngModel)]="doc.docType"
+                (ngModelChange)="onDocTypeChange(doc)"
+                [disabled]="isReadOnlyMode()">
                 <option value="">— Type —</option>
-                @for (t of availableDocTypes(doc); track t) { <option [value]="t">{{ t }}</option> }
+                @for (t of availableDocTypes(doc); track t) {
+                <option [value]="t">{{ t }}</option>
+                }
               </select>
             </td>
 
-
             <td>
-              <input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo"
-                (input)="onDocNoInput($event, doc)" maxlength="60" />
+              <input
+                type="text"
+                class="vp-cell-input"
+                placeholder="Doc number"
+                [(ngModel)]="doc.docNo"
+                (input)="onDocNoInput($event, doc)"
+                maxlength="60"
+                [readonly]="isReadOnlyMode()" />
             </td>
 
             <td>
-              <input type="date" class="vp-cell-input" [(ngModel)]="doc.validUpto" [min]="reqDate()" />
+              <input
+                type="date"
+                class="vp-cell-input"
+                [(ngModel)]="doc.validUpto"
+                [min]="reqDate()"
+                [readonly]="isReadOnlyMode()" />
             </td>
-
 
             <td>
               <div class="vp-file-cell">
-
                 @if (doc.file) {
-
                 <span class="text-success">
                   <i class="bi bi-file-earmark-check-fill"></i>
                   {{ shortName(doc.file.name) }}
@@ -137,37 +196,35 @@
                   Replaces: {{ shortName(doc.existingFile) }}
                 </small>
                 }
-
                 }
 
                 @else if (doc.existingFile) {
-
                 <a [href]="getDocumentUrl(doc.existingFile)" download class="btn btn-sm btn-outline-success">
-
                   <i class="bi bi-download"></i>
                   {{ shortName(doc.existingFile) }}
-
                 </a>
-
                 }
 
+                @if (!isReadOnlyMode()) {
                 <label class="vp-btn-ghost" [for]="'doc-file-' + doc.id">
-
                   <i class="bi bi-arrow-repeat"></i>
-
                   {{ doc.existingFile ? 'Replace' : 'Upload' }}
 
-                  <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" [id]="'doc-file-' + doc.id"
+                  <input
+                    type="file"
+                    hidden
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    [id]="'doc-file-' + doc.id"
                     (change)="onDocFileSelected($event, doc)" />
-
                 </label>
-
+                }
               </div>
             </td>
 
-
             <td>
-              <button class="vp-btn-del" (click)="removeDoc(i)"><i class="bi bi-trash-fill"></i></button>
+              <button class="vp-btn-del" (click)="removeDoc(i)" [disabled]="isReadOnlyMode()">
+                <i class="bi bi-trash-fill"></i>
+              </button>
             </td>
           </tr>
           }
@@ -176,32 +233,30 @@
     </div>
     }
   </div>
-  <!-- ── Driver Information ── -->
+
   <div class="vp-section">
     <div class="vp-section-title-row" style="margin-bottom: 20px;">
       <span class="vp-section-title">Driver Information</span>
-      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()">
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()" [disabled]="isReadOnlyMode()">
         <i class="bi bi-person-plus-fill"></i> Add Driver
       </button>
     </div>
 
     @for (driver of drivers(); track driver.id; let i = $index) {
-    <div
-      style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
-      <div
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
+    <div style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
         <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Person {{ i + 1 }}</h4>
         @if (drivers().length > 1) {
-        <button class="vp-btn-del" (click)="removeDriver(i)"><i class="bi bi-trash-fill"></i> Remove</button>
+        <button class="vp-btn-del" (click)="removeDriver(i)" [disabled]="isReadOnlyMode()">
+          <i class="bi bi-trash-fill"></i> Remove
+        </button>
         }
       </div>
 
       <div class="vp-grid-2">
-
-        <!-- ✅ v6.8 Role dropdown -->
         <div class="vp-field">
           <label class="vp-label">Role <span style="color: red;">*</span></label>
-          <select class="vp-select" [(ngModel)]="driver.role">
+          <select class="vp-select" [(ngModel)]="driver.role" [disabled]="isReadOnlyMode()">
             <option value="">— Select Role —</option>
             @for (r of driverRoleOptions; track r) {
             <option [value]="r">{{ r }}</option>
@@ -211,20 +266,19 @@
 
         <div class="vp-field">
           <label class="vp-label">Driver Name <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" />
+          <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">Contact Number</label>
-          <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" />
+          <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" />
+          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" [readonly]="isReadOnlyMode()" />
         </div>
 
-        <!-- ✅ v6.8 Aadhaar file — shows existing file without re-upload -->
         <div class="vp-field vp-aadhaar-field">
           <label class="vp-label">
             Aadhaar Copy <span style="color:red">*</span>
@@ -232,7 +286,6 @@
 
           <div class="vp-file-cell vp-file-cell-left">
             <input type="hidden" [ngModel]="driver.aadhaarExistingFile || ''" [name]="'old-aadhaar-' + driver.id" />
-
             <input type="hidden" [ngModel]="driver.aadhaarFileName || ''" [name]="'new-aadhaar-' + driver.id" />
 
             @if (driver.aadhaarFile) {
@@ -249,72 +302,73 @@
               }
             </div>
 
+            @if (!isReadOnlyMode()) {
             <label class="vp-btn-ghost vp-file-btn" [for]="'aadhaar-file-' + driver.id">
               <i class="bi bi-arrow-repeat"></i>
               Replace
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                style="display:none;"
+                [id]="'aadhaar-file-' + driver.id"
                 (change)="onDriverAadhaarFile($event, driver)" />
             </label>
             }
+            }
 
             @else if (driver.aadhaarExistingFile) {
-            <a [href]="getDocumentUrl(driver.aadhaarExistingFile)" target="_blank"
-              class="btn btn-sm btn-outline-success vp-file-btn">
+            <a [href]="getDocumentUrl(driver.aadhaarExistingFile)" target="_blank" class="btn btn-sm btn-outline-success vp-file-btn">
               <i class="bi bi-download"></i>
               Existing File
             </a>
 
+            @if (!isReadOnlyMode()) {
             <label class="vp-btn-ghost vp-file-btn" [for]="'aadhaar-file-' + driver.id">
               <i class="bi bi-arrow-repeat"></i>
               Replace
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                style="display:none;"
+                [id]="'aadhaar-file-' + driver.id"
                 (change)="onDriverAadhaarFile($event, driver)" />
             </label>
             }
+            }
 
             @else {
+            @if (!isReadOnlyMode()) {
             <label class="vp-btn-secondary vp-file-btn" [for]="'aadhaar-file-' + driver.id">
               <i class="bi bi-cloud-upload"></i>
               Upload
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                style="display:none;"
+                [id]="'aadhaar-file-' + driver.id"
                 (change)="onDriverAadhaarFile($event, driver)" />
             </label>
+            }
             }
           </div>
         </div>
 
-
-
-        <!-- ✅ v6.8 DL fields — * only shown when role is Driver -->
         <div class="vp-field">
-          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>
-            }</label>
-
-          <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" />
-        </div>
-
-        <!-- <div class="vp-field">
-          <label class="vp-label">License Type @if (driver.role === 'Driver') { <span style="color:red;">*</span>
-            }</label>
-          <input class="vp-input" type="text" placeholder="e.g. LMV, HMV" [(ngModel)]="driver.licenseType" />
-        </div> -->
-
-        <div class="vp-field">
-          <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span>
-            }</label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" />
+          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
+          <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
-          <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span>
-            }</label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.validTo" />
+          <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
+          <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" [readonly]="isReadOnlyMode()" />
         </div>
 
-        <!-- ✅ v6.8 DL file — shows existing file without re-upload -->
-        <!-- Driving License Copy -->
         <div class="vp-field">
+          <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
+          <input class="vp-input" type="date" [(ngModel)]="driver.validTo" [readonly]="isReadOnlyMode()" />
+        </div>
 
+        <div class="vp-field">
           <label class="vp-label">
             Driving License Copy
             @if (driver.role === 'Driver') {
@@ -322,16 +376,14 @@
             }
           </label>
 
+          @if (!isReadOnlyMode()) {
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDriverDlFile($event, driver)" />
+          }
 
-          <!-- Keep old filename -->
           <input type="hidden" [ngModel]="driver.dlExistingFile || ''" [name]="'old-dl-' + driver.id" />
 
-          <!-- New file selected -->
           @if (driver.dlFileName) {
-
           <div class="mt-1">
-
             <span class="text-success">
               <i class="bi bi-check-circle-fill"></i>
               New: {{ driver.dlFileName }}
@@ -344,16 +396,11 @@
               </small>
             </div>
             }
-
           </div>
-
           }
 
-          <!-- Existing file from database -->
           @else if (driver.dlExistingFile) {
-
           <div class="mt-1">
-
             <a [href]="getDocumentUrl(driver.dlExistingFile)" download class="btn btn-sm btn-outline-success">
               <i class="bi bi-download"></i>
               Download Existing File
@@ -365,29 +412,23 @@
                 {{ driver.dlExistingFile }}
               </span>
             </div>
-
           </div>
-
           }
-
         </div>
 
         <div class="vp-field">
-
           <label class="vp-label">
             Driver Photograph
           </label>
 
+          @if (!isReadOnlyMode()) {
           <input type="file" accept=".jpg,.jpeg,.png" (change)="onDriverPhotoFile($event, driver)" />
+          }
 
-          <!-- Existing filename for update -->
           <input type="hidden" [ngModel]="driver.photoExistingFile || ''" [name]="'old-photo-' + driver.id" />
 
-          <!-- New file selected -->
           @if (driver.photoFile) {
-
           <div class="mt-1">
-
             <span class="vp-filename" [title]="driver.photoFile.name" style="color:#28a745;font-weight:600;">
               <i class="bi bi-file-earmark-check-fill"></i>
               New: {{ shortName(driver.photoFile.name) }}
@@ -400,16 +441,11 @@
               </small>
             </div>
             }
-
           </div>
-
           }
 
-          <!-- Existing file -->
           @else if (driver.photoExistingFile) {
-
           <div class="mt-1">
-
             <a [href]="getDocumentUrl(driver.photoExistingFile)" target="_blank" class="btn btn-sm btn-outline-success">
               <i class="bi bi-download"></i>
               Existing Photo
@@ -420,45 +456,67 @@
                 {{ shortName(driver.photoExistingFile) }}
               </small>
             </div>
-
           </div>
-
           }
-
         </div>
-
       </div>
     </div>
     }
   </div>
 
   <div class="vp-actions">
-  <button
-    type="button"
-    class="vp-btn-secondary"
-    (click)="saveDraft()"
-   [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-    @if (isSaving()) {
-      <i class="bi bi-hourglass-split"></i>
-      Saving...
-    } @else {
-      <i class="bi bi-floppy-fill"></i>
-      Save Draft
-    }
-  </button>
+    @if (isConfirmerMode()) {
+    <button
+      type="button"
+      class="vp-btn-secondary"
+      (click)="sendForModificationByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
 
-  <button
-    type="button"
-    class="vp-btn-primary"
-    (click)="submitForm()"
-    [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-    @if (isSubmitting()) {
-      <i class="bi bi-hourglass-split"></i>
-      {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
+    <button
+      type="button"
+      class="vp-btn-primary"
+      (click)="confirmByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Confirm
+    </button>
+
+    <button
+      type="button"
+      class="vp-btn-del"
+      (click)="rejectByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
     } @else {
-      <i class="bi bi-send-fill"></i>
-      Submit Request
+    <button
+      type="button"
+      class="vp-btn-secondary"
+      (click)="saveDraft()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSaving()) {
+        <i class="bi bi-hourglass-split"></i>
+        Saving...
+      } @else {
+        <i class="bi bi-floppy-fill"></i>
+        Save Draft
+      }
+    </button>
+
+    <button
+      type="button"
+      class="vp-btn-primary"
+      (click)="submitForm()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSubmitting()) {
+        <i class="bi bi-hourglass-split"></i>
+        {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
+      } @else {
+        <i class="bi bi-send-fill"></i>
+        Submit Request
+      }
+    </button>
     }
-  </button>
-</div>
+  </div>
 </div>

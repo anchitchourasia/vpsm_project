@@ -60,5 +60,5 @@ export const CVPS_URLS = {
   workflowApprove : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/approve/${requestNo}`,
   workflowReject  : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/reject/${requestNo}`,
   workflowHold    : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/hold/${requestNo}`
-  
+  // workflowConfirm : (requestNo: number) => `${API_CONFIG.CVPS_BASE}/confirm/${requestNo}`,
 };
