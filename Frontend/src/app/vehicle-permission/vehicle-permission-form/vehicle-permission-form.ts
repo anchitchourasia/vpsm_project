@@ -708,7 +708,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   private isModifiedLikeStatus(status: string | null | undefined): boolean {
     const s = (status || '').trim().toUpperCase();
-    return s === 'MODIFIED' || s === 'MODIFY' || s === 'HOLD' || s === 'NEED MODIFICATION';
+    return s === 'MODIFY' || s === 'HOLD' || s === 'NEED MODIFICATION';
   }
 
   private cloneDocs(docs: DocEntry[]): DocEntry[] {
@@ -759,9 +759,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       case 'SUBMITTED':
         this.status.set('Submitted');
         break;
-      case 'MODIFIED':
       case 'MODIFY':
-        this.status.set('Modified');
+        this.status.set('MODIFY');
         break;
       case 'HOLD':
         this.status.set('Hold');
@@ -1138,8 +1137,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if (statusUpper === 'SAVED') {
       this.status.set('Saved');
       this.saveMsg.set('Form updated successfully!');
-    } else if (statusUpper === 'HOLD' || statusUpper === 'MODIFY' || statusUpper === 'MODIFIED') {
-      this.status.set('Modified');
+    } else if (statusUpper === 'HOLD' || statusUpper === 'MODIFY') {
+      this.status.set('MODIFY');
       this.saveMsg.set('Request sent for modification successfully!');
     } else if (statusUpper === 'CONFIRMED') {
       this.status.set('Confirmed');
@@ -1400,7 +1399,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
       case 'HOLD':
       case 'MODIFY':
-      case 'MODIFIED':
       case 'NEED MODIFICATION':
         return 'wf-hold';
 

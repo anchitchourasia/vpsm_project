@@ -52,7 +52,6 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
         'REJECTED',
         'HOLD',
         'MODIFY',
-        'MODIFIED',
         'SUBMITTED'
     ];
 
@@ -65,8 +64,8 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
 
             const matchesStatus =
                 status === 'ALL' ||
-                rowStatus === status ||
-                (status === 'MODIFY' && rowStatus === 'MODIFIED');
+                rowStatus === status;
+                
 
             const matchesSearch =
                 !search ||
@@ -149,7 +148,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             case 'DRAFT':
                 return 'SAVED';
             case 'MODIFY':
-                return 'MODIFIED';
+                return 'MODIFY';
             case 'CREATED':
                 return 'SUBMITTED';
             default:
@@ -178,8 +177,9 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
 
     canEdit(status: string): boolean {
         const normalized = (status || '').trim().toUpperCase();
-        return normalized === 'SAVED' || normalized === 'MODIFY' || normalized === 'MODIFIED';
+        return normalized === 'SAVED' || normalized === 'MODIFY';
     }
+    
 
     deleteRequest(row: VehiclePermissionRow): void {
         if (!row.requestNo) {
@@ -257,7 +257,6 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
 
             case 'HOLD':
             case 'MODIFY':
-            case 'MODIFIED':
             case 'NEED MODIFICATION':
                 return 'wf-hold';
 
@@ -286,8 +285,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             case 'HOLD':
                 return 'Hold';
             case 'MODIFY':
-            case 'MODIFIED':
-                return 'Modified';
+                return 'MODIFY';
             default:
                 return status || '-';
         }
