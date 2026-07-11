@@ -959,21 +959,21 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     const statusUpper = targetStatus.trim().toUpperCase();
 
     if (statusUpper === 'SAVED') {
-      this.status.set('Saved');
-      this.saveMsg.set('Form updated successfully!');
-    } else if (statusUpper === 'MODIFY') {
-      this.status.set('Modified');
-      this.saveMsg.set('Request sent for modification successfully!');
-    } else if (statusUpper === 'CONFIRMED') {
-      this.status.set('Confirmed');
-      this.saveMsg.set('Request confirmed successfully!');
-    } else if (statusUpper === 'REJECTED') {
-      this.status.set('Rejected');
-      this.saveMsg.set('Request rejected successfully!');
-    } else {
-      this.status.set('Submitted');
-      this.saveMsg.set('Permission request updated successfully!');
-    }
+  this.status.set('Saved');
+  this.saveMsg.set('Form updated successfully!');
+} else if (statusUpper === 'HOLD' || statusUpper === 'MODIFY' || statusUpper === 'MODIFIED') {
+  this.status.set('Modified');
+  this.saveMsg.set('Request sent for modification successfully!');
+} else if (statusUpper === 'CONFIRMED') {
+  this.status.set('Confirmed');
+  this.saveMsg.set('Request confirmed successfully!');
+} else if (statusUpper === 'REJECTED') {
+  this.status.set('Rejected');
+  this.saveMsg.set('Request rejected successfully!');
+} else {
+  this.status.set('Submitted');
+  this.saveMsg.set('Permission request updated successfully!');
+}
 
     const nextUrl = this.isConfirmerMode()
       ? '/vehicle-permission/confirmer'
@@ -984,7 +984,75 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       this.router.navigate([nextUrl]);
     }, 2000);
   }
+  private submitConfirmerWorkflow(targetAction: 'CONFIRM' | 'HOLD' | 'REJECT'): void {
+    const requestNo = this.savedRequestNo();
 
+    if (!requestNo) {
+      this.errorMsg.set('Request number is missing.');
+      return;
+    }
+
+    if (!this.actionRemark().trim()) {
+      if (targetAction === 'CONFIRM') {
+        this.errorMsg.set('Review action remark is required to confirm.');
+      } else if (targetAction === 'HOLD') {
+        this.errorMsg.set('Please state modification requirements in the remarks.');
+      } else {
+        this.errorMsg.set('Explicit rejection justification comment is mandatory.');
+      }
+      return;
+    }
+
+    const payload: WorkflowAction = {
+      action: targetAction,
+      remarks: this.actionRemark().trim(),
+      empNo: this.auth.empCode() || 'SYSTEM'
+    };
+
+    const workflowCall =
+      (this.cvps as any).executeWorkflowAction?.bind(this.cvps) ??
+      (this.cvps as any).doWorkflowAction?.bind(this.cvps);
+
+    if (!workflowCall) {
+      this.errorMsg.set('Existing workflow API method not found in CvpsService.');
+      return;
+    }
+
+    this.errorMsg.set('');
+    this.saveMsg.set('');
+    this.isSubmitting.set(true);
+
+    workflowCall(requestNo, payload).pipe(
+      takeUntil(this.destroy$),
+      catchError((err: any) => {
+        this.errorMsg.set(err?.error?.message || err?.message || 'Workflow execution failed');
+        return of(null);
+      }),
+      finalize(() => {
+        this.isSubmitting.set(false);
+      })
+    ).subscribe((response: ApiResponse | null) => {
+      if (!response) return;
+
+      if (targetAction === 'HOLD') {
+        this.status.set('Modified');
+        this.saveMsg.set('Request sent for modification successfully!');
+      } else if (targetAction === 'CONFIRM') {
+        this.status.set('Confirmed');
+        this.saveMsg.set('Request confirmed successfully!');
+      } else {
+        this.status.set('Rejected');
+        this.saveMsg.set('Request rejected successfully!');
+      }
+
+      this.actionRemark.set('');
+
+      setTimeout(() => {
+        this.saveMsg.set('');
+        this.router.navigate(['/vehicle-permission/confirmer']);
+      }, 1500);
+    });
+  }
   private async processFormSubmission(targetStatus: string): Promise<void> {
     if (!this.validateForm(targetStatus)) return;
 
