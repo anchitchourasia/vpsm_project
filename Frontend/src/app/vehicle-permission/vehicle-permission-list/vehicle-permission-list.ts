@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
+import { AuthService } from '../../core/auth.service';
 
 import { CvpsService, CreateRequestDTO } from '../../services/cvps.service';
 
@@ -33,6 +34,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
     private router = inject(Router);
     private cvps = inject(CvpsService);
     private destroy$ = new Subject<void>();
+    private auth = inject(AuthService);
 
     rows = signal<VehiclePermissionRow[]>([]);
     loading = signal(false);
@@ -65,7 +67,7 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             const matchesStatus =
                 status === 'ALL' ||
                 rowStatus === status;
-                
+
 
             const matchesSearch =
                 !search ||
@@ -177,9 +179,15 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
 
     canEdit(status: string): boolean {
         const normalized = (status || '').trim().toUpperCase();
+        const role = (this.auth.role() || '').trim().toUpperCase();
+
+        if (role === 'CONFIRMER' || role === 'APPROVER') {
+            return false;
+        }
+
         return normalized === 'SAVED' || normalized === 'MODIFY';
     }
-    
+
 
     deleteRequest(row: VehiclePermissionRow): void {
         if (!row.requestNo) {
