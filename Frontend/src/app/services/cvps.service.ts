@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 
 export interface CreateRequestRequestDTO {
@@ -16,6 +16,7 @@ export interface CreateRequestRequestDTO {
   vehicleNo: string;
   natureOfJob: string;
   requestId?: number;
+  userRemark?: string;
 }
 
 export interface VehicleDocumentDTO {
@@ -111,25 +112,71 @@ export class CvpsService {
     );
   }
 
-  workflowAction(requestNo: number, payload: any, files: File[]): Observable<ApiResponse> {
-    const formData = new FormData();
-    formData.append('dto', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-    
-    if (files && files.length > 0) {
-      files.forEach(file => formData.append('files', file));
-    } else {
-      formData.append('files', new Blob([], { type: 'application/octet-stream' }));
+  // workflowAction(requestNo: number, payload: any, files: File[]): Observable<ApiResponse> {
+  //   const formData = new FormData();
+  //   formData.append('dto', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+
+  //   if (files && files.length > 0) {
+  //     files.forEach(file => formData.append('files', file));
+  //   } else {
+  //     formData.append('files', new Blob([], { type: 'application/octet-stream' }));
+  //   }
+
+  //   return this.http.put<ApiResponse>(`${environment.cvpsBaseUrl}/api/requests/update/${requestNo}`, formData);
+  // }
+  executeWorkflowAction(requestNo: number, payload: WorkflowAction): Observable<ApiResponse> {
+    const action = (payload.action || '').toUpperCase();
+
+    if (action === 'HOLD' || action === 'REJECT') {
+      const endpoint = action === 'HOLD' ? 'hold' : 'reject';
+
+      const params = new HttpParams()
+        .set('empNo', payload.empNo || 'SYSTEM')
+        .set('remarks', payload.remarks || '');
+
+      return this.http.put<ApiResponse>(
+        `${environment.cvpsBaseUrl}/api/requests/${endpoint}/${requestNo}`,
+        null,
+        { params }
+      );
     }
 
-    return this.http.put<ApiResponse>(`${environment.cvpsBaseUrl}/api/requests/update/${requestNo}`, formData);
+    throw new Error(`Unsupported confirmer workflow action: ${action}`);
   }
 
+  doWorkflowAction(requestNo: number, payload: WorkflowAction): Observable<ApiResponse> {
+    const action = (payload.action || '').toUpperCase();
+
+    let endpoint = '';
+    if (action === 'APPROVE') endpoint = 'approve';
+    else if (action === 'REJECT') endpoint = 'reject';
+    else if (action === 'HOLD') endpoint = 'hold';
+    else throw new Error(`Unsupported approver workflow action: ${action}`);
+
+    const params = new HttpParams()
+      .set('empNo', payload.empNo || 'SYSTEM')
+      .set('remarks', payload.remarks || '');
+
+    return this.http.put<ApiResponse>(
+      `${environment.cvpsBaseUrl}/api/requests/${endpoint}/${requestNo}`,
+      null,
+      { params }
+    );
+  }
   getAllRequests(): Observable<CreateRequestDTO[]> {
     return this.http.get<CreateRequestDTO[]>(
       API_CONFIG.CVPS_GET_ALL_REQUESTS
     );
   }
+  getDocumentUrl(filename: string): string {
+    return `${environment.cvpsBaseUrl}/api/documents/download/${encodeURIComponent(filename)}`;
+  }
 
+  downloadDocument(filename: string): Observable<Blob> {
+    return this.http.get(this.getDocumentUrl(filename), {
+      responseType: 'blob'
+    });
+  }
   deleteRequest(requestNo: number): Observable<ApiResponse> {
     return this.http.delete<ApiResponse>(
       `${API_CONFIG.CVPS_DELETE_REQUEST}/${requestNo}`
@@ -141,6 +188,7 @@ export class CvpsService {
       `${API_CONFIG.CVPS_GET_REQUEST_BY_ID}/${requestNo}`
     );
   }
+
 
   updateRequest(
     requestNo: number,

@@ -2,9 +2,11 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs'; // 🟢 Added catchError and of for clean stream fallback
+import { Subject, of } from 'rxjs';
+import { takeUntil, catchError } from 'rxjs/operators';
 import { CvpsService, CreateRequestDTO } from '../../services/cvps.service';
 import { AuthService } from '../../core/auth.service';
+
 
 interface CvpsRequestRecord {
     requestNo: number;
@@ -222,10 +224,30 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     }
 
     private submitAction(requestNo: number, targetAction: string): void {
-        this.actionError.set(
-            `Workflow action "${targetAction}" is not wired in CvpsService yet for request #${requestNo}.`
-        );
-        this.isActing.set(false);
+        this.isActing.set(true);
+        this.actionError.set('');
+        this.actionSuccess.set('');
+
+        const payload = {
+            action: targetAction as 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD',
+            empNo: this.auth.empCode() || 'SYSTEM',
+            remarks: this.actionRemark().trim()
+        };
+
+        this.cvps.executeWorkflowAction(requestNo, payload)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: () => {
+                    this.actionSuccess.set(`Request ${requestNo} processed as ${targetAction}.`);
+                    this.isActing.set(false);
+                    this.loadRequests();
+                    setTimeout(() => this.closeDetails(), 1500);
+                },
+                error: (err: any) => {
+                    this.actionError.set(err?.error?.message || 'Workflow execution error encountered.');
+                    this.isActing.set(false);
+                }
+            });
     }
 
     getDriverName(r: CvpsRequestRecord): string {
@@ -248,9 +270,25 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🟢 ADDED: Unified Document Download Handler for Confirmer Dashboard
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    downloadDoc(docId: number | undefined, filename: string): void {
-        this.actionError.set(
-            `Document download is not wired in CvpsService yet${docId ? ' for doc #' + docId : ''}.`
-        );
+    downloadDoc(filename: string | undefined, downloadName: string): void {
+        if (!filename) {
+            this.actionError.set('File name is missing for this document.');
+            return;
+        }
+
+        this.actionError.set('');
+
+        this.cvps.downloadDocument(filename).pipe(
+            takeUntil(this.destroy$),
+            catchError((err: any) => {
+                console.error('File streaming failed:', err);
+                this.actionError.set('Could not fetch the attachment binary from storage.');
+                return of<Blob | null>(null);
+            })
+        ).subscribe((blob: Blob | null) => {
+            if (blob) {
+                this.cvps.triggerBlobDownload(blob, downloadName || filename);
+            }
+        });
     }
 }

@@ -192,46 +192,52 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
     this.actionError.set('');
     this.actionSuccess.set('');
 
-    const targetStatus = action === 'APPROVE' ? 'APPROVED' : (action === 'REJECT' ? 'REJECTED' : 'HOLD');
-
-    const payload = {
-      request: {
-        contractorId: rec.contractorId,
-        natureOfJob: rec.natureOfJob,
-        vehicleNo: rec.vehicleNo,
-        vehicleType: rec.vehicleType,
-        permissionFrom: rec.permissionFrom,
-        permissionTo: rec.permissionTo,
-        reqStatus: targetStatus,
-        createdBy: this.empCode() || 'SYSTEM'
-      },
-      vehicleDocuments: rec.vehicleDocuments || [],
-      employees: rec.employeeDetails || []
+    const payload: WorkflowActionPayload = {
+      action,
+      empNo: this.empCode() || 'SYSTEM',
+      remarks: this.actionRemark().trim()
     };
 
-    this.cvps.workflowAction(rec.requestNo, payload, []).pipe(
+    this.cvps.doWorkflowAction(rec.requestNo, payload).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.isActing.set(false))
     ).subscribe({
-      next: (response) => {
-        this.actionSuccess.set(`✅ Request #${rec.requestNo} successfully "${targetStatus}"!`);
-        this.actionRemark.set('');
+      next: (response: any) => {
+        const actionLabel =
+          action === 'HOLD' ? 'sent for modification' : action.toLowerCase();
 
-        // 👉 FIX: loadRecords() ko fetchApproverRecords() se badla
+        this.actionSuccess.set(`Request ${rec.requestNo} has been ${actionLabel} successfully!`);
+        this.actionRemark.set('');
         this.loadPendingQueue();
         this.selectedRecord.set(null);
       },
-      error: (err) => {
-        this.actionError.set(err?.error?.message || err?.message || '❌ Workflow fail ho gaya.');
+      error: (err: any) => {
+        this.actionError.set(err?.error?.message || err?.message || 'Workflow failed.');
       }
     });
   }
 
   // ── Document Downloader ───────────────────────────────────────
-  downloadDoc(docId: number | undefined, filename: string): void {
-    this.actionError.set(
-      `Document download is not wired in CvpsService yet${docId ? ' for doc #' + docId : ''}.`
-    );
+  downloadDoc(filename: string | undefined, downloadName: string): void {
+    if (!filename) {
+      this.actionError.set('File name is missing for this document.');
+      return;
+    }
+
+    this.actionError.set('');
+
+    this.cvps.downloadDocument(filename).pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        console.error('File streaming failed:', err);
+        this.actionError.set('Could not fetch the attachment binary from storage.');
+        return of(null);
+      })
+    ).subscribe(blob => {
+      if (blob) {
+        this.cvps.triggerBlobDownload(blob, downloadName || filename);
+      }
+    });
   }
 
   // ── Helper Utility Maps ───────────────────────────────────────

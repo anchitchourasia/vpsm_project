@@ -360,12 +360,12 @@
 
         <div class="vp-field">
           <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" [readonly]="isReadOnlyMode()" />
+          <input class="vp-input" type="date"  [(ngModel)]="driver.validFrom" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.validTo" [readonly]="isReadOnlyMode()" />
+          <input class="vp-input" type="date" [min]="getMinLicenseValidTo(driver.validFrom)" [(ngModel)]="driver.validTo" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">

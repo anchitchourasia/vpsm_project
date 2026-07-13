@@ -999,7 +999,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         permissionFrom: this.permissionDateFrom() || '',
         permissionTo: this.permissionDateTo() || '',
         reqStatus: targetStatus.trim().toUpperCase(),
-        createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase()
+        createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),
+        userRemark:
+          targetStatus.trim().toUpperCase() === 'SAVED'
+            ? (this.actionRemark().trim() || 'Request updated')
+            : this.actionRemark().trim()
+
       },
 
       vehicleDocuments: this.dedupeDocEntries(this.docs())
@@ -1373,6 +1378,18 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.errorMsg.set('');
     this.actionRemark.set('');
     this.remarksHistory.set([]);
+  }
+  getMinLicenseValidTo(validFrom: string): string {
+    if (!validFrom) return '';
+
+    const date = new Date(validFrom);
+    date.setDate(date.getDate() + 1);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 
   getStatusClass(status: string): string {

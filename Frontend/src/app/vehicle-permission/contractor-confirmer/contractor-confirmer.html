@@ -4,7 +4,8 @@
       <i class="bi bi-person-check-fill header-icon blue"></i>
       <div>
         <h2 class="heading blue">Contractor Confirmer Queue</h2>
-        <p class="sub-text">Logged in as <strong>{{ confirmerName() }}</strong> · Review and confirm contractor permissions</p>
+        <p class="sub-text">Logged in as <strong>{{ confirmerName() }}</strong> · Review and confirm contractor
+          permissions</p>
       </div>
     </div>
     <div class="header-right">
@@ -72,12 +73,13 @@
           </tbody>
         </table>
       </div>
-      
+
       <div class="pagination-bar">
         <span class="pg-info">Showing page {{ currentPage() }} of {{ totalPages }}</span>
         <div class="pg-btns">
           <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">‹</button>
-          <button *ngFor="let p of totalPagesArr" class="pg-btn" [class.active]="p===currentPage()" (click)="goToPage(p)">{{ p }}</button>
+          <button *ngFor="let p of totalPagesArr" class="pg-btn" [class.active]="p===currentPage()"
+            (click)="goToPage(p)">{{ p }}</button>
           <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">›</button>
         </div>
       </div>
@@ -93,7 +95,8 @@
 
       <div class="modal-body">
         <div class="alert success-alert" *ngIf="actionSuccess()">{{ actionSuccess() }}</div>
-        <div class="alert error-alert" *ngIf="actionError()"><i class="bi bi-exclamation-circle-fill"></i> {{ actionError() }}</div>
+        <div class="alert error-alert" *ngIf="actionError()"><i class="bi bi-exclamation-circle-fill"></i> {{
+          actionError() }}</div>
 
         <div class="sec-title"><i class="bi bi-car-front-fill"></i> Vehicle Specifications</div>
         <div class="dg">
@@ -128,11 +131,13 @@
                 <td>{{ formatDate(doc.validFrom) }}</td>
                 <td>{{ formatDate(doc.validTill) }}</td>
                 <td style="text-align: center;">
-                  <button *ngIf="doc.id" class="vpl-btn-dl" (click)="downloadDoc(doc.id, doc.documentType + '_' + doc.documentNo + '.pdf')" 
-                          style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 1.1rem; padding: 2px 8px;" title="Download Document">
+                  <button *ngIf="doc.filename" class="vpl-btn-dl"
+                    (click)="downloadDoc(doc.filename, doc.documentType + '_' + doc.documentNo + '.pdf')"
+                    style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 1.1rem; padding: 2px 8px;"
+                    title="Download Document">
                     <i class="bi bi-download"></i>
                   </button>
-                  <span *ngIf="!doc.id" class="muted">—</span>
+                  <span *ngIf="!doc.filename" class="muted">—</span>
                 </td>
               </tr>
               <tr *ngIf="!p.vehicleDocuments || p.vehicleDocuments.length === 0">
@@ -154,7 +159,7 @@
 
         <div class="modal-footer">
           <button class="footer-btn btn-cancel" (click)="closeDetails()">Close</button>
-          
+
           <button class="footer-btn btn-modify-footer" [class.btn-modify-armed]="activeAction() === 'modify'"
             (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')" [disabled]="isActing()">
             {{ activeAction() === 'modify' ? 'Confirm Send Back' : 'Send Back for Modification' }}

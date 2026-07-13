@@ -181,8 +181,8 @@
                 <td>{{ formatDate(doc.validFrom) }}</td>
                 <td>{{ formatDate(doc.validTill) }}</td>
                 <td>
-                  @if (doc.id) {
-                  <button class="btn-view-pdf" (click)="downloadDoc(doc.id, doc.documentType + '.pdf')">
+                  @if (doc.filename) {
+                  <button class="btn-view-pdf" (click)="downloadDoc(doc.filename, doc.documentType + '.pdf')">
                     <i class="bi bi-download"></i> Download
                   </button>
                   } @else { — }
