@@ -181,10 +181,10 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             return;
         }
 
-        console.log('Download Pass clicked for request:', row.requestNo);
-
-        // Temporary action for phase 1
-        alert(`Download Pass clicked for request #${row.requestNo}`);
+        this.router.navigate(
+            ['/vehicle-permission/pass'],
+            { queryParams: { requestNo: row.requestNo } }
+        );
     }
 
     canEdit(status: string): boolean {

@@ -1,6 +1,177 @@
 /* Workflow status badge — global, used by pass-details + authority screens */
-.badge-draft      { background:#94a3b8; color:#fff; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-.badge-submitted  { background:#3b82f6; color:#fff; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-.badge-confirmed  { background:#f59e0b; color:#fff; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-.badge-approved   { background:#22c55e; color:#fff; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-.badge-rejected   { background:#ef4444; color:#fff; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+.badge-draft {
+    background: #94a3b8;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-submitted {
+    background: #3b82f6;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-confirmed {
+    background: #f59e0b;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-approved {
+    background: #22c55e;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-rejected {
+    background: #ef4444;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+@media print {
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    height: auto !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .vp-shell,
+  .vp-shell * {
+    visibility: visible !important;
+  }
+
+  .vp-shell {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Compress letterhead */
+  .vp-letterhead {
+    padding: 8px 14px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .vp-logo-left,
+  .vp-logo-right {
+    height: 40px !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .vp-letterhead-title {
+    font-size: 0.85rem !important;
+  }
+
+  .vp-letterhead-sub {
+    font-size: 0.7rem !important;
+  }
+
+  .vp-letterhead-meta {
+    margin-top: 6px !important;
+    padding-top: 6px !important;
+  }
+
+  /* Compress sections */
+  .vp-section {
+    padding: 8px 14px !important;
+    margin-bottom: 8px !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .vp-section-title,
+  .vp-section-title-row {
+    font-size: 0.8rem !important;
+    margin-bottom: 6px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* Compress grid + fields */
+  .vp-grid-2 {
+    gap: 4px 16px !important;
+  }
+
+  .vp-field {
+    gap: 2px !important;
+  }
+
+  .vp-label {
+    font-size: 0.65rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .vp-input,
+  .vp-select {
+    padding: 3px 6px !important;
+    font-size: 0.72rem !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    min-height: unset !important;
+  }
+
+  /* Compress table */
+  .vp-table th,
+  .vp-table td {
+    padding: 3px 6px !important;
+    font-size: 0.68rem !important;
+  }
+  .remark-expired,
+  .remark-expiring,
+  .remark-valid {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive/edit-only elements */
+  .vp-actions,
+  .no-print,
+  .vp-btn-add,
+  .vp-btn-del,
+  .vp-btn-ghost {
+    display: none !important;
+  }
+
+  a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
