@@ -97,7 +97,7 @@
           type="text"
           placeholder="e.g. MP04 AB 1234"
           [value]="vehicleNumber()"
-          (input)="vehicleNumber.set($any($event.target).value)"
+          (input)="vehicleNumber.set($any($event.target).value.toUpperCase())"
           [readonly]="isReadOnlyMode()" />
       </div>
 
