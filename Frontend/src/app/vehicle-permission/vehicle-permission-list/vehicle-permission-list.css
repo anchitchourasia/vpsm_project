@@ -479,3 +479,21 @@
   .vpl-gate-info-grid  { grid-template-columns: 1fr; }
   .vpl-header-actions  { width: 100%; }
 }
+.vpl-btn-pass-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vpl-btn-pass-sm:hover {
+  background: #15803d;
+}

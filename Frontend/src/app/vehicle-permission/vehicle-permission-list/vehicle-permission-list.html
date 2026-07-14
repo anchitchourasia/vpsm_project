@@ -110,16 +110,12 @@
                                 </button>
                                 }
 
-                                <button class="vpl-btn-delete" type="button" (click)="deleteRequest(row)"
-                                    [disabled]="deletingId() === row.requestNo">
-                                    @if (deletingId() === row.requestNo) {
-                                    <i class="bi bi-hourglass-split"></i>
-                                    Deleting...
-                                    } @else {
-                                    <i class="bi bi-trash-fill"></i>
-                                    Delete
-                                    }
+                                @if (row.reqStatus === 'APPROVED') {
+                                <button class="vpl-btn-pass-sm" type="button" (click)="downloadPass(row)">
+                                    <i class="bi bi-download"></i>
+                                    Download Pass
                                 </button>
+                                }
                             </div>
                         </td>
                     </tr>

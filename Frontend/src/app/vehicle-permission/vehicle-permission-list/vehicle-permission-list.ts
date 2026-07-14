@@ -176,6 +176,16 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             { queryParams: { edit: row.requestNo } }
         );
     }
+    downloadPass(row: VehiclePermissionRow): void {
+        if (!row?.requestNo) {
+            return;
+        }
+
+        console.log('Download Pass clicked for request:', row.requestNo);
+
+        // Temporary action for phase 1
+        alert(`Download Pass clicked for request #${row.requestNo}`);
+    }
 
     canEdit(status: string): boolean {
         const normalized = (status || '').trim().toUpperCase();
