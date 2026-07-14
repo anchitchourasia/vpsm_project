@@ -39,9 +39,9 @@
 
   <!-- EMPLOYEE TYPE SELECTOR -->
   <div class="pe-emp-type-row">
-    <span class="pe-emp-type-label">
+    <!-- <span class="pe-emp-type-label">
       Employee Type <span class="req">*</span>
-    </span>
+    </span> -->
     <div class="pe-emp-type-options">
 
       <!-- Company Employee card -->
@@ -55,7 +55,7 @@
       </label>
 
       <!-- Contractor card -->
-      <label class="pe-type-card" [class.selected]="empType() === 'Contractor'"
+      <!-- <label class="pe-type-card" [class.selected]="empType() === 'Contractor'"
         [class.pe-type-card-locked]="isEcNoLocked" [class.pe-type-card-disabled]="isEcNoLocked"
         (click)="setEmpType('Contractor')">
         <i class="bi bi-person-workspace"></i>
@@ -63,7 +63,7 @@
         @if (empType() === 'Contractor') {
         <i class="bi bi-check-circle-fill pe-check"></i>
         }
-      </label>
+      </label> -->
 
     </div>
   </div>

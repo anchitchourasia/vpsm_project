@@ -11,9 +11,20 @@ import {
     CreateRequestDTO,
     EmployeeDTO,
     EmployeeDocumentDTO,
-    VehicleDocumentDTO,
-    RequestHistoryDTO,
 } from '../../services/cvps.service';
+
+type HistoryStage = 'UPLOADER' | 'CONFIRMER' | 'APPROVER';
+
+interface PassHistoryEntry {
+    id: string;
+    stage: HistoryStage;
+    action: string;
+    remark: string;
+    byName: string;
+    byEmpCode: string;
+    statusAfter: string;
+    createdAt: string;
+}
 
 @Component({
     selector: 'app-vehicle-permission-pass',
@@ -38,6 +49,7 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     dto = signal<CreateRequestDTO | null>(null);
     contractorName = signal('');
     status = signal<string>('Draft');
+    remarksHistory = signal<PassHistoryEntry[]>([]);
 
     readonly request = computed(() => this.dto()?.request ?? null);
     readonly vehicleDocuments = computed(() => this.dto()?.vehicleDocuments ?? []);
@@ -50,23 +62,9 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
             return {
                 ...employee,
-                _aadhaarNo: String(
-                    aadhaarDoc?.documentNo ||
-                    employee?.aadhaarNo ||
-                    ''
-                ).trim(),
-                _licenseNo: String(
-                    dlDoc?.documentNo ||
-                    employee?.licenseNo ||
-                    employee?.licenseNumber ||
-                    ''
-                ).trim(),
-                _licenseValidTill: String(
-                    dlDoc?.validTill ||
-                    employee?.validTill ||
-                    employee?.validTo ||
-                    ''
-                ).trim()
+                _aadhaarNo: String(aadhaarDoc?.documentNo || employee?.aadhaarNo || '').trim(),
+                _licenseNo: String(dlDoc?.documentNo || employee?.licenseNo || employee?.licenseNumber || '').trim(),
+                _licenseValidTill: String(dlDoc?.validTill || employee?.validTill || employee?.validTo || '').trim()
             };
         })
     );
@@ -84,19 +82,19 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
                 this.requestNo.set(id);
                 this.loadPass(id);
-                window.removeEventListener('beforeprint', () => { });
             });
     }
 
     ngOnDestroy(): void {
         this.destroy$.next();
         this.destroy$.complete();
-        window.removeEventListener('beforeprint', () => { });
     }
 
     private loadPass(requestNo: number): void {
         this.loading.set(true);
         this.errorMsg.set('');
+        this.remarksHistory.set([]);
+        this.loadRemarkHistory(requestNo);
 
         this.cvps.getRequestById(requestNo)
             .pipe(
@@ -117,33 +115,8 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                     return;
                 }
 
-                const normalizedEmployees = this.mapPassEmployees(dto.employees ?? []);
-
-                const normalizedDto: CreateRequestDTO = {
-                    ...dto,
-                    employees: normalizedEmployees
-                };
-
-                console.log('PASS DTO FULL:', normalizedDto);
-                console.log('PASS EMPLOYEES NORMALIZED:', normalizedEmployees);
-                console.log(
-                    'PASS EMPLOYEE DOCUMENTS:',
-                    normalizedEmployees.map((e: any) => ({
-                        name: e?.name,
-                        empJob: e?.empJob,
-                        aadhaarNo: e?.aadhaarNo,
-                        licenseNo: e?.licenseNo,
-                        validTo: e?.validTo,
-                        documents: e?.documents
-                    }))
-                );
-
-                this.dto.set(normalizedDto);
-
+                this.dto.set(dto);
                 this.status.set(dto.request?.reqStatus || 'Draft');
-                if (dto.request?.reqStatus) {
-                    this.status.set(String(dto.request.reqStatus));
-                }
 
                 const contractorId = (dto.request.contractorId || '').trim().toUpperCase();
                 if (contractorId) {
@@ -152,59 +125,31 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             });
     }
 
-    private mapPassEmployees(employees: EmployeeDTO[] | null | undefined): any[] {
-        return (employees ?? []).map((employee: any) => {
-            const docs = Array.isArray(employee?.documents) ? employee.documents : [];
+    private loadRemarkHistory(requestNo: number): void {
+        this.cvps.getRequestHistory(requestNo)
+            .pipe(
+                takeUntil(this.destroy$),
+                catchError(() => of([]))
+            )
+            .subscribe((rows: any[]) => {
+                const mapped: PassHistoryEntry[] = (rows || []).map((row: any, index: number) => {
+                    const stage = this.inferHistoryStage(row);
 
-            const aadhaarDoc =
-                docs.find((doc: any) => this.isAadhaarDoc(doc?.documentType)) ?? null;
+                    return {
+                        id: String(row?.historyId ?? index + 1),
+                        stage,
+                        action: row?.actionTaken || row?.statusAfter || row?.status || '',
+                        remark: row?.remarks || '',
+                        byName: row?.empName || row?.employeeName || row?.byName || row?.empNo || '',
+                        byEmpCode: row?.empNo || row?.byEmpCode || '',
+                        statusAfter: row?.actionTaken || row?.statusAfter || row?.status || '',
+                        createdAt: row?.actionDate || row?.createdAt || row?.createdDate || ''
+                    };
+                });
 
-            const dlDoc =
-                docs.find((doc: any) => this.isDlDoc(doc?.documentType)) ?? null;
-
-            const photoDoc =
-                docs.find((doc: any) => this.isPhotoDoc(doc?.documentType)) ?? null;
-
-            return {
-                ...employee,
-                documents: docs,
-                aadhaarNo: String(
-                    aadhaarDoc?.documentNo ||
-                    employee?.aadhaarNo ||
-                    ''
-                ).trim(),
-                licenseNo: String(
-                    dlDoc?.documentNo ||
-                    employee?.licenseNo ||
-                    employee?.licenseNumber ||
-                    ''
-                ).trim(),
-                licenseNumber: String(
-                    dlDoc?.documentNo ||
-                    employee?.licenseNumber ||
-                    employee?.licenseNo ||
-                    ''
-                ).trim(),
-                validFrom: String(
-                    dlDoc?.validFrom ||
-                    employee?.validFrom ||
-                    ''
-                ).trim(),
-                validTo: String(
-                    dlDoc?.validTill ||
-                    employee?.validTo ||
-                    employee?.validTill ||
-                    ''
-                ).trim(),
-                photoFileName: String(
-                    photoDoc?.filename ||
-                    photoDoc?.fileName ||
-                    photoDoc?.documentName ||
-                    photoDoc?.documentPath ||
-                    ''
-                ).trim()
-            };
-        });
+                mapped.sort((a, b) => this.getHistorySortValue(a) - this.getHistorySortValue(b));
+                this.remarksHistory.set(mapped);
+            });
     }
 
     private resolveContractorName(contractorCode: string): void {
@@ -253,6 +198,13 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             .replace(/_/g, '');
     }
 
+    private normalizeAction(value: string | null | undefined): string {
+        return String(value || '')
+            .trim()
+            .toUpperCase()
+            .replace(/\s+/g, ' ');
+    }
+
     private isAadhaarDoc(value: string | null | undefined): boolean {
         const type = this.normalizeDocType(value);
         return ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAARCARD'].includes(type);
@@ -268,9 +220,75 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         return ['PHOTO', 'DRIVERPHOTO', 'PHOTOGRAPH'].includes(type);
     }
 
+    private inferHistoryStage(row: any): HistoryStage {
+        const explicitStage = String(
+            row?.stage ||
+            row?.level ||
+            row?.role ||
+            row?.actionByRole ||
+            row?.actionRole ||
+            row?.userRole ||
+            ''
+        ).trim().toUpperCase();
+
+        const action = this.normalizeAction(
+            row?.actionTaken ||
+            row?.statusAfter ||
+            row?.status
+        );
+
+        if (
+            explicitStage.includes('UPLOADER') ||
+            explicitStage.includes('CREATOR') ||
+            explicitStage.includes('REQUESTER') ||
+            explicitStage.includes('SUBMITTER')
+        ) {
+            return 'UPLOADER';
+        }
+
+        if (explicitStage.includes('APPROVER')) {
+            return 'APPROVER';
+        }
+
+        if (explicitStage.includes('CONFIRMER')) {
+            return 'CONFIRMER';
+        }
+
+        if (['SAVED', 'DRAFT', 'CREATED', 'SUBMITTED'].includes(action)) {
+            return 'UPLOADER';
+        }
+
+        if (['APPROVED', 'REJECTED'].includes(action)) {
+            return 'APPROVER';
+        }
+
+        return 'CONFIRMER';
+    }
+
+    private getHistorySortValue(item: PassHistoryEntry): number {
+        const time = new Date(item?.createdAt || '').getTime();
+        if (Number.isFinite(time) && time > 0) return time;
+
+        const idNum = Number(item?.id);
+        if (Number.isFinite(idNum) && idNum > 0) return idNum;
+
+        return 0;
+    }
+
+    private getFirstHistoryByStage(stage: HistoryStage): PassHistoryEntry | null {
+        const history = this.remarksHistory?.() || [];
+        return history.find(item => String(item?.stage || '').trim().toUpperCase() === stage) || null;
+    }
+
+    private getLatestHistoryByStage(stage: HistoryStage): PassHistoryEntry | null {
+        const history = this.remarksHistory?.() || [];
+        return [...history]
+            .reverse()
+            .find(item => String(item?.stage || '').trim().toUpperCase() === stage) || null;
+    }
+
     private getDaysDiff(dateStr: string | null | undefined): number | null {
         if (!dateStr) return null;
-
         const target = new Date(dateStr);
         if (isNaN(target.getTime())) return null;
 
@@ -299,15 +317,59 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         return 'Valid';
     }
 
+    private getRemarkPdfStyle(dateStr: string | null | undefined): {
+        text: string;
+        fillColor: [number, number, number];
+        textColor: [number, number, number];
+    } {
+        const days = this.getDaysDiff(dateStr);
+
+        if (days === null) {
+            return {
+                text: '-',
+                fillColor: [245, 245, 245],
+                textColor: [80, 80, 80]
+            };
+        }
+
+        if (days < 0) {
+            return {
+                text: `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`,
+                fillColor: [252, 228, 228],
+                textColor: [180, 50, 50]
+            };
+        }
+
+        if (days === 0) {
+            return {
+                text: 'Expires today',
+                fillColor: [255, 243, 205],
+                textColor: [140, 100, 20]
+            };
+        }
+
+        if (days <= 30) {
+            return {
+                text: `Expires in ${days} day${days === 1 ? '' : 's'}`,
+                fillColor: [255, 243, 205],
+                textColor: [140, 100, 20]
+            };
+        }
+
+        return {
+            text: 'Valid',
+            fillColor: [223, 240, 216],
+            textColor: [40, 120, 60]
+        };
+    }
+
     private findEmployeeDocument(
         employee: EmployeeDTO | null | undefined,
         kind: 'AADHAAR' | 'DRIVINGLICENSE' | 'PHOTO'
     ): EmployeeDocumentDTO | null {
         const docs = Array.isArray(employee?.documents) ? employee!.documents : [];
 
-        if (!docs.length) {
-            return null;
-        }
+        if (!docs.length) return null;
 
         return docs.find((doc: any) => {
             const docType = doc?.documentType;
@@ -317,43 +379,353 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         }) ?? null;
     }
 
-    getEmployeeDocNo(employee: any, kind: 'AADHAAR' | 'DRIVINGLICENSE'): string {
-        const doc = this.findEmployeeDocument(employee, kind);
+    private getWorkflowPerson(stage: 'CONFIRMER' | 'APPROVER'): string {
+        const match = this.getLatestHistoryByStage(stage);
+        return String(
+            match?.byEmpCode ||
+            match?.byName ||
+            '-'
+        ).trim() || '-';
+    }
 
-        if (doc?.documentNo) {
-            return String(doc.documentNo).trim() || '-';
+    private getUploaderName(): string {
+        const uploaderFromHistory = this.getFirstHistoryByStage('UPLOADER');
+        if (uploaderFromHistory) {
+            return String(
+                uploaderFromHistory.byEmpCode ||
+                uploaderFromHistory.byName ||
+                '-'
+            ).trim() || '-';
         }
 
-        if (kind === 'AADHAAR') {
-            return String(employee?.aadhaarNo || '').trim() || '-';
+        const req: any = this.request();
+        return String(req?.createdBy || '-').trim() || '-';
+    }
+
+    private async loadImageAsDataUrl(url: string): Promise<string | null> {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+
+            return await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(blob);
+            });
+        } catch {
+            return null;
+        }
+    }
+
+    private drawFieldRow(
+        doc: jsPDF,
+        label: string,
+        value: string,
+        x: number,
+        y: number,
+        w: number,
+        h: number
+    ): void {
+        doc.setDrawColor(210, 210, 210);
+        doc.roundedRect(x, y, w, h, 2, 2);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(90, 90, 90);
+        doc.text(label, x + 3, y + 5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(20, 20, 20);
+        const safeValue = value && String(value).trim() ? String(value) : '-';
+        doc.text(safeValue, x + 3, y + 11);
+    }
+
+    private drawSignatureBlock(
+        doc: jsPDF,
+        x: number,
+        y: number,
+        w: number,
+        topText: string,
+        bottomText: string
+    ): void {
+        const safeBottom = String(bottomText || '-').trim() || '-';
+        const bottomLines = doc.splitTextToSize(
+            safeBottom.length > 24 ? `${safeBottom.slice(0, 24)}...` : safeBottom,
+            w - 2
+        );
+        const topLines = doc.splitTextToSize(topText, w - 2);
+
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.line(x, y, x + w, y);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.2);
+        doc.setTextColor(35, 35, 35);
+        doc.text(bottomLines, x + w / 2, y + 4.5, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(90, 90, 90);
+        doc.text(topLines, x + w / 2, y + 11, { align: 'center' });
+    }
+
+    private addSectionTitle(doc: jsPDF, title: string, y: number): void {
+        doc.setFillColor(245, 247, 250);
+        doc.roundedRect(12, y, 186, 8, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(30, 30, 30);
+        doc.text(title, 15, y + 5.5);
+    }
+
+    async printPass(): Promise<void> {
+        const req = this.request();
+        if (!req) {
+            this.errorMsg.set('No request data available for PDF.');
+            return;
         }
 
-        return String(employee?.licenseNo || employee?.licenseNumber || '').trim() || '-';
-    }
+        const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: 'a4'
+        });
 
-    getEmployeeDocFile(employee: EmployeeDTO | null | undefined, kind: 'AADHAAR' | 'DRIVINGLICENSE'): string | null {
-        const doc = this.findEmployeeDocument(employee, kind) as any;
-        return doc?.filename || doc?.fileName || doc?.documentName || doc?.documentPath || null;
-    }
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
 
-    getEmployeeDocValidFrom(employee: EmployeeDTO | null | undefined, kind: 'DRIVINGLICENSE'): string {
-        const doc = this.findEmployeeDocument(employee, kind) as any;
-        return doc?.validFrom || '';
-    }
+        const leftLogo = await this.loadImageAsDataUrl('/logos/security.jpg');
+        const rightLogo = await this.loadImageAsDataUrl('/logos/heg_logo.jpg');
 
-    getEmployeeDocValidTill(employee: any, kind: 'DRIVINGLICENSE'): string {
-        const doc = this.findEmployeeDocument(employee, kind);
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
 
-        if (doc?.validTill) {
-            return String(doc.validTill).trim();
+        pdf.setDrawColor(170, 170, 170);
+        pdf.setLineWidth(0.5);
+        pdf.roundedRect(10, 10, 190, 28, 3, 3);
+
+        if (leftLogo) {
+            pdf.addImage(leftLogo, 'JPEG', 14, 13, 10, 10);
         }
 
-        return String(employee?.validTill || employee?.validTo || '').trim();
-    }
+        if (rightLogo) {
+            pdf.addImage(rightLogo, 'JPEG', 180, 13, 10, 10);
+        }
 
-    getEmployeePhotoFile(employee: EmployeeDTO | null | undefined): string | null {
-        const doc = this.findEmployeeDocument(employee, 'PHOTO') as any;
-        return doc?.filename || doc?.fileName || doc?.documentName || doc?.documentPath || null;
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(35, 35, 35);
+        pdf.text('VENDORS VEHICLE/CONTRACTOR PERMISSION FORM', pageWidth / 2, 18, { align: 'center' });
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8.5);
+        pdf.text('HEG LIMITED, MANDIDEEP', pageWidth / 2, 23, { align: 'center' });
+
+        pdf.setDrawColor(170, 170, 170);
+        pdf.roundedRect(160, 24.5, 32, 8, 2, 2);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.2);
+        pdf.setTextColor(35, 35, 35);
+        pdf.text(this.formNo, 176, 29.8, { align: 'center' });
+
+        let y = 44;
+
+        this.addSectionTitle(pdf, 'General Information', y);
+        y += 12;
+
+        const col1X = 12;
+        const col2X = 108;
+        const boxW = 90;
+        const boxH = 14;
+
+        this.drawFieldRow(pdf, 'Contractor Code', req.contractorId || '-', col1X, y, boxW, boxH);
+        this.drawFieldRow(pdf, 'Contractor Name', this.contractorName() || '-', col2X, y, boxW, boxH);
+        y += 16;
+
+        this.drawFieldRow(pdf, 'Request Date', this.formatDate((req as any).createdDate), col1X, y, boxW, boxH);
+        this.drawFieldRow(pdf, 'Nature of Job', (req as any).natureOfJob || '-', col2X, y, boxW, boxH);
+        y += 16;
+
+        this.drawFieldRow(pdf, 'Permission From', this.formatDate((req as any).permissionFrom), col1X, y, boxW, boxH);
+        this.drawFieldRow(pdf, 'Permission To', this.formatDate((req as any).permissionTo), col2X, y, boxW, boxH);
+        y += 16;
+
+        this.drawFieldRow(pdf, 'Approved Date', '-', col1X, y, boxW, boxH);
+        this.drawFieldRow(pdf, 'Print Date', this.formatDate(new Date().toISOString()), col2X, y, boxW, boxH);
+        y += 20;
+
+        this.addSectionTitle(pdf, 'Vehicle Details', y);
+        y += 12;
+
+        this.drawFieldRow(pdf, 'Vehicle No.', (req as any).vehicleNo || '-', col1X, y, boxW, boxH);
+        this.drawFieldRow(pdf, 'Vehicle Type', (req as any).vehicleType || '-', col2X, y, boxW, boxH);
+        y += 20;
+
+        autoTable(pdf, {
+            startY: y,
+            head: [['Vehicle Documents', 'Doc. Number', 'Valid Upto', 'Remark']],
+            body: (this.vehicleDocuments() || []).map((doc: any) => {
+                const remark = this.getRemarkPdfStyle(doc.validTill);
+                return [
+                    doc.documentType || '-',
+                    doc.documentNo || '-',
+                    this.formatDate(doc.validTill),
+                    remark.text
+                ];
+            }),
+            margin: { left: 12, right: 12 },
+            theme: 'grid',
+            styles: {
+                fontSize: 8,
+                cellPadding: 2.5,
+                textColor: [40, 40, 40],
+                lineColor: [210, 210, 210],
+                lineWidth: 0.2,
+                valign: 'middle'
+            },
+            headStyles: {
+                fillColor: [239, 242, 247],
+                textColor: [20, 20, 20],
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [252, 252, 252]
+            },
+            columnStyles: {
+                0: { cellWidth: 52 },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 28 },
+                3: { cellWidth: 64 }
+            },
+            didParseCell: (data) => {
+                if (data.section === 'body' && data.column.index === 3) {
+                    const rowDoc = this.vehicleDocuments()[data.row.index];
+                    const remark = this.getRemarkPdfStyle(rowDoc?.validTill);
+                    data.cell.styles.fillColor = remark.fillColor;
+                    data.cell.styles.textColor = remark.textColor;
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
+        });
+
+        y = (pdf as any).lastAutoTable.finalY + 8;
+
+        this.addSectionTitle(pdf, 'Employee Details', y);
+        y += 12;
+
+        autoTable(pdf, {
+            startY: y,
+            head: [['Name', 'Contact No.', 'Aadhar No.', 'License No.', 'Valid Upto', 'Remark']],
+            body: (this.passEmployees() || []).map((driver: any) => {
+                const remark = this.getRemarkPdfStyle(driver._licenseValidTill);
+                return [
+                    driver.name || '-',
+                    driver.mobileNo || '-',
+                    driver._aadhaarNo || '-',
+                    driver._licenseNo || '-',
+                    this.formatDate(driver._licenseValidTill),
+                    remark.text
+                ];
+            }),
+            margin: { left: 12, right: 12 },
+            theme: 'grid',
+            styles: {
+                fontSize: 8,
+                cellPadding: 2.5,
+                textColor: [40, 40, 40],
+                lineColor: [210, 210, 210],
+                lineWidth: 0.2,
+                valign: 'middle'
+            },
+            headStyles: {
+                fillColor: [239, 242, 247],
+                textColor: [20, 20, 20],
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [252, 252, 252]
+            },
+            columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 24 },
+                2: { cellWidth: 26 },
+                3: { cellWidth: 26 },
+                4: { cellWidth: 24 },
+                5: { cellWidth: 56 }
+            },
+            didParseCell: (data) => {
+                if (data.section === 'body' && data.column.index === 5) {
+                    const rowDriver = this.passEmployees()[data.row.index];
+                    const remark = this.getRemarkPdfStyle(rowDriver?._licenseValidTill);
+                    data.cell.styles.fillColor = remark.fillColor;
+                    data.cell.styles.textColor = remark.textColor;
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
+        });
+
+        let signY = ((pdf as any).lastAutoTable?.finalY ?? y) + 18;
+        if (signY > 262) {
+            pdf.addPage();
+            signY = 246;
+        }
+
+        const sectionLeft = 10;
+        const blockWidth = 44;
+        const gap = 3;
+
+        this.drawSignatureBlock(
+            pdf,
+            sectionLeft,
+            signY,
+            blockWidth,
+            'contractor name',
+            this.contractorName() || '-'
+        );
+
+        this.drawSignatureBlock(
+            pdf,
+            sectionLeft + (blockWidth + gap) * 1,
+            signY,
+            blockWidth,
+            'uploader',
+            this.getUploaderName()
+        );
+
+        this.drawSignatureBlock(
+            pdf,
+            sectionLeft + (blockWidth + gap) * 2,
+            signY,
+            blockWidth,
+            'confirmer',
+            this.getWorkflowPerson('CONFIRMER')
+        );
+
+        this.drawSignatureBlock(
+            pdf,
+            sectionLeft + (blockWidth + gap) * 3,
+            signY,
+            blockWidth,
+            'approver',
+            this.getWorkflowPerson('APPROVER')
+        );
+
+        const totalPages = pdf.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setDrawColor(220, 220, 220);
+            pdf.line(12, 287, 198, 287);
+
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
+            pdf.setTextColor(90, 90, 90);
+            pdf.text(`Generated on: ${new Date().toLocaleString('en-GB')}`, 12, 292);
+            pdf.text(`Page ${i} of ${totalPages}`, 198, 292, { align: 'right' });
+        }
+
+        pdf.save(`vehicle-permission-pass-${this.requestNo() || 'document'}.pdf`);
     }
 
     getStatusClass(status: string): string {
@@ -363,33 +735,25 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             case 'SUBMITTED':
             case 'CREATED':
                 return 'wf-submitted';
-
             case 'CONFIRMED':
             case 'PENDING':
                 return 'wf-pending';
-
             case 'WAITING':
                 return 'wf-waiting';
-
             case 'VERIFIED':
                 return 'wf-verified';
-
             case 'APPROVED':
                 return 'wf-approved';
-
             case 'REJECTED':
                 return 'wf-rejected';
-
             case 'HOLD':
             case 'MODIFY':
             case 'MODIFIED':
             case 'NEED MODIFICATION':
                 return 'wf-hold';
-
             case 'SAVED':
             case 'DRAFT':
                 return 'wf-draft';
-
             default:
                 return 'wf-waiting';
         }
@@ -397,9 +761,5 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
     goBack(): void {
         this.router.navigate(['/vehicle-permission/list']);
-    }
-    
-    printPass(): void {
-        window.print();
     }
 }
