@@ -13,7 +13,8 @@ import {
   VehicleDocumentDTO,
   EmployeeDTO,
   EmployeeDocumentDTO,
-  WorkflowAction
+  WorkflowAction,
+  RequestHistoryDTO
 } from '../../services/cvps.service';
 
 import { environment } from '../../../environments/environment';
@@ -201,45 +202,88 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   remarksHistory = signal<WorkflowRemarkEntry[]>([]);
 
 
+  // ngOnInit(): void {
+  //   this.route.queryParams
+  //     .pipe(takeUntil(this.destroy$))
+  //     .subscribe(params => {
+  //       const mode = String(params['mode'] || '').toLowerCase();
+  //       this.isConfirmerMode.set(mode === 'confirmer');
+  //       this.isApproverMode.set(mode === 'approver');
+
+
+  //       const editId = params['edit'];
+
+  //       if (!editId) {
+  //         this.editingMode.set(false);
+  //         this.isEditDataLoaded.set(true);
+  //         this.savedRequestNo.set(null);
+  //         this.remarksHistory.set([]);
+  //         this.actionRemark.set('');
+  //         return;
+  //       }
+
+  //       const requestNo = Number(editId);
+
+  //       if (!requestNo || Number.isNaN(requestNo)) {
+  //         this.errorMsg.set('Invalid request id.');
+  //         this.editingMode.set(false);
+  //         this.isEditDataLoaded.set(true);
+  //         this.remarksHistory.set([]);
+  //         this.actionRemark.set('');
+  //         return;
+  //       }
+
+  //       this.editingMode.set(true);
+  //       this.isEditDataLoaded.set(false);
+  //       this.savedRequestNo.set(requestNo);
+  //       this.loadRemarkHistory(requestNo);
+  //       this.loadRequest(requestNo);
+  //     });
+      
+  // }
   ngOnInit(): void {
-    this.route.queryParams
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(params => {
-        const mode = String(params['mode'] || '').toLowerCase();
-        this.isConfirmerMode.set(mode === 'confirmer');
-        this.isApproverMode.set(mode === 'approver');
+  this.route.queryParams
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(params => {
+      console.log('FORM query params:', params);
 
+      const mode = String(params['mode'] || '').toLowerCase();
+      this.isConfirmerMode.set(mode === 'confirmer');
+      this.isApproverMode.set(mode === 'approver');
 
-        const editId = params['edit'];
+      const editId = params['edit'];
+      console.log('FORM editId:', editId);
 
-        if (!editId) {
-          this.editingMode.set(false);
-          this.isEditDataLoaded.set(true);
-          this.savedRequestNo.set(null);
-          this.remarksHistory.set([]);
-          this.actionRemark.set('');
-          return;
-        }
+      if (!editId) {
+        this.editingMode.set(false);
+        this.isEditDataLoaded.set(true);
+        this.savedRequestNo.set(null);
+        this.remarksHistory.set([]);
+        this.actionRemark.set('');
+        return;
+      }
 
-        const requestNo = Number(editId);
+      const requestNo = Number(editId);
+      console.log('FORM parsed requestNo:', requestNo);
 
-        if (!requestNo || Number.isNaN(requestNo)) {
-          this.errorMsg.set('Invalid request id.');
-          this.editingMode.set(false);
-          this.isEditDataLoaded.set(true);
-          this.remarksHistory.set([]);
-          this.actionRemark.set('');
-          return;
-        }
+      if (!requestNo || Number.isNaN(requestNo)) {
+        this.errorMsg.set('Invalid request id.');
+        this.editingMode.set(false);
+        this.isEditDataLoaded.set(true);
+        this.remarksHistory.set([]);
+        this.actionRemark.set('');
+        return;
+      }
 
-        this.editingMode.set(true);
-        this.isEditDataLoaded.set(false);
-        this.savedRequestNo.set(requestNo);
-        this.loadRemarkHistory(requestNo);
-        this.loadRequest(requestNo);
-      });
-  }
+      this.editingMode.set(true);
+      this.isEditDataLoaded.set(false);
+      this.savedRequestNo.set(requestNo);
 
+      console.log('Calling loadRemarkHistory:', requestNo);
+      this.loadRemarkHistory(requestNo);
+      this.loadRequest(requestNo);
+    });
+}
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -503,28 +547,46 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     return Array.from(map.values());
   }
-  private getRemarkStorageKey(requestNo: number): string {
-    return `cvps-remark-history-${requestNo}`;
-  }
 
-  private loadRemarkHistory(requestNo: number): void {
-    try {
-      const raw = localStorage.getItem(this.getRemarkStorageKey(requestNo));
-      const parsed = raw ? JSON.parse(raw) : [];
-      this.remarksHistory.set(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      this.remarksHistory.set([]);
-    }
-  }
 
-  private saveRemarkHistory(requestNo: number): void {
-    try {
-      localStorage.setItem(
-        this.getRemarkStorageKey(requestNo),
-        JSON.stringify(this.remarksHistory())
-      );
-    } catch { }
-  }
+private loadRemarkHistory(requestNo: number): void {
+  console.log('Inside loadRemarkHistory:', requestNo);
+  this.cvps.getRequestHistory(requestNo)
+    .pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        console.error('Failed to load workflow history:', err);
+        this.remarksHistory.set([]);
+        return of([]);
+      })
+    )
+    .subscribe((rows: RequestHistoryDTO[]) => {
+      console.log('History API response:', rows);
+      const mapped: WorkflowRemarkEntry[] = (rows || []).map((row, index) => {
+        const action = String(row.actionTaken || '').trim().toUpperCase();
+
+        let stage: 'CONFIRMER' | 'APPROVER' = 'CONFIRMER';
+        if (action === 'APPROVED' || action === 'REJECTED') {
+          stage = 'APPROVER';
+        }
+
+        return {
+          id: String(row.historyId ?? index + 1),
+          stage,
+          action: row.actionTaken || '—',
+          remark: row.remarks || '—',
+          byName: row.empNo || 'SYSTEM',
+          byEmpCode: row.empNo || 'SYSTEM',
+          statusAfter: row.actionTaken || '',
+          createdAt: row.actionDate || ''
+        };
+      });
+      console.log('Mapped history:', mapped);
+      this.remarksHistory.set(mapped);
+    });
+}
+
+
 
   private requiresWorkflowRemark(targetStatus: string): boolean {
     const statusUpper = (targetStatus || '').trim().toUpperCase();
@@ -596,7 +658,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if (!entry) return;
 
     this.remarksHistory.update(list => [...list, entry]);
-    this.saveRemarkHistory(requestNo);
     this.actionRemark.set('');
   }
 

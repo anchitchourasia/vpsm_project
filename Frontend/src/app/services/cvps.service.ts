@@ -63,6 +63,13 @@ export interface WorkflowAction {
   empNo: string;
   remarks: string;
 }
+export interface RequestHistoryDTO {
+  historyId?: number;
+  empNo?: string | null;
+  actionTaken: string;
+  remarks?: string | null;
+  actionDate?: string | null;
+}
 
 export const CVPS_STATUS = {
   CREATED: 'CREATED',
@@ -171,6 +178,12 @@ export class CvpsService {
   getDocumentUrl(filename: string): string {
     return `${environment.cvpsBaseUrl}/api/documents/download/${encodeURIComponent(filename)}`;
   }
+  getRequestHistory(requestNo: number): Observable<RequestHistoryDTO[]> {
+    console.log('Service getRequestHistory called with:', requestNo);
+  return this.http.get<RequestHistoryDTO[]>(
+    `${environment.cvpsBaseUrl}/api/requests/history/${requestNo}`
+  );
+}
 
   downloadDocument(filename: string): Observable<Blob> {
     return this.http.get(this.getDocumentUrl(filename), {
