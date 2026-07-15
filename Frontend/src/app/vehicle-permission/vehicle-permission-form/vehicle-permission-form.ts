@@ -38,7 +38,7 @@ interface DocEntry {
 
 interface WorkflowRemarkEntry {
   id: string;
-  stage: 'CONFIRMER' | 'APPROVER';
+  stage: 'UPLOADER' | 'CONFIRMER' | 'APPROVER';
   action: string;
   remark: string;
   byName: string;
@@ -156,9 +156,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   readonly category = 'Vehicle Entry';
   readonly isConfirmerMode = signal(false);
   readonly isApproverMode = signal(false);
+  readonly isViewMode = signal(false);
 
   isReadOnlyMode(): boolean {
-    return this.isConfirmerMode() || this.isApproverMode();
+    return this.isConfirmerMode() || this.isApproverMode() || this.isViewMode();
   }
 
   status = signal('Draft');
@@ -200,6 +201,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   savedRequestNo = signal<number | null>(null);
   actionRemark = signal('');
   remarksHistory = signal<WorkflowRemarkEntry[]>([]);
+  showWorkflowHistory = signal(false);
 
 
   // ngOnInit(): void {
@@ -239,51 +241,56 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   //       this.loadRemarkHistory(requestNo);
   //       this.loadRequest(requestNo);
   //     });
-      
+
   // }
   ngOnInit(): void {
-  this.route.queryParams
-    .pipe(takeUntil(this.destroy$))
-    .subscribe(params => {
-      console.log('FORM query params:', params);
+    this.route.queryParams
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        console.log('FORM query params:', params);
 
-      const mode = String(params['mode'] || '').toLowerCase();
-      this.isConfirmerMode.set(mode === 'confirmer');
-      this.isApproverMode.set(mode === 'approver');
+        const mode = String(params['mode'] || '').toLowerCase();
+        const view = String(params['view'] || '').toLowerCase();
+        this.isViewMode.set(view === 'true' || mode === 'view');
+        this.isConfirmerMode.set(mode === 'confirmer');
+        this.isApproverMode.set(mode === 'approver');
 
-      const editId = params['edit'];
-      console.log('FORM editId:', editId);
+        const editId = params['edit'];
+        console.log('FORM editId:', editId);
 
-      if (!editId) {
-        this.editingMode.set(false);
-        this.isEditDataLoaded.set(true);
-        this.savedRequestNo.set(null);
-        this.remarksHistory.set([]);
-        this.actionRemark.set('');
-        return;
-      }
+        if (!editId) {
+          this.editingMode.set(false);
+          this.isEditDataLoaded.set(true);
+          this.savedRequestNo.set(null);
+          this.remarksHistory.set([]);
+          this.actionRemark.set('');
+          this.showWorkflowHistory.set(false);
+          return;
+        }
 
-      const requestNo = Number(editId);
-      console.log('FORM parsed requestNo:', requestNo);
+        const requestNo = Number(editId);
+        console.log('FORM parsed requestNo:', requestNo);
 
-      if (!requestNo || Number.isNaN(requestNo)) {
-        this.errorMsg.set('Invalid request id.');
-        this.editingMode.set(false);
-        this.isEditDataLoaded.set(true);
-        this.remarksHistory.set([]);
-        this.actionRemark.set('');
-        return;
-      }
+        if (!requestNo || Number.isNaN(requestNo)) {
+          this.errorMsg.set('Invalid request id.');
+          this.editingMode.set(false);
+          this.isEditDataLoaded.set(true);
+          this.remarksHistory.set([]);
+          this.actionRemark.set('');
+          this.showWorkflowHistory.set(false);
+          return;
+        }
 
-      this.editingMode.set(true);
-      this.isEditDataLoaded.set(false);
-      this.savedRequestNo.set(requestNo);
+        this.editingMode.set(true);
+        this.isEditDataLoaded.set(false);
+        this.savedRequestNo.set(requestNo);
+        this.showWorkflowHistory.set(false);
 
-      console.log('Calling loadRemarkHistory:', requestNo);
-      this.loadRemarkHistory(requestNo);
-      this.loadRequest(requestNo);
-    });
-}
+        console.log('Calling loadRemarkHistory:', requestNo);
+        this.loadRemarkHistory(requestNo);
+        this.loadRequest(requestNo);
+      });
+  }
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -298,6 +305,19 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   removeDoc(i: number): void {
     if (this.isReadOnlyMode()) return;
     this.docs.update(d => d.filter((_, idx) => idx !== i));
+  }
+  toggleWorkflowHistory(): void {
+    this.showWorkflowHistory.update(v => !v);
+  }
+  
+  closeView(): void {
+    const nextUrl = this.isApproverMode()
+      ? '/vehicle-permission/approver'
+      : this.isConfirmerMode()
+        ? '/vehicle-permission/confirmer'
+        : '/vehicle-permission/list';
+
+    this.router.navigate([nextUrl]);
   }
 
   availableDocTypes(currentDoc: DocEntry): string[] {
@@ -548,43 +568,68 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     return Array.from(map.values());
   }
 
+  private resolveWorkflowStage(row: RequestHistoryDTO): 'UPLOADER' | 'CONFIRMER' | 'APPROVER' {
+    const action = String(row.actionTaken || '').trim().toUpperCase();
 
-private loadRemarkHistory(requestNo: number): void {
-  console.log('Inside loadRemarkHistory:', requestNo);
-  this.cvps.getRequestHistory(requestNo)
-    .pipe(
-      takeUntil(this.destroy$),
-      catchError((err) => {
-        console.error('Failed to load workflow history:', err);
-        this.remarksHistory.set([]);
-        return of([]);
-      })
-    )
-    .subscribe((rows: RequestHistoryDTO[]) => {
-      console.log('History API response:', rows);
-      const mapped: WorkflowRemarkEntry[] = (rows || []).map((row, index) => {
-        const action = String(row.actionTaken || '').trim().toUpperCase();
+    const backendStage = String(
+      (row as any).stage ||
+      (row as any).workflowStage ||
+      (row as any).actorRole ||
+      (row as any).userType ||
+      ''
+    ).trim().toUpperCase();
 
-        let stage: 'CONFIRMER' | 'APPROVER' = 'CONFIRMER';
-        if (action === 'APPROVED' || action === 'REJECTED') {
-          stage = 'APPROVER';
-        }
+    if (backendStage.includes('APPROVER')) return 'APPROVER';
+    if (backendStage.includes('CONFIRMER')) return 'CONFIRMER';
+    if (backendStage.includes('UPLOADER') || backendStage.includes('CREATOR')) return 'UPLOADER';
 
-        return {
-          id: String(row.historyId ?? index + 1),
-          stage,
-          action: row.actionTaken || '—',
-          remark: row.remarks || '—',
-          byName: row.empNo || 'SYSTEM',
-          byEmpCode: row.empNo || 'SYSTEM',
-          statusAfter: row.actionTaken || '',
-          createdAt: row.actionDate || ''
-        };
+    if (['SAVED', 'DRAFT', 'CREATED', 'SUBMITTED'].includes(action)) return 'UPLOADER';
+    if (['CONFIRMED', 'MODIFY'].includes(action)) return 'CONFIRMER';
+    if (['APPROVED'].includes(action)) return 'APPROVER';
+
+    if (action === 'HOLD' || action === 'REJECTED') {
+      if (this.isApproverMode()) return 'APPROVER';
+      if (this.isConfirmerMode()) return 'CONFIRMER';
+    }
+
+    return 'UPLOADER';
+  }
+  private loadRemarkHistory(requestNo: number): void {
+    console.log('Inside loadRemarkHistory:', requestNo);
+    this.cvps.getRequestHistory(requestNo)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError((err) => {
+          console.error('Failed to load workflow history:', err);
+          this.remarksHistory.set([]);
+          return of([]);
+        })
+      )
+      .subscribe((rows: RequestHistoryDTO[]) => {
+        console.log('History API response:', rows);
+        const mapped: WorkflowRemarkEntry[] = (rows || []).map((row, index) => {
+          const stage = this.resolveWorkflowStage(row);
+
+          return {
+            id: String(row.historyId ?? index + 1),
+            stage,
+            action: row.actionTaken || '—',
+            remark: String(row.remarks ?? '').trim(),
+            byName: row.empNo || 'SYSTEM',
+            byEmpCode: row.empNo || 'SYSTEM',
+            statusAfter: row.actionTaken || '',
+            createdAt: row.actionDate || ''
+          };
+        });
+        mapped.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeA - timeB;
+        });
+        console.log('Mapped + Sorted history:', mapped);
+        this.remarksHistory.set(mapped);
       });
-      console.log('Mapped history:', mapped);
-      this.remarksHistory.set(mapped);
-    });
-}
+  }
 
 
 
@@ -640,13 +685,18 @@ private loadRemarkHistory(requestNo: number): void {
     else if (statusUpper === 'APPROVED') action = 'Approved';
     else if (statusUpper === 'MODIFY' || statusUpper === 'HOLD') action = 'Sent for Modification';
     else if (statusUpper === 'REJECTED') action = 'Rejected';
-
+    const stage: 'UPLOADER' | 'CONFIRMER' | 'APPROVER' =
+      this.isApproverMode()
+        ? 'APPROVER'
+        : this.isConfirmerMode()
+          ? 'CONFIRMER'
+          : 'UPLOADER';
     return {
       id: crypto.randomUUID(),
-      stage: isApprover ? 'APPROVER' : 'CONFIRMER',
+      stage,
       action,
       remark,
-      byName: this.auth.empName() || (isApprover ? 'Approver' : 'Confirmer'),
+      byName: this.auth.empName() || stage,
       byEmpCode: this.auth.empCode() || 'SYSTEM',
       statusAfter: statusUpper,
       createdAt: new Date().toISOString()
@@ -1439,6 +1489,7 @@ private loadRemarkHistory(requestNo: number): void {
     this.errorMsg.set('');
     this.actionRemark.set('');
     this.remarksHistory.set([]);
+    this.showWorkflowHistory.set(false);
   }
   getMinLicenseValidTo(validFrom: string): string {
     if (!validFrom) return '';

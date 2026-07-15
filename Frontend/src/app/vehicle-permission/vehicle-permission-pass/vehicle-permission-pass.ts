@@ -43,6 +43,7 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     readonly formNo = 'W-OHS-SECURITY-12';
     readonly companyName = 'HEG Limited, Mandideep';
 
+
     loading = signal(false);
     errorMsg = signal('');
     requestNo = signal<number | null>(null);
@@ -62,6 +63,7 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
             return {
                 ...employee,
+                _role: String(employee?.empJob || employee?.empType || employee?.role || '-').trim() || '-',
                 _aadhaarNo: String(aadhaarDoc?.documentNo || employee?.aadhaarNo || '').trim(),
                 _licenseNo: String(dlDoc?.documentNo || employee?.licenseNo || employee?.licenseNumber || '').trim(),
                 _licenseValidTill: String(dlDoc?.validTill || employee?.validTill || employee?.validTo || '').trim()
@@ -177,7 +179,14 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
     formatDate(value: string | null | undefined): string {
         if (!value) return '-';
-        return String(value).split('T')[0];
+
+        const raw = String(value).split('T')[0];
+        const parts = raw.split('-');
+
+        if (parts.length !== 3) return raw;
+
+        const [year, month, day] = parts;
+        return `${day}-${month}-${year}`;
     }
 
     formatDateForInput(value: string | null | undefined): string {
@@ -401,6 +410,15 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         const req: any = this.request();
         return String(req?.createdBy || '-').trim() || '-';
     }
+    private getWorkflowDate(stage: HistoryStage): string {
+        const match = this.getLatestHistoryByStage(stage);
+
+        if (!match?.createdAt) {
+            return '-';
+        }
+
+        return this.formatDate(match.createdAt);
+    }
 
     private async loadImageAsDataUrl(url: string): Promise<string | null> {
         try {
@@ -416,6 +434,45 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         } catch {
             return null;
         }
+    }
+    private getContractorDisplay(req: any): string {
+        const name = String(this.contractorName() || '').trim();
+        const code = String(req?.contractorId || '').trim();
+
+        if (name && code) return `${name} (${code})`;
+        return name || code || '-';
+    }
+
+    private getVehicleDetailsTitle(req: any): string {
+        const vehicleNo = String(req?.vehicleNo || '').trim() || '-';
+        const vehicleType = String(req?.vehicleType || '').trim() || '-';
+        return `Vehicle Details (${vehicleNo}, ${vehicleType})`;
+    }
+
+    private drawCompactField(
+        doc: jsPDF,
+        label: string,
+        value: string,
+        x: number,
+        y: number,
+        w: number,
+        h: number = 12.5
+    ): void {
+        const safeValue = value && String(value).trim() ? String(value).trim() : '-';
+        const valueLines = doc.splitTextToSize(safeValue, w - 5).slice(0, 2);
+
+        doc.setDrawColor(210, 210, 210);
+        doc.roundedRect(x, y, w, h, 2, 2);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.2);
+        doc.setTextColor(95, 95, 95);
+        doc.text(label, x + 2.5, y + 4);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.2);
+        doc.setTextColor(20, 20, 20);
+        doc.text(valueLines, x + 2.5, y + 8.1);
     }
 
     private drawFieldRow(
@@ -442,44 +499,73 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     }
 
     private drawSignatureBlock(
+    doc: jsPDF,
+    x: number,
+    y: number,
+    w: number,
+    topText: string,
+    bottomText: string,
+    dateText: string = '-'
+): void {
+    const safeBottom = String(bottomText || '-').trim() || '-';
+    const safeDate = String(dateText || '-').trim() || '-';
+    const safeTop = String(topText || '-').trim() || '-';
+
+    const bottomLines = doc.splitTextToSize(
+        safeBottom.length > 24 ? `${safeBottom.slice(0, 24)}...` : safeBottom,
+        w - 4
+    );
+    const topLines = doc.splitTextToSize(safeTop, w - 4);
+
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(x, y, x + w, y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.6);
+    doc.setTextColor(35, 35, 35);
+    doc.text(bottomLines, x + w / 2, y + 3.8, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.6);
+    doc.setTextColor(90, 90, 90);
+    doc.text(safeDate, x + w / 2, y + 7.6, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.4);
+    doc.setTextColor(105, 105, 105);
+    doc.text(topLines, x + w / 2, y + 11.0, { align: 'center' });
+}
+    private addSectionTitle(
         doc: jsPDF,
-        x: number,
+        title: string,
         y: number,
-        w: number,
-        topText: string,
-        bottomText: string
+        rightText: string = ''
     ): void {
-        const safeBottom = String(bottomText || '-').trim() || '-';
-        const bottomLines = doc.splitTextToSize(
-            safeBottom.length > 24 ? `${safeBottom.slice(0, 24)}...` : safeBottom,
-            w - 2
-        );
-        const topLines = doc.splitTextToSize(topText, w - 2);
-
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.3);
-        doc.line(x, y, x + w, y);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.2);
-        doc.setTextColor(35, 35, 35);
-        doc.text(bottomLines, x + w / 2, y + 4.5, { align: 'center' });
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6.2);
-        doc.setTextColor(90, 90, 90);
-        doc.text(topLines, x + w / 2, y + 11, { align: 'center' });
-    }
-
-    private addSectionTitle(doc: jsPDF, title: string, y: number): void {
         doc.setFillColor(245, 247, 250);
         doc.roundedRect(12, y, 186, 8, 2, 2, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(30, 30, 30);
-        doc.text(title, 15, y + 5.5);
-    }
 
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(30, 30, 30);
+        doc.text(title, 15, y + 5.3);
+
+        const safeRight = String(rightText || '').trim();
+        if (safeRight) {
+            const chipW = Math.max(30, Math.min(42, safeRight.length * 1.75));
+            const chipH = 5.6;
+            const chipX = 198 - chipW - 2;
+
+            doc.setDrawColor(180, 180, 180);
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(chipX, y + 1.2, chipW, chipH, 2, 2, 'FD');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.8);
+            doc.setTextColor(35, 35, 35);
+            doc.text(safeRight, chipX + chipW / 2, y + 4.9, { align: 'center' });
+        }
+    }
     async printPass(): Promise<void> {
         const req = this.request();
         if (!req) {
@@ -507,11 +593,11 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         pdf.roundedRect(10, 10, 190, 28, 3, 3);
 
         if (leftLogo) {
-            pdf.addImage(leftLogo, 'JPEG', 14, 13, 10, 10);
+            pdf.addImage(leftLogo, 'JPEG', 14, 13, 20, 16);
         }
 
         if (rightLogo) {
-            pdf.addImage(rightLogo, 'JPEG', 180, 13, 10, 10);
+            pdf.addImage(rightLogo, 'JPEG', 180, 13, 20, 16);
         }
 
         pdf.setFont('helvetica', 'bold');
@@ -523,45 +609,121 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         pdf.setFontSize(8.5);
         pdf.text('HEG LIMITED, MANDIDEEP', pageWidth / 2, 23, { align: 'center' });
 
-        pdf.setDrawColor(170, 170, 170);
-        pdf.roundedRect(160, 24.5, 32, 8, 2, 2);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(7.2);
-        pdf.setTextColor(35, 35, 35);
-        pdf.text(this.formNo, 176, 29.8, { align: 'center' });
+        // pdf.setDrawColor(170, 170, 170);
+        // pdf.roundedRect(160, 24.5, 32, 8, 2, 2);
+        // pdf.setFont('helvetica', 'bold');
+        // pdf.setFontSize(7.2);
+        // pdf.setTextColor(35, 35, 35);
+        // pdf.text(this.formNo, 176, 29.8, { align: 'center' });
 
         let y = 44;
 
-        this.addSectionTitle(pdf, 'General Information', y);
-        y += 12;
+        const contentLeft = 12;
+        const contentWidth = 186;
+        const colGap = 4;
+        const infoColW = (contentWidth - colGap * 2) / 3;
+        const infoRowH = 12.5;
+        const rowGap = 3;
 
-        const col1X = 12;
-        const col2X = 108;
-        const boxW = 90;
-        const boxH = 14;
+        const col1X = contentLeft;
+        const col2X = contentLeft + infoColW + colGap;
+        const col3X = contentLeft + (infoColW + colGap) * 2;
 
-        this.drawFieldRow(pdf, 'Contractor Code', req.contractorId || '-', col1X, y, boxW, boxH);
-        this.drawFieldRow(pdf, 'Contractor Name', this.contractorName() || '-', col2X, y, boxW, boxH);
-        y += 16;
+        this.addSectionTitle(pdf, 'General Information', y, this.formNo);
+        y += 10;
 
-        this.drawFieldRow(pdf, 'Request Date', this.formatDate((req as any).createdDate), col1X, y, boxW, boxH);
-        this.drawFieldRow(pdf, 'Nature of Job', (req as any).natureOfJob || '-', col2X, y, boxW, boxH);
-        y += 16;
+        this.drawCompactField(
+            pdf,
+            'Contractor Name (Code)',
+            this.getContractorDisplay(req),
+            col1X,
+            y,
+            infoColW,
+            infoRowH
+        );
+        this.drawCompactField(
+            pdf,
+            'Request Date',
+            this.formatDate((req as any).createdDate),
+            col2X,
+            y,
+            infoColW,
+            infoRowH
+        );
+        this.drawCompactField(
+            pdf,
+            'Nature of Job',
+            (req as any).natureOfJob || '-',
+            col3X,
+            y,
+            infoColW,
+            infoRowH
+        );
 
-        this.drawFieldRow(pdf, 'Permission From', this.formatDate((req as any).permissionFrom), col1X, y, boxW, boxH);
-        this.drawFieldRow(pdf, 'Permission To', this.formatDate((req as any).permissionTo), col2X, y, boxW, boxH);
-        y += 16;
+        y += infoRowH + rowGap;
 
-        this.drawFieldRow(pdf, 'Approved Date', '-', col1X, y, boxW, boxH);
-        this.drawFieldRow(pdf, 'Print Date', this.formatDate(new Date().toISOString()), col2X, y, boxW, boxH);
-        y += 20;
+        this.drawCompactField(
+            pdf,
+            'Permission From',
+            this.formatDate((req as any).permissionFrom),
+            col1X,
+            y,
+            infoColW,
+            infoRowH
+        );
+        this.drawCompactField(
+            pdf,
+            'Permission To',
+            this.formatDate((req as any).permissionTo),
+            col2X,
+            y,
+            infoColW,
+            infoRowH
+        );
+        // this.drawCompactField(
+        //     pdf,
+        //     'Print Date',
+        //     this.formatDate(new Date().toISOString()),
+        //     col3X,
+        //     y,
+        //     infoColW,
+        //     infoRowH
+        // );
+        this.drawCompactField(
+            pdf,
+            'Current Status',
+            this.status() || '-',
+            col3X,
+            y,
+            infoColW,
+            infoRowH
+        );
 
-        this.addSectionTitle(pdf, 'Vehicle Details', y);
-        y += 12;
+        y += infoRowH + rowGap;
 
-        this.drawFieldRow(pdf, 'Vehicle No.', (req as any).vehicleNo || '-', col1X, y, boxW, boxH);
-        this.drawFieldRow(pdf, 'Vehicle Type', (req as any).vehicleType || '-', col2X, y, boxW, boxH);
-        y += 20;
+        this.drawCompactField(
+            pdf,
+            'Approved Date',
+            '-',
+            col1X,
+            y,
+            infoColW,
+            infoRowH
+        );
+        // this.drawCompactField(
+        //     pdf,
+        //     'Current Status',
+        //     this.status() || '-',
+        //     col2X,
+        //     y,
+        //     infoColW,
+        //     infoRowH
+        // );
+
+        y += infoRowH + 6;
+
+        this.addSectionTitle(pdf, this.getVehicleDetailsTitle(req), y);
+        y += 10;
 
         autoTable(pdf, {
             startY: y,
@@ -575,7 +737,8 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                     remark.text
                 ];
             }),
-            margin: { left: 12, right: 12 },
+            margin: { left: 12, right: 12, bottom: 26 },
+            tableWidth: 186,
             theme: 'grid',
             styles: {
                 fontSize: 8,
@@ -595,9 +758,9 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             },
             columnStyles: {
                 0: { cellWidth: 52 },
-                1: { cellWidth: 30 },
-                2: { cellWidth: 28 },
-                3: { cellWidth: 64 }
+                1: { cellWidth: 36 },
+                2: { cellWidth: 32 },
+                3: { cellWidth: 66 }
             },
             didParseCell: (data) => {
                 if (data.section === 'body' && data.column.index === 3) {
@@ -612,15 +775,16 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
         y = (pdf as any).lastAutoTable.finalY + 8;
 
-        this.addSectionTitle(pdf, 'Employee Details', y);
+        this.addSectionTitle(pdf, 'Driver / Conductor Details', y);
         y += 12;
 
         autoTable(pdf, {
             startY: y,
-            head: [['Name', 'Contact No.', 'Aadhar No.', 'License No.', 'Valid Upto', 'Remark']],
+            head: [['Role', 'Name', 'Contact No.', 'Aadhar No.', 'License No.', 'License Valid Upto', 'Remark (License)']],
             body: (this.passEmployees() || []).map((driver: any) => {
                 const remark = this.getRemarkPdfStyle(driver._licenseValidTill);
                 return [
+                    driver._role || '-',
                     driver.name || '-',
                     driver.mobileNo || '-',
                     driver._aadhaarNo || '-',
@@ -648,15 +812,16 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                 fillColor: [252, 252, 252]
             },
             columnStyles: {
-                0: { cellWidth: 30 },
-                1: { cellWidth: 24 },
-                2: { cellWidth: 26 },
-                3: { cellWidth: 26 },
-                4: { cellWidth: 24 },
-                5: { cellWidth: 56 }
+                0: { cellWidth: 22 }, // Role
+                1: { cellWidth: 28 }, // Name
+                2: { cellWidth: 22 }, // Contact No.
+                3: { cellWidth: 24 }, // Aadhar No.
+                4: { cellWidth: 24 }, // License No.
+                5: { cellWidth: 22 }, // Valid Upto
+                6: { cellWidth: 44 }  // Remark
             },
             didParseCell: (data) => {
-                if (data.section === 'body' && data.column.index === 5) {
+                if (data.section === 'body' && data.column.index === 6) {
                     const rowDriver = this.passEmployees()[data.row.index];
                     const remark = this.getRemarkPdfStyle(rowDriver?._licenseValidTill);
                     data.cell.styles.fillColor = remark.fillColor;
@@ -666,55 +831,55 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             }
         });
 
-        let signY = ((pdf as any).lastAutoTable?.finalY ?? y) + 18;
-        if (signY > 262) {
-            pdf.addPage();
-            signY = 246;
-        }
 
         const sectionLeft = 10;
         const blockWidth = 44;
         const gap = 3;
-
-        this.drawSignatureBlock(
-            pdf,
-            sectionLeft,
-            signY,
-            blockWidth,
-            'contractor name',
-            this.contractorName() || '-'
-        );
-
-        this.drawSignatureBlock(
-            pdf,
-            sectionLeft + (blockWidth + gap) * 1,
-            signY,
-            blockWidth,
-            'uploader',
-            this.getUploaderName()
-        );
-
-        this.drawSignatureBlock(
-            pdf,
-            sectionLeft + (blockWidth + gap) * 2,
-            signY,
-            blockWidth,
-            'confirmer',
-            this.getWorkflowPerson('CONFIRMER')
-        );
-
-        this.drawSignatureBlock(
-            pdf,
-            sectionLeft + (blockWidth + gap) * 3,
-            signY,
-            blockWidth,
-            'approver',
-            this.getWorkflowPerson('APPROVER')
-        );
-
+        const footerSignY = 274;
         const totalPages = pdf.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             pdf.setPage(i);
+
+            this.drawSignatureBlock(
+                pdf,
+                sectionLeft,
+                footerSignY,
+                blockWidth,
+                'contractor name',
+                this.contractorName() || '-',
+                this.getWorkflowDate('UPLOADER')
+            );
+
+            this.drawSignatureBlock(
+                pdf,
+                sectionLeft + (blockWidth + gap) * 1,
+                footerSignY,
+                blockWidth,
+                'uploader',
+                this.getUploaderName(),
+                this.getWorkflowDate('UPLOADER')
+            );
+
+            this.drawSignatureBlock(
+                pdf,
+                sectionLeft + (blockWidth + gap) * 2,
+                footerSignY,
+                blockWidth,
+                'confirmer',
+                this.getWorkflowPerson('CONFIRMER'),
+                this.getWorkflowDate('CONFIRMER')
+            );
+
+            this.drawSignatureBlock(
+                pdf,
+                sectionLeft + (blockWidth + gap) * 3,
+                footerSignY,
+                blockWidth,
+                'approver',
+                this.getWorkflowPerson('APPROVER'),
+                this.getWorkflowDate('APPROVER')
+            );
+
             pdf.setDrawColor(220, 220, 220);
             pdf.line(12, 287, 198, 287);
 

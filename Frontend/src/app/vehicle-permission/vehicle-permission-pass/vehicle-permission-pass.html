@@ -129,13 +129,14 @@
     </div>
 
     <div class="vp-section">
-        <div class="vp-section-title">Employee Details</div>
+        <div class="vp-section-title">Driver / Conductor Details</div>
 
         @if (passEmployees().length > 0) {
         <div class="vp-table-wrap">
             <table class="vp-table">
                 <thead>
                     <tr>
+                        <th>Role</th>
                         <th>Name</th>
                         <th>Contact No.</th>
                         <th>Aadhar No.</th>
@@ -147,7 +148,8 @@
                 <tbody>
                     @for (driver of passEmployees(); track driver.empNo || driver.name || $index) {
                     <tr>
-                        <td>{{ driver.name || '-' }}</td>
+                        <td>{{ driver._role || '-' }}</td>
+                        <td>{{ driver.name || '-' .toUpperCase}}</td>
                         <td>{{ driver.mobileNo || '-' }}</td>
                         <td>{{ driver._aadhaarNo || '-' }}</td>
                         <td>{{ driver._licenseNo || '-' }}</td>

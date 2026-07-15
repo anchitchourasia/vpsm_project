@@ -22,67 +22,38 @@
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Contractor Code</label>
-        <input
-          class="vp-input"
-          type="text"
-          placeholder="Enter contractor code"
-          [ngModel]="contractorCode().trim()"
-          (ngModelChange)="onContractorCodeChange($event)"
-          [readonly]="isReadOnlyMode()" />
+        <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode().trim()"
+          (ngModelChange)="onContractorCodeChange($event)" [readonly]="isReadOnlyMode()" />
       </div>
 
       <div class="vp-field">
         <label class="vp-label">Contractor Name</label>
-        <input
-          class="vp-input"
-          type="text"
-          placeholder="Contractor name will auto-populate"
-          [value]="contractorName()"
-          readonly
-          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+        <input class="vp-input" type="text" placeholder="Contractor name will auto-populate" [value]="contractorName()"
+          readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
 
       <div class="vp-field">
         <label class="vp-label">Request Date</label>
-        <input
-          class="vp-input"
-          type="date"
-          [value]="reqDate()"
-          readonly
+        <input class="vp-input" type="date" [value]="reqDate()" readonly
           style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
 
       <div class="vp-field">
         <label class="vp-label">Nature of Job</label>
-        <input
-          class="vp-input"
-          type="text"
-          placeholder="Describe the work / job"
-          [value]="natureOfJob()"
-          (input)="natureOfJob.set($any($event.target).value)"
-          [readonly]="isReadOnlyMode()" />
+        <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
+          (input)="natureOfJob.set($any($event.target).value)" [readonly]="isReadOnlyMode()" />
       </div>
 
       <div class="vp-field">
         <label class="vp-label">Permission Date From</label>
-        <input
-          class="vp-input"
-          type="date"
-          [min]="reqDate()"
-          [value]="permissionDateFrom()"
-          (input)="permissionDateFrom.set($any($event.target).value)"
-          [readonly]="isReadOnlyMode()" />
+        <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateFrom()"
+          (input)="permissionDateFrom.set($any($event.target).value)" [readonly]="isReadOnlyMode()" />
       </div>
 
       <div class="vp-field">
         <label class="vp-label">Permission Date To</label>
-        <input
-          class="vp-input"
-          type="date"
-          [min]="permissionDateFrom() || reqDate()"
-          [value]="permissionDateTo()"
-          (input)="permissionDateTo.set($any($event.target).value)"
-          [readonly]="isReadOnlyMode()" />
+        <input class="vp-input" type="date" [min]="permissionDateFrom() || reqDate()" [value]="permissionDateTo()"
+          (input)="permissionDateTo.set($any($event.target).value)" [readonly]="isReadOnlyMode()" />
       </div>
     </div>
   </div>
@@ -92,21 +63,13 @@
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Vehicle Number</label>
-        <input
-          class="vp-input"
-          type="text"
-          placeholder="e.g. MP04 AB 1234"
-          [value]="vehicleNumber()"
-          (input)="vehicleNumber.set($any($event.target).value.toUpperCase())"
-          [readonly]="isReadOnlyMode()" />
+        <input class="vp-input" type="text" placeholder="e.g. MP04 AB 1234" [value]="vehicleNumber()"
+          (input)="vehicleNumber.set($any($event.target).value.toUpperCase())" [readonly]="isReadOnlyMode()" />
       </div>
 
       <div class="vp-field">
         <label class="vp-label">Vehicle Type</label>
-        <select
-          class="vp-select"
-          [value]="vehicleType()"
-          (change)="vehicleType.set($any($event.target).value)"
+        <select class="vp-select" [value]="vehicleType()" (change)="vehicleType.set($any($event.target).value)"
           [disabled]="isReadOnlyMode()">
           <option value="">Select Vehicle</option>
 
@@ -126,10 +89,7 @@
       <span style="margin-left: 15px; font-weight: 600; color: #6c757d; font-size: 0.9rem;">
         {{ docs().length }} / {{ ALLOWED_DOC_TYPES.length }} added
       </span>
-      <button
-        class="vp-btn-add"
-        style="margin-left: auto;"
-        (click)="addDoc()"
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDoc()"
         [disabled]="isReadOnlyMode() || docs().length >= ALLOWED_DOC_TYPES.length">
         <i class="bi bi-plus-circle-fill"></i> Add Document
       </button>
@@ -151,10 +111,7 @@
           @for (doc of docs(); track doc.id; let i = $index) {
           <tr>
             <td>
-              <select
-                class="vp-cell-select"
-                [(ngModel)]="doc.docType"
-                (ngModelChange)="onDocTypeChange(doc)"
+              <select class="vp-cell-select" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)"
                 [disabled]="isReadOnlyMode()">
                 <option value="">— Type —</option>
                 @for (t of availableDocTypes(doc); track t) {
@@ -164,22 +121,12 @@
             </td>
 
             <td>
-              <input
-                type="text"
-                class="vp-cell-input"
-                placeholder="Doc number"
-                [(ngModel)]="doc.docNo"
-                (input)="onDocNoInput($event, doc)"
-                maxlength="60"
-                [readonly]="isReadOnlyMode()" />
+              <input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo"
+                (input)="onDocNoInput($event, doc)" maxlength="60" [readonly]="isReadOnlyMode()" />
             </td>
 
             <td>
-              <input
-                type="date"
-                class="vp-cell-input"
-                [(ngModel)]="doc.validUpto"
-                [min]="reqDate()"
+              <input type="date" class="vp-cell-input" [(ngModel)]="doc.validUpto" [min]="reqDate()"
                 [readonly]="isReadOnlyMode()" />
             </td>
 
@@ -210,11 +157,7 @@
                   <i class="bi bi-arrow-repeat"></i>
                   {{ doc.existingFile ? 'Replace' : 'Upload' }}
 
-                  <input
-                    type="file"
-                    hidden
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    [id]="'doc-file-' + doc.id"
+                  <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" [id]="'doc-file-' + doc.id"
                     (change)="onDocFileSelected($event, doc)" />
                 </label>
                 }
@@ -243,8 +186,10 @@
     </div>
 
     @for (driver of drivers(); track driver.id; let i = $index) {
-    <div style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
+    <div
+      style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
+      <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
         <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Person {{ i + 1 }}</h4>
         @if (drivers().length > 1) {
         <button class="vp-btn-del" (click)="removeDriver(i)" [disabled]="isReadOnlyMode()">
@@ -266,17 +211,22 @@
 
         <div class="vp-field">
           <label class="vp-label">Driver Name <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name" [readonly]="isReadOnlyMode()" />
+          <input class="vp-input" type="text" placeholder="Full name" [(ngModel)]="driver.name"
+            [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">Contact Number</label>
-          <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo" [readonly]="isReadOnlyMode()" />
+          <input class="vp-input" type="tel" placeholder="10-digit mobile" [(ngModel)]="driver.mobileNo"
+            [readonly]="isReadOnlyMode()" maxlength="10" minlength="10" pattern="[0-9]{10}" inputmode="numeric"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)" />
         </div>
 
         <div class="vp-field">
           <label class="vp-label">Aadhaar Number <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo" [readonly]="isReadOnlyMode()" />
+          <input class="vp-input" type="text" placeholder="12-digit Aadhaar" [(ngModel)]="driver.aadhaarNo"
+            [readonly]="isReadOnlyMode()" maxlength="12" minlength="12" pattern="[0-9]{12}" inputmode="numeric"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,12)" />
         </div>
 
         <div class="vp-field vp-aadhaar-field">
@@ -306,18 +256,15 @@
             <label class="vp-btn-ghost vp-file-btn" [for]="'aadhaar-file-' + driver.id">
               <i class="bi bi-arrow-repeat"></i>
               Replace
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                style="display:none;"
-                [id]="'aadhaar-file-' + driver.id"
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
                 (change)="onDriverAadhaarFile($event, driver)" />
             </label>
             }
             }
 
             @else if (driver.aadhaarExistingFile) {
-            <a [href]="getDocumentUrl(driver.aadhaarExistingFile)" target="_blank" class="btn btn-sm btn-outline-success vp-file-btn">
+            <a [href]="getDocumentUrl(driver.aadhaarExistingFile)" target="_blank"
+              class="btn btn-sm btn-outline-success vp-file-btn">
               <i class="bi bi-download"></i>
               Existing File
             </a>
@@ -326,11 +273,7 @@
             <label class="vp-btn-ghost vp-file-btn" [for]="'aadhaar-file-' + driver.id">
               <i class="bi bi-arrow-repeat"></i>
               Replace
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                style="display:none;"
-                [id]="'aadhaar-file-' + driver.id"
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
                 (change)="onDriverAadhaarFile($event, driver)" />
             </label>
             }
@@ -341,11 +284,7 @@
             <label class="vp-btn-secondary vp-file-btn" [for]="'aadhaar-file-' + driver.id">
               <i class="bi bi-cloud-upload"></i>
               Upload
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                style="display:none;"
-                [id]="'aadhaar-file-' + driver.id"
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" [id]="'aadhaar-file-' + driver.id"
                 (change)="onDriverAadhaarFile($event, driver)" />
             </label>
             }
@@ -354,18 +293,23 @@
         </div>
 
         <div class="vp-field">
-          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
-          <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo" [readonly]="isReadOnlyMode()" />
+          <label class="vp-label">License Number @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="text" placeholder="DL number" [(ngModel)]="driver.licenseNo"
+            [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
-          <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
-          <input class="vp-input" type="date"  [(ngModel)]="driver.validFrom" [readonly]="isReadOnlyMode()" />
+          <label class="vp-label">License Valid From @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="date" [(ngModel)]="driver.validFrom" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
-          <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span> }</label>
-          <input class="vp-input" type="date" [min]="getMinLicenseValidTo(driver.validFrom)" [(ngModel)]="driver.validTo" [readonly]="isReadOnlyMode()" />
+          <label class="vp-label">License Valid To @if (driver.role === 'Driver') { <span style="color:red;">*</span>
+            }</label>
+          <input class="vp-input" type="date" [min]="getMinLicenseValidTo(driver.validFrom)"
+            [(ngModel)]="driver.validTo" [readonly]="isReadOnlyMode()" />
         </div>
 
         <div class="vp-field">
@@ -463,133 +407,123 @@
     </div>
     }
   </div>
-  
-  
+
+
   <div class="vp-section">
-    <div class="vp-section-title">Workflow Remarks</div>
+    <div class="vp-workflow-head">
+      <span class="vp-section-title">Workflow Remarks</span>
 
-    @if (remarksHistory().length > 0) {
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        @for (item of remarksHistory(); track item.id) {
-          <div style="border: 1px solid #e9ecef; border-radius: 10px; padding: 14px; background: #fafbfc;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-              <div style="font-weight:700; color:#1f2937;">
-                {{ item.stage }} - {{ item.action }}
-              </div>
-              <div style="font-size:12px; color:#6b7280;">
-                {{ item.byName }} ({{ item.byEmpCode }}) · {{ formatRemarkDate(item.createdAt) }}
-              </div>
-            </div>
+      <button type="button" class="vp-btn-add" (click)="toggleWorkflowHistory()">
+        <i class="bi bi-clock-history"></i>
+        {{ showWorkflowHistory() ? 'Hide History' : 'History' }}
+      </button>
 
-            <div style="margin-top:8px; white-space:pre-wrap; color:#374151;">
-              {{ item.remark }}
-            </div>
-          </div>
-        }
-      </div>
-    } @else {
-      <div style="color:#6c757d; font-size: 0.95rem;">
-        No workflow remarks available yet.
-      </div>
-    }
+    </div>
 
     @if (isConfirmerMode() || isApproverMode()) {
-      <div class="vp-field" style="margin-top: 18px;">
-        <label class="vp-label">
-          {{ isApproverMode() ? 'Approver Remark' : 'Confirmer Remark' }}
-          <span style="color:red">*</span>
-        </label>
+    <div class="vp-field vp-workflow-entry-box">
+      <label class="vp-label">
+        {{ isApproverMode() ? 'Approver Remark' : 'Confirmer Remark' }}
+        <span style="color:red">*</span>
+      </label>
 
-        <textarea
-          class="vp-input"
-          rows="4"
-          placeholder="Write your review remark here..."
-          [ngModel]="actionRemark()"
-          (ngModelChange)="actionRemark.set($event)"
-          style="min-height: 110px; resize: vertical;"></textarea>
+      <textarea class="vp-input vp-remark-textarea" rows="4" placeholder="Write your review remark here..."
+        [ngModel]="actionRemark()" (ngModelChange)="actionRemark.set($event)">
+      </textarea>
+    </div>
+    }
+
+    @if (showWorkflowHistory()) {
+    @if (remarksHistory().length > 0) {
+    <div class="vp-workflow-history-wrap">
+      @for (item of remarksHistory(); track item.id) {
+      <div class="vp-workflow-card">
+        <div class="vp-workflow-card-head">
+          <div class="vp-workflow-stage">
+            {{ item.stage }} - {{ item.action }}
+          </div>
+
+          <div class="vp-workflow-meta">
+            {{ item.byName }} ({{ item.byEmpCode }}) · {{ formatRemarkDate(item.createdAt) }}
+          </div>
+        </div>
+
+        <div class="vp-workflow-remark">
+          {{ item.remark }}
+        </div>
       </div>
+      }
+    </div>
+    } @else {
+    <div class="vp-workflow-empty">
+      No workflow remarks available yet.
+    </div>
+    }
     }
   </div>
 
-  
+
 
   <div class="vp-actions">
   @if (isApproverMode()) {
-  <button
-    type="button"
-    class="vp-btn-secondary"
-    (click)="sendForModificationByApprover()"
-    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-    Send for Modification
-  </button>
+    <button type="button" class="vp-btn-secondary" (click)="sendForModificationByApprover()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
 
-  <button
-    type="button"
-    class="vp-btn-primary"
-    (click)="approveByApprover()"
-    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-    Approve
-  </button>
+    <button type="button" class="vp-btn-primary" (click)="approveByApprover()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Approve
+    </button>
 
-  <button
-    type="button"
-    class="vp-btn-del"
-    (click)="rejectByApprover()"
-    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-    Reject
-  </button>
+    <button type="button" class="vp-btn-del" (click)="rejectByApprover()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
+
   } @else if (isConfirmerMode()) {
-  <button
-    type="button"
-    class="vp-btn-secondary"
-    (click)="sendForModificationByConfirmer()"
-    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-    Send for Modification
-  </button>
+    <button type="button" class="vp-btn-secondary" (click)="sendForModificationByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
 
-  <button
-    type="button"
-    class="vp-btn-primary"
-    (click)="confirmByConfirmer()"
-    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-    Confirm
-  </button>
+    <button type="button" class="vp-btn-primary" (click)="confirmByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Confirm
+    </button>
 
-  <button
-    type="button"
-    class="vp-btn-del"
-    (click)="rejectByConfirmer()"
-    [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
-    Reject
-  </button>
+    <button type="button" class="vp-btn-del" (click)="rejectByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
+
+  } @else if (isViewMode()) {
+    <button type="button" class="vp-btn-secondary" (click)="closeView()">
+      Close
+    </button>
+
   } @else {
-  <button
-    type="button"
-    class="vp-btn-secondary"
-    (click)="saveDraft()"
-    [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-    @if (isSaving()) {
-      <i class="bi bi-hourglass-split"></i>
-      Saving...
-    } @else {
-      <i class="bi bi-floppy-fill"></i>
-      Save Draft
-    }
-  </button>
+    <button type="button" class="vp-btn-secondary" (click)="saveDraft()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSaving()) {
+        <i class="bi bi-hourglass-split"></i>
+        Saving...
+      } @else {
+        <i class="bi bi-floppy-fill"></i>
+        Save Draft
+      }
+    </button>
 
-  <button
-    type="button"
-    class="vp-btn-primary"
-    (click)="submitForm()"
-    [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
-    @if (isSubmitting()) {
-      <i class="bi bi-hourglass-split"></i>
-      {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
-    } @else {
-      <i class="bi bi-send-fill"></i>
-      Submit Request
-    }
-  </button>
+    <button type="button" class="vp-btn-primary" (click)="submitForm()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSubmitting()) {
+        <i class="bi bi-hourglass-split"></i>
+        {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
+      } @else {
+        <i class="bi bi-send-fill"></i>
+        Submit Request
+      }
+    </button>
   }
 </div>
 </div>

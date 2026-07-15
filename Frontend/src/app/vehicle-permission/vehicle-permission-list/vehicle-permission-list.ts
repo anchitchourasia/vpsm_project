@@ -176,6 +176,13 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             { queryParams: { edit: row.requestNo } }
         );
     }
+
+    viewRequest(row: VehiclePermissionRow): void {
+        this.router.navigate(
+            ['/vehicle-permission/form'],
+            { queryParams: { edit: row.requestNo, view: true } }
+        );
+    }
     downloadPass(row: VehiclePermissionRow): void {
         if (!row?.requestNo) {
             return;

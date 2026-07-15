@@ -497,3 +497,39 @@
 .vpl-btn-pass-sm:hover {
   background: #15803d;
 }
+.vpl-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vpl-btn-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.vpl-btn-view:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.vpl-btn-view:active {
+  transform: translateY(1px);
+}
+
+.vpl-btn-view i {
+  font-size: 0.82rem;
+}

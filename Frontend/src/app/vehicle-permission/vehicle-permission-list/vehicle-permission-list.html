@@ -35,8 +35,8 @@
             }
         </select>
 
-        <button class="vpl-btn-clear" type="button" (click)="clearFilters()">
-            <i class="bi bi-x-circle"></i>
+        <button class="vpl-btn-add" type="button" (click)="clearFilters()">
+            
             Clear
         </button>
     </div>
@@ -103,12 +103,16 @@
                         <td>{{ row.createdDate || '-' }}</td>
                         <td>
                             <div class="vpl-action-group">
+                                <button type="button" class="vpl-btn-view" (click)="viewRequest(row)">
+                                    View
+                                </button>
                                 @if (canEdit(row.reqStatus)) {
                                 <button class="vpl-btn-view" type="button" (click)="editRequest(row)">
                                     <i class="bi bi-pencil-square"></i>
                                     Edit
                                 </button>
                                 }
+                                
 
                                 @if (row.reqStatus === 'APPROVED') {
                                 <button class="vpl-btn-pass-sm" type="button" (click)="downloadPass(row)">
