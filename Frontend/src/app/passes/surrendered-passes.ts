@@ -207,7 +207,7 @@ export class SurrenderedPasses implements OnInit, OnDestroy {
     }
 
     this.http
-      .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+      .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS, observe: 'response' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),

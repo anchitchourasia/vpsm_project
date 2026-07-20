@@ -174,7 +174,7 @@ export class PassDetails implements OnInit, OnDestroy {
     this.isSyncing.set(true);
     this.syncError.set('');
 
-    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -269,7 +269,7 @@ export class PassDetails implements OnInit, OnDestroy {
     // const myCode = this.auth.empCode().trim().toLowerCase();
     
 
-    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -363,7 +363,7 @@ export class PassDetails implements OnInit, OnDestroy {
     onSuccess: (docs: LiveDocRecord[]) => void,
     onError  : (msg: string) => void
   ): void {
-    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -567,7 +567,7 @@ export class PassDetails implements OnInit, OnDestroy {
     if (vehicleId) {
       doFetch(vehicleId);
     } else {
-      this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
         .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(() => of([])))
         .subscribe(dbPasses => {
           const matched = (dbPasses || []).find((d: any) => d.passId === Number(p.passId));

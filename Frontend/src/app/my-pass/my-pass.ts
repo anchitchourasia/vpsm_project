@@ -93,7 +93,7 @@ export class MyPass implements OnInit, OnDestroy {
     this.hasError.set(false);
     const myCode = this.auth.empCode().trim().toLowerCase();
 
-    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS, observe: 'response' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -125,7 +125,7 @@ export class MyPass implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         switchMap(() =>
-          this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+          this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS, observe: 'response' })
             .pipe(catchError(() => of(null)))
         )
       )
@@ -198,7 +198,7 @@ export class MyPass implements OnInit, OnDestroy {
     const vehicleId: number | null = p.vehicle?.vehicleId ?? null;
     if (!vehicleId) {
       this.isLoadingViewDocs.set(true);
-      this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
         .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(() => of([])))
         .subscribe(list => {
           const vid = (list || []).find((x: any) => x.passId === p.passId)?.vehicle?.vehicleId ?? null;

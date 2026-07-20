@@ -8,16 +8,10 @@ import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
 import { PassStateService } from '../services/pass-state.service';
 
-const USE_DUMMY_DATA = false;
+
 const HTTP_TIMEOUT_MS = 12000;
 
-const DUMMY_PASSES: any[] = [
-  { passId: 1, issueDate: '2024-01-10', validityDate: '2025-01-10', employeeNo: 'EMP001', employeeCompanyNo: 'HEG001', dept: 'Mechanical', contractorCode: null, gateNo: 'GATE_01', parkingToBeUsed: 'P-Block', vehicle: { vehicleId: 1, vehicleNo: 'MP04HEG1111', vehicleType: 'Car', vehicleClass: 'Four_Wheeler' }, typeOfVehicle: 'Car', mobileNo: '9876543210', status: 'Active', empType: 'Company_Employee', isActive: 'Y', enterBy: 'ADMIN', enterDate: '2024-01-10', remarks: '' },
-  { passId: 2, issueDate: '2024-02-01', validityDate: '2025-02-01', employeeNo: 'EMP002', employeeCompanyNo: 'HEG002', dept: 'Electrical', contractorCode: null, gateNo: 'GATE_02', parkingToBeUsed: 'A-Block', vehicle: { vehicleId: 2, vehicleNo: 'MP04HEG2222', vehicleType: 'Bike', vehicleClass: 'Two_Wheeler' }, typeOfVehicle: 'Bike', mobileNo: '9876500001', status: 'Active', empType: 'Company_Employee', isActive: 'Y', enterBy: 'ADMIN', enterDate: '2024-02-01', remarks: '' },
-  { passId: 3, issueDate: '2023-06-01', validityDate: '2024-06-01', employeeNo: null, employeeCompanyNo: null, dept: 'Construction', contractorCode: 'CON001', gateNo: 'GATE_03', parkingToBeUsed: 'Heavy Yard', vehicle: { vehicleId: 3, vehicleNo: 'MP04HEG3333', vehicleType: 'Dumper Truck', vehicleClass: 'Heavy_Machinery' }, typeOfVehicle: 'Dumper Truck', mobileNo: '9988776655', status: 'Expired', empType: 'Contractor', isActive: 'N', enterBy: 'ADMIN', enterDate: '2023-06-01', remarks: 'Load permit required' },
-  { passId: 4, issueDate: '2024-03-15', validityDate: '2025-03-15', employeeNo: 'EMP004', employeeCompanyNo: 'HEG004', dept: 'Civil', contractorCode: null, gateNo: 'GATE_01', parkingToBeUsed: 'B-Block', vehicle: { vehicleId: 5, vehicleNo: 'MP04HEG5555', vehicleType: 'SUV', vehicleClass: 'Four_Wheeler' }, typeOfVehicle: 'SUV', mobileNo: '9800001234', status: 'Active', empType: 'Company_Employee', isActive: 'Y', enterBy: 'ADMIN', enterDate: '2024-03-15', remarks: '' },
-  { passId: 5, issueDate: '2024-04-01', validityDate: '2024-12-31', employeeNo: null, employeeCompanyNo: null, dept: null, contractorCode: 'CON002', gateNo: 'GATE_02', parkingToBeUsed: 'Heavy Yard', vehicle: { vehicleId: 8, vehicleNo: 'MP04HEG8888', vehicleType: 'Truck', vehicleClass: 'Heavy_Machinery' }, typeOfVehicle: 'Truck', mobileNo: '9700001111', status: 'Surrendered', empType: 'Contractor', isActive: 'N', enterBy: 'ADMIN', enterDate: '2024-04-01', remarks: 'Surrendered early' },
-];
+
 
 interface PassForm {
   issueDate: string;
@@ -95,7 +89,7 @@ export class Passes implements OnInit, OnDestroy {
   private allPassesRaw = signal<any[]>([]);
   isLoading = signal(true);
   hasError = signal(false);
-  isDummy = USE_DUMMY_DATA;
+
 
   searchText = signal('');
   filterStatus = signal('ALL');
@@ -170,13 +164,10 @@ export class Passes implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.hasError.set(false);
 
-    if (USE_DUMMY_DATA) {
-      setTimeout(() => { this.allPassesRaw.set([...DUMMY_PASSES]); this.isLoading.set(false); }, 400);
-      return;
-    }
+
 
     this.http
-      .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+      .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS, observe: 'response' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -238,13 +229,13 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   private startPolling(): void {
-    if (USE_DUMMY_DATA) return;
+
     interval(30000)
       .pipe(
         takeUntil(this.destroy$),
         switchMap(() =>
           this.http
-            .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS, observe: 'response' })
+            .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS, observe: 'response' })
             .pipe(catchError(() => of(null)))
         )
       )
@@ -306,43 +297,7 @@ export class Passes implements OnInit, OnDestroy {
 
     this.isLookingUp.set(true);
 
-    if (USE_DUMMY_DATA) {
-      setTimeout(() => {
-        const found = DUMMY_PASSES.find(p => String(p.vehicle?.vehicleId) === id);
-        if (found) {
-          this.form.typeOfVehicle = found.vehicle.vehicleType;
-          this.vehicleLookupSuccess.set('✅ ' + found.vehicle.vehicleType);
-        } else {
-          this.vehicleLookupError.set('Vehicle ID ' + id + ' not found.');
-        }
-        this.isLookingUp.set(false);
-      }, 300);
-      return;
-    }
 
-    this.http
-      .get<any[]>(API_CONFIG.VEHICLES, { headers: this.HEADERS })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          console.error('❌ Vehicle lookup error:', err?.status);
-          this.vehicleLookupError.set('Could not reach Vehicles Master. Check backend.');
-          this.isLookingUp.set(false);
-          return of(null);
-        })
-      )
-      .subscribe((list: any[] | null) => {
-        if (!list) return;
-        const found = list.find(v => String(v.vehicleId) === id);
-        if (found) {
-          this.form.typeOfVehicle = found.vehicleType || '';
-          this.vehicleLookupSuccess.set('✅ Vehicle found: ' + found.vehicleType);
-        } else {
-          this.vehicleLookupError.set('Vehicle ID ' + id + ' not found in Vehicles Master.');
-        }
-        this.isLookingUp.set(false);
-      });
   }
 
   onSearch(v: string) { this.searchText.set(v); this.currentPage.set(1); }
@@ -464,7 +419,7 @@ export class Passes implements OnInit, OnDestroy {
     const vehicleId: number | null = p.vehicle?.vehicleId ?? null;
     if (!vehicleId) {
       this.isLoadingViewDocs.set(true);
-      this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
         .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(() => of([])))
         .subscribe(list => {
           const vid = (list || []).find((x: any) => x.passId === p.passId)?.vehicle?.vehicleId ?? null;
@@ -588,28 +543,9 @@ export class Passes implements OnInit, OnDestroy {
 
     console.log('📤 Pass payload →', JSON.stringify(payload, null, 2));
 
-    if (USE_DUMMY_DATA) {
-      setTimeout(() => {
-        if (this.isEditMode()) {
-          const idx = this.allPassesRaw().findIndex(p => p.passId === this.editId());
-          if (idx !== -1) {
-            const upd = [...this.allPassesRaw()];
-            upd[idx] = { ...upd[idx], ...payload };
-            this.allPassesRaw.set(upd);
-          }
-          this.saveSuccess.set('✅ Pass updated successfully.');
-        } else {
-          this.allPassesRaw.set([{ passId: Date.now(), ...payload }, ...this.allPassesRaw()]);
-          this.saveSuccess.set('✅ Pass issued successfully.');
-        }
-        this.isSaving.set(false);
-        setTimeout(() => this.closeModal(), 1200);
-      }, 500);
-      return;
-    }
 
     const req$ = this.isEditMode()
-      ? this.http.put(`${API_CONFIG.PASSES_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
+      ? this.http.put(`${API_CONFIG.PASS_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
       : this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS });
 
     req$
@@ -743,7 +679,7 @@ export class Passes implements OnInit, OnDestroy {
 
     // ── Step 1: Fetch fresh pass row from DB ──────────────────────────────
     this.http
-      .get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+      .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -952,7 +888,7 @@ export class Passes implements OnInit, OnDestroy {
     this.viewHistError.set('');
     this.viewPassHistory.set([]);
 
-    this.http.get<HistoryRecord[]>(API_CONFIG.HISTORY_LIST, { headers: this.HEADERS })
+    this.http.get<HistoryRecord[]>(API_CONFIG.PASS_HISTORY, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),

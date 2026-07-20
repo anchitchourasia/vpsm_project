@@ -150,7 +150,7 @@ export class Approval implements OnInit, OnDestroy {
   loadPasses(): void {
     this.isLoading.set(true);
     this.hasError.set(false);
-    this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<PassRecord[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
@@ -311,7 +311,7 @@ export class Approval implements OnInit, OnDestroy {
       remarks: `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
       vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -447,7 +447,7 @@ export class Approval implements OnInit, OnDestroy {
       remarks: `Approved by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
       vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Approval failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -479,7 +479,7 @@ export class Approval implements OnInit, OnDestroy {
       remarks: `Returned by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
       vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Return failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -511,7 +511,7 @@ export class Approval implements OnInit, OnDestroy {
       remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
       vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));

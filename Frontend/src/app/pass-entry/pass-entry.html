@@ -117,43 +117,7 @@
     </div>
 
     <!-- ROW 2 : Vehicle Class | Brand / Model -->
-    <div class="pe-grid pe-grid-2">
-      <div class="pe-field">
-        <label>Vehicle Class <span class="req">*</span></label>
-        <div class="pe-class-display" [attr.data-class]="vehicleClass">
-          @if (!vehicleClass) {
-          <span class="pe-class-placeholder">
-            <i class="bi bi-magic"></i> Auto-filled from Vehicle Type
-          </span>
-          } @else if (vehicleClass === 'Two_Wheeler') {
-          <span class="pe-class-badge pe-class-two">
-            <i class="bi bi-bicycle"></i> Two Wheeler
-          </span>
-          } @else if (vehicleClass === 'Four_Wheeler') {
-          <span class="pe-class-badge pe-class-four">
-            <i class="bi bi-car-front-fill"></i> Four Wheeler
-          </span>
-          } @else if (vehicleClass === 'Heavy_Machinery') {
-          <span class="pe-class-badge pe-class-heavy">
-            <i class="bi bi-truck-flatbed"></i> Heavy Machinery
-          </span>
-          }
-          @if (vehicleClass) {
-          <button class="pe-class-clear" title="Clear / change class" (click)="vehicleClass = ''">
-            <i class="bi bi-x"></i>
-          </button>
-          }
-        </div>
-        <span class="pe-field-hint">Or clear and select manually below</span>
-        @if (!vehicleClass) {
-        <select class="pe-input pe-input-mt" [(ngModel)]="vehicleClass">
-          <option value="">— Select Manually —</option>
-          <option value="Two_Wheeler">Two Wheeler</option>
-          <option value="Four_Wheeler">Four Wheeler</option>
-          <option value="Heavy_Machinery">Heavy Machinery</option>
-        </select>
-        }
-      </div>
+    <div class="pe-grid pe-grid-2">      
 
       <div class="pe-field">
         <label>Brand / Model</label>
@@ -180,10 +144,9 @@
       <!-- Employee Type — user selects FIRST, then EC No is unlocked -->
       <div class="pe-field">
         <label>Employee Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="ecNo=''; empName.set(''); empDept.set(''); empAadhar.set('');
-                      empDeptCode.set(''); empFetchError.set(''); empType_display.set('')">
+        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="onEmpTypeDetailChange($event)">
           <option value="">— Select Employee Type —</option>
-          <option value="PERMANENT">PERMANENT</option>
+          <option value="TACC">TACC</option>
           <option value="HEG">HEG</option>
           <option value="CONTRACT">CONTRACT</option>
         </select>
@@ -352,26 +315,8 @@
       <i class="bi bi-card-checklist"></i>
       <span>Pass Details</span>
     </div>
+      
 
-    <!-- ROW 1 : Issue Date | Validity Date -->
-    <div class="pe-grid pe-grid-2">
-
-      <div class="pe-field">
-        <label>Issue Date</label>
-        <input type="text" class="pe-input pe-readonly" [value]="formatDateDDMMYYYY(todayDate)" readonly />
-        <span class="pe-field-hint">Auto set to today</span>
-      </div>
-
-      <div class="pe-field">
-        <label>Validity Date <span class="req">*</span></label>
-        <div class="pe-date-wrapper">
-          <input type="text" class="pe-input pe-date-display"
-            [value]="validityDate ? formatDateDDMMYYYY(validityDate) : ''" placeholder="DD/MM/YYYY" readonly
-            (click)="openDatePicker(realDatePicker)" />
-          <input type="date" class="pe-date-hidden" #realDatePicker [(ngModel)]="validityDate" [min]="todayDate" />
-          <i class="bi bi-calendar3 pe-date-icon" (click)="openDatePicker(realDatePicker)"></i>
-        </div>
-      </div>
 
     </div>
 
@@ -405,7 +350,7 @@
 
     </div>
 
-  </div>
+
 
   <!-- ══════════════════════════════════════
          REQUIRED DOCUMENTS

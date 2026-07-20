@@ -2,8 +2,7 @@
 
   <!-- PAGE HEADER -->
   <div class="page-top">
-    <div class="page-title-row">
-      <span class="dummy-mode-pill" *ngIf="isDummy">● DUMMY DATA</span>
+    <div class="page-title-row">      
       <i class="bi bi-card-checklist page-icon"></i>
       <h2 class="page-heading">Pass Registry</h2>
       <span class="record-pill">{{ filteredPasses().length }} Records</span>
@@ -79,43 +78,92 @@
               <th>ACTIONS</th>
             </tr>
           </thead>
+          
+
           <tbody>
-            <tr *ngFor="let p of pagedPasses(); let i = index">
-              <td>{{ (currentPage()-1)*pageSize() + i + 1 }}</td>
+<tr *ngFor="let p of pagedPasses(); let i = index">
 
-              <!-- ✅ CHANGE 1 — formatted Pass ID instead of raw number -->
-              <td class="td-passid"><strong>{{ formatPassId(p.passId) }}</strong></td>
+  <!-- S.NO -->
+  <td>
+    {{ (currentPage()-1)*pageSize() + i + 1 }}
+  </td>
 
-              <td>
-                <strong>{{ p.empType === 'Contractor'
-                  ? (p.contractorCode || '—')
-                  : (p.employeeNo || p.employeeCompanyNo || '—') }}</strong>
-                <br>
-                <!-- <small style="color:#888; font-size:0.72rem;">
-                  {{ p.empType === 'Contractor' ? 'Contractor' : 'Company Employee' }}
-                </small> -->
-              </td>
-              <td>
-                <span [class]="getEmpTypeBadgeClass(p.empType, p.empTypeDetail)">
-                  {{ p.empType === 'Contractor'
-                  ? 'Contractor'
-                  : p.empType === 'Company_Employee'
-                  ? 'Company Employee'
-                  : (p.empType || 'Company Employee') }}
-                </span>
-              </td>
-              <td>{{ p.dept || '—' }}</td>
-              <td><strong>{{ p.vehicle?.vehicleNo || '—' }}</strong></td>
-              <td>{{ p.typeOfVehicle || p.vehicle?.vehicleType || p.vehicle?.vehicleClass || '—' }}</td>
-              <td>{{ p.gateNo || '—' }}</td>
-              <td>{{ formatDate(p.issueDate) }}</td>
-              <td>{{ formatDate(p.validityDate) }}</td>
-              <td>
-                <span [class]="getStatusClass(p.status || p.passStatus)">
-                  {{ p.status || p.passStatus || '—' }}
-                </span>
-              </td>
-              <td class="actions-cell">
+  <!-- REQUEST ID -->
+  <td class="td-passid">
+    <strong>{{ p.id }}</strong>
+  </td>
+
+
+  <!-- EMP / CONTRACTOR -->
+  <td>
+    <strong>
+      {{
+        p.empType === 'CONTRACT'
+        ? (p.contractorCode || '—')
+        : (p.employeeNo || '—')
+      }}
+    </strong>
+  </td>
+
+
+  <!-- EMP TYPE -->
+  <td>
+    <span [class]="getEmpTypeBadgeClass(p.empType)">
+      {{
+        p.empType === 'CONTRACT'
+        ? 'Contractor'
+        : 'Company Employee'
+      }}
+    </span>
+  </td>
+
+
+  <!-- DEPT / AREA -->
+  <td>
+    {{ p.parkingToBeUsed || '—' }}
+  </td>
+
+
+  <!-- VEHICLE NO -->
+  <td>
+    <strong>
+      {{ p.vehicleNo || '—' }}
+    </strong>
+  </td>
+
+
+  <!-- TYPE OF VEHICLE -->
+  <td>
+    {{ p.vehicleType || '—' }}
+  </td>
+
+
+  <!-- GATE -->
+  <td>
+    {{ p.gateNo || '—' }}
+  </td>
+
+
+  <!-- ISSUE DATE -->
+  <td>
+    {{ formatDate(p.issueDate) }}
+  </td>
+
+
+  <!-- VALID TILL -->
+  <td>
+    {{ formatDate(p.validityDate) }}
+  </td>
+
+
+  <!-- STATUS -->
+  <td>
+    <span class="status-active">
+      Active
+    </span>
+  </td>
+
+<td class="actions-cell">
 
                 <!-- View button — always visible for all roles -->
                 <button class="btn-view" (click)="openViewModal(p)" title="View">
@@ -142,11 +190,19 @@
                 </button>
 
               </td>
-            </tr>
-            <tr *ngIf="pagedPasses().length === 0">
-              <td colspan="12" class="no-data">No passes found.</td>
-            </tr>
-          </tbody>
+
+</tr>
+
+
+<tr *ngIf="pagedPasses().length === 0">
+  <td colspan="12" class="no-data">
+    No passes found.
+  </td>
+</tr>
+
+</tbody>
+
+
         </table>
       </div>
 

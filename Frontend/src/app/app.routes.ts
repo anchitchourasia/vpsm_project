@@ -13,17 +13,12 @@ export const routes: Routes = [
   // MY PASS — protected
   // { path: 'my-pass', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
 
-  // VEHICLES MASTER — protected
-  { path: 'vehicles/all', canActivate: [authGuard], loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
-  { path: 'vehicles/active', canActivate: [authGuard], loadComponent: () => import('./vehicles/vehicles').then(m => m.Vehicles) },
-  { path: 'vehicles/blacklisted', canActivate: [authGuard], loadComponent: () => import('./vehicles/blacklisted').then(m => m.Blacklisted) },
+  
 
   // PASS REGISTRY — protected
   { path: 'passes/all', canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
   { path: 'passes/active', canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
-  { path: 'passes/expiring', canActivate: [authGuard], loadComponent: () => import('./passes/expiring-passes').then(m => m.ExpiringPasses) },
-  { path: 'passes/expired', canActivate: [authGuard], loadComponent: () => import('./passes/expired-passes').then(m => m.ExpiredPasses) },
-  { path: 'passes/surrendered', canActivate: [authGuard], loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
+    { path: 'passes/surrendered', canActivate: [authGuard], loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
 
   // COMPLIANCE DOCUMENTS — protected
   { path: 'docs/all', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'ALL' } },

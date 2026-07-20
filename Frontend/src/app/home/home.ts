@@ -154,7 +154,7 @@ export class Home implements OnInit, OnDestroy {
   private fetchPasses(): void {
     this.isLoading.set(true);
     this.hasError.set(false);
-    this.http.get<any[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),

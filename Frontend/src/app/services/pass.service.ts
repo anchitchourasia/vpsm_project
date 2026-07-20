@@ -18,19 +18,19 @@ export class PassService {
   private http = inject(HttpClient);
 
   getAllPasses(): Observable<Pass[]> {
-    return this.http.get<Pass[]>(API_CONFIG.PASSES);
+    return this.http.get<Pass[]>(API_CONFIG.PASS_LIST);
   }
 
   getPassById(id: number): Observable<Pass> {
-    return this.http.get<Pass>(`${API_CONFIG.PASSES}/${id}`);
+    return this.http.get<Pass>(`${API_CONFIG.PASS_LIST}/${id}`);
   }
 
   // Passes are NEVER deleted — only status updated
   updatePassStatus(id: number, status: 'Surrendered' | 'Expired'): Observable<Pass> {
-    return this.http.patch<Pass>(`${API_CONFIG.PASSES}/${id}/status`, { passStatus: status });
+    return this.http.patch<Pass>(`${API_CONFIG.PASS_LIST}/${id}/status`, { passStatus: status });
   }
 
   createPass(pass: Partial<Pass>): Observable<Pass> {
-    return this.http.post<Pass>(API_CONFIG.PASSES, pass);
+    return this.http.post<Pass>(API_CONFIG.PASS_LIST, pass);
   }
 }

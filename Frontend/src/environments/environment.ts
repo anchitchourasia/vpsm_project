@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
-  apiBaseUrl : 'http://192.168.8.28:8090/vehiclePassManagementSystem-0.0.1-SNAPSHOT',
+  apiBaseUrl : 'http://localhost:8080/vpms',
   apiKey     : 'VPMS_SECRET_KEY_2026',
-  cvpsBaseUrl: 'http://localhost:8087'
-  // cvpsBaseUrl: 'http://192.168.8.28:8087'
+  cvpsBaseUrl: 'http://localhost:8080/cvps'
+  
 };

@@ -10,35 +10,47 @@ import { PassStateService } from '../../services/pass-state.service';
 const TIMEOUT_MS = 15000;
 
 interface PassRecord {
-  passId: number;
+
+  id: number;
+
   employeeNo: string;
-  employeeCompanyNo: string;
-  employeeName: string;
-  empName?: string;   // ← ADD THIS
-  name?: string;   // ← ADD THIS 
-  dept: string;
-  contractorCode: string;
-  contractorName?: string;   // ✅ ADD THIS
-  aadhaarNo?: string;   // ✅ ADD THIS
-  aadharNo?: string;   // ✅ ADD THIS
+  employeeCompanyNo?: string;
+
+  employeeName?: string;
+  empName?: string;
+  name?: string;
+
+  dept?: string;
+
+  contractorCode?: string;
+  contractorName?: string;
+
+  aadhaarNo?: string;
+  aadharNo?: string;
+
   gateNo: string;
   parkingToBeUsed: string;
-  typeOfVehicle: string;
-  mobileNo: string;
-  status: string;
-  remarks: string;
-  enterBy: string;
-  enterDate: string;
+
+  vehicleNo: string;
+  vehicleType: string;
+  brandModel?: string;
+
+  mobileNo?: string;
+
+  reqStatus: string;
+
+  remarks?: string;
+
+  enterBy?: string;
+  enterDate?: string;
+
   empType: string;
-  issueDate: string;
-  validityDate: string;
-  vehicle: {
-    vehicleId: number;
-    vehicleNo: string;
-    vehicleType: string;
-    vehicleClass: string;
-    brandModel?: string;
-  } | null;
+
+  issueDate?: string;
+  validityDate?: string;
+
+
+  documents: DocumentRecord[];
 }
 
 
@@ -51,6 +63,7 @@ interface DocumentRecord {
   fileName?: string;
   vehicle?: { vehicleId: number };
 }
+
 interface HistoryRecord {
   id?: number;
   passNo: string;
@@ -116,6 +129,8 @@ export class Confirmer implements OnInit, OnDestroy {
   passDocuments = signal<DocumentRecord[]>([]);
   isLoadingDocs = signal(false);
   docLoadError = signal('');
+  
+  
   // ── Employee Pass History ─────────────────────────────────────────────────
   empPassHistory = signal<HistoryRecord[]>([]);
   isLoadingHistory = signal(false);
@@ -123,18 +138,25 @@ export class Confirmer implements OnInit, OnDestroy {
   showHistory = signal(false);
 
   pendingList = computed(() => {
+
     const q = this.searchText().toLowerCase().trim();
+
     const list = this.allPasses().filter(p =>
-      (p.status || '').toLowerCase() === 'submitted'
+      (p.reqStatus || '').toLowerCase() === 'submitted'
     );
+
+
     if (!q) return list;
+
+
     return list.filter(p =>
-      String(p.passId).includes(q) ||
+      String(p.id).includes(q) ||
       (p.employeeNo || '').toLowerCase().includes(q) ||
-      (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
-      (p.dept || '').toLowerCase().includes(q) ||
+      (p.vehicleNo || '').toLowerCase().includes(q) ||
+      (p.gateNo || '').toLowerCase().includes(q) ||
       (p.empType || '').toLowerCase().includes(q)
     );
+
   });
 
   pagedList = computed(() => {
@@ -157,7 +179,7 @@ export class Confirmer implements OnInit, OnDestroy {
   loadPasses(): void {
     this.isLoading.set(true);
     this.hasError.set(false);
-    this.http.get<PassRecord[]>(API_CONFIG.PASSES, { headers: this.HEADERS })
+    this.http.get<PassRecord[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
@@ -189,14 +211,14 @@ export class Confirmer implements OnInit, OnDestroy {
     this.showHistory.set(false);
     this.enrichPassWithEmployeeData(p);
 
-    if (p.vehicle?.vehicleId) {
-      this.loadDocuments(p.vehicle.vehicleId);
+    if (p.documents?.length) {
+      this.passDocuments.set(p.documents);
     } else {
-      this.docLoadError.set('No vehicle linked — cannot load documents.');
+      this.docLoadError.set('No documents found.');
     }
     this.empPassHistory.set([]);
     this.historyLoadError.set('');
-    this.loadEmpPassHistory(p.passId);
+
   }
 
   closeDetails(): void {
@@ -222,20 +244,7 @@ export class Confirmer implements OnInit, OnDestroy {
     this.actionError.set('');
     this.actionSuccess.set('');
   }
-  // ─────────────────────────────────────────────────────────────────
-  // enrichPassWithEmployeeData — fetches live employee/contractor
-  // details and stores them in selectedPassExtra signal.
-  //
-  // 📍 WHEN  → Called inside openDetails() every time a pass is opened
-  // 📍 WHERE → confirmer.ts → private method, called from openDetails()
-  // 📍 HOW   →
-  //   1. Calls GET /api/reports/employee-department (same API as pass-entry)
-  //   2. Matches by employeeNo (Company_Employee) OR contractorNo (Contractor)
-  //   3. Picks: deptCode, contractorName, aadhaarNo, empName
-  //   4. Stores result in selectedPassExtra signal
-  //   5. HTML reads from selectedPassExtra — never from raw pass object for these fields
-  //   6. Falls back to pass object values if API has no match
-  // ─────────────────────────────────────────────────────────────────
+
   private enrichPassWithEmployeeData(pass: PassRecord): void {
     this.isLoadingExtra.set(true);
     this.selectedPassExtra.set(null);
@@ -365,12 +374,15 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status: 'Confirmed',
-      enterBy: this.confirmerName(),
-      remarks: `Confirmed by ${this.confirmerName()}: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+      status: 'CONFIRMED',
+      remark: `Confirmed by ${this.confirmerName()}: ${this.actionRemark().trim()}`,
+      enterBy: this.confirmerName()
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+
+    console.log("CONFIRM PAYLOAD", updatePayload);
+
+
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Confirmation failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -380,9 +392,9 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, this.confirmerCode(), 'CONFIRMED',
+        this.logHistory(pass.id, this.confirmerCode(), 'CONFIRMED',
           `Confirmed by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`✅ Pass #${pass.passId} confirmed and sent to Approver.`);
+        this.actionSuccess.set(`✅ Pass #${pass.id} confirmed and sent to Approver.`);
         this.isActing.set(false);
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);
@@ -398,12 +410,12 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status: 'Rejected',
+      status: 'REJECTED',
       enterBy: this.confirmerName(),
       remarks: `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -413,9 +425,9 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, this.confirmerCode(), 'REJECTED',
+        this.logHistory(pass.id, this.confirmerCode(), 'REJECTED',
           `Rejected by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`❌ Pass #${pass.passId} rejected and returned to requester.`);
+        this.actionSuccess.set(`❌ Pass #${pass.id} rejected and returned to requester.`);
         this.isActing.set(false);
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);
@@ -431,12 +443,12 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status: 'Needs_Modification',
+      status: 'NEEDS_MODIFICATION',
       enterBy: this.confirmerName(),
       remarks: `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+
     };
-    this.http.put(`${API_CONFIG.PASSES_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -447,22 +459,22 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, this.confirmerCode(), 'SENT_FOR_MODIFICATION',
+        this.logHistory(pass.id, this.confirmerCode(), 'SENT_FOR_MODIFICATION',
           `Modification requested by Confirmer [${this.confirmerName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`🔄 Pass #${pass.passId} sent back to requester for modification.`);
+        this.actionSuccess.set(`🔄 Pass #${pass.id} sent back to requester for modification.`);
         this.isActing.set(false);
         this.activeAction.set(null);
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);
       });
   }
-  // ✅ FIXED — calls /api/history/list and filters by passId
-  private loadEmpPassHistory(passId: number): void {
+  // ✅ FIXED — calls /api/history/list and filters by id
+  private loadEmpPassHistory(id: number): void {
     this.isLoadingHistory.set(true);
     this.historyLoadError.set('');
     this.empPassHistory.set([]);
 
-    this.http.get<HistoryRecord[]>(API_CONFIG.HISTORY_LIST, { headers: this.HEADERS })
+    this.http.get<HistoryRecord[]>(API_CONFIG.PASS_HISTORY, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
@@ -475,7 +487,7 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(data => {
         const history = (Array.isArray(data) ? data : [])
-          .filter(h => String(h.passNo) === String(passId))
+          .filter(h => String(h.passNo) === String(id))
           .sort((a: any, b: any) =>
             new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
           ); // newest first
@@ -486,9 +498,9 @@ export class Confirmer implements OnInit, OnDestroy {
         this.isLoadingHistory.set(false);
       });
   }
-  private logHistory(passId: number, empCode: string, action: string, remark: string): void {
+  private logHistory(id: number, empCode: string, action: string, remark: string): void {
     const payload = {
-      passNo: String(passId), empCode: empCode || 'SYSTEM',
+      passNo: String(id), empCode: empCode || 'SYSTEM',
       action, remark: remark.substring(0, 200), dateOfEntry: new Date()
     };
     this.http.post(API_CONFIG.HISTORY_LOG, payload, { headers: this.HEADERS })
