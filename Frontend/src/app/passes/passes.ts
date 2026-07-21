@@ -415,7 +415,7 @@ export class Passes implements OnInit, OnDestroy {
   }
 
 
-
+  
 
   viewDocumentPdf(doc: DocRecord): void {
     if (!doc?.documentId || !doc?.fileName) {
@@ -614,78 +614,6 @@ export class Passes implements OnInit, OnDestroy {
     a.click();
     URL.revokeObjectURL(url);
   }
-  private buildPassEntryRecord(
-    fresh: any,
-    p: any,
-    empMatch: any,
-    lookupCode: string,
-    isContractor: boolean,
-    mappedDocs: any[]
-  ): any {
-    const rawEmpTypeDetail = (fresh.empTypeDetail || '').toString().trim().toUpperCase();
-    let resolvedEmpTypeDetail = '';
-
-    if (!isContractor) {
-      if (rawEmpTypeDetail === 'PERMANENT' || rawEmpTypeDetail === 'HEG' || rawEmpTypeDetail === 'CONTRACT') {
-        resolvedEmpTypeDetail = rawEmpTypeDetail;
-      } else {
-        const apiEmpType = (empMatch?.empType || '').toString().trim().toUpperCase();
-        if (apiEmpType === 'PERMANENT' || apiEmpType === 'HEG' || apiEmpType === 'CONTRACT') {
-          resolvedEmpTypeDetail = apiEmpType;
-        } else {
-          resolvedEmpTypeDetail = 'HEG';
-        }
-      }
-    }
-
-    return {
-      passId: String(fresh.passId),
-      empType: isContractor ? 'Contractor' : 'Company_Employee',
-      vehicleNo: fresh.vehicle?.vehicleNo || '',
-      vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
-      vehicleClass: fresh.vehicle?.vehicleClass || '',
-      brandModel: fresh.vehicle?.brandModel || '',
-      vehicleId: fresh.vehicle?.vehicleId ?? null,
-
-      ecNo: isContractor ? '' : lookupCode,
-      contractorFirm: isContractor ? lookupCode : (fresh.contractorCode || ''),
-
-      empName: empMatch?.name
-        || empMatch?.employeeName
-        || fresh.employeeName
-        || fresh.empName
-        || '',
-
-      empDept: (empMatch?.deptName || fresh.dept || '').toUpperCase(),
-
-      issueDate: fresh.issueDate || '',
-      validityDate: fresh.validityDate || '',
-      gateNo: fresh.gateNo || '',
-      parkingArea: fresh.parkingToBeUsed || '',
-      remark: fresh.remarks || '',
-      docs: mappedDocs,
-      status: 'Saved' as const,
-      createdAt: fresh.enterDate
-        || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-
-      empTypeDetail: resolvedEmpTypeDetail,
-
-      empAadhar: empMatch?.aadhaarNo
-        || empMatch?.aadharNo
-        || fresh.aadhaarNo
-        || '',
-
-      empDeptCode: empMatch?.deptCode || fresh.deptCode || '',
-      empContractorCode: empMatch?.contractorCode || fresh.contractorCode || '',
-      empContractorName: isContractor
-        ? (empMatch?.name || fresh.contractorName || lookupCode)
-        : (empMatch?.name || ''),
-
-      contractorName: isContractor
-        ? (empMatch?.name || fresh.contractorName || lookupCode)
-        : '',
-    };
-  }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  openEditInPassEntry — Edit button in Pass Registry
@@ -711,6 +639,7 @@ export class Passes implements OnInit, OnDestroy {
 
     this.isRedirectingToEdit.set(true);
 
+    // ── Step 1: Fetch fresh pass row from DB ──────────────────────────────
     this.http
       .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
@@ -721,24 +650,26 @@ export class Passes implements OnInit, OnDestroy {
       .subscribe((allPasses: any[] | null) => {
         const fresh = allPasses?.find((x: any) => x.passId === passId) ?? p;
         const vehicleId = fresh.vehicle?.vehicleId ?? null;
-        const isContractor =
-          (fresh.empType || '').toLowerCase() === 'contractor' ||
-          !!(fresh.contractorCode && fresh.contractorCode.trim());
-
+        const isContractor = (fresh.empType || '').toLowerCase() === 'contractor'
+          || !!(fresh.contractorCode && fresh.contractorCode.trim());
         const lookupCode = isContractor
           ? (fresh.contractorCode || '').trim()
           : (fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
 
+        // ── Step 2: Fetch employee details from Employee Report API ─────────
+        // This is the ✅ KEY FIX — the passes/list API never returns
+        // employee name, deptCode, aadhaarNo. We must fetch from employee API.
         this.http
           .get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers: this.HEADERS })
           .pipe(
             timeout(HTTP_TIMEOUT_MS),
             takeUntil(this.destroy$),
-            catchError(() => of([]))
+            catchError(() => of([]))   // if employee API fails, still navigate with empty name
           )
           .subscribe((empRows: any[]) => {
-            let empMatch: any = null;
 
+            // Match employee row by EC No or Contractor Code
+            let empMatch: any = null;
             if (lookupCode && empRows && empRows.length > 0) {
               if (isContractor) {
                 empMatch = empRows.find(r =>
@@ -752,91 +683,7 @@ export class Passes implements OnInit, OnDestroy {
               }
             }
 
-            const fetchDocsAndNavigate = (rawDocs: any[]) => {
-              const mappedDocs = (rawDocs || []).map((d: any) => ({
-                documentId: d.documentId ?? d.id ?? null,
-                docType: (d.documentType || '').toUpperCase().trim(),
-                docNo: d.documentNo || d.docNo || '',
-                validUpto: d.expiryDate || d.validUpto || '',
-                existingFile: d.fileName || null,
-              }));
-
-              const record = this.buildPassEntryRecord(
-                fresh,
-                p,
-                empMatch,
-                lookupCode,
-                isContractor,
-                mappedDocs
-              );
-
-              this.passState.setResumeDraft(record as any, 'edit');
-              this.isRedirectingToEdit.set(false);
-              this.router.navigate(['/pass-entry']);
-            };
-
-            if (vehicleId) {
-              this.http
-                .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
-                .pipe(
-                  timeout(HTTP_TIMEOUT_MS),
-                  takeUntil(this.destroy$),
-                  catchError(() => of([]))
-                )
-                .subscribe((docs: any[]) => fetchDocsAndNavigate(docs || []));
-            } else {
-              fetchDocsAndNavigate([]);
-            }
-          });
-      });
-  }
-  openViewInPassEntry(p: any): void {
-    const passId = p?.passId;
-    if (!passId) return;
-
-    this.isRedirectingToEdit.set(true);
-
-    this.http
-      .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(() => of(null))
-      )
-      .subscribe((allPasses: any[] | null) => {
-        const fresh = allPasses?.find((x: any) => x.passId === passId) ?? p;
-        const vehicleId = fresh.vehicle?.vehicleId ?? null;
-        const isContractor =
-          (fresh.empType || '').toLowerCase() === 'contractor' ||
-          !!(fresh.contractorCode && fresh.contractorCode.trim());
-
-        const lookupCode = isContractor
-          ? (fresh.contractorCode || '').trim()
-          : (fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
-
-        this.http
-          .get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers: this.HEADERS })
-          .pipe(
-            timeout(HTTP_TIMEOUT_MS),
-            takeUntil(this.destroy$),
-            catchError(() => of([]))
-          )
-          .subscribe((empRows: any[]) => {
-            let empMatch: any = null;
-
-            if (lookupCode && empRows && empRows.length > 0) {
-              if (isContractor) {
-                empMatch = empRows.find(r =>
-                  r.contractorNo &&
-                  String(r.contractorNo).trim().toUpperCase() === lookupCode.toUpperCase()
-                );
-              } else {
-                empMatch = empRows.find(r =>
-                  String(r.id || '').trim() === lookupCode
-                );
-              }
-            }
-
+            // ── Step 3: Fetch compliance docs for this vehicle ──────────────
             const fetchDocsAndNavigate = (rawDocs: any[]) => {
               const mappedDocs = (rawDocs || []).map((d: any) => ({
                 documentId: d.documentId ?? d.id ?? null,
@@ -846,22 +693,90 @@ export class Passes implements OnInit, OnDestroy {
                 fileName: d.fileName || null,
               }));
 
-              const record = this.buildPassEntryRecord(
-                fresh,
-                p,
-                empMatch,
-                lookupCode,
-                isContractor,
-                mappedDocs
-              );
+              // ── Resolve empTypeDetail ────────────────────────────────────
+              // Priority: DB value on pass → employee API value → default 'HEG'
+              // Default 'HEG' ensures EC No field is always UNLOCKED on Edit
+              const rawEmpTypeDetail = (fresh.empTypeDetail || '').toString().trim().toUpperCase();
+              let resolvedEmpTypeDetail = '';
+              if (!isContractor) {
+                if (rawEmpTypeDetail === 'PERMANENT' || rawEmpTypeDetail === 'HEG' || rawEmpTypeDetail === 'CONTRACT') {
+                  resolvedEmpTypeDetail = rawEmpTypeDetail;
+                } else {
+                  // Check employee API empType field as fallback
+                  const apiEmpType = (empMatch?.empType || '').toString().trim().toUpperCase();
+                  if (apiEmpType === 'PERMANENT' || apiEmpType === 'HEG' || apiEmpType === 'CONTRACT') {
+                    resolvedEmpTypeDetail = apiEmpType;
+                  } else {
+                    resolvedEmpTypeDetail = 'HEG'; // default — unlocks EC No field
+                  }
+                }
+              }
 
-              console.log('VIEW record sent to pass-entry =', record);
-              this.passState.setResumeDraft(record as any, 'view');
+              const record = {
+                passId: String(fresh.passId),
+                empType: isContractor ? 'Contractor' : 'Company_Employee',
+                vehicleNo: fresh.vehicle?.vehicleNo || '',
+                vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
+                vehicleClass: fresh.vehicle?.vehicleClass || '',
+                brandModel: fresh.vehicle?.brandModel || '',
+                vehicleId: fresh.vehicle?.vehicleId ?? null,   // ✅ needed so ngOnInit can restore savedVehicleId
+
+                // ✅ ecNo: for Company_Employee = employeeNo; for Contractor = contractorCode
+                ecNo: isContractor ? '' : lookupCode,
+                contractorFirm: isContractor ? lookupCode : (fresh.contractorCode || ''),
+
+                // ✅ FIX: empName now sourced from Employee Report API match
+                // Falls back to any name stored on the pass itself as last resort
+                empName: empMatch?.name
+                  || empMatch?.employeeName
+                  || fresh.employeeName
+                  || fresh.empName
+                  || '',
+
+                // ✅ FIX: empDept from Employee Report API (deptName field)
+                // Falls back to dept column on pass row
+                empDept: (empMatch?.deptName || fresh.dept || '').toUpperCase(),
+
+                issueDate: fresh.issueDate || '',
+                validityDate: fresh.validityDate || '',
+                gateNo: fresh.gateNo || '',
+                parkingArea: fresh.parkingToBeUsed || '',
+                remark: fresh.remarks || '',
+                docs: mappedDocs,
+                status: 'Saved' as const,
+                createdAt: fresh.enterDate
+                  || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+
+                // ✅ FIX: empTypeDetail resolved above — always a valid value for Company_Employee
+                empTypeDetail: resolvedEmpTypeDetail,
+
+                // ✅ FIX: empAadhar from Employee Report API (aadhaarNo field)
+                empAadhar: empMatch?.aadhaarNo
+                  || empMatch?.aadharNo
+                  || fresh.aadhaarNo
+                  || '',
+
+                // ✅ FIX: empDeptCode from Employee Report API (deptCode field)
+                empDeptCode: empMatch?.deptCode || fresh.deptCode || '',
+
+                // ✅ FIX: contractor fields from Employee Report API match
+                empContractorCode: empMatch?.contractorCode || fresh.contractorCode || '',
+                empContractorName: isContractor
+                  ? (empMatch?.name || fresh.contractorName || lookupCode)
+                  : (empMatch?.name || ''),
+
+                contractorName: isContractor
+                  ? (empMatch?.name || fresh.contractorName || lookupCode)
+                  : '',
+              };
+
+              this.passState.setResumeDraft(record as any);
               this.isRedirectingToEdit.set(false);
               this.router.navigate(['/pass-entry']);
             };
 
             if (vehicleId) {
+              // ── Step 4: Fetch compliance docs for this vehicle ───────────
               this.http
                 .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
                 .pipe(

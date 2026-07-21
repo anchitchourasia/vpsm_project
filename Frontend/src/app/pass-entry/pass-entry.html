@@ -4,20 +4,14 @@
   <div class="pe-topbar">
     <div class="pe-topbar-left">
       <i class="bi bi-pass-fill pe-topbar-icon"></i>
-      <span class="pe-topbar-title">{{ isViewMode() ? 'Pass View Form' : 'Pass Entry Form' }}</span>
-      <span class="pe-topbar-sub">{{ isViewMode() ? 'Read Only Details' : 'General Details' }}</span>
+      <span class="pe-topbar-title">Pass Entry Form</span>
+      <span class="pe-topbar-sub">General Details</span>
     </div>
     <div class="pe-pass-id-chip" [class.generated]="passIdGenerated()">
       <i class="bi bi-qr-code"></i>
       <span>{{ passId() || 'Request ID generates on Save' }}</span>
     </div>
   </div>
-
-  @if (isViewMode()) {
-  <div class="pe-alert pe-alert-success">
-    <i class="bi bi-eye-fill"></i> View mode enabled. Editing is disabled for this pass.
-  </div>
-  }
 
   <!-- ══════════════════════════════════════════════════════════════
        MODIFICATION REQUEST BANNER
@@ -45,12 +39,14 @@
 
   <!-- EMPLOYEE TYPE SELECTOR -->
   <div class="pe-emp-type-row">
+    <!-- <span class="pe-emp-type-label">
+      Employee Type <span class="req">*</span>
+    </span> -->
     <div class="pe-emp-type-options">
 
       <!-- Company Employee card -->
       <label class="pe-type-card" [class.selected]="empType() === 'Company_Employee'"
-        [class.pe-type-card-locked]="isEcNoLocked || isViewMode()"
-        (click)="!isViewMode() && setEmpType('Company_Employee')">
+        [class.pe-type-card-locked]="isEcNoLocked" (click)="setEmpType('Company_Employee')">
         <i class="bi bi-building-fill"></i>
         <span>Company Employee</span>
         @if (empType() === 'Company_Employee') {
@@ -60,8 +56,8 @@
 
       <!-- Contractor card -->
       <!-- <label class="pe-type-card" [class.selected]="empType() === 'Contractor'"
-        [class.pe-type-card-locked]="isEcNoLocked || isViewMode()" [class.pe-type-card-disabled]="isEcNoLocked || isViewMode()"
-        (click)="!isViewMode() && setEmpType('Contractor')">
+        [class.pe-type-card-locked]="isEcNoLocked" [class.pe-type-card-disabled]="isEcNoLocked"
+        (click)="setEmpType('Contractor')">
         <i class="bi bi-person-workspace"></i>
         <span>Contractor</span>
         @if (empType() === 'Contractor') {
@@ -75,7 +71,7 @@
   @if (empType()) {
 
   <!-- ══════════════════════════════════════
-        VEHICLE DETAILS
+         VEHICLE DETAILS
     ══════════════════════════════════════ -->
   <div class="pe-section">
     <div class="pe-section-header">
@@ -88,14 +84,13 @@
       <div class="pe-field">
         <label>Vehicle Number <span class="req">*</span></label>
         <input type="text" class="pe-input" placeholder="E.G. MP50XX1234" [(ngModel)]="vehicleNo"
-          (input)="onUpperInput($event, 'vehicleNo')" maxlength="20" [readonly]="isViewMode()" />
+          (input)="onUpperInput($event, 'vehicleNo')" maxlength="20" />
         <span class="pe-field-hint">Auto-normalized: UPPERCASE, no spaces</span>
       </div>
 
       <div class="pe-field">
         <label>Vehicle Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="vehicleType" (ngModelChange)="onVehicleTypeInput($event)"
-          [disabled]="isViewMode()">
+        <select class="pe-input" [(ngModel)]="vehicleType" (ngModelChange)="onVehicleTypeInput($event)">
           <option value="">— Select Vehicle Type —</option>
           <optgroup label="Two Wheeler">
             <option value="BIKE">Bike</option>
@@ -122,17 +117,18 @@
     </div>
 
     <!-- ROW 2 : Vehicle Class | Brand / Model -->
-    <div class="pe-grid pe-grid-2">
+    <div class="pe-grid pe-grid-2">      
+
       <div class="pe-field">
         <label>Brand / Model</label>
         <input type="text" class="pe-input" placeholder="e.g. Honda City, Tata Prima" [(ngModel)]="brandModel"
-          (input)="onUpperInput($event, 'brandModel')" maxlength="60" [readonly]="isViewMode()" />
+          (input)="onUpperInput($event, 'brandModel')" maxlength="60" />
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════
-        EMPLOYEE / CONTRACTOR DETAILS
+         EMPLOYEE / CONTRACTOR DETAILS
     ══════════════════════════════════════ -->
   <div class="pe-section">
     <div class="pe-section-header">
@@ -148,8 +144,7 @@
       <!-- Employee Type — user selects FIRST, then EC No is unlocked -->
       <div class="pe-field">
         <label>Employee Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="onEmpTypeDetailChange($event)"
-          [disabled]="isViewMode()">
+        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="onEmpTypeDetailChange($event)">
           <option value="">— Select Employee Type —</option>
           <option value="TACC">TACC</option>
           <option value="HEG">HEG</option>
@@ -163,25 +158,19 @@
         <label>EC No <span class="req">*</span></label>
         <div class="pe-input-group">
           <input type="text" class="pe-input" placeholder="Enter EC / Employee Code" [(ngModel)]="ecNo"
-            [disabled]="isViewMode() || isEcNoLocked || !empTypeDetail()"
-            [class.field-locked]="isViewMode() || isEcNoLocked || !empTypeDetail()" (blur)="onEcNoBlur()"
-            (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
+            [disabled]="isEcNoLocked || !empTypeDetail()" [class.field-locked]="isEcNoLocked || !empTypeDetail()"
+            (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
           @if (fetchingEmployee()) {
           <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
           }
-          @if ((isViewMode() || isEcNoLocked || !empTypeDetail()) && !fetchingEmployee()) {
+          @if ((isEcNoLocked || !empTypeDetail()) && !fetchingEmployee()) {
           <span class="pe-input-lock-icon"
-            [title]="isViewMode() ? 'View mode' : (!empTypeDetail() ? 'Select Employee Type first' : 'Linked to your login session')">
+            [title]="!empTypeDetail() ? 'Select Employee Type first' : 'Linked to your login session'">
             <i class="bi bi-lock-fill"></i>
           </span>
           }
         </div>
-        @if (isViewMode()) {
-        <span class="pe-field-hint pe-hint-locked">
-          <i class="bi bi-eye-fill"></i>
-          View mode — field is locked
-        </span>
-        } @else if (isEcNoLocked) {
+        @if (isEcNoLocked) {
         <span class="pe-field-hint pe-hint-locked">
           <i class="bi bi-shield-lock-fill"></i>
           Linked to your login — cannot be changed
@@ -200,7 +189,7 @@
       <div class="pe-field">
         <label>
           Name
-          @if (isEcNoLocked || isViewMode()) {
+          @if (isEcNoLocked) {
           <span class="pe-readonly-lock"><i class="bi bi-lock-fill"></i></span>
           }
         </label>
@@ -217,7 +206,7 @@
       <div class="pe-field">
         <label>
           Department
-          @if (isEcNoLocked || isViewMode()) {
+          @if (isEcNoLocked) {
           <span class="pe-readonly-lock"><i class="bi bi-lock-fill"></i></span>
           }
         </label>
@@ -225,7 +214,7 @@
           placeholder="Auto-filled from EC No" />
       </div>
 
-      <!-- Department Code -->
+      <!-- ✅ NEW: Department Code — auto-filled from API -->
       <div class="pe-field">
         <label>Department Code</label>
         <input type="text" class="pe-input pe-readonly" [value]="empDeptCode()" readonly
@@ -270,7 +259,7 @@
         <label>Contractor Code <span class="req">*</span></label>
         <div class="pe-input-group">
           <input type="text" class="pe-input" placeholder="Enter Contractor Code" [(ngModel)]="ecNo"
-            (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="30" [readonly]="isViewMode()" />
+            (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="30" />
           @if (fetchingEmployee()) {
           <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
           }
@@ -281,7 +270,7 @@
       <div class="pe-field">
         <label>Contractor Name <span class="req">*</span></label>
         <input type="text" class="pe-input" placeholder="Auto-filled or enter manually" [(ngModel)]="contractorName"
-          maxlength="80" [readonly]="isViewMode()" />
+          maxlength="80" />
       </div>
 
     </div>
@@ -292,7 +281,7 @@
       <div class="pe-field">
         <label>Email</label>
         <input type="email" class="pe-input" placeholder="Auto-filled or enter manually" [(ngModel)]="contractorEmail"
-          maxlength="100" [readonly]="isViewMode()" />
+          maxlength="100" />
       </div>
 
       <div class="pe-field">
@@ -319,53 +308,58 @@
   </div>
 
   <!-- ══════════════════════════════════════
-        PASS DETAILS
+         PASS DETAILS
     ══════════════════════════════════════ -->
   <div class="pe-section">
     <div class="pe-section-header">
       <i class="bi bi-card-checklist"></i>
       <span>Pass Details</span>
     </div>
-  </div>
+      
 
-  <!-- ROW 2 : Gate No | Parking Area -->
-  <div class="pe-grid pe-grid-2">
 
-    <div class="pe-field">
-      <label>Gate No <span class="req">*</span></label>
-      <select class="pe-input" [(ngModel)]="gateNo" [disabled]="isViewMode()">
-        <option value="">— Select Gate —</option>
-        <option value="GATE_01">GATE 01</option>
-        <option value="GATE_02">GATE 02</option>
-        <option value="GATE_03">GATE 03</option>
-        <option value="GATE_04">GATE 04</option>
-        <option value="GATE_05">GATE 05</option>
-      </select>
     </div>
 
-    <div class="pe-field">
-      <label>Parking Area</label>
-      <select class="pe-input" [(ngModel)]="parkingArea" [disabled]="isViewMode()">
-        <option value="">— Select Parking Area —</option>
-        <option value="P1">P1 — Main Parking</option>
-        <option value="P2">P2 — Contractor Bay</option>
-        <option value="P3">P3 — Heavy Vehicle Zone</option>
-        <option value="P4">P4 — Visitor Parking</option>
-        <option value="P5">P5 — Reserved</option>
-      </select>
-      <span class="pe-field-hint">Select the parking area to be used</span>
+    <!-- ROW 2 : Gate No | Parking Area -->
+    <div class="pe-grid pe-grid-2">
+
+      <div class="pe-field">
+        <label>Gate No <span class="req">*</span></label>
+        <select class="pe-input" [(ngModel)]="gateNo">
+          <option value="">— Select Gate —</option>
+          <option value="GATE_01">GATE 01</option>
+          <option value="GATE_02">GATE 02</option>
+          <option value="GATE_03">GATE 03</option>
+          <option value="GATE_04">GATE 04</option>
+          <option value="GATE_05">GATE 05</option>
+        </select>
+      </div>
+
+      <div class="pe-field">
+        <label>Parking Area</label>
+        <select class="pe-input" [(ngModel)]="parkingArea">
+          <option value="">— Select Parking Area —</option>
+          <option value="P1">P1 — Main Parking</option>
+          <option value="P2">P2 — Contractor Bay</option>
+          <option value="P3">P3 — Heavy Vehicle Zone</option>
+          <option value="P4">P4 — Visitor Parking</option>
+          <option value="P5">P5 — Reserved</option>
+        </select>
+        <span class="pe-field-hint">Select the parking area to be used</span>
+      </div>
+
     </div>
 
-  </div>
+
 
   <!-- ══════════════════════════════════════
-        REQUIRED DOCUMENTS
+         REQUIRED DOCUMENTS
     ══════════════════════════════════════ -->
   <div class="pe-section">
     <div class="pe-section-header">
       <i class="bi bi-file-earmark-check-fill"></i>
       <span>Required Documents</span>
-      <span class="pe-doc-count">{{ docs().length }} / 4 added</span>
+      <span class="pe-doc-count">{{ docs().length }} / 5 added</span>
 
       @if (isModificationMode()) {
       <span class="pe-doc-mod-hint">
@@ -389,8 +383,7 @@
 
         <!-- DOC TYPE -->
         <div class="pe-doc-cell">
-          <select class="pe-input pe-input-sm" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)"
-            [disabled]="isViewMode()">
+          <select class="pe-input pe-input-sm" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)">
             <option value="">— Type —</option>
             @for (t of availableDocTypes(doc); track t) {
             <option [value]="t">{{ t }}</option>
@@ -401,7 +394,7 @@
         <!-- DOC NO -->
         <div class="pe-doc-cell">
           <input type="text" class="pe-input pe-input-sm" placeholder="Doc number" [(ngModel)]="doc.docNo"
-            (input)="onDocNoInput($event, doc)" maxlength="60" [readonly]="isViewMode()" />
+            (input)="onDocNoInput($event, doc)" maxlength="60" />
         </div>
 
         <!-- VALID UPTO -->
@@ -409,10 +402,9 @@
           <div class="pe-date-wrapper">
             <input type="text" class="pe-input pe-input-sm pe-date-display"
               [value]="doc.validUpto ? formatDateDDMMYYYY(doc.validUpto) : ''" placeholder="DD/MM/YYYY" readonly
-              (click)="!isViewMode() && openDatePicker(docDatePicker)" />
-            <input type="date" class="pe-date-hidden" #docDatePicker [(ngModel)]="doc.validUpto" [min]="todayDate"
-              [disabled]="isViewMode()" />
-            <i class="bi bi-calendar3 pe-date-icon" (click)="!isViewMode() && openDatePicker(docDatePicker)"></i>
+              (click)="openDatePicker(docDatePicker)" />
+            <input type="date" class="pe-date-hidden" #docDatePicker [(ngModel)]="doc.validUpto" [min]="todayDate" />
+            <i class="bi bi-calendar3 pe-date-icon" (click)="openDatePicker(docDatePicker)"></i>
           </div>
         </div>
 
@@ -427,56 +419,40 @@
               ? doc.existingFile.substring(0, 17) + '...'
               : (doc.existingFile || 'Uploaded') }}
             </span>
-
-            @if (!isViewMode()) {
             <label class="pe-doc-replace-btn" [for]="'doc-file-' + doc.id"
               title="Upload a new PDF to replace the existing file">
               <i class="bi bi-arrow-repeat"></i> Replace
               <input type="file" accept=".pdf" class="pe-file-hidden" [id]="'doc-file-' + doc.id"
                 (change)="onDocFileSelected($event, doc)" />
             </label>
-            }
           </div>
           }
 
           @else if (doc.file) {
-          @if (!isViewMode()) {
           <label class="pe-file-btn has-file" [for]="'doc-file-' + doc.id" title="{{ doc.file.name }}">
             <input type="file" accept=".pdf" class="pe-file-hidden" [id]="'doc-file-' + doc.id"
               (change)="onDocFileSelected($event, doc)" />
             <i class="bi bi-file-earmark-pdf-fill"></i>
             <span>{{ shortName(doc.file.name) }}</span>
           </label>
-          } @else {
-          <span class="pe-doc-uploaded-pill" [title]="doc.file.name">
-            <i class="bi bi-file-earmark-pdf-fill"></i>
-            {{ shortName(doc.file.name) }}
-          </span>
-          }
           }
 
           @else {
-          @if (!isViewMode()) {
           <label class="pe-file-btn" [for]="'doc-file-' + doc.id">
             <input type="file" accept=".pdf" class="pe-file-hidden" [id]="'doc-file-' + doc.id"
               (change)="onDocFileSelected($event, doc)" />
             <i class="bi bi-cloud-upload"></i>
             <span>Upload PDF</span>
           </label>
-          } @else {
-          <span class="pe-field-hint">No file uploaded</span>
-          }
           }
 
         </div>
 
         <!-- REMOVE ROW -->
         <div class="pe-doc-cell">
-          @if (!isViewMode()) {
           <button class="pe-doc-remove" (click)="removeDoc(i)" title="Remove row">
             <i class="bi bi-x-circle-fill"></i>
           </button>
-          }
         </div>
 
       </div>
@@ -484,19 +460,17 @@
     </div>
     }
 
-    @if (!isViewMode()) {
     <button class="pe-add-doc-btn" (click)="addDoc()" [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
       <i class="bi bi-plus-circle-fill"></i>
       Add Document
       @if (docs().length >= ALLOWED_DOC_TYPES.length) {
-      <span class="pe-add-hint">(All 4 types added)</span>
+      <span class="pe-add-hint">(All 5 types added)</span>
       }
     </button>
-    }
 
     <div class="pe-doc-info">
       <i class="bi bi-info-circle"></i>
-      Supported: RC, PUC, Insurance, License — each type once only.
+      Supported: RC, PUC, Insurance, License, Fitness — each type once only.
       Mandatory for Contractors &amp; Heavy Machinery.
     </div>
   </div>
@@ -516,11 +490,8 @@
   <!-- ACTION BUTTONS -->
   <div class="pe-actions">
     <button class="pe-btn pe-btn-clear" (click)="clearForm()" [disabled]="isSaving()">
-      <i class="bi" [class.bi-arrow-left-circle]="isViewMode()" [class.bi-x-square]="!isViewMode()"></i>
-      {{ isViewMode() ? 'Back' : 'Clear' }}
+      <i class="bi bi-x-square"></i> Clear
     </button>
-
-    @if (!isViewMode()) {
     <button class="pe-btn pe-btn-save" (click)="onSave()" [disabled]="isSaving()">
       @if (!isSaving()) {
       <i class="bi bi-floppy-fill"></i> Save
@@ -531,10 +502,9 @@
     <button class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving()">
       <i class="bi bi-send-fill"></i> Submit
     </button>
-    }
   </div>
 
-  @if (!saved() && !isViewMode()) {
+  @if (!saved()) {
   <div class="pe-submit-hint">
     <i class="bi bi-info-circle"></i>
     You can Save first to review, or click Submit directly to save &amp; finalise in one step.

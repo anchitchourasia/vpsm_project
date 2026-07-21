@@ -7,8 +7,8 @@ import { Subject, of } from 'rxjs';
 import { takeUntil, timeout, catchError, finalize } from 'rxjs/operators';
 
 import { API_CONFIG } from '../core/api.config';
+import { PassStateService, PassRecord } from '../services/pass-state.service';
 import { AuthService } from '../core/auth.service';
-import { PassStateService, PassRecord, PassEntryMode } from '../services/pass-state.service';
 
 const HTTP_TIMEOUT_MS = 12000;
 
@@ -130,9 +130,6 @@ export class PassEntry implements OnInit, OnDestroy {
   saveError = signal('');
   modificationRemark = signal('');
   isModificationMode = signal(false);
-  entryMode = signal<PassEntryMode>('edit');
-  isViewMode = signal(false);
-
 
   vehicleNo = '';
   vehicleType = '';
@@ -178,14 +175,7 @@ export class PassEntry implements OnInit, OnDestroy {
     }
 
     const draft = this.passState.resumeDraftData();
-    const mode = this.passState.resumeEntryMode() ?? 'edit';
-
-    console.log('PASS ENTRY draft =', draft);
-    console.log('PASS ENTRY mode =', mode);
-
     if (draft) {
-      this.entryMode.set(mode);
-      this.isViewMode.set(mode === 'view');
       this.loadPassRecord(draft, true);
       this.passState.clearResumeDraft();
       return;
@@ -193,8 +183,6 @@ export class PassEntry implements OnInit, OnDestroy {
 
     const modData = this.passState.resumeModData();
     if (modData) {
-      this.entryMode.set('edit');
-      this.isViewMode.set(false);
       this.loadPassRecord(modData, false);
       this.passState.clearResumeMod();
       this.isModificationMode.set(true);
@@ -235,11 +223,11 @@ export class PassEntry implements OnInit, OnDestroy {
           id: crypto.randomUUID(),
           docType: d.docType || '',
           docNo: d.docNo || '',
+          startDate: d.startDate || '',
           validUpto: d.validUpto || '',
           file: null,
-          fileName: d.fileName || d.existingFile || '',
           documentId: d.documentId,
-          existingFile: d.existingFile || d.fileName || ''
+          existingFile: d.fileName
         }))
         : [emptyDoc()]
     );
@@ -247,17 +235,12 @@ export class PassEntry implements OnInit, OnDestroy {
     this.passId.set(data.passId ? String(data.passId) : '');
     this.passIdGenerated.set(!!data.passId);
     this.saved.set(isDraft);
-    this.savedPassRegistryId =
-      data.passId != null && !isNaN(Number(data.passId)) ? Number(data.passId) : null;
-
-    this.savedVehicleId =
-      data.vehicleId != null && !isNaN(Number(data.vehicleId)) ? Number(data.vehicleId) : null;
-
-    this.draftPassId = data.passId != null ? String(data.passId) : null;
+    this.savedPassRegistryId = data.passId ? Number(data.passId) : null;
+    this.savedVehicleId = data.vehicleId ? Number(data.vehicleId) : null;
+    this.draftPassId = data.passId ? String(data.passId) : null;
   }
 
   setEmpType(type: 'Company_Employee' | 'Contractor'): void {
-    if (this.isViewMode()) return;
     this.empType.set(type);
     this.empTypeDetail.set('');
     this.ecNo = '';
@@ -294,14 +277,12 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onVehicleTypeInput(event: Event | string): void {
-    if (this.isViewMode()) return;
     const val = typeof event === 'string' ? event : (event.target as HTMLInputElement).value;
     this.vehicleType = val;
     this.vehicleClass = detectVehicleClass(val);
   }
 
   onUpperInput(event: Event, field: keyof PassEntry): void {
-    if (this.isViewMode()) return;
     const input = event.target as HTMLInputElement;
     const val = input.value.toUpperCase().replace(/\s+/g, '');
     (this as any)[field] = val;
@@ -309,14 +290,12 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onDocNoInput(event: Event, doc: DocEntry): void {
-    if (this.isViewMode()) return;
     const input = event.target as HTMLInputElement;
     doc.docNo = input.value.toUpperCase();
     input.value = doc.docNo;
   }
 
   onEcNoBlur(): void {
-    if (this.isViewMode()) return;
     const code = this.ecNo.trim().toUpperCase();
     if (!code) return;
 
@@ -385,13 +364,11 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   addDoc(): void {
-    if (this.isViewMode()) return;
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
   }
 
   removeDoc(i: number): void {
-    if (this.isViewMode()) return;
     const updated = this.docs().filter((_, idx) => idx !== i);
     this.docs.set(updated.length ? updated : [emptyDoc()]);
   }
@@ -406,7 +383,6 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onDocTypeChange(doc: DocEntry): void {
-    if (this.isViewMode()) return;
     const dupe = this.docs().filter(d => d !== doc && d.docType === doc.docType);
     if (dupe.length > 0) {
       const current = doc.docType;
@@ -418,7 +394,6 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onDocFileSelected(event: Event, doc: DocEntry): void {
-    if (this.isViewMode()) return;
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
 
@@ -489,7 +464,7 @@ export class PassEntry implements OnInit, OnDestroy {
     const mandatoryAll = this.empType() === 'Contractor' || this.vehicleClass === 'Heavy_Machinery';
     if (isSubmit && mandatoryAll && this.docs().length < ALLOWED_DOC_TYPES.length) {
       const missing = ALLOWED_DOC_TYPES.filter(t => !this.docs().some(d => d.docType === t));
-      return `All 4 documents are mandatory. Missing: ${missing.join(', ')}.`;
+      return `All 5 documents are mandatory. Missing: ${missing.join(', ')}.`;
     }
     for (const doc of this.docs()) {
       const hasAnyValue =
@@ -622,7 +597,6 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onSave(): void {
-    if (this.isViewMode()) return;
 
 
     const err = this.validate(false);
@@ -676,7 +650,6 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
-    if (this.isViewMode()) return;
     const err = this.validate(true);
     if (err) {
       this.saveError.set(err);
@@ -730,7 +703,6 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   clearForm(): void {
-    if (this.isViewMode()) return;
     this.empType.set('');
     this.passId.set('');
     this.passIdGenerated.set(false);
