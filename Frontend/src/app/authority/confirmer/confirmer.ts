@@ -320,25 +320,6 @@ export class Confirmer implements OnInit, OnDestroy {
     this.isLoadingDocs.set(true);
     this.docLoadError.set('');
 
-    this.http.get<DocumentRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
-      .pipe(
-        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => {
-          this.docLoadError.set(
-            'Could not load documents (' + (err?.status || 'network error') + ')'
-          );
-          this.isLoadingDocs.set(false);
-          return of([]);
-        })
-      )
-      .subscribe(docs => {
-        const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
-        this.passDocuments.set(filtered);
-        if (filtered.length === 0) {
-          this.docLoadError.set('No documents found for this vehicle.');
-        }
-        this.isLoadingDocs.set(false);
-      });
   }
 
   // ── View PDF in new tab ───────────────────────────────────────────────────
@@ -503,7 +484,7 @@ export class Confirmer implements OnInit, OnDestroy {
       passNo: String(id), empCode: empCode || 'SYSTEM',
       action, remark: remark.substring(0, 200), dateOfEntry: new Date()
     };
-    this.http.post(API_CONFIG.HISTORY_LOG, payload, { headers: this.HEADERS })
+    this.http.post(API_CONFIG.PASS_HISTORY, payload, { headers: this.HEADERS })
       .pipe(takeUntil(this.destroy$), catchError(() => of(null))).subscribe();
   }
 

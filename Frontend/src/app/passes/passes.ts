@@ -399,7 +399,6 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPassExtra.set(null);
     this.viewPdfLoading.set(null);
     this.showViewModal.set(true);
-    this.loadViewDocs(p);
     this.enrichViewPassWithEmployeeData(p);
   }
 
@@ -415,45 +414,8 @@ export class Passes implements OnInit, OnDestroy {
     this.viewHistError.set('');
   }
 
-  private loadViewDocs(p: any): void {
-    const vehicleId: number | null = p.vehicle?.vehicleId ?? null;
-    if (!vehicleId) {
-      this.isLoadingViewDocs.set(true);
-      this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
-        .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$), catchError(() => of([])))
-        .subscribe(list => {
-          const vid = (list || []).find((x: any) => x.passId === p.passId)?.vehicle?.vehicleId ?? null;
-          if (vid) this.fetchViewDocsByVehicleId(vid);
-          else {
-            this.viewDocLoadError.set('No vehicle linked — cannot load documents.');
-            this.isLoadingViewDocs.set(false);
-          }
-        });
-      return;
-    }
-    this.fetchViewDocsByVehicleId(vehicleId);
-  }
 
-  private fetchViewDocsByVehicleId(vehicleId: number): void {
-    this.isLoadingViewDocs.set(true);
-    this.viewDocLoadError.set('');
-    this.http.get<DocRecord[]>(API_CONFIG.DOCUMENTS, { headers: this.HEADERS })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          this.viewDocLoadError.set('Could not load documents (' + (err?.status || 'network error') + ').');
-          this.isLoadingViewDocs.set(false);
-          return of([]);
-        })
-      )
-      .subscribe(docs => {
-        const filtered = (docs || []).filter(d => d.vehicle?.vehicleId === vehicleId);
-        this.viewPassDocs.set(filtered);
-        if (!filtered.length) this.viewDocLoadError.set('No documents found for this vehicle.');
-        this.isLoadingViewDocs.set(false);
-      });
-  }
+  
 
   viewDocumentPdf(doc: DocRecord): void {
     if (!doc?.documentId || !doc?.fileName) {
@@ -546,7 +508,7 @@ export class Passes implements OnInit, OnDestroy {
 
     const req$ = this.isEditMode()
       ? this.http.put(`${API_CONFIG.PASS_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
-      : this.http.post(API_CONFIG.PASSES_ISSUE, payload, { headers: this.HEADERS });
+      : this.http.post(API_CONFIG.PASS_LIST, payload, { headers: this.HEADERS });
 
     req$
       .pipe(
@@ -602,7 +564,7 @@ export class Passes implements OnInit, OnDestroy {
     };
 
     this.http
-      .post<any>(API_CONFIG.HISTORY_LOG, payload, { headers: this.POST_HEADERS, observe: 'response' })
+      .post<any>(API_CONFIG.PASS_HISTORY, payload, { headers: this.POST_HEADERS, observe: 'response' })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -888,7 +850,7 @@ export class Passes implements OnInit, OnDestroy {
     this.viewHistError.set('');
     this.viewPassHistory.set([]);
 
-    this.http.get<HistoryRecord[]>(API_CONFIG.PASS_HISTORY, { headers: this.HEADERS })
+    this.http.get<HistoryRecord[]>(`${API_CONFIG.PASS_HISTORY}/${passId}`, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),

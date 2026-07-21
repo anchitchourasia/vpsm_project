@@ -168,7 +168,7 @@ export class History implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.hasError.set(false);
 
-    this.http.get<HistoryRecord[]>(API_CONFIG.HISTORY_LIST, { headers: this.HEADERS })
+    this.http.get<HistoryRecord[]>(API_CONFIG.PASS_HISTORY, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {

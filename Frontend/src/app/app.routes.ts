@@ -20,14 +20,7 @@ export const routes: Routes = [
   { path: 'passes/active', canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
     { path: 'passes/surrendered', canActivate: [authGuard], loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
 
-  // COMPLIANCE DOCUMENTS — protected
-  { path: 'docs/all', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'ALL' } },
-  { path: 'docs/rc', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'RC' } },
-  { path: 'docs/puc', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'PUC' } },
-  { path: 'docs/insurance', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Insurance' } },
-  { path: 'docs/fitness', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Fitness' } },
-  { path: 'docs/load-test', canActivate: [authGuard], loadComponent: () => import('./documents/documents').then(m => m.Documents), data: { docType: 'Load_Test' } },
-
+  
   // AUDIT — protected
   { path: 'history', canActivate: [authGuard], loadComponent: () => import('./history/history').then(m => m.History) },
 
@@ -38,8 +31,6 @@ export const routes: Routes = [
 
   // PASS MANAGEMENT — protected
   { path: 'pass-entry', canActivate: [authGuard], loadComponent: () => import('./pass-entry/pass-entry').then(m => m.PassEntry) },
-  { path: 'pass-details', canActivate: [authGuard], loadComponent: () => import('./pass-details/pass-details').then(m => m.PassDetails) },
-  { path: 'pass-list', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
 
   // VEHICLE PERMISSION — protected
   {
