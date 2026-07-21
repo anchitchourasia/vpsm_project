@@ -9,47 +9,59 @@ import { PassStateService } from '../../services/pass-state.service';
 const TIMEOUT_MS = 15000;
 
 interface PassRecord {
-  passId: number;
+
+  id: number;
+  passId?: number;
+
   employeeNo: string;
-  employeeCompanyNo: string;
-  employeeName: string;
-  empName?: string;   // ← ADD THIS
-  name?: string;   // ← ADD THIS
-  dept: string;
-  contractorCode: string;
-  contractorName?: string;   // ✅ ADD THIS
-  aadhaarNo?: string;   // ✅ ADD THIS
-  aadharNo?: string;   // ✅ ADD THIS
+  employeeCompanyNo?: string;
+
+  employeeName?: string;
+  empName?: string;
+  name?: string;
+
+  dept?: string;
+
+  contractorCode?: string;
+  contractorName?: string;
+
+  aadhaarNo?: string;
+  aadharNo?: string;
+
   gateNo: string;
   parkingToBeUsed: string;
-  typeOfVehicle: string;
-  mobileNo: string;
-  status: string;
-  remarks: string;
-  enterBy: string;
-  enterDate: string;
+
+  vehicleNo: string;
+  vehicleType: string;
+  brandModel?: string;
+
+  mobileNo?: string;
+
+  reqStatus: string;
+
+  remarks?: string;
+
+  enterBy?: string;
+  enterDate?: string;
+
   empType: string;
-  issueDate: string;
-  validityDate: string;
-  vehicle: {
-    vehicleId: number;
-    vehicleNo: string;
-    vehicleType: string;
-    vehicleClass: string;
-    brandModel?: string;
-  } | null;
+
+
+
+  documents: DocumentRecord[];
 }
 
-// ✅ Matches the actual API response from /api/documents/list
+
 interface DocumentRecord {
   documentId: number;
   documentType: string;
   documentNo: string;
   startDate: string;
   expiryDate: string;
-  fileName?: string;   // ✅ ADD THIS — same field as documents module
+  fileName?: string;
   vehicle?: { vehicleId: number };
 }
+
 interface HistoryRecord {
   id?: number;
   passNo: string;
@@ -58,6 +70,7 @@ interface HistoryRecord {
   remark: string;
   dateOfEntry: string;
 }
+
 
 @Component({
   selector: 'app-approval',
@@ -76,11 +89,13 @@ export class Approval implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   // ✅ Read from sessionStorage where AuthService actually saves the session
   private get _sessionUser(): any {
-    try { return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null'); } 
+    try { return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null'); }
     catch { return null; }
   }
+
   readonly approverName = signal(this._sessionUser?.primaryRole || 'APPROVER');
   readonly approverCode = signal(this._sessionUser?.empCode || 'APPROVER');
+  
   allPasses = signal<PassRecord[]>([]);
   isLoading = signal(true);
   hasError = signal(false);
@@ -88,7 +103,11 @@ export class Approval implements OnInit, OnDestroy {
   currentPage = signal(1);
   readonly pageSize = 10;
 
+
+
   selectedPass = signal<PassRecord | null>(null);
+ 
+  // ✅ NEW — holds live-enriched employee details fetched on modal open
   selectedPassExtra = signal<{
     deptCode: string;
     contractorName: string;
@@ -99,11 +118,15 @@ export class Approval implements OnInit, OnDestroy {
   } | null>(null);
   isLoadingExtra = signal(false);
 
+
   actionRemark = signal('');
   actionError = signal('');
   actionSuccess = signal('');
   isActing = signal(false);
+
+
   activeAction = signal<'modify' | 'approve' | 'reject' | null>(null);
+ 
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments = signal<DocumentRecord[]>([]);
   isLoadingDocs = signal(false);
@@ -116,17 +139,23 @@ export class Approval implements OnInit, OnDestroy {
 
   pendingList = computed(() => {
     const q = this.searchText().toLowerCase().trim();
-    const list = this.allPasses().filter(p =>
-      (p.status || '').toLowerCase() === 'confirmed'
-    );
+   const list = this.allPasses().filter(p => {
+
+  const status =
+    (p.reqStatus || p.reqStatus || '').toLowerCase();
+
+  return status === 'confirmed';
+});
     if (!q) return list;
+
     return list.filter(p =>
-      String(p.passId).includes(q) ||
+      String(p.id).includes(q) ||
       (p.employeeNo || '').toLowerCase().includes(q) ||
-      (p.vehicle?.vehicleNo || '').toLowerCase().includes(q) ||
-      (p.dept || '').toLowerCase().includes(q) ||
-      (p.enterBy || '').toLowerCase().includes(q)
+      (p.vehicleNo || '').toLowerCase().includes(q) ||
+      (p.gateNo || '').toLowerCase().includes(q) ||
+      (p.empType || '').toLowerCase().includes(q)
     );
+
   });
 
   pagedList = computed(() => {
@@ -161,14 +190,30 @@ export class Approval implements OnInit, OnDestroy {
         })
       )
       .subscribe(data => {
-        const enriched = (Array.isArray(data) ? data : []).map(p => ({
-          ...p,
-          employeeName: p.employeeName ?? p.empName ?? p.name
-            ?? this.svc.resolveEmpName(p.employeeNo ?? '')
-        }));
-        this.allPasses.set(enriched);
-        this.isLoading.set(false);
-      });
+
+  console.log('API Response:', data);
+
+  const enriched = (Array.isArray(data) ? data : []).map((p: any) => ({
+    ...p,
+
+    // API sends id
+    passId: p.passId ?? p.id,
+
+    // API sends reqStatus
+    status: p.status ?? p.reqStatus,
+
+    employeeName:
+      p.employeeName ??
+      p.empName ??
+      p.name ??
+      this.svc.resolveEmpName(p.employeeNo ?? '')
+  }));
+
+  console.log('Enriched:', enriched);
+
+  this.allPasses.set(enriched);
+  this.isLoading.set(false);
+});
 
   }
 
@@ -177,22 +222,21 @@ export class Approval implements OnInit, OnDestroy {
     this.actionRemark.set('');
     this.actionError.set('');
     this.actionSuccess.set('');
-    this.activeAction.set(null);
+    this.activeAction.set(null);          // ← reset armed state on open
     this.passDocuments.set([]);
     this.docLoadError.set('');
-    // ── reset history on each open ──
-    this.empPassHistory.set([]);
-    this.historyLoadError.set('');
     this.showHistory.set(false);
     this.enrichPassWithEmployeeData(p);
 
-    if (p.vehicle?.vehicleId) {
-      this.loadDocuments(p.vehicle.vehicleId);
+    if (p.documents?.length) {
+      this.passDocuments.set(p.documents);
     } else {
-      this.docLoadError.set('No vehicle linked — cannot load documents.');
+      this.docLoadError.set('No documents found.');
     }
-    // ── load pass history for this employee ──
-    this.loadEmpPassHistory(p.passId);
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.loadEmpPassHistory(p.id);
+
   }
 
   closeDetails(): void {
@@ -298,39 +342,41 @@ export class Approval implements OnInit, OnDestroy {
   }
 
 
-  sendForModify(pass: PassRecord): void {
-    if (!this.actionRemark().trim()) {
-      this.actionError.set('Remark is required — describe what needs to be modified.');
-      return;
-    }
-    this.isActing.set(true);
-    this.actionError.set('');
-    const updatePayload = {
-      status: 'Needs_Modification',
-      enterBy: this.approverName(),
-      remarks: `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
-    };
-    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
-      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => {
-          this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
+  // ── NEW: Send for Modify ──────────────────────────────────────────────────
+    sendForModify(pass: PassRecord): void {
+      if (!this.actionRemark().trim()) {
+        this.actionError.set('Remark is required — describe what needs to be modified.');
+        return;
+      }
+      this.isActing.set(true);
+      this.actionError.set('');
+      const updatePayload = {
+        status: 'NEEDS_MODIFICATION',
+        enterBy: this.approverName(),
+        remarks: `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`,
+  
+      };
+      this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
+        .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+          catchError(err => {
+            this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
+            this.isActing.set(false);
+            this.activeAction.set(null);
+            return of(null);
+          })
+        )
+        .subscribe(res => {
+          if (res === null) return;
+          this.logHistory(pass.id, this.approverCode(), 'SENT_FOR_MODIFICATION',
+            `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`);
+          this.actionSuccess.set(`🔄 Pass #${pass.id} sent back to requester for modification.`);
           this.isActing.set(false);
           this.activeAction.set(null);
-          return of(null);
-        })
-      )
-      .subscribe(res => {
-        if (res === null) return;
-        this.logHistory(pass.passId, pass.employeeNo, 'SENT_FOR_MODIFICATION',
-          `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`🔄 Pass #${pass.passId} sent back to requester for modification.`);
-        this.isActing.set(false);
-        this.activeAction.set(null);
-        this.loadPasses();
-        setTimeout(() => this.closeDetails(), 2000);
-      });
-  }
+          this.loadPasses();
+          setTimeout(() => this.closeDetails(), 2000);
+        });
+    }
+
   // ── GET /api/documents/list → filter by vehicleId ────────────────────────
 
   private loadDocuments(vehicleId: number): void {
@@ -416,36 +462,38 @@ export class Approval implements OnInit, OnDestroy {
   }
 
   approve(pass: PassRecord): void {
-    if (!this.actionRemark().trim()) {
-      this.actionError.set('Remark is required before approving.');
-      return;
-    }
-    this.isActing.set(true);
-    this.actionError.set('');
-    const updatePayload = {
-      status: 'Active',
-      enterBy: this.approverName(),
-      remarks: `Approved by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
-    };
-    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
-      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
-        catchError(err => {
-          this.actionError.set('Approval failed: ' + (err?.error?.message || err?.message || 'Server error'));
-          this.isActing.set(false);
-          return of(null);
-        })
-      )
-      .subscribe(res => {
-        if (res === null) return;
-        this.logHistory(pass.passId, this.approverCode(), 'APPROVED',
-          `Pass activated by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`✅ Pass #${pass.passId} APPROVED. Pass is now Active.`);
-        this.isActing.set(false);
-        this.loadPasses();
-        setTimeout(() => this.closeDetails(), 2000);
-      });
+  if (!this.actionRemark().trim()) {
+    this.actionError.set('Remark is required before approving.');
+    return;
   }
+
+  this.isActing.set(true);
+  this.actionError.set('');
+
+  const updatePayload = {
+    status: 'ACTIVE',
+    remark: `Approved by ${this.approverName()}: ${this.actionRemark().trim()}`,
+    enterBy: this.approverName()
+  };
+
+  this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
+    .pipe(
+      timeout(TIMEOUT_MS),
+      takeUntil(this.destroy$),
+      catchError(err => {
+        this.actionError.set('Approval failed: ' + (err?.error?.message || err?.message || 'Server error'));
+        this.isActing.set(false);
+        return of(null);
+      })
+    )
+    .subscribe(res => {
+      if (res === null) return;
+      this.actionSuccess.set(`✅ Pass #${pass.id} approved successfully.`);
+      this.isActing.set(false);
+      this.loadPasses();
+      setTimeout(() => this.closeDetails(), 2000);
+    });
+}
 
   returnToConfirmer(pass: PassRecord): void {
     if (!this.actionRemark().trim()) {
@@ -458,9 +506,9 @@ export class Approval implements OnInit, OnDestroy {
       status: 'Submitted',
       enterBy: this.approverName(),
       remarks: `Returned by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+      
     };
-    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Return failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -470,7 +518,7 @@ export class Approval implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, this.approverCode(), 'RETURNED',
+        this.logHistory(pass.id, this.approverCode(), 'RETURNED',
           `Returned to Confirmer by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`↩️ Pass #${pass.passId} returned to Confirmer queue.`);
         this.isActing.set(false);
@@ -490,9 +538,9 @@ export class Approval implements OnInit, OnDestroy {
       status: 'Rejected',
       enterBy: this.approverName(),
       remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-      vehicle: pass.vehicle ? { vehicleId: pass.vehicle.vehicleId } : null
+      
     };
-    this.http.put(`${API_CONFIG.PASS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));
@@ -502,7 +550,7 @@ export class Approval implements OnInit, OnDestroy {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.passId, this.approverCode(), 'REJECTED',
+        this.logHistory(pass.id, this.approverCode(), 'REJECTED',
           `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`❌ Pass #${pass.passId} rejected.`);
         this.isActing.set(false);

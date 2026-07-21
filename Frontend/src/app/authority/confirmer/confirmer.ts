@@ -6,12 +6,14 @@ import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../../core/api.config';
 // ADD this import alongside the existing imports:
 import { PassStateService } from '../../services/pass-state.service';
+import { environment } from '../../../environments/environment';
 
 const TIMEOUT_MS = 15000;
 
 interface PassRecord {
 
   id: number;
+  passId?: number;
 
   employeeNo: string;
   employeeCompanyNo?: string;
@@ -55,7 +57,7 @@ interface PassRecord {
 
 
 interface DocumentRecord {
-  documentId: number;
+  id: number;
   documentType: string;
   documentNo: string;
   startDate: string;
@@ -105,6 +107,7 @@ export class Confirmer implements OnInit, OnDestroy {
   readonly pageSize = 10;
 
   selectedPass = signal<PassRecord | null>(null);
+
   // ✅ NEW — holds live-enriched employee details fetched on modal open
   selectedPassExtra = signal<{
     deptCode: string;
@@ -129,8 +132,8 @@ export class Confirmer implements OnInit, OnDestroy {
   passDocuments = signal<DocumentRecord[]>([]);
   isLoadingDocs = signal(false);
   docLoadError = signal('');
-  
-  
+
+
   // ── Employee Pass History ─────────────────────────────────────────────────
   empPassHistory = signal<HistoryRecord[]>([]);
   isLoadingHistory = signal(false);
@@ -190,10 +193,16 @@ export class Confirmer implements OnInit, OnDestroy {
         })
       )
       .subscribe(data => {
-        const enriched = (Array.isArray(data) ? data : []).map(p => ({
+        const enriched = (Array.isArray(data) ? data : []).map((p: any) => ({
           ...p,
-          employeeName: p.employeeName ?? p.empName ?? p.name
-            ?? this.svc.resolveEmpName(p.employeeNo ?? '')
+
+          passId: p.passId ?? p.id,
+
+          employeeName:
+            p.employeeName ??
+            p.empName ??
+            p.name ??
+            this.svc.resolveEmpName(p.employeeNo ?? '')
         }));
         this.allPasses.set(enriched);
         this.isLoading.set(false);
@@ -218,6 +227,7 @@ export class Confirmer implements OnInit, OnDestroy {
     }
     this.empPassHistory.set([]);
     this.historyLoadError.set('');
+    this.loadEmpPassHistory(p.id);
 
   }
 
@@ -314,6 +324,10 @@ export class Confirmer implements OnInit, OnDestroy {
         }
       });
   }
+  getDocumentUrl(fileName: string): string {
+    return `${environment.cvpsBaseUrl}/api/documents/download/${fileName}`;
+  }
+
 
   // ── GET /api/documents/list → filter by vehicleId ────────────────────────
   private loadDocuments(vehicleId: number): void {
@@ -324,22 +338,35 @@ export class Confirmer implements OnInit, OnDestroy {
 
   // ── View PDF in new tab ───────────────────────────────────────────────────
   viewDocument(doc: DocumentRecord): void {
-    if (!doc?.documentId || !doc?.fileName) {
-      alert('No file attached to this document.');
-      return;
-    }
-    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
-    this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
+    console.log('Document Data:', doc);
+
+    if (!doc?.id || !doc?.fileName) {
+    alert('No file attached to this document.');
+    return;
+  }
+
+    console.log(doc.fileName);
+    const url = this.getDocumentUrl(doc.fileName);
+
+    this.http.get(url, { responseType: 'blob' })
       .pipe(
-        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
-          console.error('❌ PDF download error:', err?.status);
+          console.error('❌ Document download error:', err?.status, err);
           alert('Could not load file. It may not have been uploaded yet.');
           return of(null);
         })
       )
       .subscribe((blob: Blob | null) => {
         if (!blob) return;
+
+        const contentType = blob.type || '';
+        if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+          alert('Server returned an error instead of the file.');
+          return;
+        }
+
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank');
         setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
@@ -449,13 +476,13 @@ export class Confirmer implements OnInit, OnDestroy {
         setTimeout(() => this.closeDetails(), 2000);
       });
   }
-  // ✅ FIXED — calls /api/history/list and filters by id
-  private loadEmpPassHistory(id: number): void {
+  // ✅ FIXED — calls /api/history/list and filters by passId
+  private loadEmpPassHistory(passId: number): void {
     this.isLoadingHistory.set(true);
     this.historyLoadError.set('');
     this.empPassHistory.set([]);
 
-    this.http.get<HistoryRecord[]>(API_CONFIG.PASS_HISTORY, { headers: this.HEADERS })
+    this.http.get<HistoryRecord[]>(`${API_CONFIG.PASS_HISTORY}/${passId}`, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
@@ -468,7 +495,7 @@ export class Confirmer implements OnInit, OnDestroy {
       )
       .subscribe(data => {
         const history = (Array.isArray(data) ? data : [])
-          .filter(h => String(h.passNo) === String(id))
+          .filter(h => String(h.passNo) === String(passId))
           .sort((a: any, b: any) =>
             new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
           ); // newest first
@@ -479,6 +506,7 @@ export class Confirmer implements OnInit, OnDestroy {
         this.isLoadingHistory.set(false);
       });
   }
+
   private logHistory(id: number, empCode: string, action: string, remark: string): void {
     const payload = {
       passNo: String(id), empCode: empCode || 'SYSTEM',

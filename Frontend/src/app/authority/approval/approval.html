@@ -45,7 +45,7 @@
 
     <div class="table-card" *ngIf="pendingList().length > 0">
       <div class="table-scroll">
-        <table class="dtable">
+       <table class="dtable">
           <thead>
             <tr>
               <th>S.NO</th>
@@ -53,8 +53,7 @@
               <th>EMPLOYEE NO</th>
               <th>VEHICLE NO</th>
               <th>TYPE</th>
-              <th>GATE</th>
-              <th>CONFIRMED BY</th>
+              <th>GATE</th>             
               <th>STATUS</th>
               <th>ACTION</th>
             </tr>
@@ -62,15 +61,15 @@
           <tbody>
             <tr *ngFor="let p of pagedList(); let i = index">
               <td class="muted">{{ (currentPage()-1)*pageSize+i+1 }}</td>
-              <td><strong class="pass-id-cell green">{{ p.passId }}</strong></td>
+              <td><strong class="pass-id-cell blue">{{ p.id }}</strong></td>
               <td>{{ p.employeeNo || '—' }}</td>
-              <td>{{ p.vehicle?.vehicleNo || '—' }}</td>
-              <td>{{ p.typeOfVehicle || p.empType || '—' }}</td>
+              <td>{{ p.vehicleNo || '—' }}</td>
+              <td>{{ p.empType || p.empType || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
-              <td><span class="confirmer-tag">{{ p.enterBy || '—' }}</span></td>
-              <td><span class="badge" [ngClass]="getStatusClass(p.status)">{{ getStatusLabel(p.status) }}</span></td>
+             
+              <td><span class="badge" [ngClass]="getStatusClass(p.reqStatus)">{{ getStatusLabel(p.reqStatus) }}</span></td>
               <td>
-                <button class="btn-review green-btn" (click)="openDetails(p)">
+                <button class="btn-review blue-btn" (click)="openDetails(p)">
                   <i class="bi bi-eye-fill"></i> Review
                 </button>
               </td>
@@ -117,10 +116,10 @@
         <!-- ── Vehicle ── -->
         <div class="sec-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
         <div class="dg">
-          <div class="di"><label>Vehicle No</label><span>{{ p.vehicle?.vehicleNo || '—' }}</span></div>
-          <div class="di"><label>Type</label><span>{{ p.vehicle?.vehicleType || p.typeOfVehicle || '—' }}</span></div>
-          <div class="di"><label>Class</label><span>{{ p.vehicle?.vehicleClass || '—' }}</span></div>
-          <div class="di"><label>Brand/Model</label><span>{{ p.vehicle?.brandModel || '—' }}</span></div>
+          <div class="di"><label>Vehicle No</label><span>{{ p.vehicleNo || '—' }}</span></div>
+          <div class="di"><label>Type</label><span>{{ p.vehicleType || p.vehicleType || '—' }}</span></div>
+         
+          <div class="di"><label>Brand/Model</label><span>{{ p.brandModel || '—' }}</span></div>
         </div>
 
         <!-- ── Employee / Requester ── -->
@@ -182,9 +181,14 @@
           <div class="di"><label>Pass ID</label><span>{{ p.passId }}</span></div>
           <div class="di"><label>Gate No</label><span>{{ p.gateNo || '—' }}</span></div>
           <div class="di"><label>Parking Area</label><span>{{ p.parkingToBeUsed || '—' }}</span></div>
-          <div class="di"><label>Issue Date</label><span>{{ formatDate(p.issueDate) }}</span></div>
-          <div class="di"><label>Valid Till</label><span>{{ formatDate(p.validityDate) }}</span></div>
         </div>
+
+
+
+
+
+
+
 
         <!-- ── Compliance Documents ── -->
         <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
@@ -234,7 +238,7 @@
           </table>
         </div>
 
-        <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()" class="doc-empty">
+         <div *ngIf="!isLoadingDocs() && passDocuments().length === 0 && !docLoadError()" class="doc-empty">
           <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
@@ -262,6 +266,22 @@
             for modification. Make sure your remark explains what needs to change.</span>
         </div>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <!-- ══════════════════════════════════════════════
              EMPLOYEE PASS HISTORY TOGGLE
              OUTSIDE modal-footer — full width block
@@ -275,6 +295,7 @@
           </button>
         </div>
 
+        
         <!-- History panel — hidden until button pressed -->
         <div *ngIf="showHistory()" class="hist-panel">
 
@@ -333,6 +354,19 @@
 
         </div>
         <!-- ── end history panel ── -->
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         <!-- ══════════════════════════════════════════════
              MODAL FOOTER — all 4 buttons equal size

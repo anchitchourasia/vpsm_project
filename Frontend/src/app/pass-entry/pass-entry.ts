@@ -44,7 +44,7 @@ interface EmployeeLookupResponse {
 }
 
 export const PASS_STATUS = {
-  DRAFT: 'DRAFT',
+  DRAFT: 'SAVED',
   SUBMITTED: 'SUBMITTED',
   MODIFY: 'MODIFY',
   CONFIRMED: 'CONFIRMED',
@@ -217,27 +217,29 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empContractorName = data.empContractorName || '';
     this.contractorName = data.contractorFirm || data.empContractorName || '';
 
-    this.docs.set(
-      Array.isArray(data.docs) && data.docs.length
-        ? data.docs.map((d: any) => ({
-          id: crypto.randomUUID(),
-          docType: d.docType || '',
-          docNo: d.docNo || '',
-          startDate: d.startDate || '',
-          validUpto: d.validUpto || '',
-          file: null,
-          documentId: d.documentId,
-          existingFile: d.fileName
-        }))
-        : [emptyDoc()]
-    );
+    const docs = data.docs || data.documents || [];
 
-    this.passId.set(data.passId ? String(data.passId) : '');
-    this.passIdGenerated.set(!!data.passId);
+this.docs.set(
+  Array.isArray(docs) && docs.length
+    ? docs.map((d: any) => ({
+      id: crypto.randomUUID(),
+      docType: d.docType || d.documentType || '',
+      docNo: d.docNo || d.documentNo || '',
+      startDate: d.startDate || '',
+      validUpto: d.validUpto || d.expiryDate || '',
+      file: null,
+      documentId: d.documentId || d.id,
+      existingFile: d.fileName || ''
+    }))
+    : [emptyDoc()]
+);
+
+    this.passIdGenerated.set(!!(data.passId || data.id));
+    this.passIdGenerated.set(!!(data.passId || data.id));
     this.saved.set(isDraft);
-    this.savedPassRegistryId = data.passId ? Number(data.passId) : null;
+    this.savedPassRegistryId = Number(data.passId || data.id || 0);
     this.savedVehicleId = data.vehicleId ? Number(data.vehicleId) : null;
-    this.draftPassId = data.passId ? String(data.passId) : null;
+    this.draftPassId = data.passId ? String(data.id) : null;
   }
 
   setEmpType(type: 'Company_Employee' | 'Contractor'): void {
@@ -444,9 +446,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private validate(isSubmit: boolean): string {
     if (!this.vehicleNo.trim()) return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
-    if (!this.vehicleClass.trim()) return 'Vehicle Class is required.';
     if (this.empType() === 'Company_Employee' && !this.ecNo.trim()) return 'EC No is required.';
-    if (this.empType() === 'Contractor' && !this.ecNo.trim()) return 'Contractor Code is required.';
     if (!this.gateNo.trim()) return 'Gate No is required.';
 
 

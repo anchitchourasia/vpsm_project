@@ -8,10 +8,7 @@ import { API_CONFIG } from '../core/api.config';
 import { AuthService } from '../core/auth.service';
 import { PassStateService } from '../services/pass-state.service';
 
-
 const HTTP_TIMEOUT_MS = 12000;
-
-
 
 interface PassForm {
   issueDate: string;
@@ -90,7 +87,6 @@ export class Passes implements OnInit, OnDestroy {
   isLoading = signal(true);
   hasError = signal(false);
 
-
   searchText = signal('');
   filterStatus = signal('ALL');
   filterEmpType = signal('ALL');
@@ -147,7 +143,6 @@ export class Passes implements OnInit, OnDestroy {
   viewPdfError = signal('');
   viewPassExtra = signal<EmpExtra | null>(null);
   isLoadingExtra = signal(false);
-  // ── History signals — add these after viewPdfError signal
   showViewHistory = signal(false);
   isLoadingViewHist = signal(false);
   viewHistError = signal('');
@@ -160,11 +155,54 @@ export class Passes implements OnInit, OnDestroy {
   ngOnInit() { this.loadPasses(); this.startPolling(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
+  private normalizePassRow(p: any): any {
+    const normalizedStatus = (p.reqStatus || p.status || p.passStatus || '').trim();
+
+    const hasContractorCode =
+      p.contractorCode &&
+      String(p.contractorCode).trim() &&
+      String(p.contractorCode).trim().toUpperCase() !== 'NA';
+
+    const derivedEmpType = hasContractorCode
+      ? 'Contractor'
+      : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
+
+    const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
+      ? p.empTypeDetail.trim().toUpperCase()
+      : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
+
+    const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
+      ? p.typeOfVehicle
+      : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
+        ? p.vehicle.vehicleType
+        : (p.vehicleType && String(p.vehicleType).trim()
+          ? p.vehicleType
+          : (p.vehicle?.vehicleClass && p.vehicle.vehicleClass.trim()
+            ? p.vehicle.vehicleClass
+            : '—')));
+
+    return {
+      ...p,
+      passId: p.passId ?? p.id,
+      status: normalizedStatus,
+      passStatus: normalizedStatus,
+      vehicle: p.vehicle ?? {
+        vehicleId: p.vehicleId ?? null,
+        vehicleNo: p.vehicleNo ?? '',
+        vehicleType: p.vehicleType ?? '',
+        vehicleClass: p.vehicleClass ?? '',
+        brandModel: p.brandModel ?? '',
+      },
+      empType: derivedEmpType,
+      empTypeDetail: derivedEmpTypeDetail,
+      typeOfVehicle: derivedVehicleType,
+      contractorCode: hasContractorCode ? p.contractorCode : '',
+    };
+  }
+
   loadPasses() {
     this.isLoading.set(true);
     this.hasError.set(false);
-
-
 
     this.http
       .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS, observe: 'response' })
@@ -184,7 +222,7 @@ export class Passes implements OnInit, OnDestroy {
 
         const myCode = this.auth.empCode().trim().toLowerCase();
         let filtered = raw.filter((p: any) => {
-          const st = (p.status || '').toLowerCase();
+          const st = (p.reqStatus || p.status || p.passStatus || '').toLowerCase();
           if (st === 'draft') {
             return (p.enterBy || '').toLowerCase() === myCode;
           }
@@ -198,30 +236,7 @@ export class Passes implements OnInit, OnDestroy {
           );
         }
 
-        const normalized = filtered.map((p: any) => {
-          const derivedEmpType = (p.contractorCode && p.contractorCode.trim())
-            ? 'Contractor'
-            : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
-
-          const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
-            ? p.empTypeDetail.trim().toUpperCase()
-            : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
-
-          const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
-            ? p.typeOfVehicle
-            : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
-              ? p.vehicle.vehicleType
-              : (p.vehicle?.vehicleClass && p.vehicle.vehicleClass.trim()
-                ? p.vehicle.vehicleClass
-                : '—'));
-
-          return {
-            ...p,
-            empType: derivedEmpType,
-            empTypeDetail: derivedEmpTypeDetail,
-            typeOfVehicle: derivedVehicleType,
-          };
-        });
+        const normalized = filtered.map((p: any) => this.normalizePassRow(p));
 
         this.allPassesRaw.set(normalized);
         this.isLoading.set(false);
@@ -229,7 +244,6 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   private startPolling(): void {
-
     interval(30000)
       .pipe(
         takeUntil(this.destroy$),
@@ -245,7 +259,7 @@ export class Passes implements OnInit, OnDestroy {
 
         const myCode = this.auth.empCode().trim().toLowerCase();
         let filtered = raw.filter((p: any) => {
-          const st = (p.status || '').toLowerCase();
+          const st = (p.reqStatus || p.status || p.passStatus || '').toLowerCase();
           if (st === 'draft') {
             return (p.enterBy || '').toLowerCase() === myCode;
           }
@@ -259,30 +273,7 @@ export class Passes implements OnInit, OnDestroy {
           );
         }
 
-        const normalized = filtered.map((p: any) => {
-          const derivedEmpType = (p.contractorCode && p.contractorCode.trim())
-            ? 'Contractor'
-            : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
-
-          const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
-            ? p.empTypeDetail.trim().toUpperCase()
-            : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
-
-          const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
-            ? p.typeOfVehicle
-            : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
-              ? p.vehicle.vehicleType
-              : (p.vehicle?.vehicleClass && p.vehicle.vehicleClass.trim()
-                ? p.vehicle.vehicleClass
-                : '—'));
-
-          return {
-            ...p,
-            empType: derivedEmpType,
-            empTypeDetail: derivedEmpTypeDetail,
-            typeOfVehicle: derivedVehicleType,
-          };
-        });
+        const normalized = filtered.map((p: any) => this.normalizePassRow(p));
 
         this.allPassesRaw.set(normalized);
       });
@@ -296,8 +287,6 @@ export class Passes implements OnInit, OnDestroy {
     if (!id || id === '0') return;
 
     this.isLookingUp.set(true);
-
-
   }
 
   onSearch(v: string) { this.searchText.set(v); this.currentPage.set(1); }
@@ -315,7 +304,9 @@ export class Passes implements OnInit, OnDestroy {
     if (!d) return '—';
     const dt = new Date(d);
     return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  } formatDateTime(d: string): string {
+  }
+
+  formatDateTime(d: string): string {
     if (!d) return '—';
     const dt = new Date(d);
     if (isNaN(dt.getTime())) return d;
@@ -333,6 +324,7 @@ export class Passes implements OnInit, OnDestroy {
       case 'draft': return 'badge badge-draft';
       case 'submitted': return 'badge badge-submitted';
       case 'confirmed': return 'badge badge-confirmed';
+      case 'needs_modification': return 'badge badge-modify';
       default: return 'badge badge-surrendered';
     }
   }
@@ -371,7 +363,7 @@ export class Passes implements OnInit, OnDestroy {
       vehicleId: String(p.vehicle?.vehicleId ?? ''),
       typeOfVehicle: p.typeOfVehicle || p.vehicle?.vehicleType || '',
       mobileNo: p.mobileNo || '',
-      passStatus: p.status || p.passStatus || 'Active',
+      passStatus: p.reqStatus || p.status || p.passStatus || 'Active',
       empType: p.empType || '',
       remarks: p.remarks || '',
       isActive: p.isActive || 'Y',
@@ -400,6 +392,7 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPdfLoading.set(null);
     this.showViewModal.set(true);
     this.enrichViewPassWithEmployeeData(p);
+    
   }
 
   closeViewModal(): void {
@@ -413,9 +406,6 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPassHistory.set([]);
     this.viewHistError.set('');
   }
-
-
-  
 
   viewDocumentPdf(doc: DocRecord): void {
     if (!doc?.documentId || !doc?.fileName) {
@@ -505,7 +495,6 @@ export class Passes implements OnInit, OnDestroy {
 
     console.log('📤 Pass payload →', JSON.stringify(payload, null, 2));
 
-
     const req$ = this.isEditMode()
       ? this.http.put(`${API_CONFIG.PASS_UPDATE}/${this.editId()}`, payload, { headers: this.HEADERS })
       : this.http.post(API_CONFIG.PASS_LIST, payload, { headers: this.HEADERS });
@@ -532,7 +521,7 @@ export class Passes implements OnInit, OnDestroy {
         console.log('✅ savePass response:', res);
 
         const isEdit = this.isEditMode();
-        const savedId = res?.passId ?? this.editId() ?? '';
+        const savedId = res?.passId ?? res?.id ?? this.editId() ?? '';
         const empCode = (this.form.employeeNo || this.form.contractorCode || 'ADMIN').toUpperCase();
 
         const action = isEdit
@@ -587,7 +576,7 @@ export class Passes implements OnInit, OnDestroy {
     const gate = p.gateNo || '—';
     const issued = this.formatDate(p.issueDate);
     const valid = this.formatDate(p.validityDate);
-    const status = p.status || '—';
+    const status = p.reqStatus || p.status || p.passStatus || '—';
 
     const content = [
       '================================================',
@@ -615,31 +604,12 @@ export class Passes implements OnInit, OnDestroy {
     URL.revokeObjectURL(url);
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  openEditInPassEntry — Edit button in Pass Registry
-  //
-  //  ✅ FIX: The old code tried to read employee name/dept/aadhar
-  //  directly from the pass object (fresh.employeeName, fresh.empName,
-  //  fresh.deptCode etc.) — BUT the /api/passes/list endpoint does NOT
-  //  return these fields. They only exist in the Employee Report API.
-  //
-  //  NEW FLOW:
-  //   1. Fetch fresh pass row from DB
-  //   2. Fetch compliance docs for that vehicle
-  //   3. ✅ NEW: Fetch employee details from /api/reports/employee-department
-  //      using fresh.employeeNo (Company_Employee) or fresh.contractorCode
-  //      (Contractor) to get name, dept, deptCode, aadhaarNo etc.
-  //   4. Build PassRecord with real employee data merged in
-  //   5. passState.setResumeDraft(record) → pass-entry reads in ngOnInit
-  //   6. router.navigate(['/pass-entry'])
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   openEditInPassEntry(p: any): void {
     const passId = p?.passId;
     if (!passId) return;
 
     this.isRedirectingToEdit.set(true);
 
-    // ── Step 1: Fetch fresh pass row from DB ──────────────────────────────
     this.http
       .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
       .pipe(
@@ -648,7 +618,8 @@ export class Passes implements OnInit, OnDestroy {
         catchError(() => of(null))
       )
       .subscribe((allPasses: any[] | null) => {
-        const fresh = allPasses?.find((x: any) => x.passId === passId) ?? p;
+        const normalizedAll = (allPasses || []).map((x: any) => this.normalizePassRow(x));
+        const fresh = normalizedAll.find((x: any) => x.passId === passId) ?? p;
         const vehicleId = fresh.vehicle?.vehicleId ?? null;
         const isContractor = (fresh.empType || '').toLowerCase() === 'contractor'
           || !!(fresh.contractorCode && fresh.contractorCode.trim());
@@ -656,19 +627,14 @@ export class Passes implements OnInit, OnDestroy {
           ? (fresh.contractorCode || '').trim()
           : (fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
 
-        // ── Step 2: Fetch employee details from Employee Report API ─────────
-        // This is the ✅ KEY FIX — the passes/list API never returns
-        // employee name, deptCode, aadhaarNo. We must fetch from employee API.
         this.http
           .get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers: this.HEADERS })
           .pipe(
             timeout(HTTP_TIMEOUT_MS),
             takeUntil(this.destroy$),
-            catchError(() => of([]))   // if employee API fails, still navigate with empty name
+            catchError(() => of([]))
           )
           .subscribe((empRows: any[]) => {
-
-            // Match employee row by EC No or Contractor Code
             let empMatch: any = null;
             if (lookupCode && empRows && empRows.length > 0) {
               if (isContractor) {
@@ -683,7 +649,6 @@ export class Passes implements OnInit, OnDestroy {
               }
             }
 
-            // ── Step 3: Fetch compliance docs for this vehicle ──────────────
             const fetchDocsAndNavigate = (rawDocs: any[]) => {
               const mappedDocs = (rawDocs || []).map((d: any) => ({
                 documentId: d.documentId ?? d.id ?? null,
@@ -693,21 +658,17 @@ export class Passes implements OnInit, OnDestroy {
                 fileName: d.fileName || null,
               }));
 
-              // ── Resolve empTypeDetail ────────────────────────────────────
-              // Priority: DB value on pass → employee API value → default 'HEG'
-              // Default 'HEG' ensures EC No field is always UNLOCKED on Edit
               const rawEmpTypeDetail = (fresh.empTypeDetail || '').toString().trim().toUpperCase();
               let resolvedEmpTypeDetail = '';
               if (!isContractor) {
                 if (rawEmpTypeDetail === 'PERMANENT' || rawEmpTypeDetail === 'HEG' || rawEmpTypeDetail === 'CONTRACT') {
                   resolvedEmpTypeDetail = rawEmpTypeDetail;
                 } else {
-                  // Check employee API empType field as fallback
                   const apiEmpType = (empMatch?.empType || '').toString().trim().toUpperCase();
                   if (apiEmpType === 'PERMANENT' || apiEmpType === 'HEG' || apiEmpType === 'CONTRACT') {
                     resolvedEmpTypeDetail = apiEmpType;
                   } else {
-                    resolvedEmpTypeDetail = 'HEG'; // default — unlocks EC No field
+                    resolvedEmpTypeDetail = 'HEG';
                   }
                 }
               }
@@ -719,24 +680,15 @@ export class Passes implements OnInit, OnDestroy {
                 vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
                 vehicleClass: fresh.vehicle?.vehicleClass || '',
                 brandModel: fresh.vehicle?.brandModel || '',
-                vehicleId: fresh.vehicle?.vehicleId ?? null,   // ✅ needed so ngOnInit can restore savedVehicleId
-
-                // ✅ ecNo: for Company_Employee = employeeNo; for Contractor = contractorCode
+                vehicleId: fresh.vehicle?.vehicleId ?? null,
                 ecNo: isContractor ? '' : lookupCode,
                 contractorFirm: isContractor ? lookupCode : (fresh.contractorCode || ''),
-
-                // ✅ FIX: empName now sourced from Employee Report API match
-                // Falls back to any name stored on the pass itself as last resort
                 empName: empMatch?.name
                   || empMatch?.employeeName
                   || fresh.employeeName
                   || fresh.empName
                   || '',
-
-                // ✅ FIX: empDept from Employee Report API (deptName field)
-                // Falls back to dept column on pass row
                 empDept: (empMatch?.deptName || fresh.dept || '').toUpperCase(),
-
                 issueDate: fresh.issueDate || '',
                 validityDate: fresh.validityDate || '',
                 gateNo: fresh.gateNo || '',
@@ -746,25 +698,16 @@ export class Passes implements OnInit, OnDestroy {
                 status: 'Saved' as const,
                 createdAt: fresh.enterDate
                   || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-
-                // ✅ FIX: empTypeDetail resolved above — always a valid value for Company_Employee
                 empTypeDetail: resolvedEmpTypeDetail,
-
-                // ✅ FIX: empAadhar from Employee Report API (aadhaarNo field)
                 empAadhar: empMatch?.aadhaarNo
                   || empMatch?.aadharNo
                   || fresh.aadhaarNo
                   || '',
-
-                // ✅ FIX: empDeptCode from Employee Report API (deptCode field)
                 empDeptCode: empMatch?.deptCode || fresh.deptCode || '',
-
-                // ✅ FIX: contractor fields from Employee Report API match
                 empContractorCode: empMatch?.contractorCode || fresh.contractorCode || '',
                 empContractorName: isContractor
                   ? (empMatch?.name || fresh.contractorName || lookupCode)
                   : (empMatch?.name || ''),
-
                 contractorName: isContractor
                   ? (empMatch?.name || fresh.contractorName || lookupCode)
                   : '',
@@ -776,7 +719,6 @@ export class Passes implements OnInit, OnDestroy {
             };
 
             if (vehicleId) {
-              // ── Step 4: Fetch compliance docs for this vehicle ───────────
               this.http
                 .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
                 .pipe(
@@ -791,6 +733,7 @@ export class Passes implements OnInit, OnDestroy {
           });
       });
   }
+
   private enrichViewPassWithEmployeeData(pass: any): void {
     this.isLoadingExtra.set(true);
     this.viewPassExtra.set(null);
@@ -845,6 +788,7 @@ export class Passes implements OnInit, OnDestroy {
         }
       });
   }
+
   loadViewHistory(passId: number): void {
     this.isLoadingViewHist.set(true);
     this.viewHistError.set('');
@@ -909,13 +853,17 @@ export class Passes implements OnInit, OnDestroy {
     }
   }
 
-  canEditPass(p: any): boolean {
-    const status = (p?.status || p?.passStatus || '').toLowerCase();
-    if (this.auth.isAdmin()) return true;
-    if (this.auth.isConfirmer() || this.auth.isApprover()) return false;
-    if (this.auth.isUploader() || this.auth.isRegularUser()) {
-      return status === 'draft' || status === 'needs_modification';
-    }
-    return false;
+ canEditPass(p: any): boolean {
+  const status = (p?.reqStatus || p?.status || p?.passStatus || '')
+    .toUpperCase();
+
+  if (this.auth.isAdmin()) return true;
+  if (this.auth.isConfirmer() || this.auth.isApprover()) return false;
+
+  if (this.auth.isUploader() || this.auth.isRegularUser()) {
+    return ['SAVED', 'MODIFY', 'DRAFT', 'NEEDS_MODIFICATION', 'NEED_MODIFICATION', 'NEED MODIFICATION'].includes(status);
   }
+
+  return false;
+}
 }

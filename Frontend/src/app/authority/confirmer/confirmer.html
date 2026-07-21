@@ -54,8 +54,7 @@
               <th>EMPLOYEE NO</th>
               <th>VEHICLE NO</th>
               <th>TYPE</th>
-              <th>GATE</th>
-             
+              <th>GATE</th>             
               <th>STATUS</th>
               <th>ACTION</th>
             </tr>
@@ -237,6 +236,8 @@
           <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
+
+        
         <!-- ── Confirmer Remark ── -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Confirmer Remark</div>
         <div class="form-group">
@@ -270,7 +271,7 @@
 
           <div class="sec-title hist-title">
             <i class="bi bi-clock-history"></i>
-            Audit Trail — Pass #<strong>{{ p.id }}</strong>
+            <td><strong>{{ p.id }}</strong></td>
             <span class="hist-count-chip">{{ empPassHistory().length }} events</span>
           </div>
 
@@ -324,6 +325,21 @@
         </div>
         <!-- ── end history panel ── -->
 
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
         <!-- ══════════════════════════════════════════════
              MODAL FOOTER
              ORDER: Close | Send for Modify | Reject | Confirm & Send to Approver
