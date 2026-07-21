@@ -3,6 +3,8 @@ import { catchError, of, timeout } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { Injectable, signal, computed, NgZone, inject } from '@angular/core';
 
+
+export type PassEntryMode = 'view' | 'edit';
 // ─────────────────────────────────────────────────────────────────────────────
 // WORKFLOW STATUS — 3-stage pipeline: Entry → Confirmer → Approver → Active
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,7 +47,7 @@ export interface PassRecord {
   }[];
   status: 'Saved' | 'Submitted';  // kept for backward compat
   createdAt: string;
-
+  
   // ── NEW WORKFLOW FIELDS (all optional — old records load with no break) ──
   workflowStatus?: WorkflowStatus;
 
@@ -334,16 +336,30 @@ export class PassStateService {
   }
 
   // ── NAVIGATION STATE ──────────────────────────────────────────────────────
-  private _resumeDraftData = signal<PassRecord | null>(null);
-  private _resumeModData = signal<any | null>(null);
+private _resumeDraftData = signal<PassRecord | null>(null);
+private _resumeModData = signal<any | null>(null);
+private _resumeEntryMode = signal<PassEntryMode | null>(null);
 
-  readonly resumeDraftData = this._resumeDraftData.asReadonly();
-  readonly resumeModData = this._resumeModData.asReadonly();
+readonly resumeDraftData = this._resumeDraftData.asReadonly();
+readonly resumeModData = this._resumeModData.asReadonly();
+readonly resumeEntryMode = this._resumeEntryMode.asReadonly();
 
-  setResumeDraft(data: PassRecord): void { this._resumeDraftData.set(data); }
-  clearResumeDraft(): void { this._resumeDraftData.set(null); }
-  setResumeMod(data: any): void { this._resumeModData.set(data); }
-  clearResumeMod(): void { this._resumeModData.set(null); }
+setResumeDraft(data: PassRecord, mode: PassEntryMode = 'edit'): void {
+  this._resumeDraftData.set(data);
+  this._resumeEntryMode.set(mode);
+}
+
+clearResumeDraft(): void {
+  this._resumeDraftData.set(null);
+  this._resumeEntryMode.set(null);
+}
+
+setResumeMod(data: any): void {
+  this._resumeModData.set(data);
+  this._resumeEntryMode.set('edit');
+}
+
+clearResumeMod(): void { this._resumeModData.set(null); }
 
   // ── TEMPLATE HELPERS ──────────────────────────────────────────────────────
 

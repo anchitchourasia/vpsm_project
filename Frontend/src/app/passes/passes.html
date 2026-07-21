@@ -78,95 +78,85 @@
               <th>ACTIONS</th>
             </tr>
           </thead>
-          
 
           <tbody>
-<tr *ngFor="let p of pagedPasses(); let i = index">
+            <tr *ngFor="let p of pagedPasses(); let i = index">
 
-  <!-- S.NO -->
-  <td>
-    {{ (currentPage()-1)*pageSize() + i + 1 }}
-  </td>
+              <!-- S.NO -->
+              <td>
+                {{ (currentPage()-1)*pageSize() + i + 1 }}
+              </td>
 
-  <!-- REQUEST ID -->
-  <td class="td-passid">
-    <strong>{{ p.id }}</strong>
-  </td>
+              <!-- REQUEST ID -->
+              <td class="td-passid">
+                <strong>{{ p.id }}</strong>
+              </td>
 
+              <!-- EMP / CONTRACTOR -->
+              <td>
+                <strong>
+                  {{
+                    p.empType === 'CONTRACT'
+                    ? (p.contractorCode || '—')
+                    : (p.employeeNo || '—')
+                  }}
+                </strong>
+              </td>
 
-  <!-- EMP / CONTRACTOR -->
-  <td>
-    <strong>
-      {{
-        p.empType === 'CONTRACT'
-        ? (p.contractorCode || '—')
-        : (p.employeeNo || '—')
-      }}
-    </strong>
-  </td>
+              <!-- EMP TYPE -->
+              <td>
+                <span [class]="getEmpTypeBadgeClass(p.empType)">
+                  {{
+                    p.empType === 'CONTRACT'
+                    ? 'Contractor'
+                    : 'Company Employee'
+                  }}
+                </span>
+              </td>
 
+              <!-- DEPT / AREA -->
+              <td>
+                {{ p.parkingToBeUsed || '—' }}
+              </td>
 
-  <!-- EMP TYPE -->
-  <td>
-    <span [class]="getEmpTypeBadgeClass(p.empType)">
-      {{
-        p.empType === 'CONTRACT'
-        ? 'Contractor'
-        : 'Company Employee'
-      }}
-    </span>
-  </td>
+              <!-- VEHICLE NO -->
+              <td>
+                <strong>
+                  {{ p.vehicleNo || '—' }}
+                </strong>
+              </td>
 
+              <!-- TYPE OF VEHICLE -->
+              <td>
+                {{ p.vehicleType || '—' }}
+              </td>
 
-  <!-- DEPT / AREA -->
-  <td>
-    {{ p.parkingToBeUsed || '—' }}
-  </td>
+              <!-- GATE -->
+              <td>
+                {{ p.gateNo || '—' }}
+              </td>
 
+              <!-- ISSUE DATE -->
+              <td>
+                {{ formatDate(p.issueDate) }}
+              </td>
 
-  <!-- VEHICLE NO -->
-  <td>
-    <strong>
-      {{ p.vehicleNo || '—' }}
-    </strong>
-  </td>
+              <!-- VALID TILL -->
+              <td>
+                {{ formatDate(p.validityDate) }}
+              </td>
 
+              <!-- STATUS -->
+              <td>
+                <span class="status-active">
+                  Active
+                </span>
+              </td>
 
-  <!-- TYPE OF VEHICLE -->
-  <td>
-    {{ p.vehicleType || '—' }}
-  </td>
+              <td class="actions-cell">
 
-
-  <!-- GATE -->
-  <td>
-    {{ p.gateNo || '—' }}
-  </td>
-
-
-  <!-- ISSUE DATE -->
-  <td>
-    {{ formatDate(p.issueDate) }}
-  </td>
-
-
-  <!-- VALID TILL -->
-  <td>
-    {{ formatDate(p.validityDate) }}
-  </td>
-
-
-  <!-- STATUS -->
-  <td>
-    <span class="status-active">
-      Active
-    </span>
-  </td>
-
-<td class="actions-cell">
-
-                <!-- View button — always visible for all roles -->
-                <button class="btn-view" (click)="openViewModal(p)" title="View">
+                <!-- View button — now opens pass-entry in view mode -->
+                <button class="btn-view" (click)="openViewInPassEntry(p)" title="View">
                   👁 View
                 </button>
 
@@ -191,17 +181,15 @@
 
               </td>
 
-</tr>
+            </tr>
 
+            <tr *ngIf="pagedPasses().length === 0">
+              <td colspan="12" class="no-data">
+                No passes found.
+              </td>
+            </tr>
 
-<tr *ngIf="pagedPasses().length === 0">
-  <td colspan="12" class="no-data">
-    No passes found.
-  </td>
-</tr>
-
-</tbody>
-
+          </tbody>
 
         </table>
       </div>
@@ -229,7 +217,6 @@
     </div>
   </div>
 </div>
-
 
 <!-- ══════════════════════════════════════════════════ -->
 <!--  ADD / EDIT MODAL                                  -->
@@ -403,7 +390,6 @@
     </button>
   </div>
 </div>
-
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <!--  VIEW DETAIL MODAL — rich confirmer/approver-style pass detail    -->
@@ -697,7 +683,7 @@
   <!-- ✅ Footer — only Close + Edit, no history toggle here so no overlap -->
   <div class="modal-footer">
     <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <button *ngIf="canEditPass(viewPass())" class="btn-save" (click)="closeViewModal(); openEditModal(viewPass())">
+    <button *ngIf="canEditPass(viewPass())" class="btn-save" (click)="closeViewModal(); openEditInPassEntry(viewPass())">
       <i class="bi bi-pencil-square"></i> Edit This Pass
     </button>
   </div>
