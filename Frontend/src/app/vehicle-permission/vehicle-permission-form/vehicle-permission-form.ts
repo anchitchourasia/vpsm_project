@@ -162,6 +162,29 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     return this.isConfirmerMode() || this.isApproverMode() || this.isViewMode();
   }
 
+  onContractorCodeBlur(): void {
+
+  if (this.isReadOnlyMode()) {
+    return;
+  }
+
+  const code = this.contractorCode().trim().toUpperCase();
+
+  // Save the trimmed value back to the signal
+  this.contractorCode.set(code);
+
+  // Clear previous values
+  this.contractorName.set('');
+  this.errorMsg.set('');
+
+  // Don't call API for empty value
+  if (!code) {
+    return;
+  }
+
+  // Lookup contractor
+  this.resolveContractorName(code);
+}
   status = signal('Draft');
   editingMode = signal(false);
   contractorCode = signal('');
@@ -512,16 +535,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     );
   }
 
-  onContractorCodeChange(typedCode: string): void {
-    if (this.isReadOnlyMode()) return;
-    const cleanCode = typedCode.trim().toUpperCase();
-    this.contractorCode.set(cleanCode);
-    this.contractorName.set('');
-    this.errorMsg.set('');
-    if (!cleanCode) return;
-
-    this.resolveContractorName(cleanCode);
-  }
+  
   private dedupeVehicleDocuments(docs: any[]): any[] {
     const map = new Map<string, any>();
 
@@ -975,30 +989,27 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   private resolveContractorName(contractorCode: string): void {
-    this.cvps.fetchContractorDetails().pipe(
+
+  this.cvps.fetchContractorDetails(contractorCode)
+    .pipe(
       takeUntil(this.destroy$),
-      catchError(() => {
-        this.errorMsg.set('⚠️ Could not reach employee server. Check connectivity.');
-        return of([]);
-      })
-    ).subscribe((rows: any[]) => {
-      if (!rows || rows.length === 0) {
+      catchError(err => {
+        console.error(err);
         this.contractorName.set('');
-        return;
-      }
+        this.errorMsg.set('Unable to fetch contractor details.');
+        return of(null);
+      })
+    )
+    .subscribe((response: any) => {
 
-      const match = rows.find(
-        r => r.contractorCode && String(r.contractorCode).trim().toUpperCase() === contractorCode.trim().toUpperCase()
-      );
-
-      if (match) {
-        this.contractorName.set(String(match.name || '').toUpperCase());
-        this.errorMsg.set('');
+      if (response) {
+        this.contractorName.set(response.contractorName ?? '');
       } else {
         this.contractorName.set('');
       }
+
     });
-  }
+}
 
   saveDraft(): void {
     this.processFormSubmission('SAVED');

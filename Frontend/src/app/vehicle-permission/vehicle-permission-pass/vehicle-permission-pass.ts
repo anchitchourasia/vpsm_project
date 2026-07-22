@@ -1,4 +1,6 @@
 import { CommonModule } from '@angular/common';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { API_CONFIG } from '../../core/api.config';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, of } from 'rxjs';
@@ -37,6 +39,12 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     private route = inject(ActivatedRoute);
     private router = inject(Router);
     cvps = inject(CvpsService);
+    private http = inject(HttpClient);
+
+    private readonly HEADERS = new HttpHeaders({
+        'x-api-key': API_CONFIG.API_KEY,
+        'Content-Type': 'application/json'
+    });
 
     private destroy$ = new Subject<void>();
 
@@ -49,6 +57,10 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     requestNo = signal<number | null>(null);
     dto = signal<CreateRequestDTO | null>(null);
     contractorName = signal('');
+    employeeDetails = signal<any | null>(null);
+    uploaderName = signal('');
+    confirmerName = signal('');
+    approverName = signal('');
     status = signal<string>('Draft');
     remarksHistory = signal<PassHistoryEntry[]>([]);
 
@@ -119,62 +131,156 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
                 this.dto.set(dto);
                 this.status.set(dto.request?.reqStatus || 'Draft');
+                console.log('Request Object:', dto.request);
 
-                const contractorId = (dto.request.contractorId || '').trim().toUpperCase();
-                if (contractorId) {
-                    this.resolveContractorName(contractorId);
+                const emp = dto.employees?.[0];
+
+                if (emp?.empNo) {
+                    this.resolveEmployeeDetails(String(emp.empNo));
+                }
+                const contractorCode = String(dto.request?.contractorId || '').trim();
+
+                if (contractorCode) {
+                    this.resolveContractorName(contractorCode);
                 }
             });
     }
 
     private loadRemarkHistory(requestNo: number): void {
+
         this.cvps.getRequestHistory(requestNo)
             .pipe(
                 takeUntil(this.destroy$),
                 catchError(() => of([]))
             )
             .subscribe((rows: any[]) => {
+
                 const mapped: PassHistoryEntry[] = (rows || []).map((row: any, index: number) => {
+
                     const stage = this.inferHistoryStage(row);
+
+                    const empCode = String(row?.empNo || '')
+                        .trim();
+
+                    // fetch employee name
+                    if (empCode) {
+                        this.resolveEmployeeName(empCode, stage);
+                    }
 
                     return {
                         id: String(row?.historyId ?? index + 1),
                         stage,
-                        action: row?.actionTaken || row?.statusAfter || row?.status || '',
+                        action: row?.actionTaken || '',
                         remark: row?.remarks || '',
-                        byName: row?.empName || row?.employeeName || row?.byName || row?.empNo || '',
-                        byEmpCode: row?.empNo || row?.byEmpCode || '',
-                        statusAfter: row?.actionTaken || row?.statusAfter || row?.status || '',
-                        createdAt: row?.actionDate || row?.createdAt || row?.createdDate || ''
+                        byName: '',
+                        byEmpCode: empCode,
+                        statusAfter: row?.actionTaken || '',
+                        createdAt: row?.actionDate || ''
                     };
+
                 });
 
                 mapped.sort((a, b) => this.getHistorySortValue(a) - this.getHistorySortValue(b));
+
                 this.remarksHistory.set(mapped);
+
             });
+
     }
 
+    private resolveEmployeeDetails(empCode: string): void {
+
+        const url = `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(empCode)}`;
+
+        this.http.get<any>(url, { headers: this.HEADERS })
+            .pipe(
+                takeUntil(this.destroy$),
+                catchError(() => {
+                    this.employeeDetails.set(null);
+                    this.contractorName.set('');
+                    return of(null);
+                })
+            )
+            .subscribe(res => {
+
+                if (!res) {
+                    this.employeeDetails.set(null);
+                    return;
+                }
+
+                this.employeeDetails.set(res);
+
+                this.contractorName.set(
+                    String(res.contractorName || '').toUpperCase()
+                );
+            });
+    }
     private resolveContractorName(contractorCode: string): void {
-        this.cvps.fetchContractorDetails()
+
+        const url = `${API_CONFIG.CVPS_BP_RECORDS}/${encodeURIComponent(contractorCode)}`;
+
+        this.http.get<any>(url, { headers: this.HEADERS })
             .pipe(
                 takeUntil(this.destroy$),
                 catchError(() => {
                     this.contractorName.set('');
-                    return of([]);
+                    return of(null);
                 })
             )
-            .subscribe((rows: any[]) => {
-                if (!rows?.length) {
-                    this.contractorName.set('');
-                    return;
-                }
+            .subscribe(res => {
 
-                const match = rows.find(r =>
-                    String(r?.contractorCode || '').trim().toUpperCase() === contractorCode.trim().toUpperCase()
+                if (!res) return;
+
+                this.contractorName.set(
+                    String(res.contractorName || '').toUpperCase()
                 );
 
-                this.contractorName.set(match?.name ? String(match.name).toUpperCase() : '');
             });
+
+    }
+    private resolveEmployeeName(
+        empCode: string,
+        stage: HistoryStage
+    ): void {
+
+        const url =
+            `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(empCode.trim())}`;
+
+        this.http.get<any>(url, {
+            headers: this.HEADERS
+        })
+            .pipe(
+                takeUntil(this.destroy$),
+                catchError(() => of(null))
+            )
+            .subscribe(emp => {
+
+                if (!emp) return;
+
+                const name = String(
+                    emp.name ||
+                    emp.empName ||
+                    emp.employeeName ||
+                    '-'
+                ).toUpperCase();
+
+                switch (stage) {
+
+                    case 'UPLOADER':
+                        this.uploaderName.set(name);
+                        break;
+
+                    case 'CONFIRMER':
+                        this.confirmerName.set(name);
+                        break;
+
+                    case 'APPROVER':
+                        this.approverName.set(name);
+                        break;
+                }
+
+            });
+
     }
 
     formatDate(value: string | null | undefined): string {
@@ -388,27 +494,24 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         }) ?? null;
     }
 
-    private getWorkflowPerson(stage: 'CONFIRMER' | 'APPROVER'): string {
-        const match = this.getLatestHistoryByStage(stage);
-        return String(
-            match?.byEmpCode ||
-            match?.byName ||
-            '-'
-        ).trim() || '-';
+    private getWorkflowPerson(stage: HistoryStage): string {
+
+        switch (stage) {
+
+            case 'CONFIRMER':
+                return this.confirmerName() || '-';
+
+            case 'APPROVER':
+                return this.approverName() || '-';
+
+            default:
+                return this.uploaderName() || '-';
+        }
+
     }
 
     private getUploaderName(): string {
-        const uploaderFromHistory = this.getFirstHistoryByStage('UPLOADER');
-        if (uploaderFromHistory) {
-            return String(
-                uploaderFromHistory.byEmpCode ||
-                uploaderFromHistory.byName ||
-                '-'
-            ).trim() || '-';
-        }
-
-        const req: any = this.request();
-        return String(req?.createdBy || '-').trim() || '-';
+        return this.uploaderName() || '-';
     }
     private getWorkflowDate(stage: HistoryStage): string {
         const match = this.getLatestHistoryByStage(stage);
@@ -436,11 +539,13 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         }
     }
     private getContractorDisplay(req: any): string {
-        const name = String(this.contractorName() || '').trim();
-        const code = String(req?.contractorId || '').trim();
 
-        if (name && code) return `${name} (${code})`;
-        return name || code || '-';
+        return String(
+            req?.contractorCode ||
+            req?.contractorId ||
+            '-'
+        ).trim();
+
     }
 
     private getVehicleDetailsTitle(req: any): string {
@@ -499,43 +604,47 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     }
 
     private drawSignatureBlock(
-    doc: jsPDF,
-    x: number,
-    y: number,
-    w: number,
-    topText: string,
-    bottomText: string,
-    dateText: string = '-'
-): void {
-    const safeBottom = String(bottomText || '-').trim() || '-';
-    const safeDate = String(dateText || '-').trim() || '-';
-    const safeTop = String(topText || '-').trim() || '-';
+        doc: jsPDF,
+        x: number,
+        y: number,
+        w: number,
+        personName: string,
+        empCode: string,
+        dateText: string,
+        role: string
+    ): void {
 
-    const bottomLines = doc.splitTextToSize(
-        safeBottom.length > 24 ? `${safeBottom.slice(0, 24)}...` : safeBottom,
-        w - 4
-    );
-    const topLines = doc.splitTextToSize(safeTop, w - 4);
+        const name = String(personName || '-').trim() || '-';
+        const code = String(empCode || '-').trim() || '-';
+        const date = String(dateText || '-').trim() || '-';
+        const roleText = String(role || '').trim();
 
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.line(x, y, x + w, y);
+        // Name above signature line
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(20, 20, 20);
+        doc.text(name, x + w / 2, y - 2, { align: 'center' });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.6);
-    doc.setTextColor(35, 35, 35);
-    doc.text(bottomLines, x + w / 2, y + 3.8, { align: 'center' });
+        // Signature line
+        doc.setDrawColor(180, 180, 180);
+        doc.line(x, y, x + w, y);
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.6);
-    doc.setTextColor(90, 90, 90);
-    doc.text(safeDate, x + w / 2, y + 7.6, { align: 'center' });
+        // Employee Code
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(code, x + w / 2, y + 4, { align: 'center' });
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.4);
-    doc.setTextColor(105, 105, 105);
-    doc.text(topLines, x + w / 2, y + 11.0, { align: 'center' });
-}
+        // Date
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.text(date, x + w / 2, y + 8, { align: 'center' });
+
+        // Role
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.text(roleText, x + w / 2, y + 12, { align: 'center' });
+
+    }
     private addSectionTitle(
         doc: jsPDF,
         title: string,
@@ -845,39 +954,48 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                 sectionLeft,
                 footerSignY,
                 blockWidth,
-                'contractor name',
                 this.contractorName() || '-',
-                this.getWorkflowDate('UPLOADER')
+                String(req?.contractorId || '-'),
+                this.getWorkflowDate('UPLOADER'),
+                'contractor name'
             );
+
+            const uploader = this.getFirstHistoryByStage('UPLOADER');
 
             this.drawSignatureBlock(
                 pdf,
-                sectionLeft + (blockWidth + gap) * 1,
+                sectionLeft + (blockWidth + gap),
                 footerSignY,
                 blockWidth,
-                'uploader',
-                this.getUploaderName(),
-                this.getWorkflowDate('UPLOADER')
+                this.uploaderName(),
+                uploader?.byEmpCode || '-',
+                this.getWorkflowDate('UPLOADER'),
+                'uploader'
             );
+            const confirmer = this.getLatestHistoryByStage('CONFIRMER');
 
             this.drawSignatureBlock(
                 pdf,
                 sectionLeft + (blockWidth + gap) * 2,
                 footerSignY,
                 blockWidth,
-                'confirmer',
-                this.getWorkflowPerson('CONFIRMER'),
-                this.getWorkflowDate('CONFIRMER')
+                this.confirmerName(),
+                confirmer?.byEmpCode || '-',
+                this.getWorkflowDate('CONFIRMER'),
+                'confirmer'
             );
+
+            const approver = this.getLatestHistoryByStage('APPROVER');
 
             this.drawSignatureBlock(
                 pdf,
                 sectionLeft + (blockWidth + gap) * 3,
                 footerSignY,
                 blockWidth,
-                'approver',
-                this.getWorkflowPerson('APPROVER'),
-                this.getWorkflowDate('APPROVER')
+                this.approverName(),
+                approver?.byEmpCode || '-',
+                this.getWorkflowDate('APPROVER'),
+                'approver'
             );
 
             pdf.setDrawColor(220, 220, 220);

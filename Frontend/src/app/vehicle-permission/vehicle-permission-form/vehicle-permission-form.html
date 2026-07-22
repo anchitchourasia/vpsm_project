@@ -22,8 +22,14 @@
     <div class="vp-grid-2">
       <div class="vp-field">
         <label class="vp-label">Contractor Code</label>
-        <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode().trim()"
-          (ngModelChange)="onContractorCodeChange($event)" [readonly]="isReadOnlyMode()" />
+        <input
+    class="vp-input"
+    type="text"
+    placeholder="Enter contractor code"
+    [ngModel]="contractorCode()"
+    (ngModelChange)="contractorCode.set($event)"
+    (blur)="onContractorCodeBlur()"
+    [readonly]="isReadOnlyMode()" />
       </div>
 
       <div class="vp-field">

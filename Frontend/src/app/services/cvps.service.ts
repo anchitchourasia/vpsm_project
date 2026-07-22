@@ -216,17 +216,30 @@ export class CvpsService {
     );
   }
 
-  fetchContractorDetails(): Observable<any[]> {
-    const headers = new HttpHeaders({
-      'x-api-key': API_CONFIG.API_KEY,
-      'Accept': 'application/json',
-    });
+  fetchContractorDetails(contractorCode: string): Observable<any> {
 
-    return this.http.get<any[]>(
-      API_CONFIG.EMPLOYEE_REPORT,
-      { headers }
-    );
-  }
+  const headers = new HttpHeaders({
+    'x-api-key': API_CONFIG.API_KEY,
+    'Accept': 'application/json'
+  });
+
+  return this.http.get<any>(
+    `${API_CONFIG.CVPS_BP_RECORDS}/${contractorCode.trim()}`,
+    { headers }
+  );
+}
+fetchEmployeeDetails(empCode: string): Observable<any> {
+
+  const headers = new HttpHeaders({
+    'x-api-key': API_CONFIG.API_KEY,
+    'Accept': 'application/json'
+  });
+
+  return this.http.get<any>(
+    `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(empCode)}`,
+    { headers }
+  );
+}
 
   triggerBlobDownload(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
