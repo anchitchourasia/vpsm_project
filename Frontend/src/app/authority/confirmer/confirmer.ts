@@ -324,8 +324,8 @@ export class Confirmer implements OnInit, OnDestroy {
         }
       });
   }
-  getDocumentUrl(fileName: string): string {
-    return `${environment.cvpsBaseUrl}/api/documents/download/${fileName}`;
+  getDocumentUrl(documentId: number): string {
+    return `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${documentId}`;
   }
 
 
@@ -340,15 +340,21 @@ export class Confirmer implements OnInit, OnDestroy {
   viewDocument(doc: DocumentRecord): void {
     console.log('Document Data:', doc);
 
-    if (!doc?.id || !doc?.fileName) {
-    alert('No file attached to this document.');
-    return;
-  }
+    const documentId = doc?.id;
 
-    console.log(doc.fileName);
-    const url = this.getDocumentUrl(doc.fileName);
+    if (!documentId || !doc?.fileName) {
+      alert('No file attached to this document.');
+      return;
+    }
 
-    this.http.get(url, { responseType: 'blob' })
+    const url = this.getDocumentUrl(documentId);
+
+    this.http.get(url, {
+      responseType: 'blob',
+      headers: new HttpHeaders({
+        'x-api-key': API_CONFIG.API_KEY
+      })
+    })
       .pipe(
         timeout(TIMEOUT_MS),
         takeUntil(this.destroy$),

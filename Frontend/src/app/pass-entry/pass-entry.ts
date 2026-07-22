@@ -194,52 +194,97 @@ export class PassEntry implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
   }
+  private normalizeEmpTypeDetail(value: any): 'TACC' | 'HEG' | 'CONTRACT' | '' {
+    const v = String(value || '').trim().toUpperCase();
+
+    if (!v) return '';
+
+    if (v === 'TACC') return 'TACC';
+    if (v === 'HEG') return 'HEG';
+    if (v === 'CONTRACT' || v === 'CONTRACTOR') return 'CONTRACT';
+
+    if (v === 'COMPANY_EMPLOYEE' || v === 'COMPANY EMPLOYEE') return '';
+    return '';
+  }
 
   private loadPassRecord(data: any, isDraft: boolean): void {
-    this.empType.set(data.empType || '');
-    this.vehicleNo = data.vehicleNo || '';
+    console.log('LOAD PASS RECORD DATA', data);
+    console.log('LOAD PASS RECORD DOCS RAW', data.docs || data.documents);
+
+    this.empType.set('Company_Employee');
+
+    const loadedPassId = String(data.passId ?? data.id ?? '').trim();
+    this.passId.set(loadedPassId);
+    this.passIdGenerated.set(!!loadedPassId);
+
+    this.vehicleNo = data.vehicleNo || data.vehicleNoo || '';
     this.vehicleType = data.vehicleType || '';
     this.vehicleClass = data.vehicleClass || '';
     this.brandModel = data.brandModel || '';
 
-    this.ecNo = data.ecNo || '';
-    this.contractorCode = data.contractorFirm || '';
+    this.ecNo = data.ecNo || data.employeeNo || data.employeeCompanyNo || '';
+    this.contractorCode = data.contractorCode || data.contractorFirm || '';
     this.gateNo = data.gateNo || '';
-    this.parkingArea = data.parkingArea || '';
-    this.remark = data.remark || '';
+    this.parkingArea = data.parkingArea || data.parkingToBeUsed || '';
+    this.remark = data.remark || data.remarks || '';
 
-    this.empName.set(data.empName || '');
-    this.empDept.set(data.empDept || '');
-    this.empAadhar.set(data.empAadhar || '');
-    this.empDeptCode.set(data.empDeptCode || '');
-    this.empTypeDetail.set(data.empTypeDetail || '');
-    this.empContractorCode = data.empContractorCode || '';
-    this.empContractorName = data.empContractorName || '';
-    this.contractorName = data.contractorFirm || data.empContractorName || '';
+    this.empName.set(data.empName || data.employeeName || '');
+    this.empDept.set(data.empDept || data.dept || '');
+    this.empAadhar.set(data.empAadhar || data.aadhaarNo || data.aadharNo || '');
+    this.empDeptCode.set(data.empDeptCode || data.deptCode || '');
+    const rawEmpTypeDetail =
+      data.empTypeDetail ??
+      data.empTypeDisplay ??
+      data.employeeType ??
+      data.employeeTypeDetail ??
+      data.empTypeName ??
+      data.employeeCategory ??
+      '';
+
+    const normalizedEmpTypeDetail = this.normalizeEmpTypeDetail(rawEmpTypeDetail);
+
+    this.empTypeDetail.set(normalizedEmpTypeDetail);
+    this.empType_display.set(normalizedEmpTypeDetail);
+
+    this.empContractorCode = data.empContractorCode || data.contractorCode || '';
+    this.empContractorName = data.empContractorName || data.contractorName || '';
+    this.contractorName = data.contractorName || data.contractorFirm || data.empContractorName || '';
 
     const docs = data.docs || data.documents || [];
 
-this.docs.set(
-  Array.isArray(docs) && docs.length
-    ? docs.map((d: any) => ({
-      id: crypto.randomUUID(),
-      docType: d.docType || d.documentType || '',
-      docNo: d.docNo || d.documentNo || '',
-      startDate: d.startDate || '',
-      validUpto: d.validUpto || d.expiryDate || '',
-      file: null,
-      documentId: d.documentId || d.id,
-      existingFile: d.fileName || ''
-    }))
-    : [emptyDoc()]
-);
+    this.docs.set(
+      Array.isArray(docs) && docs.length
+        ? docs.map((d: any) => {
+          const existing =
+            d.fileName ||
+            d.filename ||
+            d.existingFile ||
+            d.documentName ||
+            d.documentPath ||
+            '';
 
-    this.passIdGenerated.set(!!(data.passId || data.id));
-    this.passIdGenerated.set(!!(data.passId || data.id));
+          return {
+            id: crypto.randomUUID(),
+            docType: d.docType || d.documentType || '',
+            docNo: d.docNo || d.documentNo || '',
+            validUpto: d.validUpto || d.expiryDate || d.validTill || '',
+            file: null,
+            fileName: existing,
+            documentId: d.documentId ?? d.id ?? d.docId ?? d.vehicleDocumentId ?? null,
+            existingFile: existing
+          };
+        })
+        : [emptyDoc()]
+    );
+
+    console.log('LOAD PASS ID =>', loadedPassId);
+    console.log('PASS ID SIGNAL AFTER LOAD =>', this.passId());
+    console.log('DOCS AFTER LOAD =>', this.docs());
+
     this.saved.set(isDraft);
-    this.savedPassRegistryId = Number(data.passId || data.id || 0);
+    this.savedPassRegistryId = loadedPassId ? Number(loadedPassId) : null;
     this.savedVehicleId = data.vehicleId ? Number(data.vehicleId) : null;
-    this.draftPassId = data.passId ? String(data.id) : null;
+    this.draftPassId = loadedPassId || null;
   }
 
   setEmpType(type: 'Company_Employee' | 'Contractor'): void {
@@ -426,7 +471,7 @@ this.docs.set(
   }
 
   docAlreadyUploaded(doc: DocEntry): boolean {
-    return !!doc.documentId && !!doc.existingFile && !doc.file;
+    return !!((doc.existingFile || doc.fileName) && !doc.file);
   }
 
   shortName(name: string): string {
@@ -443,12 +488,13 @@ this.docs.set(
     try { (input as any).showPicker(); } catch { input.click(); }
   }
 
-  private validate(isSubmit: boolean): string {
+  validate(isSubmit: boolean): string {
     if (!this.vehicleNo.trim()) return 'Vehicle No is required.';
     if (!this.vehicleType.trim()) return 'Vehicle Type is required.';
+    if (!this.brandModel.trim()) return 'Brand / Model is required.';
     if (this.empType() === 'Company_Employee' && !this.ecNo.trim()) return 'EC No is required.';
     if (!this.gateNo.trim()) return 'Gate No is required.';
-
+    if (!this.parkingArea.trim()) return 'Parking Area is required.';
 
     if (this.empType() === 'Company_Employee') {
       const selectedDetail = (this.empTypeDetail() || '').toUpperCase().trim();
@@ -461,25 +507,65 @@ this.docs.set(
       }
     }
 
-    const mandatoryAll = this.empType() === 'Contractor' || this.vehicleClass === 'Heavy_Machinery';
-    if (isSubmit && mandatoryAll && this.docs().length < ALLOWED_DOC_TYPES.length) {
-      const missing = ALLOWED_DOC_TYPES.filter(t => !this.docs().some(d => d.docType === t));
-      return `All 5 documents are mandatory. Missing: ${missing.join(', ')}.`;
+    if (this.empType() === 'Contractor') {
+      if (!this.contractorCode.trim()) return 'Contractor Code is required.';
+      if (!this.contractorName.trim()) return 'Contractor Name is required.';
     }
+
     for (const doc of this.docs()) {
       const hasAnyValue =
         !!doc.docType ||
         !!doc.docNo.trim() ||
         !!doc.validUpto ||
-        !!doc.file;
+        !!doc.file ||
+        !!doc.fileName ||
+        !!doc.existingFile;
 
       if (!hasAnyValue) continue;
 
       if (!doc.docType) return 'Select Document Type for all started document rows.';
-      if (!doc.docNo.trim()) return `Document No is required for ${doc.docType}.`;
+      if (!doc.docNo.trim()) return `Document No is required for ${doc.docType || 'document row'}.`;
+      if (!doc.validUpto) return `Valid Upto date is required for ${doc.docType || 'document row'}.`;
 
-      if (!doc.validUpto) return `Valid Upto date is required for ${doc.docType}.`;
-      if (!doc.file && !this.docAlreadyUploaded(doc)) return `Please upload a PDF file for ${doc.docType}.`;
+      if (!doc.file && !this.docAlreadyUploaded(doc)) {
+        return `Please upload a PDF file for ${doc.docType || 'document row'}.`;
+      }
+    }
+
+    if (isSubmit) {
+      const requiredTypes = ['RC', 'PUC', 'INSURANCE', 'LICENSE'];
+
+      const docsByType = this.docs().filter(doc => {
+        const type = (doc.docType || '').trim().toUpperCase();
+        return requiredTypes.includes(type);
+      });
+
+      if (docsByType.length !== 4) {
+        const missing = requiredTypes.filter(type =>
+          !docsByType.some(doc => (doc.docType || '').trim().toUpperCase() === type)
+        );
+        return `All 4 documents are mandatory for submit. Missing: ${missing.join(', ')}.`;
+      }
+
+      for (const type of requiredTypes) {
+        const doc = docsByType.find(d => (d.docType || '').trim().toUpperCase() === type);
+
+        if (!doc) {
+          return `${type} document is missing.`;
+        }
+
+        if (!doc.docNo.trim()) {
+          return `Document No is required for ${type}.`;
+        }
+
+        if (!doc.validUpto) {
+          return `Valid Upto date is required for ${type}.`;
+        }
+
+        if (!doc.file && !doc.fileName && !doc.existingFile) {
+          return `PDF file is required for ${type}.`;
+        }
+      }
     }
 
     return '';
@@ -521,7 +607,7 @@ this.docs.set(
         docType: d.docType,
         docNo: d.docNo,
         validUpto: d.validUpto,
-        fileName: d.existingFile
+        fileName: d.file?.name || d.fileName || d.existingFile || ''
       })),
       status,
       createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
@@ -534,71 +620,189 @@ this.docs.set(
     } as any;
   }
 
+  // private buildPayload(status: string) {
+  //   const filteredDocs = this.docs()
+  //     .filter(doc => doc.docType && doc.docNo.trim() && doc.validUpto)
+  //     .map(doc => ({
+  //       documentId: doc.documentId ?? null,
+  //       documentType: doc.docType.trim().toUpperCase(),
+  //       documentNo: doc.docNo.trim().toUpperCase(),
+  //       expiryDate: doc.validUpto || null,
+  //       fileKey: this.mapFileKey(doc.docType),
+  //       fileName: doc.file?.name || doc.existingFile || doc.fileName || ''
+  //     }));
+
+  //   const payload = {
+  //     vehicleNo: this.vehicleNo.trim().toUpperCase(),
+  //     vehicleType: this.vehicleType.trim() || null,
+  //     brandModel: this.brandModel.trim() || null,
+
+  //     employeeNo: this.ecNo.trim().toUpperCase() || null,
+  //     empType: 'Company_Employee',
+  //     contractorCode: null,
+
+  //     gateNo: this.gateNo.trim() || null,
+  //     parkingToBeUsed: this.parkingArea.trim() || null,
+  //     status,
+  //     remark: this.remark.trim() || null,
+  //     enterBy: this.auth.empCode(),
+  //     documents: filteredDocs
+  //   };
+
+  //   console.log('========== VPMS FINAL JSON PAYLOAD ==========');
+  //   console.log(payload);
+  //   console.log(JSON.stringify(payload, null, 2));
+  //   console.log('============================================');
+
+  //   return payload;
+  // }
+
+
   private buildPayload(status: string) {
-    const isContractor = this.empType() === 'Contractor';
-    const resolvedEmpType = isContractor
-      ? 'CONTRACT'
-      : (this.empTypeDetail() || this.empType_display() || '').trim().toUpperCase();
+  const filteredDocs = this.docs()
+    .filter(doc => doc.docType && doc.docNo.trim() && doc.validUpto)
+    .map(doc => ({
+      documentId: doc.documentId ?? null,
+      documentType: doc.docType.trim().toUpperCase(),
+      documentNo: doc.docNo.trim().toUpperCase(),
+      expiryDate: doc.validUpto || null,
+      fileKey: this.mapFileKey(doc.docType),
+      fileName: doc.existingFile || doc.fileName || ''
+    }));
 
-    const filteredDocs = this.docs()
-      .filter(doc => doc.docType && doc.docNo.trim() && doc.validUpto)
-      .map(doc => ({
-        documentType: doc.docType.trim().toUpperCase(),
-        documentNo: doc.docNo.trim().toUpperCase(),
-        expiryDate: doc.validUpto || null,
+  const payload = {
+    vehicleNo: this.vehicleNo.trim().toUpperCase(),
+    vehicleType: this.vehicleType.trim() || null,
+    brandModel: this.brandModel.trim() || null,
 
-        fileKey: this.mapFileKey(doc.docType),
+    employeeNo: this.ecNo.trim().toUpperCase() || null,
+    empType: 'Company_Employee',
+    contractorCode: null,
 
-        fileName: doc.file?.name || doc.existingFile || ''
-      }));
+    gateNo: this.gateNo.trim() || null,
+    parkingToBeUsed: this.parkingArea.trim() || null,
+    status,
+    remark: this.remark.trim() || null,
+    enterBy: this.auth.empCode(),
+    documents: filteredDocs
+  };
 
-    const payload = {
-      vehicleNo: this.vehicleNo.trim().toUpperCase(),
-      vehicleType: this.vehicleType.trim() || null,
-      brandModel: this.brandModel.trim() || null,
+  console.log('========== VPMS FINAL JSON PAYLOAD ==========');
+  console.log(payload);
+  console.log(JSON.stringify(payload, null, 2));
+  console.log('============================================');
 
-      employeeNo: isContractor ? null : (this.ecNo.trim().toUpperCase() || null),
-      empType: resolvedEmpType || null,
-      contractorCode: isContractor
-        ? (this.ecNo.trim().toUpperCase() || null)
-        : (this.empContractorCode || null),
-      gateNo: this.gateNo.trim() || null,
-      parkingToBeUsed: this.parkingArea.trim() || null,
-      status,
-      remark: this.remark.trim() || null,
-      enterBy: this.auth.empCode(),   // Logged-in employee
-      documents: filteredDocs
-    };
+  return payload;
+}
 
-    console.log('========== VPMS FINAL JSON PAYLOAD ==========');
-    console.log(payload);
-    console.log(JSON.stringify(payload, null, 2));
-    console.log('============================================');
+  // private async buildMultipartPayload(status: string): Promise<FormData> {
+  //   const payload = this.buildPayload(status);
+  //   const formData = new FormData();
 
-    return payload;
-  }
+  //   formData.append(
+  //     'request',
+  //     new Blob([JSON.stringify(payload)], { type: 'application/json' })
+  //   );
 
-  private buildMultipartPayload(status: string): FormData {
-    const payload = this.buildPayload(status);
-    const formData = new FormData();
+  //   for (const doc of this.docs()) {
+  //     if (!doc.docType) continue;
 
-    formData.append(
-      'request',
-      new Blob([JSON.stringify(payload)], { type: 'application/json' })
-    );
+  //     const fileKey = this.mapFileKey(doc.docType);
 
-    for (const doc of this.docs()) {
-      if (!doc.docType || !doc.file) continue;
-      const fileKey = this.mapFileKey(doc.docType);
+  //     if (doc.file) {
+  //       formData.append(fileKey, doc.file, doc.file.name);
+  //       continue;
+  //     }
+
+  //     const existingName =
+  //       doc.existingFile ||
+  //       doc.fileName ||
+  //       '';
+
+  //     if (this.passIdGenerated() && doc.documentId && existingName) {
+  //       try {
+  //         const blob = await fetch(
+  //           `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`,
+  //           {
+  //             headers: {
+  //               'x-api-key': API_CONFIG.API_KEY
+  //             }
+  //           }
+  //         ).then(r => {
+  //           if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  //           return r.blob();
+  //         });
+
+  //         const existingFile = new File(
+  //           [blob],
+  //           existingName,
+  //           { type: blob.type || 'application/pdf' }
+  //         );
+
+  //         formData.append(fileKey, existingFile, existingFile.name);
+  //       } catch (e) {
+  //         console.error('Failed to re-attach existing file:', doc.documentId, existingName, e);
+  //       }
+  //     }
+  //   }
+
+  //   return formData;
+  // }
+
+
+
+  private async buildMultipartPayload(status: string): Promise<FormData> {
+  const payload = this.buildPayload(status);
+  const formData = new FormData();
+
+  formData.append(
+    'request',
+    new Blob([JSON.stringify(payload)], { type: 'application/json' })
+  );
+
+  for (const doc of this.docs()) {
+    if (!doc.docType) continue;
+
+    const fileKey = this.mapFileKey(doc.docType);
+
+    if (doc.file) {
       formData.append(fileKey, doc.file, doc.file.name);
     }
+  }
 
-    return formData;
+  return formData;
+}
+  private async fetchExistingFileAsFile(doc: DocEntry): Promise<File | null> {
+    const fileName =
+      doc.existingFile ||
+      doc.fileName ||
+      '';
+
+    if (!fileName || !doc.documentId) return null;
+
+    try {
+      const blob = await fetch(
+        `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`,
+        {
+          headers: {
+            'x-api-key': API_CONFIG.API_KEY
+          }
+        }
+      ).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      });
+
+      return new File([blob], fileName, {
+        type: blob.type || 'application/pdf'
+      });
+    } catch (e) {
+      console.error('Failed to refetch existing file for update:', doc.documentId, fileName, e);
+      return null;
+    }
   }
 
   onSave(): void {
-
-
     const err = this.validate(false);
     if (err) {
       this.saveError.set(err);
@@ -608,45 +812,58 @@ this.docs.set(
     this.isSaving.set(true);
     this.clearAlerts();
 
-    const formData = this.buildMultipartPayload(PASS_STATUS.DRAFT);
+    this.buildMultipartPayload(PASS_STATUS.DRAFT).then(formData => {
+      const currentPassId = this.passId().trim();
+      const isUpdate = this.passIdGenerated() && !!currentPassId;
 
-    const request$ = this.passIdGenerated()
-      ? this.http.put<any>(
-        `${API_CONFIG.PASS_UPDATE}/${this.passId()}`,
-        formData,
-        { headers: this.MULTIPART_HEADERS }
-      )
-      : this.http.post<any>(
-        API_CONFIG.PASS_SAVE,
-        formData,
-        { headers: this.MULTIPART_HEADERS }
-      );
+      if (isUpdate) {
+        console.log('UPDATE URL =>', `${API_CONFIG.PASS_UPDATE}/${currentPassId}`);
+        console.log('PASS ID GENERATED =>', this.passIdGenerated());
+        console.log('PASS ID VALUE =>', currentPassId);
+      }
 
-    request$
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err2 => {
-          this.handleSaveError(err2, 'Save Draft');
-          return of(null);
-        }),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe(res => {
-        if (!res) return;
+      const request$ = isUpdate
+        ? this.http.put<any>(
+          `${API_CONFIG.PASS_UPDATE}/${currentPassId}`,
+          formData,
+          { headers: this.MULTIPART_HEADERS }
+        )
+        : this.http.post<any>(
+          API_CONFIG.PASS_SAVE,
+          formData,
+          { headers: this.MULTIPART_HEADERS }
+        );
 
-        const id = res.passId ?? res.id ?? res.requestId;
-        if (id !== undefined && id !== null) {
-          this.passId.set(formatPassId(id));
-          this.passIdGenerated.set(true);
-        }
+      request$
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          catchError(err2 => {
+            this.handleSaveError(err2, 'Save Draft');
+            return of(null);
+          }),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe(res => {
+          if (!res) return;
 
-        const record = this.buildRecord('Saved');
-        this.passState.upsert(record);
-        this.passState.broadcastDraftChange();
-        this.saved.set(true);
-        this.saveSuccess.set(`Draft saved successfully. Request ID: ${this.passId()}`);
-      });
+          const id = res.passId ?? res.id ?? res.requestId;
+          if (id !== undefined && id !== null) {
+            this.passId.set(formatPassId(id));
+            this.passIdGenerated.set(true);
+          }
+
+          const record = this.buildRecord('Saved');
+          this.passState.upsert(record);
+          this.passState.broadcastDraftChange();
+          this.saved.set(true);
+          this.saveSuccess.set(`Draft saved successfully. Request ID: ${this.passId()}`);
+        });
+    }).catch(err => {
+      console.error(err);
+      this.saveError.set('Could not prepare document files for update.');
+      this.isSaving.set(false);
+    });
   }
 
   onSubmit(): void {
@@ -659,48 +876,62 @@ this.docs.set(
     this.isSaving.set(true);
     this.clearAlerts();
 
-    const formData = this.buildMultipartPayload(PASS_STATUS.SUBMITTED);
+    this.buildMultipartPayload(PASS_STATUS.SUBMITTED).then(formData => {
+      const currentPassId = this.passId().trim();
+      const isUpdate = this.passIdGenerated() && !!currentPassId;
 
-    const request$ = this.passIdGenerated()
-      ? this.http.put<any>(
-        `${API_CONFIG.PASS_UPDATE}/${this.passId()}`,
-        formData,
-        { headers: this.MULTIPART_HEADERS }
-      )
-      : this.http.post<any>(
-        API_CONFIG.PASS_SAVE,
-        formData,
-        { headers: this.MULTIPART_HEADERS }
-      );
+      if (isUpdate) {
+        console.log('UPDATE URL =>', `${API_CONFIG.PASS_UPDATE}/${currentPassId}`);
+        console.log('PASS ID GENERATED =>', this.passIdGenerated());
+        console.log('PASS ID VALUE =>', currentPassId);
+      }
 
-    request$
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          this.handleSaveError(err, 'Submit Pass');
-          return of(null);
-        }),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe(res => {
-        if (!res) return;
+      const request$ = isUpdate
+        ? this.http.put<any>(
+          `${API_CONFIG.PASS_UPDATE}/${currentPassId}`,
+          formData,
+          { headers: this.MULTIPART_HEADERS }
+        )
+        : this.http.post<any>(
+          API_CONFIG.PASS_SAVE,
+          formData,
+          { headers: this.MULTIPART_HEADERS }
+        );
 
-        const id = res.passId ?? res.id ?? res.requestId;
-        if (id !== undefined && id !== null) {
-          this.passId.set(formatPassId(id));
-          this.passIdGenerated.set(true);
-        }
+      request$
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          catchError(err => {
+            this.handleSaveError(err, 'Submit Pass');
+            return of(null);
+          }),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe(res => {
+          if (!res) return;
 
-        const record = this.buildRecord('Submitted');
-        this.passState.upsert(record);
-        this.passState.broadcast({ ...record, workflowStatus: 'Submitted' } as any);
-        this.saved.set(true);
-        this.saveSuccess.set(`Request submitted successfully. ID: ${this.passId()}`);
+          const id = res.passId ?? res.id ?? res.requestId;
+          if (id !== undefined && id !== null) {
+            this.passId.set(formatPassId(id));
+            this.passIdGenerated.set(true);
+          }
 
-        setTimeout(() => this.router.navigate(['/passes']), 1800);
-      });
+          const record = this.buildRecord('Submitted');
+          this.passState.upsert(record);
+          this.passState.broadcast({ ...record, workflowStatus: 'Submitted' } as any);
+          this.saved.set(true);
+          this.saveSuccess.set(`Request submitted successfully. ID: ${this.passId()}`);
+
+          setTimeout(() => this.router.navigate(['/passes']), 1800);
+        });
+    }).catch(err => {
+      console.error(err);
+      this.saveError.set('Could not prepare document files for update.');
+      this.isSaving.set(false);
+    });
   }
+
 
   clearForm(): void {
     this.empType.set('');

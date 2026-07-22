@@ -117,7 +117,7 @@
     </div>
 
     <!-- ROW 2 : Vehicle Class | Brand / Model -->
-    <div class="pe-grid pe-grid-2">      
+    <div class="pe-grid pe-grid-2">
 
       <div class="pe-field">
         <label>Brand / Model</label>
@@ -144,7 +144,7 @@
       <!-- Employee Type — user selects FIRST, then EC No is unlocked -->
       <div class="pe-field">
         <label>Employee Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="empTypeDetail" (ngModelChange)="onEmpTypeDetailChange($event)">
+        <select class="pe-input" [ngModel]="empTypeDetail()" (ngModelChange)="onEmpTypeDetailChange($event)">
           <option value="">— Select Employee Type —</option>
           <option value="TACC">TACC</option>
           <option value="HEG">HEG</option>
@@ -315,40 +315,40 @@
       <i class="bi bi-card-checklist"></i>
       <span>Pass Details</span>
     </div>
-      
 
 
+
+  </div>
+
+  <!-- ROW 2 : Gate No | Parking Area -->
+  <div class="pe-grid pe-grid-2">
+
+    <div class="pe-field">
+      <label>Gate No <span class="req">*</span></label>
+      <select class="pe-input" [(ngModel)]="gateNo">
+        <option value="">— Select Gate —</option>
+        <option value="GATE_01">GATE 01</option>
+        <option value="GATE_02">GATE 02</option>
+        <option value="GATE_03">GATE 03</option>
+        <option value="GATE_04">GATE 04</option>
+        <option value="GATE_05">GATE 05</option>
+      </select>
     </div>
 
-    <!-- ROW 2 : Gate No | Parking Area -->
-    <div class="pe-grid pe-grid-2">
-
-      <div class="pe-field">
-        <label>Gate No <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="gateNo">
-          <option value="">— Select Gate —</option>
-          <option value="GATE_01">GATE 01</option>
-          <option value="GATE_02">GATE 02</option>
-          <option value="GATE_03">GATE 03</option>
-          <option value="GATE_04">GATE 04</option>
-          <option value="GATE_05">GATE 05</option>
-        </select>
-      </div>
-
-      <div class="pe-field">
-        <label>Parking Area</label>
-        <select class="pe-input" [(ngModel)]="parkingArea">
-          <option value="">— Select Parking Area —</option>
-          <option value="P1">P1 — Main Parking</option>
-          <option value="P2">P2 — Contractor Bay</option>
-          <option value="P3">P3 — Heavy Vehicle Zone</option>
-          <option value="P4">P4 — Visitor Parking</option>
-          <option value="P5">P5 — Reserved</option>
-        </select>
-        <span class="pe-field-hint">Select the parking area to be used</span>
-      </div>
-
+    <div class="pe-field">
+      <label>Parking Area</label>
+      <select class="pe-input" [(ngModel)]="parkingArea">
+        <option value="">— Select Parking Area —</option>
+        <option value="P1">P1 — Main Parking</option>
+        <option value="P2">P2 — Contractor Bay</option>
+        <option value="P3">P3 — Heavy Vehicle Zone</option>
+        <option value="P4">P4 — Visitor Parking</option>
+        <option value="P5">P5 — Reserved</option>
+      </select>
+      <span class="pe-field-hint">Select the parking area to be used</span>
     </div>
+
+  </div>
 
 
 
@@ -359,7 +359,7 @@
     <div class="pe-section-header">
       <i class="bi bi-file-earmark-check-fill"></i>
       <span>Required Documents</span>
-      <span class="pe-doc-count">{{ docs().length }} / 5 added</span>
+      <span class="pe-doc-count">{{ docs().length }} / 4 added</span>
 
       @if (isModificationMode()) {
       <span class="pe-doc-mod-hint">
@@ -413,11 +413,11 @@
 
           @if (docAlreadyUploaded(doc)) {
           <div class="pe-doc-existing-wrap">
-            <span class="pe-doc-uploaded-pill" [title]="doc.existingFile">
+            <span class="pe-doc-uploaded-pill" [title]="doc.existingFile || doc.fileName">
               <i class="bi bi-check-circle-fill"></i>
-              {{ (doc.existingFile && doc.existingFile.length > 20)
-              ? doc.existingFile.substring(0, 17) + '...'
-              : (doc.existingFile || 'Uploaded') }}
+              {{ ((doc.existingFile || doc.fileName) && (doc.existingFile || doc.fileName)!.length > 20)
+              ? (doc.existingFile || doc.fileName)!.substring(0, 17) + '...'
+              : (doc.existingFile || doc.fileName || 'Uploaded') }}
             </span>
             <label class="pe-doc-replace-btn" [for]="'doc-file-' + doc.id"
               title="Upload a new PDF to replace the existing file">
@@ -464,13 +464,13 @@
       <i class="bi bi-plus-circle-fill"></i>
       Add Document
       @if (docs().length >= ALLOWED_DOC_TYPES.length) {
-      <span class="pe-add-hint">(All 5 types added)</span>
+      <span class="pe-add-hint">(All 4 types added)</span>
       }
     </button>
 
     <div class="pe-doc-info">
       <i class="bi bi-info-circle"></i>
-      Supported: RC, PUC, Insurance, License, Fitness — each type once only.
+      Supported: RC, PUC, Insurance, License — each type once only.
       Mandatory for Contractors &amp; Heavy Machinery.
     </div>
   </div>
@@ -499,7 +499,7 @@
       <i class="bi bi-hourglass-split spin"></i> Saving...
       }
     </button>
-    <button class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving()">
+    <button class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving() || !!validate(true)">
       <i class="bi bi-send-fill"></i> Submit
     </button>
   </div>

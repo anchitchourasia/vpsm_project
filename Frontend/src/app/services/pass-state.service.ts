@@ -180,15 +180,19 @@ export class PassStateService {
 
   /** Add or update a pass record — persists to localStorage immediately */
   upsert(record: PassRecord): void {
+    const safeRecord = this.clonePassRecord(record) as PassRecord;
+
     this._passes.update(list => {
-      const idx = list.findIndex(p => p.passId === record.passId);
+      const idx = list.findIndex(p => p.passId === safeRecord.passId);
       let updated: PassRecord[];
+
       if (idx >= 0) {
         updated = [...list];
-        updated[idx] = record;
+        updated[idx] = safeRecord;
       } else {
-        updated = [record, ...list]; // newest first
+        updated = [safeRecord, ...list];
       }
+
       saveToStorage(updated);
       return updated;
     });
@@ -335,15 +339,57 @@ export class PassStateService {
 
   // ── NAVIGATION STATE ──────────────────────────────────────────────────────
   private _resumeDraftData = signal<PassRecord | null>(null);
-  private _resumeModData = signal<any | null>(null);
+  private _resumeModData = signal<PassRecord | null>(null);
 
   readonly resumeDraftData = this._resumeDraftData.asReadonly();
   readonly resumeModData = this._resumeModData.asReadonly();
 
-  setResumeDraft(data: PassRecord): void { this._resumeDraftData.set(data); }
-  clearResumeDraft(): void { this._resumeDraftData.set(null); }
-  setResumeMod(data: any): void { this._resumeModData.set(data); }
-  clearResumeMod(): void { this._resumeModData.set(null); }
+  setResumeDraft(data: PassRecord): void {
+    this._resumeDraftData.set(this.ensureFullPassRecord(data));
+  }
+
+  clearResumeDraft(): void {
+    this._resumeDraftData.set(null);
+  }
+
+  setResumeMod(data: PassRecord): void {
+    this._resumeModData.set(this.ensureFullPassRecord(data));
+  }
+
+  clearResumeMod(): void {
+    this._resumeModData.set(null);
+  }
+
+  private clonePassRecord(data: PassRecord | null): PassRecord | null {
+    if (!data) return null;
+
+    return {
+      ...data,
+      docs: Array.isArray(data.docs)
+        ? data.docs.map(d => ({ ...d }))
+        : []
+    };
+  }
+
+  private ensureFullPassRecord(data: PassRecord | null): PassRecord | null {
+    if (!data) return null;
+
+    const incomingDocs = Array.isArray(data.docs) ? data.docs : [];
+    if (incomingDocs.length > 0) {
+      return this.clonePassRecord(data);
+    }
+
+    const fromStore = this._passes().find(p => p.passId === data.passId);
+    if (fromStore) {
+      return this.clonePassRecord({
+        ...fromStore,
+        ...data,
+        docs: Array.isArray(fromStore.docs) ? fromStore.docs : []
+      });
+    }
+
+    return this.clonePassRecord(data);
+  }
 
   // ── TEMPLATE HELPERS ──────────────────────────────────────────────────────
 

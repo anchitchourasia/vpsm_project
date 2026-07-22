@@ -156,28 +156,43 @@ export class Passes implements OnInit, OnDestroy {
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   private normalizePassRow(p: any): any {
-    const normalizedStatus = (p.reqStatus || p.status || p.passStatus || '').trim();
+    const normalizedStatus = String(p.reqStatus || p.status || p.passStatus || '').trim();
 
     const hasContractorCode =
       p.contractorCode &&
       String(p.contractorCode).trim() &&
       String(p.contractorCode).trim().toUpperCase() !== 'NA';
 
-    const derivedEmpType = hasContractorCode
-      ? 'Contractor'
-      : (p.empType && p.empType.trim() ? p.empType : 'Company_Employee');
+    const rawEmpType = String(
+      p.empType ??
+      p.empTypeDetail ??
+      p.employeeType ??
+      p.employeeTypeDetail ??
+      p.employeeCategory ??
+      ''
+    ).trim().toUpperCase();
 
-    const derivedEmpTypeDetail = (p.empTypeDetail && p.empTypeDetail.trim())
-      ? p.empTypeDetail.trim().toUpperCase()
-      : (derivedEmpType === 'Contractor' ? 'Contractor' : '');
+    const rawEmpTypeDetail = String(
+      p.empTypeDetail ??
+      p.employeeTypeDetail ??
+      p.employeeCategory ??
+      p.empType ??
+      ''
+    ).trim().toUpperCase();
 
-    const derivedVehicleType = (p.typeOfVehicle && p.typeOfVehicle.trim())
+    const derivedEmpType =
+      rawEmpType || (hasContractorCode ? 'CONTRACTOR' : '');
+
+    const derivedEmpTypeDetail =
+      rawEmpTypeDetail || (rawEmpType === 'CONTRACTOR' ? 'CONTRACT' : '');
+
+    const derivedVehicleType = (p.typeOfVehicle && String(p.typeOfVehicle).trim())
       ? p.typeOfVehicle
-      : (p.vehicle?.vehicleType && p.vehicle.vehicleType.trim()
+      : (p.vehicle?.vehicleType && String(p.vehicle.vehicleType).trim()
         ? p.vehicle.vehicleType
         : (p.vehicleType && String(p.vehicleType).trim()
           ? p.vehicleType
-          : (p.vehicle?.vehicleClass && p.vehicle.vehicleClass.trim()
+          : (p.vehicle?.vehicleClass && String(p.vehicle.vehicleClass).trim()
             ? p.vehicle.vehicleClass
             : '—')));
 
@@ -391,8 +406,15 @@ export class Passes implements OnInit, OnDestroy {
     this.viewPassExtra.set(null);
     this.viewPdfLoading.set(null);
     this.showViewModal.set(true);
+
+    if (p?.documents?.length) {
+      this.viewPassDocs.set(p.documents);
+    } else {
+      this.viewPassDocs.set([]);
+      this.viewDocLoadError.set('No documents found.');
+    }
+
     this.enrichViewPassWithEmployeeData(p);
-    
   }
 
   closeViewModal(): void {
@@ -413,13 +435,22 @@ export class Passes implements OnInit, OnDestroy {
       setTimeout(() => this.viewPdfError.set(''), 3500);
       return;
     }
+
     this.viewPdfLoading.set(doc.documentId);
     this.viewPdfError.set('');
-    this.http.get(`${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`, { responseType: 'blob', headers: this.HEADERS })
+
+    this.http
+      .get(`${API_CONFIG.DOCUMENTS_DOWNLOAD}/${doc.documentId}`, {
+        responseType: 'blob',
+        headers: new HttpHeaders({
+          'x-api-key': API_CONFIG.API_KEY
+        })
+      })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(() => {
+        catchError((err) => {
+          console.error('❌ document download error:', err?.status, err?.error);
           this.viewPdfError.set('Could not load file.');
           this.viewPdfLoading.set(null);
           setTimeout(() => this.viewPdfError.set(''), 4000);
@@ -429,9 +460,14 @@ export class Passes implements OnInit, OnDestroy {
       .subscribe((blob: Blob | null) => {
         this.viewPdfLoading.set(null);
         if (!blob) return;
-        const url = URL.createObjectURL(blob);
+
+        const fileBlob = new Blob([blob], {
+          type: blob.type || 'application/pdf'
+        });
+
+        const url = URL.createObjectURL(fileBlob);
         window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
       });
   }
 
@@ -605,7 +641,7 @@ export class Passes implements OnInit, OnDestroy {
   }
 
   openEditInPassEntry(p: any): void {
-    const passId = p?.passId;
+    const passId = String(p?.passId ?? p?.id ?? '').trim();
     if (!passId) return;
 
     this.isRedirectingToEdit.set(true);
@@ -619,13 +655,12 @@ export class Passes implements OnInit, OnDestroy {
       )
       .subscribe((allPasses: any[] | null) => {
         const normalizedAll = (allPasses || []).map((x: any) => this.normalizePassRow(x));
-        const fresh = normalizedAll.find((x: any) => x.passId === passId) ?? p;
-        const vehicleId = fresh.vehicle?.vehicleId ?? null;
-        const isContractor = (fresh.empType || '').toLowerCase() === 'contractor'
-          || !!(fresh.contractorCode && fresh.contractorCode.trim());
-        const lookupCode = isContractor
-          ? (fresh.contractorCode || '').trim()
-          : (fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
+
+        const fresh =
+          normalizedAll.find((x: any) => String(x.passId ?? x.id ?? '').trim() === passId) ?? p;
+
+        const vehicleId = fresh?.vehicle?.vehicleId ?? fresh?.vehicleId ?? null;
+        const lookupCode = String(fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
 
         this.http
           .get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers: this.HEADERS })
@@ -636,82 +671,94 @@ export class Passes implements OnInit, OnDestroy {
           )
           .subscribe((empRows: any[]) => {
             let empMatch: any = null;
-            if (lookupCode && empRows && empRows.length > 0) {
-              if (isContractor) {
-                empMatch = empRows.find(r =>
-                  r.contractorNo &&
-                  String(r.contractorNo).trim().toUpperCase() === lookupCode.toUpperCase()
-                );
-              } else {
-                empMatch = empRows.find(r =>
-                  String(r.id || '').trim() === lookupCode
-                );
-              }
+
+            if (lookupCode && empRows?.length) {
+              empMatch = empRows.find(r => String(r.id || r.employeeNo || '').trim() === lookupCode);
             }
 
             const fetchDocsAndNavigate = (rawDocs: any[]) => {
-              const mappedDocs = (rawDocs || []).map((d: any) => ({
-                documentId: d.documentId ?? d.id ?? null,
-                docType: (d.documentType || '').toUpperCase().trim(),
-                docNo: d.documentNo || d.docNo || '',
-                validUpto: d.expiryDate || d.validUpto || '',
-                fileName: d.fileName || null,
-              }));
+              const sourceDocs =
+                Array.isArray(rawDocs) && rawDocs.length
+                  ? rawDocs
+                  : (Array.isArray(fresh.documents) ? fresh.documents : []);
 
-              const rawEmpTypeDetail = (fresh.empTypeDetail || '').toString().trim().toUpperCase();
+              const mappedDocs = sourceDocs.map((d: any) => {
+                const existing =
+                  d.fileName ||
+                  d.filename ||
+                  d.existingFile ||
+                  d.originalExistingFile ||
+                  d.documentName ||
+                  d.documentPath ||
+                  d.filePath ||
+                  d.path ||
+                  '';
+
+                return {
+                  documentId: d.documentId ?? d.id ?? d.docId ?? d.vehicleDocumentId ?? null,
+                  docType: String(d.documentType || d.docType || '').toUpperCase().trim(),
+                  docNo: d.documentNo || d.docNo || '',
+                  validUpto: d.expiryDate || d.validUpto || d.validTill || '',
+                  fileName: existing,
+                  existingFile: existing,
+                  originalExistingFile: existing,
+                };
+              });
+
+              const rawEmpTypeDetail = String(fresh.empTypeDetail || '').trim().toUpperCase();
               let resolvedEmpTypeDetail = '';
-              if (!isContractor) {
-                if (rawEmpTypeDetail === 'PERMANENT' || rawEmpTypeDetail === 'HEG' || rawEmpTypeDetail === 'CONTRACT') {
-                  resolvedEmpTypeDetail = rawEmpTypeDetail;
-                } else {
-                  const apiEmpType = (empMatch?.empType || '').toString().trim().toUpperCase();
-                  if (apiEmpType === 'PERMANENT' || apiEmpType === 'HEG' || apiEmpType === 'CONTRACT') {
-                    resolvedEmpTypeDetail = apiEmpType;
-                  } else {
-                    resolvedEmpTypeDetail = 'HEG';
-                  }
-                }
+
+              if (['PERMANENT', 'HEG', 'CONTRACT'].includes(rawEmpTypeDetail)) {
+                resolvedEmpTypeDetail = rawEmpTypeDetail;
+              } else {
+                const apiEmpType = String(empMatch?.empType || '').trim().toUpperCase();
+                resolvedEmpTypeDetail = ['PERMANENT', 'HEG', 'CONTRACT'].includes(apiEmpType)
+                  ? apiEmpType
+                  : 'HEG';
               }
 
               const record = {
-                passId: String(fresh.passId),
-                empType: isContractor ? 'Contractor' : 'Company_Employee',
-                vehicleNo: fresh.vehicle?.vehicleNo || '',
-                vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || '',
-                vehicleClass: fresh.vehicle?.vehicleClass || '',
-                brandModel: fresh.vehicle?.brandModel || '',
-                vehicleId: fresh.vehicle?.vehicleId ?? null,
-                ecNo: isContractor ? '' : lookupCode,
-                contractorFirm: isContractor ? lookupCode : (fresh.contractorCode || ''),
-                empName: empMatch?.name
-                  || empMatch?.employeeName
-                  || fresh.employeeName
-                  || fresh.empName
-                  || '',
-                empDept: (empMatch?.deptName || fresh.dept || '').toUpperCase(),
+                passId,
+                empType: 'Company_Employee',
+                vehicleNo: fresh.vehicle?.vehicleNo || fresh.vehicleNo || '',
+                vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || fresh.vehicleType || '',
+                vehicleClass: fresh.vehicle?.vehicleClass || fresh.vehicleClass || '',
+                brandModel: fresh.vehicle?.brandModel || fresh.brandModel || '',
+                vehicleId: fresh.vehicle?.vehicleId ?? fresh.vehicleId ?? null,
+                ecNo: lookupCode,
+                contractorFirm: fresh.contractorCode || '',
+                empName:
+                  empMatch?.name ||
+                  empMatch?.employeeName ||
+                  fresh.employeeName ||
+                  fresh.empName ||
+                  '',
+                empDept: String(empMatch?.deptName || fresh.dept || '').toUpperCase(),
                 issueDate: fresh.issueDate || '',
                 validityDate: fresh.validityDate || '',
                 gateNo: fresh.gateNo || '',
-                parkingArea: fresh.parkingToBeUsed || '',
-                remark: fresh.remarks || '',
+                parkingArea: fresh.parkingToBeUsed || fresh.parkingArea || '',
+                remark: fresh.remarks || fresh.remark || '',
                 docs: mappedDocs,
                 status: 'Saved' as const,
-                createdAt: fresh.enterDate
-                  || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                createdAt:
+                  fresh.enterDate ||
+                  new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
                 empTypeDetail: resolvedEmpTypeDetail,
-                empAadhar: empMatch?.aadhaarNo
-                  || empMatch?.aadharNo
-                  || fresh.aadhaarNo
-                  || '',
+                empAadhar:
+                  empMatch?.aadhaarNo ||
+                  empMatch?.aadharNo ||
+                  fresh.aadhaarNo ||
+                  '',
                 empDeptCode: empMatch?.deptCode || fresh.deptCode || '',
                 empContractorCode: empMatch?.contractorCode || fresh.contractorCode || '',
-                empContractorName: isContractor
-                  ? (empMatch?.name || fresh.contractorName || lookupCode)
-                  : (empMatch?.name || ''),
-                contractorName: isContractor
-                  ? (empMatch?.name || fresh.contractorName || lookupCode)
-                  : '',
+                empContractorName: empMatch?.contractorName || fresh.contractorName || '',
+                contractorName: '',
               };
+
+              console.log('EDIT PASS ID SENT =>', passId);
+              console.log('EDIT VEHICLE ID SENT =>', vehicleId);
+              console.log('EDIT DOCS SENT TO PASS ENTRY =>', mappedDocs);
 
               this.passState.setResumeDraft(record as any);
               this.isRedirectingToEdit.set(false);
@@ -853,17 +900,17 @@ export class Passes implements OnInit, OnDestroy {
     }
   }
 
- canEditPass(p: any): boolean {
-  const status = (p?.reqStatus || p?.status || p?.passStatus || '')
-    .toUpperCase();
+  canEditPass(p: any): boolean {
+    const status = (p?.reqStatus || p?.status || p?.passStatus || '')
+      .toUpperCase();
 
-  if (this.auth.isAdmin()) return true;
-  if (this.auth.isConfirmer() || this.auth.isApprover()) return false;
+    if (this.auth.isAdmin()) return true;
+    if (this.auth.isConfirmer() || this.auth.isApprover()) return false;
 
-  if (this.auth.isUploader() || this.auth.isRegularUser()) {
-    return ['SAVED', 'MODIFY', 'DRAFT', 'NEEDS_MODIFICATION', 'NEED_MODIFICATION', 'NEED MODIFICATION'].includes(status);
+    if (this.auth.isUploader() || this.auth.isRegularUser()) {
+      return ['SAVED', 'MODIFY', 'DRAFT', 'NEEDS_MODIFICATION', 'NEED_MODIFICATION', 'NEED MODIFICATION'].includes(status);
+    }
+
+    return false;
   }
-
-  return false;
-}
 }

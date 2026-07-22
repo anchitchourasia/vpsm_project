@@ -20,7 +20,7 @@ export const API_CONFIG = {
 
   // ── PASSES ────────────────────────────────────────
   
-  DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/documents/download`,
+  DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/passes/documents/download`,
 
   // ── GATE / COMPLIANCE ─────────────────────────────
   GATE_LOGS        : `${environment.apiBaseUrl}/api/gate-logs/list`,
