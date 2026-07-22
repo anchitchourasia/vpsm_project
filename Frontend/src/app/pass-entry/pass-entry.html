@@ -4,7 +4,14 @@
   <div class="pe-topbar">
     <div class="pe-topbar-left">
       <i class="bi bi-pass-fill pe-topbar-icon"></i>
-      <span class="pe-topbar-title">Pass Entry Form</span>
+      <span class="pe-topbar-title">
+        {{
+        isConfirmerMode() ? 'Pass Review Form' :
+        isApproverMode() ? 'Pass Approval Form' :
+        isReadOnlyMode ? 'Pass View Form' :
+        'Pass Entry Form'
+        }}
+      </span>
       <span class="pe-topbar-sub">General Details</span>
     </div>
     <div class="pe-pass-id-chip" [class.generated]="passIdGenerated()">
@@ -46,7 +53,8 @@
 
       <!-- Company Employee card -->
       <label class="pe-type-card" [class.selected]="empType() === 'Company_Employee'"
-        [class.pe-type-card-locked]="isEcNoLocked" (click)="setEmpType('Company_Employee')">
+        [class.pe-type-card-locked]="isEcNoLocked || isReadOnlyMode" [class.pe-type-card-disabled]="isReadOnlyMode"
+        (click)="!isReadOnlyMode && setEmpType('Company_Employee')" [class.pe-type-card-disabled]="isReadOnlyMode">
         <i class="bi bi-building-fill"></i>
         <span>Company Employee</span>
         @if (empType() === 'Company_Employee') {
@@ -68,7 +76,7 @@
     </div>
   </div>
 
-  @if (empType()) {
+  @if (empType() || passId()) {
 
   <!-- ══════════════════════════════════════
          VEHICLE DETAILS
@@ -84,13 +92,14 @@
       <div class="pe-field">
         <label>Vehicle Number <span class="req">*</span></label>
         <input type="text" class="pe-input" placeholder="E.G. MP50XX1234" [(ngModel)]="vehicleNo"
-          (input)="onUpperInput($event, 'vehicleNo')" maxlength="20" />
+          [readonly]="isReadOnlyMode" (input)="onUpperInput($event, 'vehicleNo')" maxlength="20" />
         <span class="pe-field-hint">Auto-normalized: UPPERCASE, no spaces</span>
       </div>
 
       <div class="pe-field">
         <label>Vehicle Type <span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="vehicleType" (ngModelChange)="onVehicleTypeInput($event)">
+        <select class="pe-input" [(ngModel)]="vehicleType" [disabled]="isReadOnlyMode"
+          (ngModelChange)="onVehicleTypeInput($event)">
           <option value="">— Select Vehicle Type —</option>
           <optgroup label="Two Wheeler">
             <option value="BIKE">Bike</option>
@@ -122,7 +131,7 @@
       <div class="pe-field">
         <label>Brand / Model</label>
         <input type="text" class="pe-input" placeholder="e.g. Honda City, Tata Prima" [(ngModel)]="brandModel"
-          (input)="onUpperInput($event, 'brandModel')" maxlength="60" />
+          [readonly]="isReadOnlyMode" (input)="onUpperInput($event, 'brandModel')" maxlength="60" />
       </div>
     </div>
   </div>
@@ -144,7 +153,8 @@
       <!-- Employee Type — user selects FIRST, then EC No is unlocked -->
       <div class="pe-field">
         <label>Employee Type <span class="req">*</span></label>
-        <select class="pe-input" [ngModel]="empTypeDetail()" (ngModelChange)="onEmpTypeDetailChange($event)">
+        <select class="pe-input" [ngModel]="empTypeDetail()" [disabled]="isReadOnlyMode"
+          (ngModelChange)="onEmpTypeDetailChange($event)">
           <option value="">— Select Employee Type —</option>
           <option value="TACC">TACC</option>
           <option value="HEG">HEG</option>
@@ -158,8 +168,9 @@
         <label>EC No <span class="req">*</span></label>
         <div class="pe-input-group">
           <input type="text" class="pe-input" placeholder="Enter EC / Employee Code" [(ngModel)]="ecNo"
-            [disabled]="isEcNoLocked || !empTypeDetail()" [class.field-locked]="isEcNoLocked || !empTypeDetail()"
-            (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
+            [disabled]="isReadOnlyMode || isEcNoLocked || !empTypeDetail()"
+            [class.field-locked]="isReadOnlyMode || isEcNoLocked || !empTypeDetail()" (blur)="onEcNoBlur()"
+            (input)="onUpperInput($event, 'ecNo')" maxlength="20" />
           @if (fetchingEmployee()) {
           <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
           }
@@ -259,7 +270,7 @@
         <label>Contractor Code <span class="req">*</span></label>
         <div class="pe-input-group">
           <input type="text" class="pe-input" placeholder="Enter Contractor Code" [(ngModel)]="ecNo"
-            (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="30" />
+            [readonly]="isReadOnlyMode" (blur)="onEcNoBlur()" (input)="onUpperInput($event, 'ecNo')" maxlength="30" />
           @if (fetchingEmployee()) {
           <span class="pe-fetching"><i class="bi bi-arrow-repeat spin"></i></span>
           }
@@ -270,7 +281,7 @@
       <div class="pe-field">
         <label>Contractor Name <span class="req">*</span></label>
         <input type="text" class="pe-input" placeholder="Auto-filled or enter manually" [(ngModel)]="contractorName"
-          maxlength="80" />
+          [readonly]="isReadOnlyMode" maxlength="80" />
       </div>
 
     </div>
@@ -281,7 +292,7 @@
       <div class="pe-field">
         <label>Email</label>
         <input type="email" class="pe-input" placeholder="Auto-filled or enter manually" [(ngModel)]="contractorEmail"
-          maxlength="100" />
+          [readonly]="isReadOnlyMode" maxlength="100" />
       </div>
 
       <div class="pe-field">
@@ -325,7 +336,7 @@
 
     <div class="pe-field">
       <label>Gate No <span class="req">*</span></label>
-      <select class="pe-input" [(ngModel)]="gateNo">
+      <select class="pe-input" [(ngModel)]="gateNo" [disabled]="isReadOnlyMode">
         <option value="">— Select Gate —</option>
         <option value="GATE_01">GATE 01</option>
         <option value="GATE_02">GATE 02</option>
@@ -337,7 +348,7 @@
 
     <div class="pe-field">
       <label>Parking Area</label>
-      <select class="pe-input" [(ngModel)]="parkingArea">
+      <select class="pe-input" [(ngModel)]="parkingArea" [disabled]="isReadOnlyMode">
         <option value="">— Select Parking Area —</option>
         <option value="P1">P1 — Main Parking</option>
         <option value="P2">P2 — Contractor Bay</option>
@@ -383,7 +394,8 @@
 
         <!-- DOC TYPE -->
         <div class="pe-doc-cell">
-          <select class="pe-input pe-input-sm" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)">
+          <select class="pe-input pe-input-sm" [(ngModel)]="doc.docType" [disabled]="isReadOnlyMode"
+            (ngModelChange)="onDocTypeChange(doc)">
             <option value="">— Type —</option>
             @for (t of availableDocTypes(doc); track t) {
             <option [value]="t">{{ t }}</option>
@@ -394,7 +406,7 @@
         <!-- DOC NO -->
         <div class="pe-doc-cell">
           <input type="text" class="pe-input pe-input-sm" placeholder="Doc number" [(ngModel)]="doc.docNo"
-            (input)="onDocNoInput($event, doc)" maxlength="60" />
+            [readonly]="isReadOnlyMode" (input)="onDocNoInput($event, doc)" maxlength="60" />
         </div>
 
         <!-- VALID UPTO -->
@@ -402,9 +414,10 @@
           <div class="pe-date-wrapper">
             <input type="text" class="pe-input pe-input-sm pe-date-display"
               [value]="doc.validUpto ? formatDateDDMMYYYY(doc.validUpto) : ''" placeholder="DD/MM/YYYY" readonly
-              (click)="openDatePicker(docDatePicker)" />
-            <input type="date" class="pe-date-hidden" #docDatePicker [(ngModel)]="doc.validUpto" [min]="todayDate" />
-            <i class="bi bi-calendar3 pe-date-icon" (click)="openDatePicker(docDatePicker)"></i>
+              (click)="!isReadOnlyMode && openDatePicker(docDatePicker)" />
+            <input type="date" class="pe-date-hidden" #docDatePicker [(ngModel)]="doc.validUpto" [min]="todayDate"
+              [disabled]="isReadOnlyMode" />
+            <i class="bi bi-calendar3 pe-date-icon" (click)="!isReadOnlyMode && openDatePicker(docDatePicker)"></i>
           </div>
         </div>
 
@@ -419,28 +432,30 @@
               ? (doc.existingFile || doc.fileName)!.substring(0, 17) + '...'
               : (doc.existingFile || doc.fileName || 'Uploaded') }}
             </span>
-            <label class="pe-doc-replace-btn" [for]="'doc-file-' + doc.id"
-              title="Upload a new PDF to replace the existing file">
+            <label class="pe-doc-replace-btn" [for]="isReadOnlyMode ? null : ('doc-file-' + doc.id)"
+              [class.disabled]="isReadOnlyMode" title="Upload a new PDF to replace the existing file">
               <i class="bi bi-arrow-repeat"></i> Replace
               <input type="file" accept=".pdf" class="pe-file-hidden" [id]="'doc-file-' + doc.id"
-                (change)="onDocFileSelected($event, doc)" />
+                [disabled]="isReadOnlyMode" (change)="onDocFileSelected($event, doc)" />
             </label>
           </div>
           }
 
           @else if (doc.file) {
-          <label class="pe-file-btn has-file" [for]="'doc-file-' + doc.id" title="{{ doc.file.name }}">
+          <label class="pe-file-btn has-file" [for]="isReadOnlyMode ? null : ('doc-file-' + doc.id)"
+            [class.disabled]="isReadOnlyMode" title="{{ doc.file.name }}">
             <input type="file" accept=".pdf" class="pe-file-hidden" [id]="'doc-file-' + doc.id"
-              (change)="onDocFileSelected($event, doc)" />
+              [disabled]="isReadOnlyMode" (change)="onDocFileSelected($event, doc)" />
             <i class="bi bi-file-earmark-pdf-fill"></i>
             <span>{{ shortName(doc.file.name) }}</span>
           </label>
           }
 
           @else {
-          <label class="pe-file-btn" [for]="'doc-file-' + doc.id">
+          <label class="pe-file-btn" [for]="isReadOnlyMode ? null : ('doc-file-' + doc.id)"
+            [class.disabled]="isReadOnlyMode">
             <input type="file" accept=".pdf" class="pe-file-hidden" [id]="'doc-file-' + doc.id"
-              (change)="onDocFileSelected($event, doc)" />
+              [disabled]="isReadOnlyMode" (change)="onDocFileSelected($event, doc)" />
             <i class="bi bi-cloud-upload"></i>
             <span>Upload PDF</span>
           </label>
@@ -450,7 +465,7 @@
 
         <!-- REMOVE ROW -->
         <div class="pe-doc-cell">
-          <button class="pe-doc-remove" (click)="removeDoc(i)" title="Remove row">
+          <button class="pe-doc-remove" (click)="removeDoc(i)" title="Remove row" [disabled]="isReadOnlyMode">
             <i class="bi bi-x-circle-fill"></i>
           </button>
         </div>
@@ -460,7 +475,8 @@
     </div>
     }
 
-    <button class="pe-add-doc-btn" (click)="addDoc()" [disabled]="docs().length >= ALLOWED_DOC_TYPES.length">
+    <button class="pe-add-doc-btn" (click)="addDoc()"
+      [disabled]="isReadOnlyMode || docs().length >= ALLOWED_DOC_TYPES.length">
       <i class="bi bi-plus-circle-fill"></i>
       Add Document
       @if (docs().length >= ALLOWED_DOC_TYPES.length) {
@@ -486,12 +502,114 @@
     <i class="bi bi-exclamation-triangle-fill"></i> {{ saveError() }}
   </div>
   }
+  @if (isConfirmerMode()) {
+  <div class="pe-section">
+    <div class="pe-section-header">
+      <i class="bi bi-pencil-fill"></i>
+      <span>Confirmer Review</span>
+    </div>
+
+    <div class="pe-field">
+      <label>Confirmer Remark <span class="req">*</span></label>
+      <textarea class="pe-input" rows="4" placeholder="Enter confirmer remark..." [ngModel]="confirmerRemark()"
+        (ngModelChange)="confirmerRemark.set($event)">
+      </textarea>
+      <span class="pe-field-hint">
+        This remark will be used during confirm / reject / send for modification.
+      </span>
+    </div>
+
+    <div class="pe-actions" style="justify-content:flex-start; margin-top:12px;">
+      <button class="pe-btn pe-btn-history" type="button" (click)="togglePassHistory()">
+        <i class="bi bi-clock-history"></i>
+        {{ showPassHistory() ? 'Hide Pass History' : 'Show Full Pass History' }}
+      </button>
+    </div>
+
+    @if (showPassHistory()) {
+    <div class="pe-history-box">
+
+      @if (isLoadingPassHistory()) {
+      <div class="pe-history-state">
+        <i class="bi bi-arrow-repeat spin"></i>
+        Loading pass history...
+      </div>
+      }
+
+      @if (passHistoryError()) {
+      <div class="pe-history-state pe-history-error">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        {{ passHistoryError() }}
+      </div>
+      }
+
+      @if (!isLoadingPassHistory() && !passHistoryError() && passHistory().length > 0) {
+      <div class="pe-history-list">
+        @for (h of passHistory(); track h.id || h.dateOfEntry) {
+        <div class="pe-history-row">
+          <div class="pe-history-top">
+            <span class="pe-history-action">{{ h.action }}</span>
+            <span class="pe-history-date">{{ formatDateTime(h.dateOfEntry) }}</span>
+          </div>
+          <div class="pe-history-meta">
+            <span>By: {{ h.empCode || 'SYSTEM' }}</span>
+          </div>
+          <div class="pe-history-remark">
+            {{ h.remark || '—' }}
+          </div>
+        </div>
+        }
+      </div>
+      }
+    </div>
+    }
+  </div>
+  }
 
   <!-- ACTION BUTTONS -->
   <div class="pe-actions">
+
+    @if (isConfirmerMode()) {
+    <button class="pe-btn pe-btn-clear" type="button" (click)="goBackToPasses()">
+      <i class="bi bi-arrow-left-circle"></i> Back
+    </button>
+
+    <button class="pe-btn pe-btn-modify" type="button" (click)="sendForModificationByConfirmer()"
+      [disabled]="isWorkflowSubmitting() || !confirmerRemark().trim()">
+      <i class="bi bi-pencil-square"></i>
+      {{ isWorkflowSubmitting() ? 'Processing...' : 'Send for Modification' }}
+    </button>
+
+    <button class="pe-btn pe-btn-reject" type="button" (click)="rejectByConfirmer()"
+      [disabled]="isWorkflowSubmitting() || !confirmerRemark().trim()">
+      <i class="bi bi-x-circle-fill"></i>
+      {{ isWorkflowSubmitting() ? 'Processing...' : 'Reject' }}
+    </button>
+
+    <button class="pe-btn pe-btn-submit" type="button" (click)="confirmByConfirmer()"
+      [disabled]="isWorkflowSubmitting() || !confirmerRemark().trim()">
+      <i class="bi bi-check-circle-fill"></i>
+      {{ isWorkflowSubmitting() ? 'Processing...' : 'Confirm & Send to Approver' }}
+    </button>
+    }
+
+    @else if (isApproverMode()) {
+    <button class="pe-btn pe-btn-clear" type="button" (click)="goBackToPasses()">
+      <i class="bi bi-arrow-left-circle"></i> Back
+    </button>
+    }
+
+    @else if (isReadOnlyMode) {
+    <button class="pe-btn pe-btn-clear" type="button" (click)="goBackToPasses()">
+      <i class="bi bi-arrow-left-circle"></i> Back
+    </button>
+    }
+
+    @else {
     <button class="pe-btn pe-btn-clear" (click)="clearForm()" [disabled]="isSaving()">
       <i class="bi bi-x-square"></i> Clear
     </button>
+
     <button class="pe-btn pe-btn-save" (click)="onSave()" [disabled]="isSaving()">
       @if (!isSaving()) {
       <i class="bi bi-floppy-fill"></i> Save
@@ -499,12 +617,15 @@
       <i class="bi bi-hourglass-split spin"></i> Saving...
       }
     </button>
-    <button class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving() || !!validate(true)">
+
+    <button class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving()">
       <i class="bi bi-send-fill"></i> Submit
     </button>
+    }
+
   </div>
 
-  @if (!saved()) {
+  @if (!isReadOnlyMode && !saved()) {
   <div class="pe-submit-hint">
     <i class="bi bi-info-circle"></i>
     You can Save first to review, or click Submit directly to save &amp; finalise in one step.

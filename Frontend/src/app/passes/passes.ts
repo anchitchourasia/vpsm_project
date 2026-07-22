@@ -470,6 +470,144 @@ export class Passes implements OnInit, OnDestroy {
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       });
   }
+  openViewInPassEntry(p: any): void {
+    const passId = String(p?.passId ?? p?.id ?? '').trim();
+    if (!passId) return;
+
+    this.isRedirectingToEdit.set(true);
+
+    this.http
+      .get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => of(null))
+      )
+      .subscribe((allPasses: any[] | null) => {
+        const normalizedAll = (allPasses || []).map((x: any) => this.normalizePassRow(x));
+
+        const fresh =
+          normalizedAll.find((x: any) => String(x.passId ?? x.id ?? '').trim() === passId) ?? p;
+
+        const vehicleId = fresh?.vehicle?.vehicleId ?? fresh?.vehicleId ?? null;
+        const lookupCode = String(fresh.employeeNo || fresh.employeeCompanyNo || '').trim();
+
+        this.http
+          .get<any[]>(API_CONFIG.EMPLOYEE_REPORT, { headers: this.HEADERS })
+          .pipe(
+            timeout(HTTP_TIMEOUT_MS),
+            takeUntil(this.destroy$),
+            catchError(() => of([]))
+          )
+          .subscribe((empRows: any[]) => {
+            let empMatch: any = null;
+
+            if (lookupCode && empRows?.length) {
+              empMatch = empRows.find(r => String(r.id || r.employeeNo || '').trim() === lookupCode);
+            }
+
+            const fetchDocsAndNavigate = (rawDocs: any[]) => {
+              const sourceDocs =
+                Array.isArray(rawDocs) && rawDocs.length
+                  ? rawDocs
+                  : (Array.isArray(fresh.documents) ? fresh.documents : []);
+
+              const mappedDocs = sourceDocs.map((d: any) => {
+                const existing =
+                  d.fileName ||
+                  d.filename ||
+                  d.existingFile ||
+                  d.originalExistingFile ||
+                  d.documentName ||
+                  d.documentPath ||
+                  d.filePath ||
+                  d.path ||
+                  '';
+
+                return {
+                  documentId: d.documentId ?? d.id ?? d.docId ?? d.vehicleDocumentId ?? null,
+                  docType: String(d.documentType || d.docType || '').toUpperCase().trim(),
+                  docNo: d.documentNo || d.docNo || '',
+                  validUpto: d.expiryDate || d.validUpto || d.validTill || '',
+                  fileName: existing,
+                  existingFile: existing,
+                  originalExistingFile: existing,
+                };
+              });
+
+              const rawEmpTypeDetail = String(fresh.empTypeDetail || '').trim().toUpperCase();
+              let resolvedEmpTypeDetail = '';
+
+              if (['PERMANENT', 'HEG', 'CONTRACT'].includes(rawEmpTypeDetail)) {
+                resolvedEmpTypeDetail = rawEmpTypeDetail;
+              } else {
+                const apiEmpType = String(empMatch?.empType || '').trim().toUpperCase();
+                resolvedEmpTypeDetail = ['PERMANENT', 'HEG', 'CONTRACT'].includes(apiEmpType)
+                  ? apiEmpType
+                  : 'HEG';
+              }
+
+              const record = {
+                passId,
+                empType: 'Company_Employee',
+                vehicleNo: fresh.vehicle?.vehicleNo || fresh.vehicleNo || '',
+                vehicleType: fresh.vehicle?.vehicleType || fresh.typeOfVehicle || fresh.vehicleType || '',
+                vehicleClass: fresh.vehicle?.vehicleClass || fresh.vehicleClass || '',
+                brandModel: fresh.vehicle?.brandModel || fresh.brandModel || '',
+                vehicleId: fresh.vehicle?.vehicleId ?? fresh.vehicleId ?? null,
+                ecNo: lookupCode,
+                contractorFirm: fresh.contractorCode || '',
+                empName:
+                  empMatch?.name ||
+                  empMatch?.employeeName ||
+                  fresh.employeeName ||
+                  fresh.empName ||
+                  '',
+                empDept: String(empMatch?.deptName || fresh.dept || '').toUpperCase(),
+                issueDate: fresh.issueDate || '',
+                validityDate: fresh.validityDate || '',
+                gateNo: fresh.gateNo || '',
+                parkingArea: fresh.parkingToBeUsed || fresh.parkingArea || '',
+                remark: fresh.remarks || fresh.remark || '',
+                docs: mappedDocs,
+                status: fresh.status || fresh.passStatus || 'Saved',
+                createdAt:
+                  fresh.enterDate ||
+                  new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                empTypeDetail: resolvedEmpTypeDetail,
+                empAadhar:
+                  empMatch?.aadhaarNo ||
+                  empMatch?.aadharNo ||
+                  fresh.aadhaarNo ||
+                  '',
+                empDeptCode: empMatch?.deptCode || fresh.deptCode || '',
+                empContractorCode: empMatch?.contractorCode || fresh.contractorCode || '',
+                empContractorName: empMatch?.contractorName || fresh.contractorName || '',
+                contractorName: '',
+                mode: 'view',
+                readOnly: true
+              };
+
+              this.passState.setResumeDraft(record as any);
+              this.isRedirectingToEdit.set(false);
+              this.router.navigate(['/pass-entry'], { queryParams: { mode: 'view', passId } });
+            };
+
+            if (vehicleId) {
+              this.http
+                .get<any[]>(`${API_CONFIG.BASE_URL}/api/documents/vehicle/${vehicleId}`, { headers: this.HEADERS })
+                .pipe(
+                  timeout(HTTP_TIMEOUT_MS),
+                  takeUntil(this.destroy$),
+                  catchError(() => of([]))
+                )
+                .subscribe((docs: any[]) => fetchDocsAndNavigate(docs || []));
+            } else {
+              fetchDocsAndNavigate([]);
+            }
+          });
+      });
+  }
 
   getDocStatusClass(exp: string): string {
     if (!exp) return 'doc-status-unknown';

@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { takeUntil, timeout, catchError, finalize } from 'rxjs/operators';
 
@@ -23,6 +23,15 @@ interface DocEntry {
 
   documentId?: number;
   existingFile?: string;
+}
+
+interface HistoryRecord {
+  id?: number;
+  passNo: string;
+  empCode: string;
+  action: string;
+  remark: string;
+  dateOfEntry: string;
 }
 
 interface EmployeeLookupResponse {
@@ -130,6 +139,15 @@ export class PassEntry implements OnInit, OnDestroy {
   saveError = signal('');
   modificationRemark = signal('');
   isModificationMode = signal(false);
+  isViewMode = signal(false);
+  confirmerRemark = signal('');
+  showPassHistory = signal(false);
+  isWorkflowSubmitting = signal(false);
+  isConfirmerMode = signal(false);
+  isApproverMode = signal(false);
+  isLoadingPassHistory = signal(false);
+  passHistoryError = signal('');
+  passHistory = signal<HistoryRecord[]>([]);
 
   vehicleNo = '';
   vehicleType = '';
@@ -157,12 +175,16 @@ export class PassEntry implements OnInit, OnDestroy {
   constructor(
     private http: HttpClient,
     private router: Router,
+    private route: ActivatedRoute,
     private passState: PassStateService,
     private auth: AuthService
   ) { }
 
   get todayDate(): string {
     return new Date().toISOString().split('T')[0];
+  }
+  get isReadOnlyMode(): boolean {
+    return this.isViewMode() || this.isConfirmerMode() || this.isApproverMode();
   }
 
   get isEcNoLocked(): boolean {
@@ -174,21 +196,42 @@ export class PassEntry implements OnInit, OnDestroy {
       this.ecNo = this.auth.empCode() ?? '';
     }
 
-    const draft = this.passState.resumeDraftData();
-    if (draft) {
-      this.loadPassRecord(draft, true);
-      this.passState.clearResumeDraft();
-      return;
-    }
+    this.route.queryParams
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        const mode = String(params['mode'] || '').toLowerCase();
+        const view = String(params['view'] || '').toLowerCase();
+        const editId = String(params['edit'] || '').trim();
 
-    const modData = this.passState.resumeModData();
-    if (modData) {
-      this.loadPassRecord(modData, false);
-      this.passState.clearResumeMod();
-      this.isModificationMode.set(true);
-      this.modificationRemark.set(modData.confirmerRemark || '');
-    }
+        this.isConfirmerMode.set(mode === 'confirmer');
+        this.isApproverMode.set(mode === 'approver');
+        this.isViewMode.set(view === 'true' || mode === 'view');
+
+        const draft = this.passState.resumeDraftData();
+        if (draft) {
+          if ((draft as any).readOnly === true || String((draft as any).mode || '').toLowerCase() === 'view') {
+            this.isViewMode.set(true);
+          }
+          this.loadPassRecord(draft, true);
+          this.passState.clearResumeDraft();
+          return;
+        }
+
+        const modData = this.passState.resumeModData();
+        if (modData) {
+          this.loadPassRecord(modData, false);
+          this.passState.clearResumeMod();
+          this.isModificationMode.set(true);
+          this.modificationRemark.set((modData as any).confirmerRemark || '');
+          return;
+        }
+
+        if (editId) {
+          this.loadPassById(editId);
+        }
+      });
   }
+
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -206,6 +249,131 @@ export class PassEntry implements OnInit, OnDestroy {
     if (v === 'COMPANY_EMPLOYEE' || v === 'COMPANY EMPLOYEE') return '';
     return '';
   }
+
+
+
+
+  loadPassHistory(passId: number): void {
+    this.isLoadingPassHistory.set(true);
+    this.passHistoryError.set('');
+    this.passHistory.set([]);
+
+    this.http.get<HistoryRecord[]>(`${API_CONFIG.PASS_HISTORY}/${passId}`, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.passHistoryError.set('Could not load pass history (' + (err?.status || 'network error') + ')');
+          this.isLoadingPassHistory.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(data => {
+        const history = (Array.isArray(data) ? data : [])
+          .filter(h => String(h.passNo) === String(passId))
+          .sort((a: any, b: any) =>
+            new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
+          );
+
+        this.passHistory.set(history);
+
+        if (history.length === 0) {
+          this.passHistoryError.set('No audit history found for this pass.');
+        }
+
+        this.isLoadingPassHistory.set(false);
+      });
+  }
+  togglePassHistory(): void {
+    const next = !this.showPassHistory();
+    this.showPassHistory.set(next);
+
+    if (next) {
+      const id = Number(this.passId());
+      if (id) {
+        this.loadPassHistory(id);
+      } else {
+        this.passHistoryError.set('Pass ID is missing, so history cannot be loaded.');
+        this.passHistory.set([]);
+      }
+    }
+  }
+
+
+
+  private enrichEmployeeDetails(base: any): void {
+    const code = String(
+      base.ecNo ||
+      base.employeeNo ||
+      base.employeeCompanyNo ||
+      ''
+    ).trim().toUpperCase();
+
+    if (!code) {
+      this.loadPassRecord(base, true);
+      return;
+    }
+
+    const url = `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(code)}`;
+
+    this.http.get<any>(url, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => of(null))
+      )
+      .subscribe((res: any) => {
+        const merged = {
+          ...base,
+          empName:
+            res?.name ||
+            res?.employeeName ||
+            base.empName ||
+            base.employeeName ||
+            '',
+          empDept:
+            String(res?.deptName || base.empDept || base.dept || '').toUpperCase(),
+          empDeptCode:
+            res?.deptCode ||
+            base.empDeptCode ||
+            base.deptCode ||
+            '',
+          empAadhar:
+            res?.aadhaarNo ||
+            res?.aadharNo ||
+            res?.aadhar ||
+            base.empAadhar ||
+            base.aadhaarNo ||
+            base.aadharNo ||
+            '',
+          empContractorCode:
+            res?.contractorCode ||
+            res?.contractorNo ||
+            base.empContractorCode ||
+            base.contractorCode ||
+            '',
+          empContractorName:
+            res?.contractorName ||
+            res?.agencyName ||
+            base.empContractorName ||
+            base.contractorName ||
+            '',
+          contractorName:
+            res?.contractorName ||
+            res?.agencyName ||
+            base.contractorName ||
+            base.empContractorName ||
+            '',
+          empTypeDetail:
+            base.empTypeDetail ||
+            res?.empType ||
+            ''
+        };
+
+        this.loadPassRecord(merged, true);
+      });
+  }
+
 
   private loadPassRecord(data: any, isDraft: boolean): void {
     console.log('LOAD PASS RECORD DATA', data);
@@ -244,7 +412,11 @@ export class PassEntry implements OnInit, OnDestroy {
     const normalizedEmpTypeDetail = this.normalizeEmpTypeDetail(rawEmpTypeDetail);
 
     this.empTypeDetail.set(normalizedEmpTypeDetail);
-    this.empType_display.set(normalizedEmpTypeDetail);
+    this.empType_display.set(
+      String(data.empTypeDisplay || data.empType || rawEmpTypeDetail || normalizedEmpTypeDetail || '')
+        .trim()
+        .toUpperCase()
+    );
 
     this.empContractorCode = data.empContractorCode || data.contractorCode || '';
     this.empContractorName = data.empContractorName || data.contractorName || '';
@@ -288,6 +460,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   setEmpType(type: 'Company_Employee' | 'Contractor'): void {
+    if (this.isReadOnlyMode) return;
     this.empType.set(type);
     this.empTypeDetail.set('');
     this.ecNo = '';
@@ -307,6 +480,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onEmpTypeDetailChange(value: 'TACC' | 'HEG' | 'CONTRACT' | ''): void {
+    if (this.isReadOnlyMode) return;
     this.empTypeDetail.set(value);
     this.ecNo = '';
     this.empName.set('');
@@ -324,12 +498,14 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onVehicleTypeInput(event: Event | string): void {
+    if (this.isReadOnlyMode) return;
     const val = typeof event === 'string' ? event : (event.target as HTMLInputElement).value;
     this.vehicleType = val;
     this.vehicleClass = detectVehicleClass(val);
   }
 
   onUpperInput(event: Event, field: keyof PassEntry): void {
+    if (this.isReadOnlyMode) return;
     const input = event.target as HTMLInputElement;
     const val = input.value.toUpperCase().replace(/\s+/g, '');
     (this as any)[field] = val;
@@ -337,12 +513,14 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onDocNoInput(event: Event, doc: DocEntry): void {
+    if (this.isReadOnlyMode) return;
     const input = event.target as HTMLInputElement;
     doc.docNo = input.value.toUpperCase();
     input.value = doc.docNo;
   }
 
   onEcNoBlur(): void {
+    if (this.isReadOnlyMode) return;
     const code = this.ecNo.trim().toUpperCase();
     if (!code) return;
 
@@ -411,11 +589,13 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   addDoc(): void {
+    if (this.isReadOnlyMode) return;
     if (this.docs().length >= ALLOWED_DOC_TYPES.length) return;
     this.docs.update(d => [...d, emptyDoc()]);
   }
 
   removeDoc(i: number): void {
+    if (this.isReadOnlyMode) return;
     const updated = this.docs().filter((_, idx) => idx !== i);
     this.docs.set(updated.length ? updated : [emptyDoc()]);
   }
@@ -430,6 +610,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onDocTypeChange(doc: DocEntry): void {
+    if (this.isReadOnlyMode) return;
     const dupe = this.docs().filter(d => d !== doc && d.docType === doc.docType);
     if (dupe.length > 0) {
       const current = doc.docType;
@@ -441,6 +622,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onDocFileSelected(event: Event, doc: DocEntry): void {
+    if (this.isReadOnlyMode) return;
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
 
@@ -659,41 +841,41 @@ export class PassEntry implements OnInit, OnDestroy {
 
 
   private buildPayload(status: string) {
-  const filteredDocs = this.docs()
-    .filter(doc => doc.docType && doc.docNo.trim() && doc.validUpto)
-    .map(doc => ({
-      documentId: doc.documentId ?? null,
-      documentType: doc.docType.trim().toUpperCase(),
-      documentNo: doc.docNo.trim().toUpperCase(),
-      expiryDate: doc.validUpto || null,
-      fileKey: this.mapFileKey(doc.docType),
-      fileName: doc.existingFile || doc.fileName || ''
-    }));
+    const filteredDocs = this.docs()
+      .filter(doc => doc.docType && doc.docNo.trim() && doc.validUpto)
+      .map(doc => ({
+        documentId: doc.documentId ?? null,
+        documentType: doc.docType.trim().toUpperCase(),
+        documentNo: doc.docNo.trim().toUpperCase(),
+        expiryDate: doc.validUpto || null,
+        fileKey: this.mapFileKey(doc.docType),
+        fileName: doc.existingFile || doc.fileName || ''
+      }));
 
-  const payload = {
-    vehicleNo: this.vehicleNo.trim().toUpperCase(),
-    vehicleType: this.vehicleType.trim() || null,
-    brandModel: this.brandModel.trim() || null,
+    const payload = {
+      vehicleNo: this.vehicleNo.trim().toUpperCase(),
+      vehicleType: this.vehicleType.trim() || null,
+      brandModel: this.brandModel.trim() || null,
 
-    employeeNo: this.ecNo.trim().toUpperCase() || null,
-    empType: 'Company_Employee',
-    contractorCode: null,
+      employeeNo: this.ecNo.trim().toUpperCase() || null,
+      empType: 'Company_Employee',
+      contractorCode: null,
 
-    gateNo: this.gateNo.trim() || null,
-    parkingToBeUsed: this.parkingArea.trim() || null,
-    status,
-    remark: this.remark.trim() || null,
-    enterBy: this.auth.empCode(),
-    documents: filteredDocs
-  };
+      gateNo: this.gateNo.trim() || null,
+      parkingToBeUsed: this.parkingArea.trim() || null,
+      status,
+      remark: this.remark.trim() || null,
+      enterBy: this.auth.empCode(),
+      documents: filteredDocs
+    };
 
-  console.log('========== VPMS FINAL JSON PAYLOAD ==========');
-  console.log(payload);
-  console.log(JSON.stringify(payload, null, 2));
-  console.log('============================================');
+    console.log('========== VPMS FINAL JSON PAYLOAD ==========');
+    console.log(payload);
+    console.log(JSON.stringify(payload, null, 2));
+    console.log('============================================');
 
-  return payload;
-}
+    return payload;
+  }
 
   // private async buildMultipartPayload(status: string): Promise<FormData> {
   //   const payload = this.buildPayload(status);
@@ -752,26 +934,26 @@ export class PassEntry implements OnInit, OnDestroy {
 
 
   private async buildMultipartPayload(status: string): Promise<FormData> {
-  const payload = this.buildPayload(status);
-  const formData = new FormData();
+    const payload = this.buildPayload(status);
+    const formData = new FormData();
 
-  formData.append(
-    'request',
-    new Blob([JSON.stringify(payload)], { type: 'application/json' })
-  );
+    formData.append(
+      'request',
+      new Blob([JSON.stringify(payload)], { type: 'application/json' })
+    );
 
-  for (const doc of this.docs()) {
-    if (!doc.docType) continue;
+    for (const doc of this.docs()) {
+      if (!doc.docType) continue;
 
-    const fileKey = this.mapFileKey(doc.docType);
+      const fileKey = this.mapFileKey(doc.docType);
 
-    if (doc.file) {
-      formData.append(fileKey, doc.file, doc.file.name);
+      if (doc.file) {
+        formData.append(fileKey, doc.file, doc.file.name);
+      }
     }
-  }
 
-  return formData;
-}
+    return formData;
+  }
   private async fetchExistingFileAsFile(doc: DocEntry): Promise<File | null> {
     const fileName =
       doc.existingFile ||
@@ -803,6 +985,7 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onSave(): void {
+    if (this.isReadOnlyMode) return;
     const err = this.validate(false);
     if (err) {
       this.saveError.set(err);
@@ -865,8 +1048,22 @@ export class PassEntry implements OnInit, OnDestroy {
       this.isSaving.set(false);
     });
   }
+  goBackToPasses(): void {
+    if (this.isConfirmerMode()) {
+      this.router.navigate(['/confirmer']);
+      return;
+    }
+
+    if (this.isApproverMode()) {
+      this.router.navigate(['/approver']);
+      return;
+    }
+
+    this.router.navigate(['/passes']);
+  }
 
   onSubmit(): void {
+    if (this.isReadOnlyMode) return;
     const err = this.validate(true);
     if (err) {
       this.saveError.set(err);
@@ -975,6 +1172,157 @@ export class PassEntry implements OnInit, OnDestroy {
     this.savedVehicleId = null;
     this.savedPassRegistryId = null;
     this.draftPassId = null;
+    this.showPassHistory.set(false);
+    this.isLoadingPassHistory.set(false);
+    this.passHistoryError.set('');
+    this.passHistory.set([]);
+  }
+  confirmByConfirmer(): void {
+    this.runConfirmerAction(
+      'CONFIRMED',
+      `Confirmed by Confirmer [${this.auth.empCode?.() || 'CONFIRMER'}]: ${this.confirmerRemark().trim()}`,
+      `✅ Pass #${this.passId()} confirmed and sent to Approver.`
+    );
+  }
+  formatDateTime(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+
+    const date = dt.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+
+    const time = dt.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    return `${date}, ${time}`;
+  }
+
+  rejectByConfirmer(): void {
+    this.runConfirmerAction(
+      'REJECTED',
+      `Rejected by Confirmer [${this.auth.empCode?.() || 'CONFIRMER'}]: ${this.confirmerRemark().trim()}`,
+      `❌ Pass #${this.passId()} rejected and returned to requester.`
+    );
+  }
+
+  sendForModificationByConfirmer(): void {
+    this.runConfirmerAction(
+      'NEEDS_MODIFICATION',
+      `Modification requested by Confirmer [${this.auth.empCode?.() || 'CONFIRMER'}]: ${this.confirmerRemark().trim()}`,
+      `🔄 Pass #${this.passId()} sent back for modification.`
+    );
+  }
+
+  private runConfirmerAction(status: string, remarks: string, successMsg: string): void {
+    const currentPassId = this.passId().trim();
+
+    if (!currentPassId) {
+      this.saveError.set('Pass ID is missing.');
+      return;
+    }
+
+    if (!this.confirmerRemark().trim()) {
+      this.saveError.set('Confirmer remark is required.');
+      return;
+    }
+
+    this.isWorkflowSubmitting.set(true);
+    this.saveError.set('');
+    this.saveSuccess.set('');
+
+    const updatePayload = {
+      status,
+      remarks,
+      enterBy: this.auth.empCode?.() || 'CONFIRMER'
+    };
+
+    this.http.put<any>(
+      `${API_CONFIG.PASS_STATUS_UPDATE}/${currentPassId}`,
+      updatePayload,
+      { headers: this.HEADERS }
+    )
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          const msg =
+            err?.error?.message ||
+            err?.error?.error ||
+            err?.message ||
+            'Workflow action failed.';
+          this.saveError.set(msg);
+          return of(null);
+        }),
+        finalize(() => this.isWorkflowSubmitting.set(false))
+      )
+      .subscribe(res => {
+        if (!res) return;
+
+        this.saveSuccess.set(successMsg);
+
+        setTimeout(() => {
+          this.goBackToPasses();
+        }, 1500);
+      });
+  }
+  private loadPassById(passId: string): void {
+    this.isSaving.set(false);
+    this.saveError.set('');
+    this.saveSuccess.set('');
+
+    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.saveError.set(`Could not load pass details (${err?.status ?? 'network error'})`);
+          return of([]);
+        })
+      )
+      .subscribe(rows => {
+        const list = Array.isArray(rows) ? rows : [];
+        const found = list.find((x: any) =>
+          String(x.passId ?? x.id ?? '').trim() === String(passId).trim()
+        );
+
+        if (!found) {
+          this.saveError.set(`Pass not found for ID ${passId}.`);
+          return;
+        }
+
+        const mapped = {
+          passId: found.passId ?? found.id ?? '',
+          vehicleNo: found.vehicle?.vehicleNo || found.vehicleNo || '',
+          vehicleType: found.vehicle?.vehicleType || found.typeOfVehicle || found.vehicleType || '',
+          vehicleClass: found.vehicle?.vehicleClass || found.vehicleClass || '',
+          brandModel: found.vehicle?.brandModel || found.brandModel || '',
+          ecNo: found.employeeNo || found.employeeCompanyNo || '',
+          contractorCode: found.contractorCode || '',
+          contractorFirm: found.contractorCode || '',
+          empName: found.employeeName || found.empName || found.name || '',
+          empDept: found.dept || '',
+          remark: found.remarks || found.remark || '',
+          gateNo: found.gateNo || '',
+          parkingArea: found.parkingToBeUsed || found.parkingArea || '',
+          empAadhar: found.aadhaarNo || found.aadharNo || '',
+          empDeptCode: found.deptCode || '',
+          empTypeDetail: found.empTypeDetail || '',
+          empContractorCode: found.contractorCode || '',
+          empContractorName: found.contractorName || '',
+          contractorName: found.contractorName || '',
+          vehicleId: found.vehicle?.vehicleId ?? found.vehicleId ?? null,
+          docs: Array.isArray(found.documents) ? found.documents : []
+        };
+
+        this.enrichEmployeeDetails(mapped);
+      });
   }
 
   private handleSaveError(err: any, step: string): void {

@@ -54,7 +54,7 @@
               <th>EMPLOYEE NO</th>
               <th>VEHICLE NO</th>
               <th>TYPE</th>
-              <th>GATE</th>             
+              <th>GATE</th>
               <th>STATUS</th>
               <th>ACTION</th>
             </tr>
@@ -67,10 +67,11 @@
               <td>{{ p.vehicleNo || '—' }}</td>
               <td>{{ p.empType || p.empType || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
-             
-              <td><span class="badge" [ngClass]="getStatusClass(p.reqStatus)">{{ getStatusLabel(p.reqStatus) }}</span></td>
+
+              <td><span class="badge" [ngClass]="getStatusClass(p.reqStatus)">{{ getStatusLabel(p.reqStatus) }}</span>
+              </td>
               <td>
-                <button class="btn-review blue-btn" (click)="openDetails(p)">
+                <button class="btn-review blue-btn" (click)="openReviewPage(p)">
                   <i class="bi bi-eye-fill"></i> Review
                 </button>
               </td>
@@ -119,7 +120,7 @@
         <div class="dg">
           <div class="di"><label>Vehicle No</label><span>{{ p.vehicleNo || '—' }}</span></div>
           <div class="di"><label>Type</label><span>{{ p.vehicleType || p.vehicleType || '—' }}</span></div>
-         
+
           <div class="di"><label>Brand/Model</label><span>{{ p.brandModel || '—' }}</span></div>
         </div>
 
@@ -180,7 +181,7 @@
         <div class="dg">
           <div class="di"><label>Pass ID</label><span>{{ p.id }}</span></div>
           <div class="di"><label>Gate No</label><span>{{ p.gateNo || '—' }}</span></div>
-          <div class="di"><label>Parking Area</label><span>{{ p.parkingToBeUsed || '—' }}</span></div>         
+          <div class="di"><label>Parking Area</label><span>{{ p.parkingToBeUsed || '—' }}</span></div>
           <div class="di"><label>Submitted By</label><span>{{ p.enterBy || '—' }}</span></div>
         </div>
 
@@ -237,7 +238,7 @@
         </div>
 
 
-        
+
         <!-- ── Confirmer Remark ── -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Confirmer Remark</div>
         <div class="form-group">
@@ -325,21 +326,21 @@
         </div>
         <!-- ── end history panel ── -->
 
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <!-- ══════════════════════════════════════════════
              MODAL FOOTER
              ORDER: Close | Send for Modify | Reject | Confirm & Send to Approver

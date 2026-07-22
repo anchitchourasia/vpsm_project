@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -171,7 +172,7 @@ export class Confirmer implements OnInit, OnDestroy {
   get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
   protected svc = inject(PassStateService);
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private router: Router) { }
 
   ngOnInit(): void {
     this.svc.loadEmployeeNames();  // ← fetch employee name map once
@@ -446,6 +447,17 @@ export class Confirmer implements OnInit, OnDestroy {
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);
       });
+  }
+  openReviewPage(p: PassRecord): void {
+    const passId = Number(p.passId ?? p.id ?? 0);
+    if (!passId) return;
+
+    this.router.navigate(['/pass-entry'], {
+      queryParams: {
+        edit: passId,
+        mode: 'confirmer'
+      }
+    });
   }
 
   // ── NEW: Send for Modify ──────────────────────────────────────────────────
