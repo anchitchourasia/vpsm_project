@@ -71,18 +71,6 @@
         <span class="sb-label">Pass List</span>
       </a>
 
-      <!-- ── VEHICLE PERMISSION — Employee sees own records only ── -->
-      <div class="sb-section-label">VEHICLE PERMISSION</div>
-      <a routerLink="/vehicle-permission/add" routerLinkActive="sb-active" class="sb-item sb-item-employee"
-        (click)="$event.stopPropagation()" title="Submit a new vehicle permission request">
-        <i class="bi bi-truck-front-fill sb-icon" style="color:#AC9457"></i>
-        <span class="sb-label">Add Form</span>
-      </a>
-      <a routerLink="/vehicle-permission/list" routerLinkActive="sb-active" class="sb-item sb-item-employee"
-        (click)="$event.stopPropagation()" title="View your vehicle permission requests">
-        <i class="bi bi-circle-fill sb-icon" style="color:#AC9457; font-size:0.5rem"></i>
-        <span class="sb-label">Contractor Details</span>
-      </a>
       }
 
       <!-- ══ UPLOADER MENU ══ -->
@@ -143,7 +131,7 @@
       }
 
       <!-- ══ VEHICLE PERMISSION MENU ══ -->
-     @if (auth.hasAuthority() || auth.isConfirmer() || auth.isApprover()) {
+     <!-- @if (auth.hasAuthority() || auth.isConfirmer() || auth.isApprover()) {
       <div class="sb-section-label">VEHICLE PERMISSION</div>
       <div class="sb-group" [class.open]="isMenuOpen('vp')">
         <div class="sb-item sb-parent" (click)="toggleMenu('vp', $event)">
@@ -157,10 +145,10 @@
           </a>
           <a routerLink="/vehicle-permission/list" class="sb-child" (click)="$event.stopPropagation()">
             <i class="bi bi-circle-fill sb-child-dot"></i> Contractor Details
-          </a>
+          </a> -->
 
           <!-- ✅ NEW: Only visible to CONFIRMER role -->
-          @if (auth.isConfirmer()) {
+          <!-- @if (auth.isConfirmer()) {
           <a routerLink="/vehicle-permission/confirmer" routerLinkActive="sb-active" class="sb-child"
             (click)="$event.stopPropagation()">
             <i class="bi bi-circle-fill sb-child-dot"></i> Permission for Confirmer
@@ -173,7 +161,7 @@
           }
         </div>
       </div>
-      }
+      } -->
 
       <!-- Authority-only sections -->
       <!-- ══ ADMIN ONLY — Pass Details, Vehicles Master, Pass Registry,

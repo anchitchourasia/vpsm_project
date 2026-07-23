@@ -270,13 +270,20 @@ export class PassEntry implements OnInit, OnDestroy {
       )
       .subscribe(data => {
         const history = (Array.isArray(data) ? data : [])
+          .map((h: any) => ({
+            id: h.id,
+            passNo: String(h.passNo ?? ''),
+            empCode: String(h.empCode ?? h.enterBy ?? 'SYSTEM'),
+            action: String(h.action ?? '—'),
+            remark: String(h.remark ?? h.remarks ?? '').trim(),
+            dateOfEntry: String(h.dateOfEntry ?? h.actionDate ?? '')
+          }))
           .filter(h => String(h.passNo) === String(passId))
           .sort((a: any, b: any) =>
             new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
           );
 
         this.passHistory.set(history);
-
         if (history.length === 0) {
           this.passHistoryError.set('No audit history found for this pass.');
         }
@@ -300,6 +307,34 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
 
+  private logHistory(passId: number, empCode: string, action: string, remark: string): void {
+    const payload = {
+      passNo: String(passId),
+      empCode: empCode || 'SYSTEM',
+      action,
+      remark: remark.substring(0, 200),
+      dateOfEntry: new Date()
+    };
+
+    console.log('✅ CONFIRMER HISTORY PAYLOAD =>', JSON.stringify(payload, null, 2));
+
+    this.http.post(API_CONFIG.PASS_HISTORY, payload, {
+      headers: this.HEADERS,
+      observe: 'response'
+    })
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError((err) => {
+          console.error('❌ CONFIRMER HISTORY ERROR =>', err?.status, err?.error);
+          console.error('❌ FAILED CONFIRMER PAYLOAD =>', JSON.stringify(payload, null, 2));
+          return of(null);
+        })
+      )
+      .subscribe((res) => {
+        console.log('✅ CONFIRMER HISTORY RESPONSE =>', res);
+      });
+  }
 
   private enrichEmployeeDetails(base: any): void {
     const code = String(
@@ -768,7 +803,7 @@ export class PassEntry implements OnInit, OnDestroy {
     }
   }
 
-  private buildRecord(status: 'Saved' | 'Submitted'): PassRecord {
+  private buildRecord(status: 'Saved' | 'Confirmed'): PassRecord {
     return {
       passId: this.passId(),
       empType: this.empType(),
@@ -793,7 +828,7 @@ export class PassEntry implements OnInit, OnDestroy {
       })),
       status,
       createdAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-      workflowStatus: status === 'Saved' ? 'Draft' : 'Submitted',
+      workflowStatus: status === 'Saved' ? 'Draft' : 'Confirmed',
       empTypeDetail: this.empTypeDetail(),
       empAadhar: this.empAadhar(),
       empDeptCode: this.empDeptCode(),
@@ -1073,7 +1108,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.isSaving.set(true);
     this.clearAlerts();
 
-    this.buildMultipartPayload(PASS_STATUS.SUBMITTED).then(formData => {
+    this.buildMultipartPayload(PASS_STATUS.CONFIRMED).then(formData => {
       const currentPassId = this.passId().trim();
       const isUpdate = this.passIdGenerated() && !!currentPassId;
 
@@ -1114,11 +1149,19 @@ export class PassEntry implements OnInit, OnDestroy {
             this.passIdGenerated.set(true);
           }
 
-          const record = this.buildRecord('Submitted');
+          const record = this.buildRecord('Confirmed');
           this.passState.upsert(record);
-          this.passState.broadcast({ ...record, workflowStatus: 'Submitted' } as any);
+          this.passState.broadcast({ ...record, workflowStatus: 'Confirmed' } as any);
+
+          this.logHistory(
+            Number(this.passId()),
+            this.auth.empCode?.() || 'SYSTEM',
+            'CONFIRMED',
+            'Pass confirmed by system on submit'
+          );
+
           this.saved.set(true);
-          this.saveSuccess.set(`Request submitted successfully. ID: ${this.passId()}`);
+          this.saveSuccess.set(`Pass confirmed successfully. ID: ${this.passId()}`);
 
           setTimeout(() => this.router.navigate(['/passes']), 1800);
         });
@@ -1178,12 +1221,9 @@ export class PassEntry implements OnInit, OnDestroy {
     this.passHistory.set([]);
   }
   confirmByConfirmer(): void {
-    this.runConfirmerAction(
-      'CONFIRMED',
-      `Confirmed by Confirmer [${this.auth.empCode?.() || 'CONFIRMER'}]: ${this.confirmerRemark().trim()}`,
-      `✅ Pass #${this.passId()} confirmed and sent to Approver.`
-    );
+    this.runConfirmerAction('CONFIRMED', `Pass ${this.passId()} confirmed and sent to Approver.`);
   }
+
   formatDateTime(d: string): string {
     if (!d) return '—';
     const dt = new Date(d);
@@ -1205,30 +1245,24 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   rejectByConfirmer(): void {
-    this.runConfirmerAction(
-      'REJECTED',
-      `Rejected by Confirmer [${this.auth.empCode?.() || 'CONFIRMER'}]: ${this.confirmerRemark().trim()}`,
-      `❌ Pass #${this.passId()} rejected and returned to requester.`
-    );
+    this.runConfirmerAction('REJECTED', `Pass ${this.passId()} rejected and returned to requester.`);
   }
+
 
   sendForModificationByConfirmer(): void {
-    this.runConfirmerAction(
-      'NEEDS_MODIFICATION',
-      `Modification requested by Confirmer [${this.auth.empCode?.() || 'CONFIRMER'}]: ${this.confirmerRemark().trim()}`,
-      `🔄 Pass #${this.passId()} sent back for modification.`
-    );
+    this.runConfirmerAction('NEEDS_MODIFICATION', `Pass ${this.passId()} sent back for modification.`);
   }
 
-  private runConfirmerAction(status: string, remarks: string, successMsg: string): void {
+  private runConfirmerAction(status: string, successMsg: string): void {
     const currentPassId = this.passId().trim();
+    const typedRemark = this.confirmerRemark().trim();
 
     if (!currentPassId) {
       this.saveError.set('Pass ID is missing.');
       return;
     }
 
-    if (!this.confirmerRemark().trim()) {
+    if (!typedRemark) {
       this.saveError.set('Confirmer remark is required.');
       return;
     }
@@ -1239,15 +1273,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
     const updatePayload = {
       status,
-      remarks,
+      remarks: typedRemark,
       enterBy: this.auth.empCode?.() || 'CONFIRMER'
     };
 
-    this.http.put<any>(
-      `${API_CONFIG.PASS_STATUS_UPDATE}/${currentPassId}`,
-      updatePayload,
-      { headers: this.HEADERS }
-    )
+    this.http.put<any>(`${API_CONFIG.PASS_STATUS_UPDATE}/${currentPassId}`, updatePayload, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -1265,11 +1295,25 @@ export class PassEntry implements OnInit, OnDestroy {
       .subscribe(res => {
         if (!res) return;
 
+        let historyAction = status;
+        if (status === 'NEEDS_MODIFICATION') {
+          historyAction = 'SENT_FOR_MODIFICATION';
+        }
+
+        this.logHistory(
+          Number(currentPassId),
+          this.auth.empCode?.() || 'CONFIRMER',
+          historyAction,
+          typedRemark
+        );
+
         this.saveSuccess.set(successMsg);
 
-        setTimeout(() => {
-          this.goBackToPasses();
-        }, 1500);
+        if (this.showPassHistory()) {
+          this.loadPassHistory(Number(currentPassId));
+        }
+
+        setTimeout(() => this.goBackToPasses(), 1500);
       });
   }
   private loadPassById(passId: string): void {
