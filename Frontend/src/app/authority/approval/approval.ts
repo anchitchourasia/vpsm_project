@@ -95,7 +95,7 @@ export class Approval implements OnInit, OnDestroy {
 
   readonly approverName = signal(this._sessionUser?.primaryRole || 'APPROVER');
   readonly approverCode = signal(this._sessionUser?.empCode || 'APPROVER');
-  
+
   allPasses = signal<PassRecord[]>([]);
   isLoading = signal(true);
   hasError = signal(false);
@@ -106,7 +106,7 @@ export class Approval implements OnInit, OnDestroy {
 
 
   selectedPass = signal<PassRecord | null>(null);
- 
+
   // ✅ NEW — holds live-enriched employee details fetched on modal open
   selectedPassExtra = signal<{
     deptCode: string;
@@ -126,7 +126,7 @@ export class Approval implements OnInit, OnDestroy {
 
 
   activeAction = signal<'modify' | 'approve' | 'reject' | null>(null);
- 
+
   // ── Documents State ───────────────────────────────────────────────────────
   passDocuments = signal<DocumentRecord[]>([]);
   isLoadingDocs = signal(false);
@@ -139,13 +139,13 @@ export class Approval implements OnInit, OnDestroy {
 
   pendingList = computed(() => {
     const q = this.searchText().toLowerCase().trim();
-   const list = this.allPasses().filter(p => {
+    const list = this.allPasses().filter(p => {
 
-  const status =
-    (p.reqStatus || p.reqStatus || '').toLowerCase();
+      const status =
+        (p.reqStatus || p.reqStatus || '').toLowerCase();
 
-  return status === 'confirmed';
-});
+      return status === 'confirmed';
+    });
     if (!q) return list;
 
     return list.filter(p =>
@@ -191,29 +191,29 @@ export class Approval implements OnInit, OnDestroy {
       )
       .subscribe(data => {
 
-  console.log('API Response:', data);
+        console.log('API Response:', data);
 
-  const enriched = (Array.isArray(data) ? data : []).map((p: any) => ({
-    ...p,
+        const enriched = (Array.isArray(data) ? data : []).map((p: any) => ({
+          ...p,
 
-    // API sends id
-    passId: p.passId ?? p.id,
+          // API sends id
+          passId: p.passId ?? p.id,
 
-    // API sends reqStatus
-    status: p.status ?? p.reqStatus,
+          // API sends reqStatus
+          status: p.status ?? p.reqStatus,
 
-    employeeName:
-      p.employeeName ??
-      p.empName ??
-      p.name ??
-      this.svc.resolveEmpName(p.employeeNo ?? '')
-  }));
+          employeeName:
+            p.employeeName ??
+            p.empName ??
+            p.name ??
+            this.svc.resolveEmpName(p.employeeNo ?? '')
+        }));
 
-  console.log('Enriched:', enriched);
+        console.log('Enriched:', enriched);
 
-  this.allPasses.set(enriched);
-  this.isLoading.set(false);
-});
+        this.allPasses.set(enriched);
+        this.isLoading.set(false);
+      });
 
   }
 
@@ -343,39 +343,39 @@ export class Approval implements OnInit, OnDestroy {
 
 
   // ── NEW: Send for Modify ──────────────────────────────────────────────────
-    sendForModify(pass: PassRecord): void {
-      if (!this.actionRemark().trim()) {
-        this.actionError.set('Remark is required — describe what needs to be modified.');
-        return;
-      }
-      this.isActing.set(true);
-      this.actionError.set('');
-      const updatePayload = {
-        status: 'NEEDS_MODIFICATION',
-        enterBy: this.approverName(),
-        remarks: `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`,
-  
-      };
-      this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
-        .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
-          catchError(err => {
-            this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
-            this.isActing.set(false);
-            this.activeAction.set(null);
-            return of(null);
-          })
-        )
-        .subscribe(res => {
-          if (res === null) return;
-          this.logHistory(pass.id, this.approverCode(), 'SENT_FOR_MODIFICATION',
-            `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`);
-          this.actionSuccess.set(`🔄 Pass #${pass.id} sent back to requester for modification.`);
+  sendForModify(pass: PassRecord): void {
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required — describe what needs to be modified.');
+      return;
+    }
+    this.isActing.set(true);
+    this.actionError.set('');
+    const updatePayload = {
+      status: 'NEEDS_MODIFICATION',
+      enterBy: this.approverName(),
+      remarks: `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`,
+
+    };
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
           this.isActing.set(false);
           this.activeAction.set(null);
-          this.loadPasses();
-          setTimeout(() => this.closeDetails(), 2000);
-        });
-    }
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.id, this.approverCode(), 'SENT_FOR_MODIFICATION',
+          `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`🔄 Pass #${pass.id} sent back to requester for modification.`);
+        this.isActing.set(false);
+        this.activeAction.set(null);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
 
   // ── GET /api/documents/list → filter by vehicleId ────────────────────────
 
@@ -462,38 +462,38 @@ export class Approval implements OnInit, OnDestroy {
   }
 
   approve(pass: PassRecord): void {
-  if (!this.actionRemark().trim()) {
-    this.actionError.set('Remark is required before approving.');
-    return;
-  }
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required before approving.');
+      return;
+    }
 
-  this.isActing.set(true);
-  this.actionError.set('');
+    this.isActing.set(true);
+    this.actionError.set('');
 
-  const updatePayload = {
-    status: 'ACTIVE',
-    remark: `Approved by ${this.approverName()}: ${this.actionRemark().trim()}`,
-    enterBy: this.approverName()
-  };
+    const updatePayload = {
+      status: 'ACTIVE',
+      remark: `Approved by ${this.approverName()}: ${this.actionRemark().trim()}`,
+      enterBy: this.approverName()
+    };
 
-  this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
-    .pipe(
-      timeout(TIMEOUT_MS),
-      takeUntil(this.destroy$),
-      catchError(err => {
-        this.actionError.set('Approval failed: ' + (err?.error?.message || err?.message || 'Server error'));
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Approval failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.actionSuccess.set(`✅ Pass #${pass.id} approved successfully.`);
         this.isActing.set(false);
-        return of(null);
-      })
-    )
-    .subscribe(res => {
-      if (res === null) return;
-      this.actionSuccess.set(`✅ Pass #${pass.id} approved successfully.`);
-      this.isActing.set(false);
-      this.loadPasses();
-      setTimeout(() => this.closeDetails(), 2000);
-    });
-}
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
 
   returnToConfirmer(pass: PassRecord): void {
     if (!this.actionRemark().trim()) {
@@ -506,7 +506,7 @@ export class Approval implements OnInit, OnDestroy {
       status: 'Submitted',
       enterBy: this.approverName(),
       remarks: `Returned by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-      
+
     };
     this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
@@ -538,7 +538,7 @@ export class Approval implements OnInit, OnDestroy {
       status: 'Rejected',
       enterBy: this.approverName(),
       remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-      
+
     };
     this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
@@ -561,11 +561,26 @@ export class Approval implements OnInit, OnDestroy {
 
   private logHistory(passId: number, empCode: string, action: string, remark: string): void {
     const payload = {
-      passNo: String(passId), empCode: empCode || 'SYSTEM',
-      action, remark: remark.substring(0, 200), dateOfEntry: new Date()
+      passNo: String(passId),
+      empCode: empCode || 'SYSTEM',
+      action,
+      remark: remark.substring(0, 200),
+      dateOfEntry: new Date()
     };
+
+    console.log('✅ APPROVER HISTORY PAYLOAD =>', JSON.stringify(payload, null, 2));
+
     this.http.post(API_CONFIG.PASS_HISTORY, payload, { headers: this.HEADERS })
-      .pipe(takeUntil(this.destroy$), catchError(() => of(null))).subscribe();
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError((err) => {
+          console.error('❌ APPROVER HISTORY ERROR =>', err?.status, err?.error);
+          return of(null);
+        })
+      )
+      .subscribe((res) => {
+        console.log('✅ APPROVER HISTORY RESPONSE =>', res);
+      });
   }
 
   onSearch(value: string): void { this.searchText.set(value); this.currentPage.set(1); }
