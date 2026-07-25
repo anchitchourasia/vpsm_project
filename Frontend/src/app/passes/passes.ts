@@ -6,6 +6,8 @@ import {
   computed,
   inject
 } from '@angular/core';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -281,8 +283,15 @@ export class Passes implements OnInit, OnDestroy {
     if (session) {
       try {
         const user = JSON.parse(session);
-        const role = String(user?.role || '').trim().toUpperCase();
-        this.isApprover.set(role === 'APPROVER');
+
+        const primaryRole = String(user?.primaryRole || '').trim().toUpperCase();
+        const roles = Array.isArray(user?.roles)
+          ? user.roles.map((r: any) => String(r).trim().toUpperCase())
+          : [];
+
+        this.isApprover.set(
+          primaryRole === 'APPROVER' || roles.includes('APPROVER')
+        );
       } catch (e) {
         console.error('Session parse error', e);
         this.isApprover.set(false);
@@ -711,10 +720,55 @@ export class Passes implements OnInit, OnDestroy {
 
     try {
       const user = JSON.parse(session);
-      return String(user?.role || '').trim().toUpperCase() === 'APPROVER';
+
+      const primaryRole = String(user?.primaryRole || '').trim().toUpperCase();
+      const roles = Array.isArray(user?.roles)
+        ? user.roles.map((r: any) => String(r).trim().toUpperCase())
+        : [];
+
+      return primaryRole === 'APPROVER' || roles.includes('APPROVER');
     } catch {
       return false;
     }
+  }
+
+
+
+  //=====================================================
+  // downloadExcel
+  //=====================================================
+
+  downloadExcel(): void {
+    const rows = this.filteredPasses();
+
+    if (!rows || rows.length === 0) {
+      alert('No pass data available to export.');
+      return;
+    }
+
+    const exportData = rows.map((p, index) => ({
+      'Sr No': index + 1,
+      'ID': p.id ?? '',
+      'Pass No': p.passNo ?? '',
+      'Vehicle No': p.vehicleNo ?? '',
+      'Vehicle Type': p.vehicleType ?? '',
+      'Employee Type': p.empType ?? '',
+      'Name': p.name ?? '',
+      'EC No': p.employeeNo ?? '',
+      'Department': p.deptName ?? '',
+      'Mobile No': p.aadhaarNo ?? '',
+      'Contractor Name': p.contractorName ?? '',
+      'Contractor Code': p.contractorCode ?? '',
+      'Status': p.status ?? '',
+    }));
+
+    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook: XLSX.WorkBook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Pass Registry');
+
+    const fileName = `Pass_Registry_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
   }
 
 

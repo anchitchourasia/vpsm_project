@@ -36,10 +36,14 @@
       </div>
 
       <div class="filter-group">
+        <button class="btn-download-excel" (click)="downloadExcel()">
+          <i class="bi bi-cloud-arrow-down"></i>
+          Download Excel
+        </button>
         <select class="filter-select" (change)="onStatusChange($any($event.target).value)">
           <option value="ALL">All Status</option>
-          <option value="SAVED">Saved</option>
-          <option value="SUBMITTED">Submitted</option>
+          <option value="DRAFT">DRAFT</option>
+          <option value="ACTIVE">ACTIVE</option>
           <option value="CONFIRMED">Confirmed</option>
           <option value="REJECTED">Rejected</option>
           <option value="NEEDS_MODIFICATION">Needs Modification</option>
