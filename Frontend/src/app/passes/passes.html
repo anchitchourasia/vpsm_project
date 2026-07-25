@@ -1,601 +1,179 @@
 <div class="page-wrapper">
 
+  <!-- HEADER -->
   <div class="page-top">
+
     <div class="page-title-row">
+
       <i class="bi bi-card-checklist page-icon"></i>
-      <h2 class="page-heading">Pass Registry</h2>
-      <span class="record-pill">{{ filteredPasses().length }} Records</span>
+
+      <h2 class="page-heading">
+        Pass Registry
+      </h2>
+
+      <span class="record-pill">
+        {{ allPasses().length }} Records
+      </span>
+
     </div>
+
   </div>
+
+
+
+  <!-- LOADING -->
 
   <div *ngIf="isLoading()" class="state-box">
+
     <i class="bi bi-arrow-repeat spin-icon"></i>
-    <p>Loading passes...</p>
+
+    <p>
+      Loading passes...
+    </p>
+
   </div>
 
+
+
+  <!-- ERROR -->
+
   <div *ngIf="hasError() && !isLoading()" class="state-box error-box">
+
     <i class="bi bi-exclamation-triangle-fill"></i>
-    <p>Failed to load data. Check if backend is running.</p>
+
+    <p>
+      Failed to load data.
+    </p>
+
+
     <button class="btn-retry" (click)="loadPasses()">
-      <i class="bi bi-arrow-clockwise"></i> Retry
+
+      <i class="bi bi-arrow-clockwise"></i>
+      Retry
+
     </button>
+
+
   </div>
+
+
+
+
+  <!-- TABLE -->
 
   <div *ngIf="!isLoading() && !hasError()">
 
+
+
+    <!-- SEARCH -->
+
     <div class="filter-bar">
+
+
       <div class="search-box">
+
+
         <i class="bi bi-search search-icon"></i>
-        <input type="text" placeholder="Search pass id, emp code, contractor, dept, mobile, vehicle no..."
-          [value]="searchText()" (input)="onSearch($any($event.target).value)" class="search-input" />
+
+
+        <input type="text" class="search-input" placeholder="Search pass id / employee / vehicle" [value]="searchText()"
+          (input)="onSearch($any($event.target).value)">
+
+
       </div>
 
-      <div class="filter-group">
-        <select (change)="onFilterStatus($any($event.target).value)" class="filter-select">
-          <option value="ALL">All Status</option>
-          <option value="Active">Active</option>
-          <option value="Expiring">Expiring</option>
-          <option value="Expired">Expired</option>
-          <option value="Surrendered">Surrendered</option>
-          <option value="Draft">Draft</option>
-          <option value="Submitted">Submitted</option>
-          <option value="Confirmed">Confirmed</option>
-        </select>
 
-        <select (change)="onFilterEmpType($any($event.target).value)" class="filter-select">
-          <option value="ALL">All Types</option>
-          <option value="Company_Employee">Company Employee</option>
-          <option value="Contractor">Contractor</option>
-        </select>
-
-        <select (change)="onPageSize($any($event.target).value)" class="filter-select">
-          <option value="10">10 / page</option>
-          <option value="20">20 / page</option>
-          <option value="50">50 / page</option>
-        </select>
-      </div>
     </div>
+
+
+
+
 
     <div class="table-card">
+
+
       <div class="table-scroll">
+
+
+
         <table class="dtable">
+
+
           <thead>
+
             <tr>
-              <th>S.NO</th>
-              <th>REQUEST ID</th>
-              <th>EMP / CONTRACTOR</th>
-              <th>EMP TYPE</th>
-              <th>DEPT / AREA</th>
+
+              <th>ID</th>
+              <th>PASS NO</th>
               <th>VEHICLE NO</th>
-              <th>TYPE OF VEHICLE</th>
-              <th>GATE</th>
+              <th>VEHICLE TYPE</th>
+              <th>EMP TYPE</th>
+              <th>NAME</th>
+              <th>ECNO</th>
+              <th>DEPARTMENT</th>
+              <th>MOBILE NO</th>
+              <th>CONTRACTOR NAME</th>
               <th>STATUS</th>
-              <th>ACTIONS</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr *ngFor="let p of pagedPasses(); let i = index">
-
-              <td>
-                {{ (currentPage()-1) * pageSize() + i + 1 }}
-              </td>
-
-              <td class="td-passid">
-                <strong>{{ formatPassId(p.passId) }}</strong>
-              </td>
-
-              <td>
-                <strong>
-                  {{
-                  p.empType === 'Contractor'
-                  ? (p.contractorCode || '—')
-                  : (p.employeeNo || p.employeeCompanyNo || '—')
-                  }}
-                </strong>
-              </td>
-
-              <td>
-                <span [class]="getEmpTypeBadgeClass(p.empType, p.empTypeDetail)">
-                  {{ p.empTypeDetail || p.empType || '—' }}
-                </span>
-              </td>
-
-              <td>
-                {{ p.dept || p.parkingToBeUsed || '—' }}
-              </td>
-
-              <td>
-                <strong>{{ p.vehicle?.vehicleNo || '—' }}</strong>
-              </td>
-
-              <td>
-                {{ p.vehicle?.vehicleType || p.typeOfVehicle || '—' }}
-              </td>
-
-              <td>
-                {{ p.gateNo || '—' }}
-              </td>
-
-
-              <td>
-                <span [class]="getStatusClass(p.status || p.passStatus)">
-                  {{ p.status || p.passStatus || '—' }}
-                </span>
-              </td>
-
-              <td class="actions-cell">
-                <button class="btn-view" (click)="openViewInPassEntry(p)" title="View">
-                  👁 View
-                </button>
-
-                <button class="btn-edit" (click)="openEditInPassEntry(p)" title="Edit / Resume" *ngIf="canEditPass(p)">
-                  ✏ Edit
-                </button>
-
-                <button class="btn-download" [disabled]="(p.status || '').toLowerCase() !== 'active'"
-                  [class.btn-download-disabled]="(p.status || '').toLowerCase() !== 'active'"
-                  (click)="(p.status || '').toLowerCase() === 'active' && downloadPass(p)"
-                  title="{{ (p.status || '').toLowerCase() === 'active' ? 'Download Pass' : 'Available only for Active passes' }}">
-                  ⬇ Download
-                </button>
-              </td>
-            </tr>
-
-            <tr *ngIf="pagedPasses().length === 0">
-              <td colspan="10" class="no-data">
-                No passes found.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="pagination-bar">
-        <span class="page-info">
-          Showing
-          {{ filteredPasses().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{
-          currentPage()*pageSize() < filteredPasses().length ? currentPage()*pageSize() : filteredPasses().length }} of
-            {{ filteredPasses().length }} </span>
-
-            <div class="page-btns">
-              <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">
-                <i class="bi bi-chevron-left"></i>
-              </button>
-
-              <button *ngFor="let pg of totalPagesArr" class="pg-btn" [class.active]="pg === currentPage()"
-                (click)="goToPage(pg)">
-                {{ pg }}
-              </button>
-
-              <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">
-                <i class="bi bi-chevron-right"></i>
-              </button>
-            </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" *ngIf="showModal()" (click)="closeModal()"></div>
-<div class="modal-box modal-lg" *ngIf="showModal()">
-  <div class="modal-header">
-    <h3>{{ isEditMode() ? '✏️ Edit Pass — ' + formatPassId(editId()) : '➕ Issue New Pass' }}</h3>
-    <button class="modal-close" (click)="closeModal()">
-      <i class="bi bi-x-lg"></i>
-    </button>
-  </div>
-
-  <div class="modal-body">
-    <div class="alert-success" *ngIf="saveSuccess()">
-      <i class="bi bi-check-circle-fill"></i> {{ saveSuccess() }}
-    </div>
-    <div class="alert-error" *ngIf="saveError()">
-      <i class="bi bi-exclamation-triangle-fill"></i> {{ saveError() }}
-    </div>
-
-    <div class="form-section-title">
-      <i class="bi bi-person-badge"></i> Person Details
-    </div>
-    <div class="form-grid">
-
-      <div class="form-group full-width">
-        <label>Employee Type <span class="req">*</span></label>
-        <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" [(ngModel)]="form.empType" value="Company_Employee" />
-            Company Employee
-          </label>
-          <label class="radio-label">
-            <input type="radio" [(ngModel)]="form.empType" value="Contractor" />
-            Contractor
-          </label>
-        </div>
-      </div>
-
-      <ng-container *ngIf="form.empType === 'Company_Employee'">
-        <div class="form-group">
-          <label>Employee No <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.employeeNo" placeholder="e.g. EMP001" class="form-input"
-            style="text-transform:uppercase" />
-        </div>
-
-        <div class="form-group">
-          <label>EC No (Company No)</label>
-          <input type="text" [(ngModel)]="form.employeeCompanyNo" placeholder="e.g. HEG001" class="form-input"
-            style="text-transform:uppercase" />
-        </div>
-
-        <div class="form-group">
-          <label>Department</label>
-          <input type="text" [(ngModel)]="form.dept" placeholder="e.g. Mechanical" class="form-input"
-            style="text-transform:uppercase" />
-        </div>
-      </ng-container>
-
-      <ng-container *ngIf="form.empType === 'Contractor'">
-        <div class="form-group">
-          <label>Contractor Code <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.contractorCode" placeholder="e.g. CON001" class="form-input"
-            style="text-transform:uppercase" />
-        </div>
-
-        <div class="form-group">
-          <label>Work Area / Department</label>
-          <input type="text" [(ngModel)]="form.dept" placeholder="e.g. Civil Works" class="form-input"
-            style="text-transform:uppercase" />
-        </div>
-      </ng-container>
-
-      <div class="form-group">
-        <label>Mobile No</label>
-        <input type="text" [(ngModel)]="form.mobileNo" placeholder="e.g. 9876543210" class="form-input" maxlength="15"
-          inputmode="numeric" />
-      </div>
-    </div>
-
-    <div class="form-section-title">
-      <i class="bi bi-truck"></i> Vehicle Details
-    </div>
-    <div class="form-grid">
-
-      <div class="form-group">
-        <label>Vehicle ID <span class="req">*</span></label>
-        <div class="input-with-loader">
-          <input type="number" [(ngModel)]="form.vehicleId" (blur)="onVehicleIdBlur()" placeholder="e.g. 5"
-            class="form-input" [class.input-readonly]="isEditMode()" [readonly]="isEditMode()" min="1" />
-          <i class="bi bi-arrow-repeat spin-icon-sm lookup-spinner" *ngIf="isLookingUp()"></i>
-        </div>
-        <small class="form-hint" *ngIf="!isEditMode()">Tab out after entering ID — type auto-fills</small>
-        <small class="form-hint" *ngIf="isEditMode()">Vehicle ID cannot be changed</small>
-        <small class="lookup-error" *ngIf="vehicleLookupError()">
-          <i class="bi bi-exclamation-triangle-fill"></i> {{ vehicleLookupError() }}
-        </small>
-        <small class="lookup-success" *ngIf="vehicleLookupSuccess()">
-          <i class="bi bi-check-circle-fill"></i> {{ vehicleLookupSuccess() }}
-        </small>
-      </div>
-
-      <div class="form-group">
-        <label>Type of Vehicle</label>
-        <input type="text" [(ngModel)]="form.typeOfVehicle" placeholder="Auto-filled from Vehicle ID"
-          class="form-input input-readonly" readonly />
-        <small class="form-hint">Auto-filled when Vehicle ID is entered</small>
-      </div>
-    </div>
-
-    <div class="form-section-title">
-      <i class="bi bi-calendar-check"></i> Pass Details
-    </div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Issue Date <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="form.issueDate" class="form-input" />
-      </div>
-
-      <div class="form-group">
-        <label>Validity Date <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="form.validityDate" [min]="form.issueDate" class="form-input" />
-      </div>
-
-      <div class="form-group">
-        <label>Gate No <span class="req">*</span></label>
-        <select [(ngModel)]="form.gateNo" class="form-input">
-          <option value="">-- Select Gate --</option>
-          <option value="GATE_01">Gate 01</option>
-          <option value="GATE_02">Gate 02</option>
-          <option value="GATE_03">Gate 03</option>
-          <option value="GATE_04">Gate 04</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Parking To Be Used</label>
-        <input type="text" [(ngModel)]="form.parkingToBeUsed" placeholder="e.g. A-Block, Heavy Yard" class="form-input"
-          style="text-transform:uppercase" />
-      </div>
-
-      <div class="form-group">
-        <label>Status</label>
-        <select [(ngModel)]="form.passStatus" class="form-input">
-          <option value="Active">Active</option>
-          <option value="Surrendered">Surrendered</option>
-          <option value="Expired">Expired</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Is Active</label>
-        <select [(ngModel)]="form.isActive" class="form-input">
-          <option value="Y">Yes</option>
-          <option value="N">No</option>
-        </select>
-      </div>
-
-      <div class="form-group full-width">
-        <label>Remarks</label>
-        <textarea [(ngModel)]="form.remarks" rows="3" placeholder="Any remarks..." class="form-input"
-          maxlength="200"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-footer">
-    <button class="btn-cancel" (click)="closeModal()" [disabled]="isSaving()">Cancel</button>
-    <button class="btn-save" (click)="savePass()" [disabled]="isSaving()">
-      <i class="bi bi-arrow-repeat spin-icon-sm" *ngIf="isSaving()"></i>
-      <i class="bi bi-check-lg" *ngIf="!isSaving()"></i>
-      {{ isSaving() ? 'Saving...' : (isEditMode() ? 'Update Pass' : 'Issue Pass') }}
-    </button>
-  </div>
-</div>
-
-<div class="modal-overlay" *ngIf="showViewModal()" (click)="closeViewModal()"></div>
-<div class="modal-box modal-lg view-rich-modal" *ngIf="showViewModal() && viewPass()">
-
-  <div class="modal-header modal-header-view">
-    <h3>🪪 Pass Detail — {{ formatPassId(viewPass().passId) }}</h3>
-    <button class="modal-close" (click)="closeViewModal()">
-      <i class="bi bi-x-lg"></i>
-    </button>
-  </div>
-
-  <div class="modal-body">
-
-    <div class="vr-section-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
-    <div class="vr-grid">
-      <div class="vr-item">
-        <label>Vehicle ID</label>
-        <span>{{ viewPass().vehicle?.vehicleId ?? '—' }}</span>
-      </div>
-      <div class="vr-item">
-        <label>Vehicle No</label>
-        <span><strong>{{ viewPass().vehicle?.vehicleNo || '—' }}</strong></span>
-      </div>
-      <div class="vr-item">
-        <label>Type of Vehicle</label>
-        <span>{{ viewPass().vehicle?.vehicleType || viewPass().typeOfVehicle || '—' }}</span>
-      </div>
-      <div class="vr-item">
-        <label>Vehicle Class</label>
-        <span>{{ viewPass().vehicle?.vehicleClass || '—' }}</span>
-      </div>
-      <div class="vr-item">
-        <label>Brand / Model</label>
-        <span>{{ viewPass().vehicle?.brandModel || '—' }}</span>
-      </div>
-    </div>
-
-    <div class="vr-section-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
-
-    <div class="vr-doc-loading" *ngIf="isLoadingExtra()">
-      <i class="bi bi-arrow-repeat spin-icon"></i> Loading employee details...
-    </div>
-
-    <div class="vr-grid" *ngIf="!isLoadingExtra()">
-
-      <div class="vr-item">
-        <label>Emp Type</label>
-        <span [class]="getEmpTypeBadgeClass(viewPassExtra()?.empType || viewPass().empType, viewPass().empTypeDetail)">
-          {{ viewPass().empTypeDetail || viewPassExtra()?.empType || viewPass().empType || '—' }}
-        </span>
-      </div>
-
-      <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
-        <label>Employee No</label>
-        <span><strong>{{ viewPass().employeeNo || '—' }}</strong></span>
-      </div>
-
-      <div class="vr-item">
-        <label>Name</label>
-        <span><strong>{{ viewPassExtra()?.empName || '—' }}</strong></span>
-      </div>
-
-      <div class="vr-item" *ngIf="viewPass().empType === 'Contractor'">
-        <label>Contractor Code</label>
-        <span><strong>{{ viewPassExtra()?.contractorCode || viewPass().contractorCode || '—' }}</strong></span>
-      </div>
-
-      <div class="vr-item">
-        <label>Department</label>
-        <span>{{ viewPass().dept || '—' }}</span>
-      </div>
-
-      <div class="vr-item" *ngIf="viewPass().empType !== 'Contractor'">
-        <label>Department Code</label>
-        <span>{{ viewPassExtra()?.deptCode || '—' }}</span>
-      </div>
-
-      <div class="vr-item">
-        <label>Aadhaar No</label>
-        <span>{{ viewPassExtra()?.aadhaarNo || '—' }}</span>
-      </div>
-
-      <div class="vr-item">
-        <label>Mobile</label>
-        <span>{{ viewPass().mobileNo || '—' }}</span>
-      </div>
-    </div>
-
-    <div class="vr-section-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
-    <div class="vr-grid">
-      <div class="vr-item">
-        <label>Pass ID</label>
-        <span><strong>{{ formatPassId(viewPass().passId) }}</strong></span>
-      </div>
-      <div class="vr-item">
-        <label>Gate No</label>
-        <span>{{ viewPass().gateNo || '—' }}</span>
-      </div>
-      <div class="vr-item">
-        <label>Parking To Be Used</label>
-        <span>{{ viewPass().parkingToBeUsed || '—' }}</span>
-      </div>
-      <div class="vr-item">
-        <label>Status</label>
-        <span [class]="getStatusClass(viewPass().status || viewPass().passStatus)">
-          {{ viewPass().status || viewPass().passStatus || '—' }}
-        </span>
-      </div>
-      <div class="vr-item">
-        <label>Is Active</label>
-        <span>{{ viewPass().isActive === 'Y' ? 'Yes' : 'No' }}</span>
-      </div>
-      <div class="vr-item">
-        <label>Entered By</label>
-        <span>{{ viewPass().enterBy || '—' }}</span>
-      </div>
-      <div class="vr-item" *ngIf="viewPass().remarks">
-        <label>Remarks</label>
-        <span>{{ viewPass().remarks }}</span>
-      </div>
-    </div>
-
-    <div class="vr-section-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
-
-    <div class="vr-doc-loading" *ngIf="isLoadingViewDocs()">
-      <i class="bi bi-arrow-repeat spin-icon"></i> Loading documents...
-    </div>
-
-    <div class="vr-doc-error" *ngIf="viewDocLoadError() && !isLoadingViewDocs()">
-      <i class="bi bi-exclamation-triangle-fill"></i> {{ viewDocLoadError() }}
-    </div>
-
-    <div class="vr-doc-table-wrap" *ngIf="!isLoadingViewDocs() && viewPassDocs().length > 0">
-      <table class="vr-doc-table">
-        <thead>
-          <tr>
-            <th>DOC TYPE</th>
-            <th>DOC NO</th>
-            <th>EXPIRY DATE</th>
-            <th>STATUS</th>
-            <th>FILE</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let doc of viewPassDocs()">
-            <td><span class="vr-doc-type-badge">{{ doc.documentType }}</span></td>
-            <td><strong>{{ doc.documentNo || '—' }}</strong></td>
-            <td>{{ formatDate(doc.expiryDate) }}</td>
-            <td>
-              <span class="vr-doc-status" [ngClass]="getDocStatusClass(doc.expiryDate)">
-                {{ getDocStatusText(doc.expiryDate) }}
-              </span>
-            </td>
-            <td>
-              <button class="btn-view-pdf" (click)="viewDocumentPdf(doc)"
-                [disabled]="!doc.fileName || viewPdfLoading() === doc.documentId"
-                [title]="doc.fileName ? 'View: ' + doc.fileName : 'No file uploaded'"
-                [style.opacity]="doc.fileName ? '1' : '0.4'" [style.cursor]="doc.fileName ? 'pointer' : 'not-allowed'">
-                <i class="bi"
-                  [ngClass]="viewPdfLoading() === doc.documentId ? 'bi-hourglass-split' : 'bi-file-earmark-pdf-fill'"></i>
-                {{ viewPdfLoading() === doc.documentId ? 'Loading...' : (doc.fileName ? 'View' : '—') }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="vr-doc-empty" *ngIf="!isLoadingViewDocs() && viewPassDocs().length === 0 && !viewDocLoadError()">
-      <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
-    </div>
-
-    <div class="vr-doc-error" *ngIf="viewPdfError()">
-      <i class="bi bi-exclamation-circle-fill"></i> {{ viewPdfError() }}
-    </div>
-
-    <div class="hist-toggle-row">
-      <button class="btn-hist-toggle"
-        (click)="showViewHistory.set(!showViewHistory()); !viewPassHistory().length && !viewHistError() && loadViewHistory(viewPass().passId)"
-        [class.btn-hist-active]="showViewHistory()">
-        <i class="bi bi-clock-history"></i>
-        {{ showViewHistory() ? 'Hide Pass History' : 'Show Full Pass History' }}
-        <i class="bi" [ngClass]="showViewHistory() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
-      </button>
-    </div>
-
-    <div *ngIf="showViewHistory()" class="hist-panel">
-      <div class="vr-section-title hist-title">
-        <i class="bi bi-clock-history"></i>
-        Audit Trail — Pass #<strong>{{ viewPass().passId }}</strong>
-        <span class="hist-count-chip">{{ viewPassHistory().length }} events</span>
-      </div>
-
-      <div class="vr-doc-loading" *ngIf="isLoadingViewHist()">
-        <i class="bi bi-arrow-repeat spin-icon"></i> Loading audit history...
-      </div>
-
-      <div class="vr-doc-error" *ngIf="viewHistError() && !isLoadingViewHist()">
-        <i class="bi bi-exclamation-triangle-fill"></i> {{ viewHistError() }}
-      </div>
-
-      <div class="hist-table-wrap" *ngIf="!isLoadingViewHist() && viewPassHistory().length > 0">
-        <table class="hist-table">
-          <thead>
-            <tr>
-              <th>#</th>
               <th>ACTION</th>
-              <th>PERFORMED BY</th>
-              <th>REMARK</th>
-              <th>DATE & TIME</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let h of viewPassHistory(); let hi = index" [ngClass]="getActionRowClass(h.action)">
-              <td class="muted">{{ hi + 1 }}</td>
+
+            <tr *ngFor="let p of filteredPasses(); let i=index">
+              <td> <strong> {{p.id}} </strong> </td>
+              <td> <strong> {{p.passNo}} </strong> </td>
+              <td> <strong> {{p.vehicleNo}} </strong> </td>
+              <td> <strong> {{p.vehicleType}} </strong> </td>
+              <td> <strong> {{p.empType}} </strong> </td>
+              <td> <strong> {{p.name}} </strong> </td>
+              <td> <strong> {{p.employeeNo}} </strong> </td>
+              <td> <strong> {{p.deptName}} </strong> </td>
+              <td> <strong> {{p.aadhaarNo}} </strong> </td>
+              <td> <strong> {{p.contractorName}} </strong> </td>
               <td>
-                <span class="hist-action-badge" [ngClass]="getActionClass(h.action)">
-                  <i class="bi" [ngClass]="getActionIcon(h.action)"></i>
-                  {{ h.action }}
+                <span [class]="getStatusClass(p.status)">
+                  {{p.status || '—'}}
                 </span>
               </td>
               <td>
-                <span class="hist-emp-chip">
-                  <i class="bi bi-person-fill"></i> {{ h.empCode || '—' }}
-                </span>
+                <button class="btn-edit" (click)="openEditInPassEntry(p)"> <i class="bi bi-pencil-square"></i> 
+                  Edit
+                </button>
               </td>
-              <td class="hist-remark-cell">{{ h.remark || '—' }}</td>
-              <td class="hist-date-cell">
-                <i class="bi bi-calendar2-check" style="color:#94a3b8; margin-right:4px"></i>
-                {{ formatDateTime(h.dateOfEntry) }}
-              </td>
+            
             </tr>
+
+
+
+
+
+            <tr *ngIf="filteredPasses().length===0">
+
+
+              <td colspan="11" class="no-data">
+
+                No pass record found.
+
+              </td>
+
+
+            </tr>
+
+
+
           </tbody>
+
+
         </table>
+
+
       </div>
 
-      <div class="hist-empty" *ngIf="!isLoadingViewHist() && viewPassHistory().length === 0 && !viewHistError()">
-        <i class="bi bi-clock-history"></i> No audit events recorded for this pass yet.
-      </div>
+
     </div>
+
+
   </div>
 
-  <div class="modal-footer">
-    <button class="btn-cancel" (click)="closeViewModal()">Close</button>
-    <button *ngIf="canEditPass(viewPass())" class="btn-save"
-      (click)="closeViewModal(); openEditInPassEntry(viewPass())">
-      <i class="bi bi-pencil-square"></i> Edit This Pass
-    </button>
-  </div>
+
 </div>

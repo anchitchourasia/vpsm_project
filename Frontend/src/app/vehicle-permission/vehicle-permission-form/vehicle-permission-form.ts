@@ -164,27 +164,27 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   onContractorCodeBlur(): void {
 
-  if (this.isReadOnlyMode()) {
-    return;
+    if (this.isReadOnlyMode()) {
+      return;
+    }
+
+    const code = this.contractorCode().trim().toUpperCase();
+
+    // Save the trimmed value back to the signal
+    this.contractorCode.set(code);
+
+    // Clear previous values
+    this.contractorName.set('');
+    this.errorMsg.set('');
+
+    // Don't call API for empty value
+    if (!code) {
+      return;
+    }
+
+    // Lookup contractor
+    this.resolveContractorName(code);
   }
-
-  const code = this.contractorCode().trim().toUpperCase();
-
-  // Save the trimmed value back to the signal
-  this.contractorCode.set(code);
-
-  // Clear previous values
-  this.contractorName.set('');
-  this.errorMsg.set('');
-
-  // Don't call API for empty value
-  if (!code) {
-    return;
-  }
-
-  // Lookup contractor
-  this.resolveContractorName(code);
-}
   status = signal('Draft');
   editingMode = signal(false);
   contractorCode = signal('');
@@ -277,7 +277,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         this.isViewMode.set(view === 'true' || mode === 'view');
         this.isConfirmerMode.set(mode === 'confirmer');
         this.isApproverMode.set(mode === 'approver');
-
+        
         const editId = params['edit'];
         console.log('FORM editId:', editId);
 
@@ -288,6 +288,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           this.remarksHistory.set([]);
           this.actionRemark.set('');
           this.showWorkflowHistory.set(false);
+          this.loadLoggedInContractor();
           return;
         }
 
@@ -312,6 +313,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         console.log('Calling loadRemarkHistory:', requestNo);
         this.loadRemarkHistory(requestNo);
         this.loadRequest(requestNo);
+
       });
   }
   ngOnDestroy(): void {
@@ -332,7 +334,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   toggleWorkflowHistory(): void {
     this.showWorkflowHistory.update(v => !v);
   }
-  
+
   closeView(): void {
     const nextUrl = this.isApproverMode()
       ? '/vehicle-permission/approver'
@@ -535,7 +537,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     );
   }
 
-  
+
   private dedupeVehicleDocuments(docs: any[]): any[] {
     const map = new Map<string, any>();
 
@@ -990,26 +992,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   private resolveContractorName(contractorCode: string): void {
 
-  this.cvps.fetchContractorDetails(contractorCode)
-    .pipe(
-      takeUntil(this.destroy$),
-      catchError(err => {
-        console.error(err);
-        this.contractorName.set('');
-        this.errorMsg.set('Unable to fetch contractor details.');
-        return of(null);
-      })
-    )
-    .subscribe((response: any) => {
+    this.cvps.fetchContractorDetails(contractorCode)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error(err);
+          this.contractorName.set('');
+          this.errorMsg.set('Unable to fetch contractor details.');
+          return of(null);
+        })
+      )
+      .subscribe((response: any) => {
 
-      if (response) {
-        this.contractorName.set(response.contractorName ?? '');
-      } else {
-        this.contractorName.set('');
-      }
+        if (response) {
+          this.contractorName.set(response.contractorName ?? '');
+        } else {
+          this.contractorName.set('');
+        }
 
-    });
-}
+      });
+  }
 
   saveDraft(): void {
     this.processFormSubmission('SAVED');
@@ -1479,6 +1481,36 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       this.isSubmitting.set(false);
     }
   }
+ private loadLoggedInContractor(): void {
+
+  const code = this.auth.getUserCode();
+
+  if (!code) {
+    return;
+  }
+
+  if (!code.toUpperCase().startsWith('G')) {
+    return;
+  }
+
+  this.cvps.fetchContractorDetails(code).subscribe({
+
+    next: (bp: any) => {
+
+      console.log('BP Record:', bp);
+
+      this.contractorCode.set(bp.contractorCode || code);
+      this.contractorName.set(bp.contractorName || '');
+
+    },
+
+    error: (err: any) => {
+      console.error(err);
+    }
+
+  });
+
+}
 
 
   reset(): void {

@@ -12,6 +12,7 @@ export const API_CONFIG = {
   // ── PASSES / SAVE ─────────────────────────────────
   PASS_SAVE        : `${environment.apiBaseUrl}/api/passes/save`,
   PASS_UPDATE      : `${environment.apiBaseUrl}/api/passes/update`,
+  PASS_LIST_V1        : `${environment.apiBaseUrl}/api/passes/listV1`,
   PASS_LIST        : `${environment.apiBaseUrl}/api/passes/list`,
   PASS_HISTORY    : `${environment.apiBaseUrl}/api/history`,
   PASS_STATUS_UPDATE: `${environment.apiBaseUrl}/api/passes/status`,
