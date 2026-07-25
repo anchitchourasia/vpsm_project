@@ -5,6 +5,8 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
 import { API_CONFIG } from '../../core/api.config';
 import { PassStateService } from '../../services/pass-state.service';
+import { Router } from '@angular/router';
+
 
 const TIMEOUT_MS = 15000;
 
@@ -167,7 +169,7 @@ export class Approval implements OnInit, OnDestroy {
   get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
 
   protected svc = inject(PassStateService);
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private router: Router) { }
 
   ngOnInit(): void {
     this.svc.loadEmployeeNames();
@@ -215,6 +217,22 @@ export class Approval implements OnInit, OnDestroy {
         this.isLoading.set(false);
       });
 
+  }
+  openReviewInPassEntry(p: PassRecord): void {
+    if (!p || !p.id) {
+      console.error('Pass ID not found.', p);
+      return;
+    }
+
+    this.router.navigate(
+      ['/pass-entry'],
+      {
+        queryParams: {
+          mode: 'approver',
+          id: p.id
+        }
+      }
+    );
   }
 
   openDetails(p: PassRecord): void {

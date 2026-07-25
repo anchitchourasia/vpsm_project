@@ -432,7 +432,7 @@
      ALL USERS
 ===================================================== -->
 
-  @if(registryId){
+  @if(passNo){
 
 
   <div class="pe-section">
@@ -697,9 +697,8 @@
         <span class="req">*</span>
       </label>
 
-      <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="remark"
-        (ngModelChange)="remark = $event">
-
+      <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="reviewRemark()"
+        (ngModelChange)="reviewRemark.set($event)">
 </textarea>
 
       <span class="pe-field-hint">
@@ -868,47 +867,37 @@
 =============================== -->
 
 
-    @if(
-    status === PassStatus.CONFIRMED
-    &&
-    isApproverMode()
-    ){
+    @if (isApproverMode() && currentStatus === 'CONFIRMED') {
 
-
-
-    <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
-
-
-
+    <button type="button" class="pe-btn pe-btn-modify" (click)="sendForModify()" [disabled]="isActing()">
       <i class="bi bi-pencil-square"></i>
-
-
-      Send Modification
-
-
+      {{ isActing() ? 'Processing...' : 'Send Modification' }}
     </button>
 
+    <button type="button" class="pe-btn pe-btn-reject" (click)="rejectPassByApprover()" [disabled]="isActing()">
+      <i class="bi bi-x-circle-fill"></i>
+      {{ isActing() ? 'Processing...' : 'Reject' }}
+    </button>
 
-
-
-
-
-    <button class="pe-btn pe-btn-submit" (click)="approvePass()" [disabled]="!reviewRemark().trim()">
-
-
-
+    <button type="button" class="pe-btn pe-btn-submit" (click)="approvePassByApprover()" [disabled]="isActing()">
       <i class="bi bi-check-circle-fill"></i>
-
-
-      Approve
-
-
+      {{ isActing() ? 'Processing...' : 'Approve' }}
     </button>
-
-
 
     }
+    @if(actionSuccess()){
+    <div class="pe-alert pe-alert-success">
+      <i class="bi bi-check-circle-fill"></i>
+      {{ actionSuccess() }}
+    </div>
+    }
 
+    @if(actionError()){
+    <div class="pe-alert pe-alert-error">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      {{ actionError() }}
+    </div>
+    }
 
 
 
