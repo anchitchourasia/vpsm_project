@@ -1231,3 +1231,32 @@ textarea.form-input {
   cursor: not-allowed;
   box-shadow: none;
 }
+
+/* =======================================
+   STICKER FEATURE (NEW)
+======================================= */
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-sticker {
+  background: #198754;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.btn-sticker:hover {
+  background: #157347;
+}
+
+.btn-sticker i {
+  margin-right: 5px;
+}

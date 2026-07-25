@@ -770,6 +770,25 @@ export class Passes implements OnInit, OnDestroy {
     const fileName = `Pass_Registry_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }
+  //=====================================================
+  // PRINT STICKER
+  //=====================================================
+  printSticker(row: PassListRow): void {
+
+    if (!row) {
+      return;
+    }
+
+    this.router.navigate(
+      ['/pass-sticker'],
+      {
+        queryParams: {
+          id: row.id
+        }
+      }
+    );
+
+  }
 
 
 

@@ -7,6 +7,7 @@ export const API_CONFIG = {
 
   // ── AUTH ──────────────────────────────────────────
   AUTHORITY_BY_EMP : `${environment.apiBaseUrl}/api/authority`,
+  AUTHORITY_UPDATE : `${environment.apiBaseUrl}/api/authority/update`,
   EMPLOYEE_REPORT  : `${environment.apiBaseUrl}/api/reports/employee-department`,
 
   // ── PASSES / SAVE ─────────────────────────────────
