@@ -1,113 +1,98 @@
 <div class="page-wrapper">
 
-  <!-- HEADER -->
   <div class="page-top">
-
     <div class="page-title-row">
-
       <i class="bi bi-card-checklist page-icon"></i>
-
       <h2 class="page-heading">
         Pass Registry
       </h2>
-
       <span class="record-pill">
         {{ allPasses().length }} Records
       </span>
-
     </div>
-
   </div>
-
-
-
-  <!-- LOADING -->
 
   <div *ngIf="isLoading()" class="state-box">
-
     <i class="bi bi-arrow-repeat spin-icon"></i>
-
-    <p>
-      Loading passes...
-    </p>
-
+    <p>Loading passes...</p>
   </div>
-
-
-
-  <!-- ERROR -->
 
   <div *ngIf="hasError() && !isLoading()" class="state-box error-box">
-
     <i class="bi bi-exclamation-triangle-fill"></i>
-
-    <p>
-      Failed to load data.
-    </p>
-
-
+    <p>Failed to load data.</p>
     <button class="btn-retry" (click)="loadPasses()">
-
       <i class="bi bi-arrow-clockwise"></i>
       Retry
-
     </button>
-
-
   </div>
-
-
-
-
-  <!-- TABLE -->
 
   <div *ngIf="!isLoading() && !hasError()">
 
-
-
-    <!-- SEARCH -->
-
     <div class="filter-bar">
-
-
       <div class="search-box">
-
-
         <i class="bi bi-search search-icon"></i>
-
-
-        <input type="text" class="search-input" placeholder="Search pass id / employee / vehicle" [value]="searchText()"
-          (input)="onSearch($any($event.target).value)">
-
-
+        <input type="text" class="search-input" placeholder="Search pass id, employee, contractor, vehicle..."
+          [value]="searchText()" (input)="onSearch($any($event.target).value)" />
       </div>
 
+      <div class="filter-group">
+        <select class="filter-select" (change)="onStatusChange($any($event.target).value)">
+          <option value="ALL">All Status</option>
+          <option value="SAVED">Saved</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="NEEDS_MODIFICATION">Needs Modification</option>
+          <option value="APPROVED">Approved</option>
+        </select>
 
+        <select class="filter-select" (change)="onPageSizeChange($any($event.target).value)">
+          <option value="10">10 / page</option>
+          <option value="20">20 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+      </div>
     </div>
 
-
-
-
-
     <div class="table-card">
-
-
       <div class="table-scroll">
-
-
-
         <table class="dtable">
-
-
           <thead>
-
             <tr>
-
               <th>ID</th>
               <th>PASS NO</th>
               <th>VEHICLE NO</th>
-              <th>VEHICLE TYPE</th>
-              <th>EMP TYPE</th>
+
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>VEHICLE TYPE</span>
+                  <select class="th-filter-select" (change)="onVehicleTypeChange($any($event.target).value)">
+                    <option value="ALL">All</option>
+                    <option value="BIKE">Bike</option>
+                    <option value="SCOOTER">Scooter</option>
+                    <option value="CAR">Car</option>
+                    <option value="TRUCK">Truck</option>
+                    <option value="DUMPER">Dumper</option>
+                    <option value="JCB">JCB</option>
+                    <option value="CRANE">Crane</option>
+                    <option value="TRACTOR">Tractor</option>
+                  </select>
+                </div>
+              </th>
+
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>EMP TYPE</span>
+                  <select class="th-filter-select" (change)="onEmpTypeChange($any($event.target).value)">
+                    <option value="ALL">All</option>
+                    <option value="HEG">HEG</option>
+                    <option value="TACC">TACC</option>
+                    <option value="CONTRACT">CONTRACT</option>
+                    <option value="CRE-PRM">CRE-PRM</option>
+                  </select>
+                </div>
+              </th>
+
               <th>NAME</th>
               <th>ECNO</th>
               <th>DEPARTMENT</th>
@@ -117,63 +102,46 @@
               <th>ACTION</th>
             </tr>
           </thead>
-          <tbody>
 
-            <tr *ngFor="let p of filteredPasses(); let i=index">
-              <td> <strong> {{p.id}} </strong> </td>
-              <td> <strong> {{p.passNo}} </strong> </td>
-              <td> <strong> {{p.vehicleNo}} </strong> </td>
-              <td> <strong> {{p.vehicleType}} </strong> </td>
-              <td> <strong> {{p.empType}} </strong> </td>
-              <td> <strong> {{p.name}} </strong> </td>
-              <td> <strong> {{p.employeeNo}} </strong> </td>
-              <td> <strong> {{p.deptName}} </strong> </td>
-              <td> <strong> {{p.aadhaarNo}} </strong> </td>
-              <td> <strong> {{p.contractorName}} </strong> </td>
+          <tbody>
+            <tr *ngFor="let p of pagedPasses(); let i = index">
+              <td><strong>{{ p.id }}</strong></td>
+              <td><strong>{{ p.passNo }}</strong></td>
+              <td><strong>{{ p.vehicleNo }}</strong></td>
+              <td><strong>{{ p.vehicleType }}</strong></td>
+              <td><strong>{{ p.empType }}</strong></td>
+              <td><strong>{{ p.name }}</strong></td>
+              <td><strong>{{ p.employeeNo }}</strong></td>
+              <td><strong>{{ p.deptName }}</strong></td>
+              <td><strong>{{ p.aadhaarNo }}</strong></td>
+              <td><strong>{{ p.contractorName }}</strong></td>
               <td>
                 <span [class]="getStatusClass(p.status)">
-                  {{p.status || '—'}}
+                  {{ p.status || '—' }}
                 </span>
               </td>
               <td>
-                <button class="btn-edit" (click)="openEditInPassEntry(p)"> <i class="bi bi-pencil-square"></i> 
+                <button *ngIf="canEditPass(p)" class="btn-edit" (click)="openEditInPassEntry(p)">
+                  <i class="bi bi-pencil-square"></i>
                   Edit
                 </button>
+
+                <button class="btn-view" (click)="viewPass(p)">
+                  <i class="bi bi-eye"></i>
+                  View
+                </button>
               </td>
-            
             </tr>
 
-
-
-
-
-            <tr *ngIf="filteredPasses().length===0">
-
-
-              <td colspan="11" class="no-data">
-
+            <tr *ngIf="pagedPasses().length === 0">
+              <td colspan="12" class="no-data">
                 No pass record found.
-
               </td>
-
-
             </tr>
-
-
-
           </tbody>
-
-
         </table>
-
-
       </div>
-
-
     </div>
 
-
   </div>
-
-
 </div>

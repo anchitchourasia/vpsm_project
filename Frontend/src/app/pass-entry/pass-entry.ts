@@ -148,7 +148,8 @@ export const PassStatus = {
   CONFIRMED: 'CONFIRMED',
   APPROVED: 'APPROVED',
   REGRET: 'REGRET',
-  MODIFY: 'MODIFY'
+  MODIFY: 'MODIFY',
+  NEEDS_MODIFICATION: 'NEEDS_MODIFICATION'
 
 } as const;
 
@@ -357,11 +358,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
   isViewMode = signal<boolean>(false);
 
-  
+
 
   isApproverMode = signal<boolean>(false);
 
-   isConfirmerMode = signal<boolean>(false);
+  isConfirmerMode = signal<boolean>(false);
 
 
   //=====================================================
@@ -370,11 +371,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
 
 
-modificationRemark = signal<string>('');
+  modificationRemark = signal<string>('');
 
-reviewRemark = signal<string>('');
+  reviewRemark = signal<string>('');
 
-isWorkflowSubmitting = signal<boolean>(false);
+  isWorkflowSubmitting = signal<boolean>(false);
 
 
   //=====================================================
@@ -431,45 +432,202 @@ isWorkflowSubmitting = signal<boolean>(false);
   //=====================================================
   // Angular Life Cycle Hook
   //=====================================================
- ngOnInit(): void {
+  ngOnInit(): void {
 
 
-  //=====================================================
-  // Load Logged User
-  //=====================================================
+    //=====================================================
+    // Load Logged User
+    //=====================================================
 
-  this.loadLoggedInUser();
+    this.loadLoggedInUser();
 
 
 
-  //=====================================================
-  // Initialize Documents
-  //=====================================================
+    //=====================================================
+    // Initialize Documents
+    //=====================================================
 
-  if (this.documents().length === 0) {
+    if (this.documents().length === 0) {
 
-    this.documents.set([
-      emptyDocument()
-    ]);
+      this.documents.set([
+        emptyDocument()
+      ]);
+
+    }
+
+
+
+    //=====================================================
+    // Check User Role
+    //=====================================================
+
+    const session = sessionStorage.getItem('vpsm_session');
+
+
+    if (session) {
+
+      try {
+
+        const user = JSON.parse(session);
+
+
+        const role = String(
+          user.role ?? ''
+        ).toUpperCase();
+
+
+
+        console.log(
+          "LOGIN ROLE : ",
+          role
+        );
+
+
+
+        if (role === 'APPROVER') {
+
+          this.isApproverMode.set(true);
+
+        }
+        else {
+
+          // Default uploader
+          this.isApproverMode.set(false);
+
+        }
+
+
+
+        console.log(
+          "Approver Mode : ",
+          this.isApproverMode()
+        );
+
+
+      }
+      catch (error) {
+
+        console.error(
+          "Session parsing error",
+          error
+        );
+
+        this.isApproverMode.set(false);
+
+      }
+
+    }
+
+
+
+
+    //=====================================================
+    // Route Handling
+    //=====================================================
+
+    this.route.queryParams
+      .pipe(
+        takeUntil(this.destroy$)
+      )
+      .subscribe(params => {
+
+        const mode = String(params['mode'] ?? '').toLowerCase();
+        const id = params['id'];
+
+        console.log(
+          "Mode : ",
+          mode
+        );
+
+        console.log(
+          "ID : ",
+          id
+        );
+
+        //=================================================
+        // View Mode
+        //=================================================
+        this.isViewMode.set(mode === 'view');
+
+        //=================================================
+        // Approver Mode
+        //=================================================
+        this.isApproverMode.set(mode === 'approver');
+
+        //=================================================
+        // Edit / View Existing Pass
+        //=================================================
+        if (
+          (mode === 'edit' || mode === 'view')
+          &&
+          id
+        ) {
+
+          this.registryId = Number(id);
+
+          console.log(
+            "Loading Pass ID : ",
+            this.registryId
+          );
+
+          this.loadPass(
+            this.registryId
+          );
+
+        }
+        else {
+
+          // New Entry
+          this.registryId = null;
+          this.status = PassStatus.DRAFT;
+        }
+
+      });
+
 
   }
 
+  //=====================================================
+  // Load Existing Pass Details
+  //=====================================================
 
 
   //=====================================================
-  // Check User Role
+  // Load Logged-in User Details
   //=====================================================
+  private loadLoggedInUser(): void {
 
-  const session = sessionStorage.getItem('vpsm_session');
+    const session = sessionStorage.getItem('vpsm_session');
+
+    console.log(
+      'vpsm_session = ',
+      session
+    );
 
 
-  if (session) {
+    if (!session) {
+      console.log('No session found');
+      return;
+    }
+
 
     try {
 
       const user = JSON.parse(session);
 
 
+      console.log(
+        'Logged User = ',
+        user
+      );
+
+
+      // Employee code
+      this.enterBy = user.empCode ?? '';
+
+
+
+      // Role check
       const role = String(
         user.role ?? ''
       ).toUpperCase();
@@ -477,7 +635,7 @@ isWorkflowSubmitting = signal<boolean>(false);
 
 
       console.log(
-        "LOGIN ROLE : ",
+        'Login Role = ',
         role
       );
 
@@ -490,212 +648,23 @@ isWorkflowSubmitting = signal<boolean>(false);
       }
       else {
 
-        // Default uploader
+        // Uploader
         this.isApproverMode.set(false);
 
       }
 
 
 
-      console.log(
-        "Approver Mode : ",
-        this.isApproverMode()
-      );
-
-
-    }
-    catch(error){
+    } catch (error) {
 
       console.error(
-        "Session parsing error",
+        'Unable to parse session.',
         error
       );
 
-      this.isApproverMode.set(false);
-
     }
 
   }
-
-
-
-
-  //=====================================================
-  // Route Handling
-  //=====================================================
-
-  this.route.queryParams
-    .pipe(
-      takeUntil(this.destroy$)
-    )
-    .subscribe(params => {
-
-
-      const mode = params['mode'];
-
-      const id = params['id'];
-
-
-
-      console.log(
-        "Mode : ",
-        mode
-      );
-
-
-      console.log(
-        "ID : ",
-        id
-      );
-
-
-
-      //=================================================
-      // Edit Existing Pass
-      //=================================================
-
-      if (
-        mode === 'edit'
-        &&
-        id
-      ) {
-
-
-        this.registryId = Number(id);
-
-
-        console.log(
-          "Loading Pass ID : ",
-          this.registryId
-        );
-
-
-        this.loadPass(
-          this.registryId
-        );
-
-
-      }
-      else {
-
-
-        // New Entry
-
-        this.registryId = null;
-
-        this.status = PassStatus.DRAFT;
-
-
-      }
-
-
-
-      //=================================================
-      // View Mode
-      //=================================================
-
-      if(mode === 'view'){
-
-        this.isApproverMode.set(false);
-
-      }
-
-
-
-      //=================================================
-      // Approver Mode
-      //=================================================
-
-      if(mode === 'approver'){
-
-        this.isApproverMode.set(true);
-
-      }
-
-
-    });
-
-
-}
-
-  //=====================================================
-  // Load Existing Pass Details
-  //=====================================================
-
-
-  //=====================================================
-  // Load Logged-in User Details
-  //=====================================================
-  private loadLoggedInUser(): void {
-
-  const session = sessionStorage.getItem('vpsm_session');
-
-  console.log(
-    'vpsm_session = ',
-    session
-  );
-
-
-  if (!session) {
-    console.log('No session found');
-    return;
-  }
-
-
-  try {
-
-    const user = JSON.parse(session);
-
-
-    console.log(
-      'Logged User = ',
-      user
-    );
-
-
-    // Employee code
-    this.enterBy = user.empCode ?? '';
-
-
-
-    // Role check
-    const role = String(
-      user.role ?? ''
-    ).toUpperCase();
-
-
-
-    console.log(
-      'Login Role = ',
-      role
-    );
-
-
-
-    if(role === 'APPROVER') {
-
-      this.isApproverMode.set(true);
-
-    }
-    else {
-
-      // Uploader
-      this.isApproverMode.set(false);
-
-    }
-
-
-
-  } catch(error) {
-
-    console.error(
-      'Unable to parse session.',
-      error
-    );
-
-  }
-
-}
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -1236,8 +1205,8 @@ isWorkflowSubmitting = signal<boolean>(false);
       if (doc.file) {
         formData.append(doc.fileKey, doc.file, doc.file.name);
         for (const pair of (formData as any).entries()) {
-  console.log(pair[0], pair[1]);
-}
+          console.log(pair[0], pair[1]);
+        }
       }
     });
 
@@ -1252,99 +1221,99 @@ isWorkflowSubmitting = signal<boolean>(false);
 
   savePass(): void {
 
-  if (this.isReadOnlyMode) {
-    return;
-  }
+    if (this.isReadOnlyMode) {
+      return;
+    }
 
-  this.saveError.set('');
-  this.saveSuccess.set('');
+    this.saveError.set('');
+    this.saveSuccess.set('');
 
-  if (!this.validateForm()) {
-    return;
-  }
+    if (!this.validateForm()) {
+      return;
+    }
 
-  this.isSaving.set(true);
+    this.isSaving.set(true);
 
-  const formData = this.buildFormData();
+    const formData = this.buildFormData();
 
-  //=========================
-  // EDIT MODE
-  //=========================
-  if (this.registryId != null) {
+    //=========================
+    // EDIT MODE
+    //=========================
+    if (this.registryId != null) {
 
-    this.http.put<PassRegistryResponseDTO>(
-      `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+      this.http.put<PassRegistryResponseDTO>(
+        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+        formData,
+        { headers: this.HEADERS }
+      )
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe({
+
+          next: (response) => {
+
+            this.saved.set(true);
+            this.saveSuccess.set('Vehicle pass updated successfully.');
+
+            this.registryId = response.id;
+            this.passNo = response.passNo;
+            this.status = response.reqStatus;
+
+          },
+
+          error: (err) => {
+
+            this.saveError.set(
+              err?.error?.message ?? 'Unable to update vehicle pass.'
+            );
+
+          }
+
+        });
+
+      return;
+    }
+
+    //=========================
+    // ADD MODE
+    //=========================
+    this.http.post<PassRegistryResponseDTO>(
+      API_CONFIG.PASS_SAVE,
       formData,
       { headers: this.HEADERS }
     )
-    .pipe(
-      timeout(HTTP_TIMEOUT_MS),
-      takeUntil(this.destroy$),
-      finalize(() => this.isSaving.set(false))
-    )
-    .subscribe({
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        finalize(() => this.isSaving.set(false))
+      )
+      .subscribe({
 
-      next: (response) => {
+        next: (response) => {
 
-        this.saved.set(true);
-        this.saveSuccess.set('Vehicle pass updated successfully.');
+          this.saved.set(true);
+          this.saveSuccess.set('Vehicle pass saved successfully.');
 
-        this.registryId = response.id;
-        this.passNo = response.passNo;
-        this.status = response.reqStatus;
+          this.registryId = response.id;
+          this.passNo = response.passNo;
+          this.status = response.reqStatus;
 
-      },
+        },
 
-      error: (err) => {
+        error: (err) => {
 
-        this.saveError.set(
-          err?.error?.message ?? 'Unable to update vehicle pass.'
-        );
+          this.saveError.set(
+            err?.error?.message ?? 'Unable to save vehicle pass.'
+          );
 
-      }
+        }
 
-    });
+      });
 
-    return;
   }
-
-  //=========================
-  // ADD MODE
-  //=========================
-  this.http.post<PassRegistryResponseDTO>(
-    API_CONFIG.PASS_SAVE,
-    formData,
-    { headers: this.HEADERS }
-  )
-  .pipe(
-    timeout(HTTP_TIMEOUT_MS),
-    takeUntil(this.destroy$),
-    finalize(() => this.isSaving.set(false))
-  )
-  .subscribe({
-
-    next: (response) => {
-
-      this.saved.set(true);
-      this.saveSuccess.set('Vehicle pass saved successfully.');
-
-      this.registryId = response.id;
-      this.passNo = response.passNo;
-      this.status = response.reqStatus;
-
-    },
-
-    error: (err) => {
-
-      this.saveError.set(
-        err?.error?.message ?? 'Unable to save vehicle pass.'
-      );
-
-    }
-
-  });
-
-}
 
 
 
@@ -1447,7 +1416,7 @@ isWorkflowSubmitting = signal<boolean>(false);
 
           this.employeeNo = String(response.employeeNo ?? '');
 
-          this.ecNo =  String(response.employeeNo ?? '');
+          this.ecNo = String(response.employeeNo ?? '');
 
           this.setEmployeeType(response.empType);
 
@@ -1581,15 +1550,15 @@ isWorkflowSubmitting = signal<boolean>(false);
 
     this.isSaving.set(true);
 
-  const payload = {
+    const payload = {
 
-  status: status,
+      status: status,
 
-  remark: this.reviewRemark(),
+      remark: this.reviewRemark(),
 
-  enterBy: this.enterBy
+      enterBy: this.enterBy
 
-};
+    };
 
     this.http.put<any>(
       `${API_CONFIG.PASS_STATUS_UPDATE}/${id}`,
@@ -1697,7 +1666,9 @@ isWorkflowSubmitting = signal<boolean>(false);
     return (
       this.status === PassStatus.DRAFT ||
       this.status === PassStatus.SAVED ||
-      this.status === PassStatus.MODIFY
+      this.status === PassStatus.MODIFY||
+      this.status === PassStatus.NEEDS_MODIFICATION
+      
     );
 
   }
@@ -1730,86 +1701,121 @@ isWorkflowSubmitting = signal<boolean>(false);
   }
 
   onSubmit(): void {
+    console.log("===== SUBMIT CLICKED =====");
 
+    this.status = PassStatus.CONFIRMED;
 
-  console.log("===== SUBMIT CLICKED =====");
+    console.log(
+      "STATUS BEFORE SAVE = ",
+      this.status
+    );
 
+    if (!this.validateForm()) {
+      return;
+    }
 
-  this.status = PassStatus.CONFIRMED;
+    this.isSaving.set(true);
+    this.saveError.set('');
+    this.saveSuccess.set('');
 
+    const formData = this.buildFormData();
 
-  console.log(
-    "STATUS BEFORE SAVE = ",
-    this.status
-  );
-
-
-  const payload = this.buildRequest();
-
-
-  console.log(
-    "SUBMIT PAYLOAD = ",
-    payload
-  );
-
-
-
-  if (this.registryId) {
-
+    if (this.registryId != null) {
       console.log(
         "UPDATE MODE ID = ",
         this.registryId
       );
 
-      this.updatePass();
+      this.http.put<PassRegistryResponseDTO>(
+        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+        formData,
+        { headers: this.HEADERS }
+      )
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe({
+          next: (response) => {
+            this.saved.set(true);
+            this.registryId = response.id;
+            this.passNo = response.passNo;
+            this.status = response.reqStatus;
+            this.saveSuccess.set('Vehicle pass submitted successfully.');
+          },
+          error: (err) => {
+            this.saveError.set(
+              err?.error?.message ?? 'Unable to submit vehicle pass.'
+            );
+          }
+        });
 
+      return;
+    }
+
+    console.log("SAVE MODE");
+
+    this.http.post<PassRegistryResponseDTO>(
+      API_CONFIG.PASS_SAVE,
+      formData,
+      { headers: this.HEADERS }
+    )
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        finalize(() => this.isSaving.set(false))
+      )
+      .subscribe({
+        next: (response) => {
+          this.saved.set(true);
+          this.registryId = response.id;
+          this.passNo = response.passNo;
+          this.status = response.reqStatus;
+          this.saveSuccess.set('Vehicle pass submitted successfully.');
+        },
+        error: (err) => {
+          this.saveError.set(
+            err?.error?.message ?? 'Unable to submit vehicle pass.'
+          );
+        }
+      });
   }
-  else {
 
-      console.log(
-        "SAVE MODE"
-      );
-
-      this.savePass();
-
-  }
-
-}
-
-private validateForm(): boolean {
+  private validateForm(): boolean {
 
     console.log("VALIDATION START");
 
     this.saveError.set('');
 
     if (!this.validateVehicle()) {
-        console.log("Vehicle validation failed");
-        return false;
+      console.log("Vehicle validation failed");
+      return false;
     }
 
 
     if (!this.validateEmployee()) {
-        console.log("Employee validation failed");
-        return false;
+      console.log("Employee validation failed");
+      return false;
     }
 
 
     if (!this.validateGateAndParking()) {
-        console.log("Gate validation failed");
-        return false;
+      console.log("Gate validation failed");
+      return false;
     }
 
 
     if (!this.validateDocuments()) {
-        console.log("Document validation failed");
-        return false;
+      console.log("Document validation failed");
+      return false;
     }
 
 
     console.log("VALIDATION SUCCESS");
 
     return true;
-}
+  }
 
 
   //=====================================================

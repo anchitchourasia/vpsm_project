@@ -135,12 +135,14 @@ export class Passes implements OnInit, OnDestroy {
   searchText = signal('');
 
   filterStatus = signal('ALL');
+  filterEmpType = signal('ALL');
+  filterVehicleType = signal('ALL');
 
 
   currentPage = signal(1);
 
   pageSize = signal(10);
-
+  isApprover = signal(false);
 
 
 
@@ -154,49 +156,37 @@ export class Passes implements OnInit, OnDestroy {
 
   filteredPasses = computed(() => {
 
-
     const search = this.searchText()
       .trim()
       .toLowerCase();
 
-
     const status = this.filterStatus();
-
-
+    const empType = this.filterEmpType();
+    const vehicleType = this.filterVehicleType();
 
     return this.allPasses()
       .filter(row => {
+        const matchEmpType =
+          empType === 'ALL' ||
+          (row.empType || '').trim().toUpperCase() === empType;
 
+        const matchVehicleType =
+          vehicleType === 'ALL' ||
+          (row.vehicleType || '').trim().toUpperCase() === vehicleType;
 
         const matchSearch =
-
           !search ||
-
-          row.vehicleNo.toLowerCase().includes(search) ||
-
-          row.employeeNo.toLowerCase().includes(search) ||
-
-          row.contractorCode.toLowerCase().includes(search) ||
-
-          row.empType.toLowerCase().includes(search);
-
-
+          (row.vehicleNo || '').toLowerCase().includes(search) ||
+          (row.employeeNo || '').toLowerCase().includes(search) ||
+          (row.contractorCode || '').toLowerCase().includes(search) ||
+          (row.empType || '').toLowerCase().includes(search);
 
         const matchStatus =
-
           status === 'ALL' ||
+          (row.status || '').trim().toUpperCase() === status;
 
-          row.status === status;
-
-
-
-        return matchSearch && matchStatus;
-
-
-
+        return matchSearch && matchStatus && matchEmpType && matchVehicleType;
       });
-
-
 
   });
 
@@ -286,9 +276,22 @@ export class Passes implements OnInit, OnDestroy {
 
 
   ngOnInit(): void {
+    const session = sessionStorage.getItem('vpsm_session');
+
+    if (session) {
+      try {
+        const user = JSON.parse(session);
+        const role = String(user?.role || '').trim().toUpperCase();
+        this.isApprover.set(role === 'APPROVER');
+      } catch (e) {
+        console.error('Session parse error', e);
+        this.isApprover.set(false);
+      }
+    } else {
+      this.isApprover.set(false);
+    }
 
     this.loadPasses();
-
   }
 
 
@@ -381,6 +384,22 @@ export class Passes implements OnInit, OnDestroy {
 
 
   }
+  /*
+ =====================================================
+  canEditPass
+ =====================================================
+ */
+
+
+
+  canEditPass(row: PassListRow): boolean {
+    if (this.isApproverUser()) {
+      return false;
+    }
+
+    const status = (row?.status || '').trim().toUpperCase();
+    return status !== 'ACTIVE' && status !== 'APPROVED' && status !== 'CONFIRMED';
+  }
 
 
 
@@ -397,40 +416,40 @@ export class Passes implements OnInit, OnDestroy {
 
   private mapListData(row: any): PassListRow {
 
-  return {
+    return {
 
-    id: row.id,
-    passId: row.id,
+      id: row.id,
+      passId: row.id,
 
-    passNo: row.passNo,
+      passNo: row.passNo,
 
-    vehicleNo: row.vehicleNo,
-    vehicleType: row.vehicleType,
+      vehicleNo: row.vehicleNo,
+      vehicleType: row.vehicleType,
 
-    employeeNo: String(row.employeeNo),
-    empType: row.empType,
+      employeeNo: String(row.employeeNo),
+      empType: row.empType,
 
-    name: row.name,
+      name: row.name,
 
-    deptCode: row.deptCode,
-    deptName: row.deptName,
+      deptCode: row.deptCode,
+      deptName: row.deptName,
 
-    contractorCode: row.contractorCode,
-    contractorName: row.contractorName,
+      contractorCode: row.contractorCode,
+      contractorName: row.contractorName,
 
-    aadhaarNo: row.aadhaarNo,
+      aadhaarNo: row.aadhaarNo,
 
-    status: row.status,
-    passStatus: row.status,
+      status: row.status,
+      passStatus: row.status,
 
-    issueDate: row.issueDate,
-    validityDate: row.validityDate,
+      issueDate: row.issueDate,
+      validityDate: row.validityDate,
 
-    gateNo: row.gateNo
+      gateNo: row.gateNo
 
-  };
+    };
 
-}
+  }
 
 
 
@@ -470,6 +489,15 @@ export class Passes implements OnInit, OnDestroy {
 
     this.currentPage.set(1);
 
+  }
+  onEmpTypeChange(value: string) {
+    this.filterEmpType.set(value);
+    this.currentPage.set(1);
+  }
+
+  onVehicleTypeChange(value: string) {
+    this.filterVehicleType.set(value);
+    this.currentPage.set(1);
   }
 
 
@@ -551,30 +579,23 @@ export class Passes implements OnInit, OnDestroy {
   */
 
 
-  viewPass(row: PassListRow) {
+  viewPass(row: PassListRow): void {
+    if (!row || !row.id) {
+      console.error('Pass ID not found.', row);
+      return;
+    }
 
+    console.log('Opening View Page for ID :', row.id);
 
     this.router.navigate(
-
-      [
-
-        '/pass-entry',
-
-        row.passId
-
-      ],
-
+      ['/pass-entry'],
       {
-
         queryParams: {
-          mode: 'view'
+          mode: 'view',
+          id: row.id
         }
-
       }
-
     );
-
-
   }
 
 
@@ -654,33 +675,47 @@ export class Passes implements OnInit, OnDestroy {
 =====================================================
 */
   //=====================================================
-// EDIT REDIRECT
-// Pass List -> Pass Entry
-//=====================================================
-openEditInPassEntry(row: PassListRow): void {
+  // EDIT REDIRECT
+  // Pass List -> Pass Entry
+  //=====================================================
+  openEditInPassEntry(row: PassListRow): void {
 
-  // Validate ID
-  if (!row || !row.id) {
+    // Validate ID
+    if (!row || !row.id) {
 
-    console.error('Pass ID not found.', row);
+      console.error('Pass ID not found.', row);
 
-    return;
+      return;
+
+    }
+
+    console.log('Opening Edit Page for ID :', row.id);
+
+    this.router.navigate(
+      ['/pass-entry'],
+      {
+        queryParams: {
+          mode: 'edit',
+          id: row.id
+        }
+      }
+    );
 
   }
 
-  console.log('Opening Edit Page for ID :', row.id);
 
-  this.router.navigate(
-    ['/pass-entry'],
-    {
-      queryParams: {
-        mode: 'edit',
-        id: row.id
-      }
+
+  isApproverUser(): boolean {
+    const session = sessionStorage.getItem('vpsm_session');
+    if (!session) return false;
+
+    try {
+      const user = JSON.parse(session);
+      return String(user?.role || '').trim().toUpperCase() === 'APPROVER';
+    } catch {
+      return false;
     }
-  );
-
-}
+  }
 
 
 
