@@ -37,8 +37,8 @@
       </span>
     </div>
   </div>
- 
- 
+
+
   <!-- =====================================================
      2. MODIFICATION MESSAGE
 ===================================================== -->
@@ -199,7 +199,7 @@
     <div class="pe-grid pe-grid-2">
       <!-- CONTRACTOR CODE -->
       <div class="pe-field">
-        <label>          Contractor Code </label>
+        <label> Contractor Code </label>
         <input type="text" class="pe-input pe-readonly" [value]="empContractorCode" readonly
           placeholder="Auto Filled" />
       </div>
@@ -231,8 +231,8 @@
 
     <div class="pe-fetch-success">
       <i class="bi bi-check-circle-fill"></i>
-      Employee Found : 
-       <strong>
+      Employee Found :
+      <strong>
         {{empName()}}
       </strong>
       &nbsp;
@@ -254,24 +254,24 @@
     <!-- =====================================================
          GATE + PARKING
     ===================================================== -->
-        <div class="pe-grid pe-grid-2">
-      
-          <!-- GATE NUMBER -->
+    <div class="pe-grid pe-grid-2">
+
+      <!-- GATE NUMBER -->
       <div class="pe-field">
-        <label> Gate No  <span class="req">*</span> </label>
+        <label> Gate No <span class="req">*</span> </label>
         <select class="pe-input" [(ngModel)]="gateNo" [disabled]="isReadOnlyMode">
-          <option value="">  -- Select Gate -- </option>
-          <option value="GATE_01">  GATE 01 </option>
+          <option value=""> -- Select Gate -- </option>
+          <option value="GATE_01"> GATE 01 </option>
           <option value="GATE_02"> GATE 02 </option>
           <option value="GATE_03"> GATE 03 </option>
-          <option value="GATE_04"> GATE 04 </option> 
+          <option value="GATE_04"> GATE 04 </option>
           <option value="GATE_05"> GATE 05 </option>
         </select>
       </div>
 
       <!-- PARKING AREA -->
       <div class="pe-field">
-         <label> Parking To Be Used<span class="req">*</span></label>
+        <label> Parking To Be Used<span class="req">*</span></label>
         <select class="pe-input" [(ngModel)]="parkingToBeUsed" [disabled]="isReadOnlyMode">
           <option value="">-- Select Parking Area --</option>
           <option value="P1">P1 - Main Parking</option>
@@ -292,7 +292,7 @@
     <div class="pe-section-header">
       <i class="bi bi-diagram-3-fill"></i>
       <span>Workflow Status </span>
-     </div>
+    </div>
     <div class="pe-status-card">
       <div class="pe-status-item">
         <span class="pe-status-label">
@@ -432,56 +432,53 @@
      ALL USERS
 ===================================================== -->
 
-@if(registryId){
+  @if(registryId){
 
 
-<div class="pe-section">
+  <div class="pe-section">
 
 
-  <div class="pe-section-header">
+    <div class="pe-section-header">
 
-    <i class="bi bi-clock-history"></i>
+      <i class="bi bi-clock-history"></i>
 
-    <span>
-      Pass History
-    </span>
-
-
-  </div>
+      <span>
+        Pass History
+      </span>
 
 
+    </div>
 
-  <!-- HISTORY BUTTON -->
 
-  <button 
-      type="button"
-      class="pe-btn pe-btn-history"
-      (click)="togglePassHistory()">
+
+    <!-- HISTORY BUTTON -->
+
+    <button type="button" class="pe-btn pe-btn-history" (click)="togglePassHistory()">
 
 
       <i class="bi bi-clock-history"></i>
 
 
       {{
-        showPassHistory()
-        ?
-        'Hide History'
-        :
-        'Show History'
+      showPassHistory()
+      ?
+      'Hide History'
+      :
+      'Show History'
       }}
 
 
-  </button>
+    </button>
 
 
 
 
 
-  @if(showPassHistory()){
+    @if(showPassHistory()){
 
 
 
-  <div class="pe-history-box">
+    <div class="pe-history-box">
 
 
 
@@ -491,10 +488,10 @@
       <div class="pe-history-state">
 
 
-          <i class="bi bi-arrow-repeat spin"></i>
+        <i class="bi bi-arrow-repeat spin"></i>
 
 
-          Loading history...
+        Loading history...
 
 
       </div>
@@ -512,10 +509,10 @@
       <div class="pe-history-state pe-history-error">
 
 
-          <i class="bi bi-exclamation-triangle-fill"></i>
+        <i class="bi bi-exclamation-triangle-fill"></i>
 
 
-          {{passHistoryError()}}
+        {{passHistoryError()}}
 
 
       </div>
@@ -528,11 +525,11 @@
 
 
       @if(
-          !isLoadingPassHistory()
-          &&
-          !passHistoryError()
-          &&
-          passHistory().length > 0
+      !isLoadingPassHistory()
+      &&
+      !passHistoryError()
+      &&
+      passHistory().length > 0
       ){
 
 
@@ -541,67 +538,67 @@
 
 
 
-          @for(h of passHistory(); track h.id){
+        @for(h of passHistory(); track h.id){
 
 
 
-          <div class="pe-history-row">
+        <div class="pe-history-row">
 
 
 
-              <div class="pe-history-top">
+          <div class="pe-history-top">
 
 
-                  <span class="pe-history-action">
+            <span class="pe-history-action">
 
-                      {{h.action}}
+              {{h.action}}
 
-                  </span>
-
-
-
-                  <span class="pe-history-date">
-
-                      {{formatDateTime(h.dateOfEntry)}}
-
-                  </span>
-
-
-              </div>
+            </span>
 
 
 
+            <span class="pe-history-date">
 
+              {{formatDateTime(h.dateOfEntry)}}
 
-              <div class="pe-history-meta">
-
-                  By :
-
-                  <strong>
-
-                    {{h.empCode || 'SYSTEM'}}
-
-                  </strong>
-
-
-              </div>
-
-
-
-
-
-              <div class="pe-history-remark">
-
-                  {{h.remark || '-'}}
-
-              </div>
-
+            </span>
 
 
           </div>
 
 
-          }
+
+
+
+          <div class="pe-history-meta">
+
+            By :
+
+            <strong>
+
+              {{h.empCode || 'SYSTEM'}}
+
+            </strong>
+
+
+          </div>
+
+
+
+
+
+          <div class="pe-history-remark">
+
+            {{h.remark || '-'}}
+
+          </div>
+
+
+
+        </div>
+
+
+        }
 
 
 
@@ -616,18 +613,18 @@
 
 
       @if(
-          !isLoadingPassHistory()
-          &&
-          !passHistoryError()
-          &&
-          passHistory().length === 0
+      !isLoadingPassHistory()
+      &&
+      !passHistoryError()
+      &&
+      passHistory().length === 0
       ){
 
 
       <div class="pe-history-state">
 
 
-          No history available
+        No history available
 
 
       </div>
@@ -637,176 +634,159 @@
 
 
 
+    </div>
+
+
+    }
+
+
+
   </div>
 
 
   }
 
-
-
-</div>
-
-
-}
-
-<!-- =====================================================
+  <!-- =====================================================
      REVIEW REMARK
 ===================================================== -->
 
 
-@if(
-    isConfirmerMode()
-    ||
-    isApproverMode()
-){
+  @if(
+  isConfirmerMode()
+  ||
+  isApproverMode()
+  ){
 
 
 
-<div class="pe-section">
+  <div class="pe-section">
 
 
-<div class="pe-section-header">
+    <div class="pe-section-header">
 
 
-<i class="bi bi-chat-left-text-fill"></i>
+      <i class="bi bi-chat-left-text-fill"></i>
 
 
-<span>
+      <span>
 
-{{
- isApproverMode()
- ?
- 'Approver Remark'
- :
- 'Confirmer Remark'
-}}
+        {{
+        isApproverMode()
+        ?
+        'Approver Remark'
+        :
+        'Confirmer Remark'
+        }}
 
-</span>
-
-
-</div>
+      </span>
 
 
+    </div>
 
 
 
-<div class="pe-field">
 
 
-<label>
+    <div class="pe-field">
 
-Remark
 
-<span class="req">*</span>
-</label>
+      <label>
 
-<textarea
-class="pe-input"
-rows="4"
-placeholder="Enter remark"
-[ngModel]="remark()"
-(ngModelChange)="remark.set($event)"
->
+        Remark
+
+        <span class="req">*</span>
+      </label>
+
+      <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="remark"
+        (ngModelChange)="remark = $event">
 
 </textarea>
 
-<span class="pe-field-hint">
-Remark required for workflow action
-</span>
-</div>
-</div>
-}
+      <span class="pe-field-hint">
+        Remark required for workflow action
+      </span>
+    </div>
+  </div>
+  }
 
 
-<!-- =====================================================
+  <!-- =====================================================
      ACTION BUTTONS
 ===================================================== -->
 
 
-<div class="pe-actions">
+  <div class="pe-actions">
 
 
 
-<!-- ============================
+    <!-- ============================
  ENTRY USER
 =============================== -->
 
 
-@if(canEdit()){
+    @if(canEdit()){
 
 
 
-<button
-type="button"
-class="pe-btn pe-btn-clear"
-(click)="clearForm()"
-[disabled]="isSaving()">
+    <button type="button" class="pe-btn pe-btn-clear" (click)="goBackToPasses()" [disabled]="isSaving()">
 
 
-<i class="bi bi-x-square"></i>
+      <i class="bi bi-x-square"></i>
 
-Clear
+      Clear
 
 
-</button>
+    </button>
 
 
 
 
 
-<button
-type="button"
-class="pe-btn pe-btn-save"
-(click)="savePass()"
-[disabled]="isSaving()">
+    <button type="button" class="pe-btn pe-btn-save" (click)="savePass()" [disabled]="isSaving()">
 
 
 
-@if(isSaving()){
+      @if(isSaving()){
 
 
-<i class="bi bi-hourglass-split spin"></i>
+      <i class="bi bi-hourglass-split spin"></i>
 
-Saving...
-
-
-}
-@else{
+      Saving...
 
 
-<i class="bi bi-floppy-fill"></i>
-
-Save
-
-
-}
+      }
+      @else{
 
 
-</button>
+      <i class="bi bi-floppy-fill"></i>
+
+      Save
+
+
+      }
+
+
+    </button>
 
 
 
 
 
-<button
-type="button"
-class="pe-btn pe-btn-submit"
-(click)="onSubmit()"
-[disabled]="isSaving()">
+    <button type="button" class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving()">
 
 
 
-<i class="bi bi-send-fill"></i>
+      <i class="bi bi-send-fill"></i>
 
 
-Submit
+      Submit
 
 
-</button>
+    </button>
 
 
 
-}
+    }
 
 
 
@@ -814,75 +794,66 @@ Submit
 
 
 
-<!-- ============================
+    <!-- ============================
  CONFIRMER
  SUBMITTED
 =============================== -->
 
 
-@if(
-status === PassStatus.SUBMITTED
-&&
-isConfirmerMode()
-){
+    @if(
+    status === PassStatus.SUBMITTED
+    &&
+    isConfirmerMode()
+    ){
 
 
 
-<button
-class="pe-btn pe-btn-modify"
-(click)="modifyPass()"
-[disabled]="!reviewRemark().trim()">
+    <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
 
 
 
-<i class="bi bi-pencil-square"></i>
+      <i class="bi bi-pencil-square"></i>
 
 
-Send Modification
+      Send Modification
 
 
-</button>
-
-
-
-
-
-<button
-class="pe-btn pe-btn-reject"
-(click)="regretPass()"
-[disabled]="!reviewRemark().trim()">
-
-
-
-<i class="bi bi-x-circle-fill"></i>
-
-
-Reject
-
-
-</button>
+    </button>
 
 
 
 
 
-<button
-class="pe-btn pe-btn-submit"
-(click)="confirmPass()"
-[disabled]="!reviewRemark().trim()">
+    <button class="pe-btn pe-btn-reject" (click)="regretPass()" [disabled]="!reviewRemark().trim()">
 
 
 
-<i class="bi bi-check-circle-fill"></i>
+      <i class="bi bi-x-circle-fill"></i>
 
 
-Confirm & Send Approver
+      Reject
 
 
-</button>
+    </button>
 
 
-}
+
+
+
+    <button class="pe-btn pe-btn-submit" (click)="confirmPass()" [disabled]="!reviewRemark().trim()">
+
+
+
+      <i class="bi bi-check-circle-fill"></i>
+
+
+      Confirm & Send Approver
+
+
+    </button>
+
+
+    }
 
 
 
@@ -891,58 +862,52 @@ Confirm & Send Approver
 
 
 
-<!-- ============================
+    <!-- ============================
  APPROVER
  CONFIRMED
 =============================== -->
 
 
-@if(
-status === PassStatus.CONFIRMED
-&&
-isApproverMode()
-){
+    @if(
+    status === PassStatus.CONFIRMED
+    &&
+    isApproverMode()
+    ){
 
 
 
-<button
-class="pe-btn pe-btn-modify"
-(click)="modifyPass()"
-[disabled]="!reviewRemark().trim()">
+    <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
 
 
 
-<i class="bi bi-pencil-square"></i>
+      <i class="bi bi-pencil-square"></i>
 
 
-Send Modification
+      Send Modification
 
 
-</button>
+    </button>
 
 
 
 
 
 
-<button
-class="pe-btn pe-btn-submit"
-(click)="approvePass()"
-[disabled]="!reviewRemark().trim()">
+    <button class="pe-btn pe-btn-submit" (click)="approvePass()" [disabled]="!reviewRemark().trim()">
 
 
 
-<i class="bi bi-check-circle-fill"></i>
+      <i class="bi bi-check-circle-fill"></i>
 
 
-Approve
+      Approve
 
 
-</button>
+    </button>
 
 
 
-}
+    }
 
 
 
@@ -950,25 +915,23 @@ Approve
 
 
 
-<!-- ============================
+    <!-- ============================
  READ ONLY
 =============================== -->
 
 
-@if(isReadOnlyMode){
+    @if(isReadOnlyMode){
 
 
 
-<button
-class="pe-btn pe-btn-clear"
-(click)="goBackToPasses()">
+    <button class="pe-btn pe-btn-clear" (click)="goBackToPasses()">
 
 
 
-<i class="bi bi-arrow-left-circle"></i>Back</button>
-}
+      <i class="bi bi-arrow-left-circle"></i>Back</button>
+    }
 
-</div>
+  </div>
 
 
 
