@@ -17,6 +17,7 @@
     <!-- Form -->
     <div class="login-form">
 
+      <!-- Employee Code Input -->
       <label class="login-label" for="empCode">
         Employee / Staff Code
       </label>
@@ -31,6 +32,22 @@
         [disabled]="isLoading"
         autocomplete="off"
         spellcheck="false"
+      />
+
+      <!-- Password Input -->
+      <label class="login-label" for="password" style="margin-top: 12px;">
+        Password
+      </label>
+
+      <input
+        id="password"
+        class="login-input"
+        type="password"
+        [(ngModel)]="passwordInput"
+        placeholder="Enter your password"
+        (keyup.enter)="onLogin()"
+        [disabled]="isLoading"
+        autocomplete="current-password"
       />
 
       @if (errorMsg) {
