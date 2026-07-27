@@ -148,8 +148,7 @@ export const PassStatus = {
   CONFIRMED: 'CONFIRMED',
   APPROVED: 'APPROVED',
   REGRET: 'REGRET',
-  MODIFY: 'MODIFY',
-  NEEDS_MODIFICATION: 'NEEDS_MODIFICATION'
+  MODIFY: 'MODIFY'
 
 } as const;
 
@@ -316,7 +315,6 @@ export class PassEntry implements OnInit, OnDestroy {
   empContractorEmail = '';
 
 
-
   //=====================================================
   // Document Details
   //=====================================================
@@ -329,9 +327,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // UI Signals
   //=====================================================
-  actionError = signal('');
-  actionSuccess = signal('');
-  isActing = signal(false);
+
 
 
   // Database Primary Key
@@ -361,11 +357,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
   isViewMode = signal<boolean>(false);
 
-
+  
 
   isApproverMode = signal<boolean>(false);
 
-  isConfirmerMode = signal<boolean>(false);
+   isConfirmerMode = signal<boolean>(false);
 
 
   //=====================================================
@@ -374,11 +370,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
 
 
-  modificationRemark = signal<string>('');
+modificationRemark = signal<string>('');
 
-  reviewRemark = signal<string>('');
+reviewRemark = signal<string>('');
 
-  isWorkflowSubmitting = signal<boolean>(false);
+isWorkflowSubmitting = signal<boolean>(false);
 
 
   //=====================================================
@@ -407,28 +403,6 @@ export class PassEntry implements OnInit, OnDestroy {
   private draftPassId: string | null = null;
 
 
-  private get _sessionUser(): any {
-    try {
-      return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null');
-    } catch {
-      return null;
-    }
-  }
-
-  readonly approverName = signal(this._sessionUser?.primaryRole || 'APPROVER');
-  readonly approverCode = signal(
-    String(
-      this._sessionUser?.empCode ??
-      this._sessionUser?.employeeNo ??
-      this._sessionUser?.employeeCode ??
-      this._sessionUser?.userId ??
-      'APPROVER'
-    ).trim()
-  );
-
-  loadedEnterBy: string = '';
-
-
 
   constructor(
     private http: HttpClient,
@@ -442,7 +416,9 @@ export class PassEntry implements OnInit, OnDestroy {
     return new Date().toISOString().split('T')[0];
   }
   get isReadOnlyMode(): boolean {
-    return this.isViewMode() || this.isConfirmerMode();
+
+    return !this.canEdit();
+
   }
 
 
@@ -455,118 +431,192 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // Angular Life Cycle Hook
   //=====================================================
-  ngOnInit(): void {
+ ngOnInit(): void {
 
 
-    //=====================================================
-    // Load Logged User
-    //=====================================================
+  //=====================================================
+  // Load Logged User
+  //=====================================================
 
-    this.loadLoggedInUser();
-
-
-
-    //=====================================================
-    // Initialize Documents
-    //=====================================================
-
-    if (this.documents().length === 0) {
-
-      this.documents.set([
-        emptyDocument()
-      ]);
-
-    }
+  this.loadLoggedInUser();
 
 
 
-    //=====================================================
-    // Check User Role
-    //=====================================================
+  //=====================================================
+  // Initialize Documents
+  //=====================================================
 
-    const session = sessionStorage.getItem('vpsm_session');
+  if (this.documents().length === 0) {
 
-    if (session) {
-      try {
-        const user = JSON.parse(session);
-
-        const primaryRole = String(user?.primaryRole ?? '').trim().toUpperCase();
-        const roles = Array.isArray(user?.roles)
-          ? user.roles.map((r: any) => String(r).trim().toUpperCase())
-          : [];
-
-        const isApproverUser =
-          primaryRole === 'APPROVER' || roles.includes('APPROVER');
-
-        console.log('LOGIN ROLE : ', primaryRole || roles.join(','));
-        this.isApproverMode.set(isApproverUser);
-
-        console.log('Approver Mode : ', this.isApproverMode());
-      } catch (error) {
-        console.error('Session parsing error', error);
-        this.isApproverMode.set(false);
-      }
-    }
-
-
-
-
-    //=====================================================
-    // Route Handling
-    //=====================================================
-
-    this.route.queryParams
-      .pipe(
-        takeUntil(this.destroy$)
-      )
-      .subscribe(params => {
-
-        const mode = String(params['mode'] ?? '').toLowerCase();
-        const id = params['id'];
-
-        console.log(
-          "Mode : ",
-          mode
-        );
-
-        console.log(
-          "ID : ",
-          id
-        );
-
-        //=================================================
-        // View Mode
-        //=================================================
-        this.isViewMode.set(mode === 'view');
-
-        //=================================================
-        // Approver Mode
-        //=================================================
-        this.isApproverMode.set(mode === 'approver' || this.isApproverMode());
-
-
-        //=================================================
-        // Edit / View Existing Pass
-        //=================================================
-        if (
-          (mode === 'edit' || mode === 'view' || mode === 'approver')
-          &&
-          id
-        ) {
-          this.registryId = Number(id);
-
-          console.log("Loading Pass ID : ", this.registryId);
-
-          this.loadPass(this.registryId);
-        } else {
-          this.registryId = null;
-          this.status = PassStatus.DRAFT;
-        }
-
-      });
-
+    this.documents.set([
+      emptyDocument()
+    ]);
 
   }
+
+
+
+  //=====================================================
+  // Check User Role
+  //=====================================================
+
+  const session = sessionStorage.getItem('vpsm_session');
+
+
+  if (session) {
+
+    try {
+
+      const user = JSON.parse(session);
+
+
+      const role = String(
+        user.role ?? ''
+      ).toUpperCase();
+
+
+
+      console.log(
+        "LOGIN ROLE : ",
+        role
+      );
+
+
+
+      if (role === 'APPROVER') {
+
+        this.isApproverMode.set(true);
+
+      }
+      else {
+
+        // Default uploader
+        this.isApproverMode.set(false);
+
+      }
+
+
+
+      console.log(
+        "Approver Mode : ",
+        this.isApproverMode()
+      );
+
+
+    }
+    catch(error){
+
+      console.error(
+        "Session parsing error",
+        error
+      );
+
+      this.isApproverMode.set(false);
+
+    }
+
+  }
+
+
+
+
+  //=====================================================
+  // Route Handling
+  //=====================================================
+
+  this.route.queryParams
+    .pipe(
+      takeUntil(this.destroy$)
+    )
+    .subscribe(params => {
+
+
+      const mode = params['mode'];
+
+      const id = params['id'];
+
+
+
+      console.log(
+        "Mode : ",
+        mode
+      );
+
+
+      console.log(
+        "ID : ",
+        id
+      );
+
+
+
+      //=================================================
+      // Edit Existing Pass
+      //=================================================
+
+      if (
+        mode === 'edit'
+        &&
+        id
+      ) {
+
+
+        this.registryId = Number(id);
+
+
+        console.log(
+          "Loading Pass ID : ",
+          this.registryId
+        );
+
+
+        this.loadPass(
+          this.registryId
+        );
+
+
+      }
+      else {
+
+
+        // New Entry
+
+        this.registryId = null;
+
+        this.status = PassStatus.DRAFT;
+
+
+      }
+
+
+
+      //=================================================
+      // View Mode
+      //=================================================
+
+      if(mode === 'view'){
+
+        this.isApproverMode.set(false);
+
+      }
+
+
+
+      //=================================================
+      // Approver Mode
+      //=================================================
+
+      if(mode === 'approver'){
+
+        this.isApproverMode.set(true);
+
+      }
+
+
+    });
+
+
+}
 
   //=====================================================
   // Load Existing Pass Details
@@ -578,70 +628,74 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   private loadLoggedInUser(): void {
 
-    const session = sessionStorage.getItem('vpsm_session');
+  const session = sessionStorage.getItem('vpsm_session');
+
+  console.log(
+    'vpsm_session = ',
+    session
+  );
+
+
+  if (!session) {
+    console.log('No session found');
+    return;
+  }
+
+
+  try {
+
+    const user = JSON.parse(session);
+
 
     console.log(
-      'vpsm_session = ',
-      session
+      'Logged User = ',
+      user
     );
 
 
-    if (!session) {
-      console.log('No session found');
-      return;
+    // Employee code
+    this.enterBy = user.empCode ?? '';
+
+
+
+    // Role check
+    const role = String(
+      user.role ?? ''
+    ).toUpperCase();
+
+
+
+    console.log(
+      'Login Role = ',
+      role
+    );
+
+
+
+    if(role === 'APPROVER') {
+
+      this.isApproverMode.set(true);
+
+    }
+    else {
+
+      // Uploader
+      this.isApproverMode.set(false);
+
     }
 
 
-    try {
 
-      const user = JSON.parse(session);
+  } catch(error) {
 
-
-      console.log(
-        'Logged User = ',
-        user
-      );
-
-
-      // Employee code
-      this.enterBy =
-        String(
-          user?.empCode ??
-          user?.employeeNo ??
-          user?.employeeCode ??
-          user?.userId ??
-          ''
-        ).trim();
-      console.log('ENTER BY = ', this.enterBy);
-
-
-
-      // Role check
-      const primaryRole = String(user?.primaryRole ?? '').trim().toUpperCase();
-      const roles = Array.isArray(user?.roles)
-        ? user.roles.map((r: any) => String(r).trim().toUpperCase())
-        : [];
-
-      const isApproverUser =
-        primaryRole === 'APPROVER' || roles.includes('APPROVER');
-
-      console.log('Login Role = ', primaryRole || roles.join(','));
-      this.isApproverMode.set(isApproverUser);
-
-      console.log('Approver Mode = ', this.isApproverMode());
-
-
-
-    } catch (error) {
-
-      console.error(
-        'Unable to parse session.',
-        error
-      );
-
-    }
+    console.error(
+      'Unable to parse session.',
+      error
+    );
 
   }
+
+}
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -1182,8 +1236,8 @@ export class PassEntry implements OnInit, OnDestroy {
       if (doc.file) {
         formData.append(doc.fileKey, doc.file, doc.file.name);
         for (const pair of (formData as any).entries()) {
-          console.log(pair[0], pair[1]);
-        }
+  console.log(pair[0], pair[1]);
+}
       }
     });
 
@@ -1198,99 +1252,99 @@ export class PassEntry implements OnInit, OnDestroy {
 
   savePass(): void {
 
-    if (this.isReadOnlyMode) {
-      return;
-    }
+  if (this.isReadOnlyMode) {
+    return;
+  }
 
-    this.saveError.set('');
-    this.saveSuccess.set('');
+  this.saveError.set('');
+  this.saveSuccess.set('');
 
-    if (!this.validateForm()) {
-      return;
-    }
+  if (!this.validateForm()) {
+    return;
+  }
 
-    this.isSaving.set(true);
+  this.isSaving.set(true);
 
-    const formData = this.buildFormData();
+  const formData = this.buildFormData();
 
-    //=========================
-    // EDIT MODE
-    //=========================
-    if (this.registryId != null) {
+  //=========================
+  // EDIT MODE
+  //=========================
+  if (this.registryId != null) {
 
-      this.http.put<PassRegistryResponseDTO>(
-        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
-        formData,
-        { headers: this.HEADERS }
-      )
-        .pipe(
-          timeout(HTTP_TIMEOUT_MS),
-          takeUntil(this.destroy$),
-          finalize(() => this.isSaving.set(false))
-        )
-        .subscribe({
-
-          next: (response) => {
-
-            this.saved.set(true);
-            this.saveSuccess.set('Vehicle pass updated successfully.');
-
-            this.registryId = response.id;
-            this.passNo = response.passNo;
-            this.status = response.reqStatus;
-
-          },
-
-          error: (err) => {
-
-            this.saveError.set(
-              err?.error?.message ?? 'Unable to update vehicle pass.'
-            );
-
-          }
-
-        });
-
-      return;
-    }
-
-    //=========================
-    // ADD MODE
-    //=========================
-    this.http.post<PassRegistryResponseDTO>(
-      API_CONFIG.PASS_SAVE,
+    this.http.put<PassRegistryResponseDTO>(
+      `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
       formData,
       { headers: this.HEADERS }
     )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe({
+    .pipe(
+      timeout(HTTP_TIMEOUT_MS),
+      takeUntil(this.destroy$),
+      finalize(() => this.isSaving.set(false))
+    )
+    .subscribe({
 
-        next: (response) => {
+      next: (response) => {
 
-          this.saved.set(true);
-          this.saveSuccess.set('Vehicle pass saved successfully.');
+        this.saved.set(true);
+        this.saveSuccess.set('Vehicle pass updated successfully.');
 
-          this.registryId = response.id;
-          this.passNo = response.passNo;
-          this.status = response.reqStatus;
+        this.registryId = response.id;
+        this.passNo = response.passNo;
+        this.status = response.reqStatus;
 
-        },
+      },
 
-        error: (err) => {
+      error: (err) => {
 
-          this.saveError.set(
-            err?.error?.message ?? 'Unable to save vehicle pass.'
-          );
+        this.saveError.set(
+          err?.error?.message ?? 'Unable to update vehicle pass.'
+        );
 
-        }
+      }
 
-      });
+    });
 
+    return;
   }
+
+  //=========================
+  // ADD MODE
+  //=========================
+  this.http.post<PassRegistryResponseDTO>(
+    API_CONFIG.PASS_SAVE,
+    formData,
+    { headers: this.HEADERS }
+  )
+  .pipe(
+    timeout(HTTP_TIMEOUT_MS),
+    takeUntil(this.destroy$),
+    finalize(() => this.isSaving.set(false))
+  )
+  .subscribe({
+
+    next: (response) => {
+
+      this.saved.set(true);
+      this.saveSuccess.set('Vehicle pass saved successfully.');
+
+      this.registryId = response.id;
+      this.passNo = response.passNo;
+      this.status = response.reqStatus;
+
+    },
+
+    error: (err) => {
+
+      this.saveError.set(
+        err?.error?.message ?? 'Unable to save vehicle pass.'
+      );
+
+    }
+
+  });
+
+}
 
 
 
@@ -1393,7 +1447,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
           this.employeeNo = String(response.employeeNo ?? '');
 
-          this.ecNo = String(response.employeeNo ?? '');
+          this.ecNo =  String(response.employeeNo ?? '');
 
           this.setEmployeeType(response.empType);
 
@@ -1415,7 +1469,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
           this.status = response.reqStatus ?? PassStatus.DRAFT;
 
-          this.loadedEnterBy = response.enterBy ?? '';
+          this.enterBy = response.enterBy ?? '';
 
 
           //=====================================================
@@ -1459,6 +1513,9 @@ export class PassEntry implements OnInit, OnDestroy {
             ]);
 
           }
+
+
+
           //=====================================================
           // UI State
           //=====================================================
@@ -1493,6 +1550,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
   }
 
+
   private setEmployeeType(type: string | null | undefined): void {
 
     const value = (type ?? '').toUpperCase();
@@ -1508,6 +1566,13 @@ export class PassEntry implements OnInit, OnDestroy {
       this.empType.set('');
     }
   }
+
+
+
+
+
+
+
   //=====================================================
   // SECTION 12 : Workflow
   //=====================================================
@@ -1516,15 +1581,15 @@ export class PassEntry implements OnInit, OnDestroy {
 
     this.isSaving.set(true);
 
-    const payload = {
+  const payload = {
 
-      status: status,
+  status: status,
 
-      remark: this.reviewRemark(),
+  remark: this.reviewRemark(),
 
-      enterBy: this.enterBy
+  enterBy: this.enterBy
 
-    };
+};
 
     this.http.put<any>(
       `${API_CONFIG.PASS_STATUS_UPDATE}/${id}`,
@@ -1632,12 +1697,11 @@ export class PassEntry implements OnInit, OnDestroy {
     return (
       this.status === PassStatus.DRAFT ||
       this.status === PassStatus.SAVED ||
-      this.status === PassStatus.MODIFY ||
-      this.status === PassStatus.NEEDS_MODIFICATION
-
+      this.status === PassStatus.MODIFY
     );
 
   }
+
 
   onEcNoBlur(): void {
 
@@ -1666,121 +1730,88 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
-    console.log("===== SUBMIT CLICKED =====");
 
-    this.status = PassStatus.CONFIRMED;
 
-    console.log(
-      "STATUS BEFORE SAVE = ",
-      this.status
-    );
+  console.log("===== SUBMIT CLICKED =====");
 
-    if (!this.validateForm()) {
-      return;
-    }
 
-    this.isSaving.set(true);
-    this.saveError.set('');
-    this.saveSuccess.set('');
+  this.status = PassStatus.CONFIRMED;
 
-    const formData = this.buildFormData();
 
-    if (this.registryId != null) {
+  console.log(
+    "STATUS BEFORE SAVE = ",
+    this.status
+  );
+
+
+  const payload = this.buildRequest();
+
+
+  console.log(
+    "SUBMIT PAYLOAD = ",
+    payload
+  );
+
+
+
+  if (this.registryId) {
+
       console.log(
         "UPDATE MODE ID = ",
         this.registryId
       );
 
-      this.http.put<PassRegistryResponseDTO>(
-        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
-        formData,
-        { headers: this.HEADERS }
-      )
-        .pipe(
-          timeout(HTTP_TIMEOUT_MS),
-          takeUntil(this.destroy$),
-          finalize(() => this.isSaving.set(false))
-        )
-        .subscribe({
-          next: (response) => {
-            this.saved.set(true);
-            this.registryId = response.id;
-            this.passNo = response.passNo;
-            this.status = response.reqStatus;
-            this.saveSuccess.set('Vehicle pass submitted successfully.');
-          },
-          error: (err) => {
-            this.saveError.set(
-              err?.error?.message ?? 'Unable to submit vehicle pass.'
-            );
-          }
-        });
+      this.updatePass();
 
-      return;
-    }
+  }
+  else {
 
-    console.log("SAVE MODE");
+      console.log(
+        "SAVE MODE"
+      );
 
-    this.http.post<PassRegistryResponseDTO>(
-      API_CONFIG.PASS_SAVE,
-      formData,
-      { headers: this.HEADERS }
-    )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe({
-        next: (response) => {
-          this.saved.set(true);
-          this.registryId = response.id;
-          this.passNo = response.passNo;
-          this.status = response.reqStatus;
-          this.saveSuccess.set('Vehicle pass submitted successfully.');
-        },
-        error: (err) => {
-          this.saveError.set(
-            err?.error?.message ?? 'Unable to submit vehicle pass.'
-          );
-        }
-      });
+      this.savePass();
+
   }
 
-  private validateForm(): boolean {
+}
+
+private validateForm(): boolean {
 
     console.log("VALIDATION START");
 
     this.saveError.set('');
 
     if (!this.validateVehicle()) {
-      console.log("Vehicle validation failed");
-      return false;
+        console.log("Vehicle validation failed");
+        return false;
     }
 
 
     if (!this.validateEmployee()) {
-      console.log("Employee validation failed");
-      return false;
+        console.log("Employee validation failed");
+        return false;
     }
 
 
     if (!this.validateGateAndParking()) {
-      console.log("Gate validation failed");
-      return false;
+        console.log("Gate validation failed");
+        return false;
     }
 
 
     if (!this.validateDocuments()) {
-      console.log("Document validation failed");
-      return false;
+        console.log("Document validation failed");
+        return false;
     }
 
 
     console.log("VALIDATION SUCCESS");
 
     return true;
-  }
+}
+
+
   //=====================================================
   // STATUS CONTROL
   //=====================================================
@@ -1818,51 +1849,66 @@ export class PassEntry implements OnInit, OnDestroy {
   // SECTION 13 : History
   //=====================================================
 
+
+
   togglePassHistory(): void {
+
     const open = !this.showPassHistory();
+
     this.showPassHistory.set(open);
 
-    if (open && this.passNo && this.passHistory().length === 0) {
-      this.loadPassHistory(this.passNo);
+
+    if (
+      open &&
+      this.registryId &&
+      this.passHistory().length === 0
+    ) {
+
+      this.loadPassHistory(this.registryId);
+
     }
+
   }
 
-  private loadPassHistory(passNo: number): void {
-    if (!passNo) {
-      this.passHistory.set([]);
-      this.passHistoryError.set('Pass No not found.');
-      return;
-    }
+  private loadPassHistory(id: number): void {
 
     this.isLoadingPassHistory.set(true);
+
     this.passHistoryError.set('');
 
+
     this.http.get<HistoryRecord[]>(
-      `${API_CONFIG.PASS_HISTORY}/${passNo}`,
-      { headers: this.HEADERS }
+      `${API_CONFIG.PASS_HISTORY}/${id}`,
+      {
+        headers: this.HEADERS
+      }
     )
       .pipe(
-        timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(err => {
-          console.error('LOAD PASS HISTORY ERROR =>', err);
-          this.passHistoryError.set(
-            err?.error?.message || 'Unable to load pass history.'
-          );
-          return of([]);
-        })
+        finalize(() => this.isLoadingPassHistory.set(false))
       )
       .subscribe({
-        next: (response) => {
-          this.passHistory.set(response ?? []);
-          this.isLoadingPassHistory.set(false);
-        },
-        error: () => {
-          this.isLoadingPassHistory.set(false);
-        }
-      });
-  }
 
+        next: (response) => {
+
+          this.passHistory.set(response ?? []);
+
+        },
+
+
+        error: (err) => {
+
+          console.error(err);
+
+          this.passHistoryError.set(
+            'Unable to load pass history.'
+          );
+
+        }
+
+      });
+
+  }
   //=====================================================
   // Navigation
   //=====================================================
@@ -1881,184 +1927,4 @@ export class PassEntry implements OnInit, OnDestroy {
 
   }
 
-  sendForModify(): void {
-    if (!this.registryId) {
-      this.actionError.set('Pass ID not found.');
-      return;
-    }
-
-    const typedRemark = String(this.reviewRemark() || '').trim();
-    console.log('APPROVER REMARK =>', typedRemark);
-
-    if (!typedRemark) {
-      this.actionError.set('Remark is required before action.');
-      return;
-    }
-
-    this.isActing.set(true);
-    this.actionError.set('');
-    this.actionSuccess.set('');
-
-    const actor = (this.enterBy || 'APPROVER').trim();
-
-    const updatePayload = {
-      status: 'NEEDSMODIFICATION',
-      enterBy: actor,
-      remark: typedRemark
-    };
-
-    console.log('SEND FOR MODIFY PAYLOAD =>', updatePayload);
-
-    this.http.put(
-      `${API_CONFIG.PASS_STATUS_UPDATE}/${this.registryId}`,
-      updatePayload,
-      { headers: this.HEADERS }
-    )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          this.actionError.set(
-            'Send for Modification failed: ' +
-            (err?.error?.message || err?.message || 'Server error')
-          );
-          this.isActing.set(false);
-          return of(null);
-        })
-      )
-      .subscribe(res => {
-        if (res == null) return;
-
-        this.actionSuccess.set(`Pass ${this.registryId} sent for modification.`);
-        this.isActing.set(false);
-        this.reviewRemark.set('');
-        this.loadPass(this.registryId!);
-
-        if (this.passNo) {
-          this.loadPassHistory(this.passNo);
-        }
-      });
-  }
-
-  rejectPassByApprover(): void {
-    if (!this.registryId) {
-      this.actionError.set('Pass ID not found.');
-      return;
-    }
-
-    const typedRemark = String(this.reviewRemark() || '').trim();
-    console.log('APPROVER REMARK =>', typedRemark);
-
-    if (!typedRemark) {
-      this.actionError.set('Remark is required before rejecting.');
-      return;
-    }
-
-    this.isActing.set(true);
-    this.actionError.set('');
-    this.actionSuccess.set('');
-
-    const actor = (this.enterBy || 'APPROVER').trim();
-
-    const updatePayload = {
-      status: 'REJECTED',
-      enterBy: actor,
-      remark: typedRemark
-    };
-
-    console.log('REJECT PAYLOAD =>', updatePayload);
-
-    this.http.put(
-      `${API_CONFIG.PASS_STATUS_UPDATE}/${this.registryId}`,
-      updatePayload,
-      { headers: this.HEADERS }
-    )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          this.actionError.set(
-            'Rejection failed: ' +
-            (err?.error?.message || err?.message || 'Server error')
-          );
-          this.isActing.set(false);
-          return of(null);
-        })
-      )
-      .subscribe(res => {
-        if (res == null) return;
-
-        this.actionSuccess.set(`Pass ${this.registryId} rejected.`);
-        this.isActing.set(false);
-        this.reviewRemark.set('');
-        this.loadPass(this.registryId!);
-
-        if (this.passNo) {
-          this.loadPassHistory(this.passNo);
-        }
-      });
-  }
-
-  approvePassByApprover(): void {
-    if (!this.registryId) {
-      this.actionError.set('Pass ID not found.');
-      return;
-    }
-
-    const typedRemark = String(this.reviewRemark() || '').trim();
-    console.log('APPROVER REMARK =>', typedRemark);
-
-    if (!typedRemark) {
-      this.actionError.set('Remark is required before approving.');
-      return;
-    }
-
-    this.isActing.set(true);
-    this.actionError.set('');
-    this.actionSuccess.set('');
-
-    const actor = (this.enterBy || 'APPROVER').trim();
-
-    const updatePayload = {
-      status: 'ACTIVE',
-      enterBy: actor,
-      remark: typedRemark
-    };
-
-    console.log('APPROVE PAYLOAD =>', updatePayload);
-
-    this.http.put(
-      `${API_CONFIG.PASS_STATUS_UPDATE}/${this.registryId}`,
-      updatePayload,
-      { headers: this.HEADERS }
-    )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        catchError(err => {
-          this.actionError.set(
-            'Approval failed: ' +
-            (err?.error?.message || err?.message || 'Server error')
-          );
-          this.isActing.set(false);
-          return of(null);
-        })
-      )
-      .subscribe(res => {
-        if (res == null) return;
-
-        this.actionSuccess.set(`Pass ${this.registryId} approved successfully.`);
-        this.isActing.set(false);
-        this.reviewRemark.set('');
-        this.loadPass(this.registryId!);
-
-        if (this.passNo) {
-          this.loadPassHistory(this.passNo);
-        }
-      });
-  }
-
-  private logHistory(passId: number, empCode: string, action: string, remark: string): void {
-    console.log('Frontend history POST disabled. Backend GET /api/history/{passNo} only.');
-  }
 }

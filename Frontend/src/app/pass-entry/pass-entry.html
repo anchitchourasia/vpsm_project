@@ -88,7 +88,7 @@
         <select class="pe-input" [(ngModel)]="vehicleType" [disabled]="isReadOnlyMode">
           <option value=""> -- Select Vehicle Type -- </option>
           <option value="BIKE"> Bike </option>
-          <option value="SCOOTER">SCOOTER</option>
+          <option value="SCOOTER"></option>
           <option value="CAR"> Car </option>
           <option value="TRUCK">Truck</option>
           <option value="DUMPER">Dumper</option>
@@ -432,7 +432,7 @@
      ALL USERS
 ===================================================== -->
 
-  @if(passNo){
+  @if(registryId){
 
 
   <div class="pe-section">
@@ -697,8 +697,9 @@
         <span class="req">*</span>
       </label>
 
-      <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="reviewRemark()"
-        (ngModelChange)="reviewRemark.set($event)">
+      <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="remark"
+        (ngModelChange)="remark = $event">
+
 </textarea>
 
       <span class="pe-field-hint">
@@ -867,37 +868,47 @@
 =============================== -->
 
 
-    @if (isApproverMode() && currentStatus === 'CONFIRMED') {
+    @if(
+    status === PassStatus.CONFIRMED
+    &&
+    isApproverMode()
+    ){
 
-    <button type="button" class="pe-btn pe-btn-modify" (click)="sendForModify()" [disabled]="isActing()">
+
+
+    <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
+
+
+
       <i class="bi bi-pencil-square"></i>
-      {{ isActing() ? 'Processing...' : 'Send Modification' }}
+
+
+      Send Modification
+
+
     </button>
 
-    <button type="button" class="pe-btn pe-btn-reject" (click)="rejectPassByApprover()" [disabled]="isActing()">
-      <i class="bi bi-x-circle-fill"></i>
-      {{ isActing() ? 'Processing...' : 'Reject' }}
-    </button>
 
-    <button type="button" class="pe-btn pe-btn-submit" (click)="approvePassByApprover()" [disabled]="isActing()">
+
+
+
+
+    <button class="pe-btn pe-btn-submit" (click)="approvePass()" [disabled]="!reviewRemark().trim()">
+
+
+
       <i class="bi bi-check-circle-fill"></i>
-      {{ isActing() ? 'Processing...' : 'Approve' }}
+
+
+      Approve
+
+
     </button>
 
-    }
-    @if(actionSuccess()){
-    <div class="pe-alert pe-alert-success">
-      <i class="bi bi-check-circle-fill"></i>
-      {{ actionSuccess() }}
-    </div>
+
+
     }
 
-    @if(actionError()){
-    <div class="pe-alert pe-alert-error">
-      <i class="bi bi-exclamation-triangle-fill"></i>
-      {{ actionError() }}
-    </div>
-    }
 
 
 

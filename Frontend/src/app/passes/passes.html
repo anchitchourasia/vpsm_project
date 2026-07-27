@@ -134,7 +134,9 @@
                   <i class="bi bi-eye"></i>
                   View
                 </button>
-                <button class="btn-sticker" (click)="printSticker(p)">
+
+                <button *ngIf="(p.status || '').toUpperCase() === 'ACTIVE'" class="btn-sticker"
+                  (click)="printSticker(p)">
                   <i class="bi bi-printer-fill"></i>
                   Print Sticker
                 </button>
