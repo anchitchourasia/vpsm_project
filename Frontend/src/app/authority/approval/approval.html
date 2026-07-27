@@ -19,7 +19,7 @@
 
   <div class="state-box" *ngIf="isLoading()">
     <i class="bi bi-arrow-repeat spin"></i>
-    <p>Loading confirmed passes...</p>
+    <p>Loading passes for approval...</p>
   </div>
 
   <div class="state-box error-state" *ngIf="hasError() && !isLoading()">
@@ -39,8 +39,8 @@
 
     <div class="state-box" *ngIf="pendingList().length === 0">
       <i class="bi bi-inbox" style="font-size:3rem;color:#bbb;display:block"></i>
-      <p style="margin-top:12px">No confirmed passes awaiting your approval.</p>
-      <small>Passes confirmed by the Confirmer will appear here.</small>
+      <p style="margin-top:12px">No pending passes awaiting your approval.</p>
+      <small>Submitted or confirmed passes will appear here.</small>
     </div>
 
     <div class="table-card" *ngIf="pendingList().length > 0">
@@ -64,11 +64,9 @@
               <td><strong class="pass-id-cell blue">{{ p.id }}</strong></td>
               <td>{{ p.employeeNo || '—' }}</td>
               <td>{{ p.vehicleNo || '—' }}</td>
-              <td>{{ p.empType || p.empType || '—' }}</td>
+              <td>{{ p.empType || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
 
-              <td><span class="badge" [ngClass]="getStatusClass(p.reqStatus)">{{ getStatusLabel(p.reqStatus) }}</span>
-              </td>
               <td>
                 <button class="btn-review blue-btn" (click)="openReviewInPassEntry(p)">
                   <i class="bi bi-eye-fill"></i> Review
@@ -95,14 +93,12 @@
   </div>
 
 
-  <!-- ══════════════════════════════════════════════
-       REVIEW MODAL — all old logic 100% preserved
-  ══════════════════════════════════════════════ -->
+  <!-- REVIEW MODAL -->
   <div class="modal-overlay" *ngIf="selectedPass() as p" (click)="closeDetails()">
     <div class="modal-box" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr green-hdr">
-        <h3><i class="bi bi-shield-check-fill"></i> Approve Pass #{{ p.passId }}</h3>
+        <h3><i class="bi bi-shield-check-fill"></i> Approve Pass #{{ p.passId || p.id }}</h3>
         <button class="close-btn" (click)="closeDetails()">✕</button>
       </div>
 
@@ -114,52 +110,44 @@
           <i class="bi bi-exclamation-circle-fill"></i> {{ actionError() }}
         </div>
 
-        <!-- ── Vehicle ── -->
+        <!-- Vehicle -->
         <div class="sec-title"><i class="bi bi-car-front-fill"></i> Vehicle</div>
         <div class="dg">
           <div class="di"><label>Vehicle No</label><span>{{ p.vehicleNo || '—' }}</span></div>
-          <div class="di"><label>Type</label><span>{{ p.vehicleType || p.vehicleType || '—' }}</span></div>
-
+          <div class="di"><label>Type</label><span>{{ p.vehicleType || '—' }}</span></div>
           <div class="di"><label>Brand/Model</label><span>{{ p.brandModel || '—' }}</span></div>
         </div>
 
-        <!-- ── Employee / Requester ── -->
+        <!-- Employee / Requester -->
         <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Employee / Requester</div>
 
-        <!-- Loading spinner while fetching live employee data -->
         <div *ngIf="isLoadingExtra()" style="padding:8px 0;color:#888;font-size:13px;">
           <i class="bi bi-arrow-repeat spin"></i> Fetching employee details...
         </div>
 
         <div class="dg">
-          <!-- Employee No / Contractor No — always from pass DB row (reliable) -->
           <div class="di">
             <label>{{ p.empType === 'Contractor' ? 'Contractor No' : 'Employee No' }}</label>
             <span>{{ p.employeeNo || p.contractorCode || '—' }}</span>
           </div>
 
-          <!-- Emp Type — always from pass row -->
           <div class="di"><label>Emp Type</label>
             <span>{{ selectedPassExtra()?.empType || p.empType || '—' }}</span>
           </div>
 
-          <!-- Name — from live API extra, fallback to pass row -->
           <div class="di"><label>Name</label>
             <span>{{ selectedPassExtra()?.empName || p.employeeName || p.empName || '—' }}</span>
           </div>
 
-          <!-- Department Name — from pass row -->
           <div class="di"><label>Department</label>
             <span>{{ p.dept || '—' }}</span>
           </div>
 
-          <!-- ✅ NEW: Department Code — from live API only -->
           <div class="di" *ngIf="p.empType !== 'Contractor'">
             <label>Department Code</label>
             <span>{{ selectedPassExtra()?.deptCode || '—' }}</span>
           </div>
 
-          <!-- ✅ Show contractor fields if empType says Contractor OR if enriched data has contractorCode -->
           <div class="di" *ngIf="p.empType === 'Contractor' || selectedPassExtra()?.contractorCode !== '—'">
             <label>Contractor Name</label>
             <span>{{ selectedPassExtra()?.contractorName || p.contractorName || '—' }}</span>
@@ -169,29 +157,21 @@
             <span>{{ selectedPassExtra()?.contractorCode || p.contractorCode || '—' }}</span>
           </div>
 
-          <!-- ✅ Aadhar — from live API extra, fallback to pass row -->
           <div class="di">
             <label>Aadhar No</label>
-            <span>{{ selectedPassExtra()?.aadhaarNo || p.aadhaarNo || p.aadharNo || '—' }}</span>
+            <span>[Aadhaar Redacted]</span>
           </div>
         </div>
 
-        <!-- ── Pass Details ── -->
+        <!-- Pass Details -->
         <div class="sec-title"><i class="bi bi-card-checklist"></i> Pass Details</div>
         <div class="dg">
-          <div class="di"><label>Pass ID</label><span>{{ p.passId }}</span></div>
+          <div class="di"><label>Pass ID</label><span>{{ p.passId || p.id }}</span></div>
           <div class="di"><label>Gate No</label><span>{{ p.gateNo || '—' }}</span></div>
           <div class="di"><label>Parking Area</label><span>{{ p.parkingToBeUsed || '—' }}</span></div>
         </div>
 
-
-
-
-
-
-
-
-        <!-- ── Compliance Documents ── -->
+        <!-- Compliance Documents -->
         <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Compliance Documents</div>
 
         <div class="doc-loading" *ngIf="isLoadingDocs()">
@@ -243,9 +223,7 @@
           <i class="bi bi-folder2-open"></i> No documents uploaded for this vehicle.
         </div>
 
-
-
-        <!-- ── Approver Decision ── -->
+        <!-- Approver Decision -->
         <div class="sec-title"><i class="bi bi-pencil-fill"></i> Your Approver Decision</div>
         <div class="form-group">
           <textarea class="form-textarea" rows="3" placeholder="Enter your approval or return remark (required)..."
@@ -253,33 +231,12 @@
           </textarea>
         </div>
 
-        <!-- Modify confirm hint -->
         <div class="modify-confirm-box" *ngIf="activeAction() === 'modify'">
           <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b"></i>
-          <span>This will send the pass back to the <strong>original requester</strong>
-            for modification. Make sure your remark explains what needs to change.</span>
+          <span>This will send the pass back to the <strong>original requester</strong> for modification. Make sure your remark explains what needs to change.</span>
         </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        <!-- ══════════════════════════════════════════════
-             EMPLOYEE PASS HISTORY TOGGLE
-             OUTSIDE modal-footer — full width block
-        ══════════════════════════════════════════════ -->
+        <!-- History Panel -->
         <div class="hist-toggle-row">
           <button class="btn-hist-toggle" (click)="showHistory.set(!showHistory())"
             [class.btn-hist-active]="showHistory()">
@@ -289,13 +246,10 @@
           </button>
         </div>
 
-
-        <!-- History panel — hidden until button pressed -->
         <div *ngIf="showHistory()" class="hist-panel">
-
           <div class="sec-title hist-title">
             <i class="bi bi-clock-history"></i>
-            Audit Trail — Pass #<strong>{{ p.passId }}</strong>
+            Audit Trail — Pass #<strong>{{ p.passId || p.id }}</strong>
             <span class="hist-count-chip">{{ empPassHistory().length }} events</span>
           </div>
 
@@ -345,28 +299,10 @@
           <div class="hist-empty" *ngIf="!isLoadingHistory() && empPassHistory().length === 0 && !historyLoadError()">
             <i class="bi bi-clock-history"></i> No audit events recorded for this pass yet.
           </div>
-
         </div>
-        <!-- ── end history panel ── -->
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-        <!-- ══════════════════════════════════════════════
-             MODAL FOOTER — all 4 buttons equal size
-        ══════════════════════════════════════════════ -->
+        <!-- Footer Actions -->
         <div class="modal-footer">
-
           <button class="footer-btn btn-cancel" (click)="closeDetails()">
             <i class="bi bi-x-circle"></i> Close
           </button>
@@ -379,10 +315,9 @@
             : 'Send for Modification' }}
           </button>
 
-          <!-- Reject confirmation warning — appears only when armed -->
           <div class="reject-confirm-box" *ngIf="activeAction() === 'reject'">
             <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444"></i>
-            <span> You are about to <strong>permanently reject</strong> Pass #{{ p.passId }}.
+            <span> You are about to <strong>permanently reject</strong> Pass #{{ p.passId || p.id }}.
               This cannot be undone. Make sure your remark explains the reason clearly.</span>
           </div>
 
@@ -394,14 +329,9 @@
             : 'Reject' }}
           </button>
 
-          <!-- <button class="footer-btn btn-orange" (click)="returnToConfirmer(p)" [disabled]="isActing()">
-            <i class="bi bi-arrow-return-left"></i>
-            {{ isActing() ? 'Processing…' : 'Return to Confirmer' }}
-          </button> -->
-          <!-- Approve confirmation warning — appears only when armed -->
           <div class="approve-confirm-box" *ngIf="activeAction() === 'approve'">
             <i class="bi bi-patch-check-fill" style="color:#16a34a"></i>
-            <span>✅ You are about to <strong>activate Pass #{{ p.passId }}</strong> as a live vehicle pass.
+            <span>✅ You are about to <strong>activate Pass #{{ p.passId || p.id }}</strong> as a live vehicle pass.
               Please verify all documents are valid before confirming.</span>
           </div>
 
@@ -412,7 +342,6 @@
             ? (isActing() ? 'Processing…' : 'Confirm Approve & Activate')
             : 'Approve & Activate Pass' }}
           </button>
-
         </div>
 
       </div>

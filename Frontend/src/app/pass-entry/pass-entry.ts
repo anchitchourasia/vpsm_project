@@ -918,13 +918,13 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 12 : Workflow
   //=====================================================
-  updatePassStatus(id: number, status: string): void {
+updatePassStatus(id: number, status: string): void {
     this.isSaving.set(true);
 
     const payload = {
       status: status,
-      remark: this.reviewRemark(),
-      enterBy: this.enterBy
+      remark: this.reviewRemark() || this.remark || `${status} requested`,
+      enterBy: this.enterBy || 'SYSTEM'
     };
 
     this.http.put<any>(
@@ -935,13 +935,19 @@ export class PassEntry implements OnInit, OnDestroy {
       next: (response) => {
         this.isSaving.set(false);
         console.log("Status Updated Successfully", response);
+        
         this.loadPass(id);
+        
+        if (this.showPassHistory()) {
+          this.loadPassHistory(id);
+        }
+        
         this.showMessage(`${status} completed successfully`);
       },
       error: (error) => {
         this.isSaving.set(false);
         console.error("Status update failed", error);
-        this.showMessage("Status update failed");
+        this.showMessage(error?.error?.message ?? "Status update failed");
       }
     });
   }
@@ -997,20 +1003,109 @@ export class PassEntry implements OnInit, OnDestroy {
     this.loadEmployee();
   }
 
-  onSubmit(): void {
+onSubmit(): void {
     console.log("===== SUBMIT CLICKED =====");
-    this.status = PassStatus.CONFIRMED;
-    console.log("STATUS BEFORE SAVE = ", this.status);
-    
-    const payload = this.buildRequest();
-    console.log("SUBMIT PAYLOAD = ", payload);
+    this.saveError.set('');
+    this.saveSuccess.set('');
 
+    // 1. Validate form fields before submitting
+    if (!this.validateForm()) {
+      return;
+    }
+
+    // 2. Fallback check for enterBy
+    if (!this.enterBy) {
+      const session = sessionStorage.getItem('vpsm_session');
+      if (session) {
+        try {
+          const user = JSON.parse(session);
+          this.enterBy = user.empCode ?? user.employeeNo ?? 'SYSTEM';
+        } catch (e) {
+          this.enterBy = 'SYSTEM';
+        }
+      }
+    }
+
+    // 3. Ensure we pass 'SUBMITTED' in the payload without prematurely altering 'this.status'
+    const payload = this.buildRequest();
+    payload.status = PassStatus.SUBMITTED;
+
+    this.isSaving.set(true);
+    const formData = this.buildFormData();
+
+    // Workaround: ensure request blob inside formData has SUBMITTED status
+    formData.set(
+      'request',
+      new Blob(
+        [JSON.stringify(payload)],
+        { type: 'application/json' }
+      )
+    );
+
+    // 4. Send request based on mode
     if (this.registryId) {
-        console.log("UPDATE MODE ID = ", this.registryId);
-        this.updatePass();
+      console.log("UPDATE MODE SUBMIT ID = ", this.registryId);
+      this.http.put<PassRegistryResponseDTO>(
+        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+        formData,
+        { headers: this.HEADERS }
+      )
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        finalize(() => this.isSaving.set(false))
+      )
+      .subscribe({
+        next: (response) => {
+          this.saved.set(true);
+          this.saveSuccess.set('Pass submitted successfully.');
+          this.registryId = response.id;
+          this.passNo = response.passNo;
+          this.status = response.reqStatus ?? PassStatus.SUBMITTED;
+
+          // Refresh history table automatically
+          if (this.showPassHistory() && this.registryId) {
+            this.loadPassHistory(this.registryId);
+          }
+        },
+        error: (err) => {
+          console.error("Submit Error:", err);
+          this.saveError.set(
+            err?.error?.message ?? 'Unable to submit vehicle pass.'
+          );
+        }
+      });
     } else {
-        console.log("SAVE MODE");
-        this.savePass();
+      console.log("SAVE MODE SUBMIT");
+      this.http.post<PassRegistryResponseDTO>(
+        API_CONFIG.PASS_SAVE,
+        formData,
+        { headers: this.HEADERS }
+      )
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        finalize(() => this.isSaving.set(false))
+      )
+      .subscribe({
+        next: (response) => {
+          this.saved.set(true);
+          this.saveSuccess.set('Pass submitted successfully.');
+          this.registryId = response.id;
+          this.passNo = response.passNo;
+          this.status = response.reqStatus ?? PassStatus.SUBMITTED;
+
+          if (this.showPassHistory() && this.registryId) {
+            this.loadPassHistory(this.registryId);
+          }
+        },
+        error: (err) => {
+          console.error("Submit Error:", err);
+          this.saveError.set(
+            err?.error?.message ?? 'Unable to submit vehicle pass.'
+          );
+        }
+      });
     }
   }
 

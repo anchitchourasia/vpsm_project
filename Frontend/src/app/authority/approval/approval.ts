@@ -40,6 +40,7 @@ interface PassRecord {
   mobileNo?: string;
 
   reqStatus: string;
+  status?: string;
 
   remarks?: string;
 
@@ -139,14 +140,15 @@ export class Approval implements OnInit, OnDestroy {
   historyLoadError = signal('');
   showHistory = signal(false);
 
-  pendingList = computed(() => {
+pendingList = computed(() => {
     const q = this.searchText().toLowerCase().trim();
     const list = this.allPasses().filter(p => {
 
       const status =
-        (p.reqStatus || p.reqStatus || '').toLowerCase();
+        (p.reqStatus || (p as any).status || '').toLowerCase();
 
-      return status === 'confirmed';
+      // Include both SUBMITTED and CONFIRMED passes for Approver workflow
+      return status === 'submitted' || status === 'confirmed';
     });
     if (!q) return list;
 
