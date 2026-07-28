@@ -401,13 +401,20 @@ export class Passes implements OnInit, OnDestroy {
 
 
 
-  canEditPass(row: PassListRow): boolean {
+canEditPass(row: PassListRow): boolean {
     if (this.isApproverUser()) {
       return false;
     }
 
     const status = (row?.status || '').trim().toUpperCase();
-    return status !== 'ACTIVE' && status !== 'APPROVED' && status !== 'CONFIRMED';
+    
+    return (
+      status === 'DRAFT' ||
+      status === 'SAVED' ||
+      status === 'NEEDS_MODIFICATION' ||
+      status === 'NEEDSMODIFICATION' ||
+      status === 'MODIFY'
+    );
   }
 
 
@@ -423,41 +430,37 @@ export class Passes implements OnInit, OnDestroy {
   */
 
 
-  private mapListData(row: any): PassListRow {
+private mapListData(row: any): PassListRow {
+    const rawStatus = String(row.status || '').trim().toUpperCase();
+
+    // Standardize display statuses
+    let displayStatus = row.status || '';
+    if (rawStatus === 'APPROVED' || rawStatus === 'ACTIVE') {
+      displayStatus = 'ACTIVE';
+    } else if (rawStatus === 'MODIFY' || rawStatus === 'NEEDS_MODIFICATION' || rawStatus === 'NEEDSMODIFICATION') {
+      displayStatus = 'NEEDS_MODIFICATION';
+    }
 
     return {
-
       id: row.id,
       passId: row.id,
-
       passNo: row.passNo,
-
       vehicleNo: row.vehicleNo,
       vehicleType: row.vehicleType,
-
       employeeNo: String(row.employeeNo),
       empType: row.empType,
-
       name: row.name,
-
       deptCode: row.deptCode,
       deptName: row.deptName,
-
       contractorCode: row.contractorCode,
       contractorName: row.contractorName,
-
       aadhaarNo: row.aadhaarNo,
-
-      status: row.status,
-      passStatus: row.status,
-
+      status: displayStatus,
+      passStatus: displayStatus,
       issueDate: row.issueDate,
       validityDate: row.validityDate,
-
       gateNo: row.gateNo
-
     };
-
   }
 
 
@@ -634,46 +637,34 @@ export class Passes implements OnInit, OnDestroy {
 
 
 
-  getStatusClass(status: string) {
-
-
-    switch (
-    status?.toUpperCase()
-    ) {
-
+getStatusClass(status: string) {
+    switch (status?.toUpperCase()) {
       case 'SAVED':
-
+      case 'DRAFT':
         return 'badge bg-primary';
 
-
-
       case 'SUBMITTED':
-
         return 'badge bg-warning';
 
-
-
       case 'CONFIRMED':
+        return 'badge bg-info';
 
+      case 'ACTIVE':
+      case 'APPROVED':
         return 'badge bg-success';
 
-
+      case 'NEEDS_MODIFICATION':
+      case 'NEEDSMODIFICATION':
+      case 'MODIFY':
+        return 'badge bg-warning text-dark';
 
       case 'REJECTED':
-
+      case 'REGRET':
         return 'badge bg-danger';
 
-
-
       default:
-
         return 'badge bg-secondary';
-
-
     }
-
-
-
   }
 
   /*

@@ -87,7 +87,8 @@ export const PassStatus = {
   CONFIRMED: 'CONFIRMED',
   APPROVED: 'APPROVED',
   REGRET: 'REGRET',
-  MODIFY: 'MODIFY'
+  MODIFY: 'MODIFY',
+  NEEDS_MODIFICATION: 'NEEDS_MODIFICATION'
 } as const;
 
 const ALLOWED_DOC_TYPES = ['RC', 'INSURANCE', 'LICENSE'];
@@ -332,18 +333,18 @@ export class PassEntry implements OnInit, OnDestroy {
     try {
       const user = JSON.parse(session);
       console.log('Logged User = ', user);
-      
+
       this.enterBy = user.empCode ?? '';
 
       const role = String(user.role ?? '').toUpperCase();
       console.log('Login Role = ', role);
 
-      if(role === 'APPROVER') {
+      if (role === 'APPROVER') {
         this.isApproverMode.set(true);
       } else {
         this.isApproverMode.set(false);
       }
-    } catch(error) {
+    } catch (error) {
       console.error('Unable to parse session.', error);
     }
   }
@@ -505,7 +506,7 @@ export class PassEntry implements OnInit, OnDestroy {
 
     this.documents.update(docs => {
       if (docs.length === 1) {
-        return docs; 
+        return docs;
       }
       return docs.filter((_, i) => i !== index);
     });
@@ -721,7 +722,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 11 : CRUD Operations
   //=====================================================
-  savePass(): void {
+savePass(): void {
     if (this.isReadOnlyMode) {
       return;
     }
@@ -731,6 +732,16 @@ export class PassEntry implements OnInit, OnDestroy {
 
     if (!this.validateForm()) {
       return;
+    }
+
+    // CASE 1: If pass was in modification state and user clicks SAVE, update status to DRAFT
+    const currentUpperStatus = (this.status || '').toUpperCase();
+    if (
+      currentUpperStatus === PassStatus.MODIFY ||
+      currentUpperStatus === PassStatus.NEEDS_MODIFICATION ||
+      currentUpperStatus === 'NEEDSMODIFICATION'
+    ) {
+      this.status = PassStatus.DRAFT;
     }
 
     this.isSaving.set(true);
@@ -743,25 +754,25 @@ export class PassEntry implements OnInit, OnDestroy {
         formData,
         { headers: this.HEADERS }
       )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe({
-        next: (response) => {
-          this.saved.set(true);
-          this.saveSuccess.set('Vehicle pass updated successfully.');
-          this.registryId = response.id;
-          this.passNo = response.passNo;
-          this.status = response.reqStatus;
-        },
-        error: (err) => {
-          this.saveError.set(
-            err?.error?.message ?? 'Unable to update vehicle pass.'
-          );
-        }
-      });
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe({
+          next: (response) => {
+            this.saved.set(true);
+            this.saveSuccess.set('Vehicle pass updated successfully.');
+            this.registryId = response.id;
+            this.passNo = response.passNo;
+            this.status = response.reqStatus ?? PassStatus.DRAFT;
+          },
+          error: (err) => {
+            this.saveError.set(
+              err?.error?.message ?? 'Unable to update vehicle pass.'
+            );
+          }
+        });
       return;
     }
 
@@ -771,25 +782,25 @@ export class PassEntry implements OnInit, OnDestroy {
       formData,
       { headers: this.HEADERS }
     )
-    .pipe(
-      timeout(HTTP_TIMEOUT_MS),
-      takeUntil(this.destroy$),
-      finalize(() => this.isSaving.set(false))
-    )
-    .subscribe({
-      next: (response) => {
-        this.saved.set(true);
-        this.saveSuccess.set('Vehicle pass saved successfully.');
-        this.registryId = response.id;
-        this.passNo = response.passNo;
-        this.status = response.reqStatus;
-      },
-      error: (err) => {
-        this.saveError.set(
-          err?.error?.message ?? 'Unable to save vehicle pass.'
-        );
-      }
-    });
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        finalize(() => this.isSaving.set(false))
+      )
+      .subscribe({
+        next: (response) => {
+          this.saved.set(true);
+          this.saveSuccess.set('Vehicle pass saved successfully.');
+          this.registryId = response.id;
+          this.passNo = response.passNo;
+          this.status = response.reqStatus ?? PassStatus.DRAFT;
+        },
+        error: (err) => {
+          this.saveError.set(
+            err?.error?.message ?? 'Unable to save vehicle pass.'
+          );
+        }
+      });
   }
 
   updatePass(): void {
@@ -859,8 +870,8 @@ export class PassEntry implements OnInit, OnDestroy {
           this.vehicleType = response.vehicleType ?? '';
           this.brandModel = response.brandModel ?? '';
           this.employeeNo = String(response.employeeNo ?? '');
-          this.ecNo =  String(response.employeeNo ?? '');
-          
+          this.ecNo = String(response.employeeNo ?? '');
+
           this.setEmployeeType(response.empType);
           this.contractorCode = response.contractorCode ?? null;
           this.gateNo = response.gateNo ?? '';
@@ -918,7 +929,13 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 12 : Workflow
   //=====================================================
-updatePassStatus(id: number, status: string): void {
+  //=====================================================
+  // SECTION 12 : Workflow
+  //=====================================================
+  //=====================================================
+  // SECTION 12 : Workflow Handlers
+  //=====================================================
+  updatePassStatus(id: number, status: string): void {
     this.isSaving.set(true);
 
     const payload = {
@@ -935,13 +952,13 @@ updatePassStatus(id: number, status: string): void {
       next: (response) => {
         this.isSaving.set(false);
         console.log("Status Updated Successfully", response);
-        
+
         this.loadPass(id);
-        
+
         if (this.showPassHistory()) {
           this.loadPassHistory(id);
         }
-        
+
         this.showMessage(`${status} completed successfully`);
       },
       error: (error) => {
@@ -959,17 +976,36 @@ updatePassStatus(id: number, status: string): void {
 
   approvePass(): void {
     if (!this.registryId) return;
-    this.updatePassStatus(this.registryId, PassStatus.APPROVED);
+    // Sends ACTIVE status to transition pass to active state
+    this.updatePassStatus(this.registryId, 'ACTIVE');
   }
 
-  regretPass(): void {
+  rejectPass(): void {
     if (!this.registryId) return;
+    if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
+      alert('Remark is required before rejecting.');
+      return;
+    }
     this.updatePassStatus(this.registryId, PassStatus.REGRET);
   }
 
-  modifyPass(): void {
+  // Alias to satisfy template call (click)="regretPass()"
+  regretPass(): void {
+    this.rejectPass();
+  }
+
+  sendForModify(): void {
     if (!this.registryId) return;
+    if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
+      alert('Remark is required before requesting modification.');
+      return;
+    }
     this.updatePassStatus(this.registryId, PassStatus.MODIFY);
+  }
+
+  // Alias to satisfy template call (click)="modifyPass()"
+  modifyPass(): void {
+    this.sendForModify();
   }
 
   private showMessage(message: string): void {
@@ -983,12 +1019,39 @@ updatePassStatus(id: number, status: string): void {
     this.empFetchError.set('');
   }
 
+  // Helper property checking if mode is approver
+  get isApproverView(): boolean {
+    return this.isApproverMode() || (this.route.snapshot.queryParams['mode'] === 'approver');
+  }
+
+  // Edit guard for creator form
+ // Edit guard for creator form
   canEdit(): boolean {
+    if (this.isViewMode() || this.isApproverView) {
+      return false;
+    }
+    const s = (this.status || '').toUpperCase();
     return (
-      this.status === PassStatus.DRAFT ||
-      this.status === PassStatus.SAVED ||
-      this.status === PassStatus.MODIFY
+      s === PassStatus.DRAFT ||
+      s === PassStatus.SAVED ||
+      s === PassStatus.MODIFY ||
+      s === PassStatus.NEEDS_MODIFICATION ||
+      s === 'NEEDSMODIFICATION'
     );
+  }
+
+  // Guards for Approver action buttons
+  canApprove(): boolean {
+    const s = (this.status || '').toUpperCase();
+    return this.isApproverView && (s === 'SUBMITTED' || s === 'CONFIRMED');
+  }
+
+  canReject(): boolean {
+    return this.canApprove();
+  }
+
+  canSendForModify(): boolean {
+    return this.canApprove();
   }
 
   onEcNoBlur(): void {
@@ -1003,7 +1066,7 @@ updatePassStatus(id: number, status: string): void {
     this.loadEmployee();
   }
 
-onSubmit(): void {
+  onSubmit(): void {
     console.log("===== SUBMIT CLICKED =====");
     this.saveError.set('');
     this.saveSuccess.set('');
@@ -1050,31 +1113,31 @@ onSubmit(): void {
         formData,
         { headers: this.HEADERS }
       )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe({
-        next: (response) => {
-          this.saved.set(true);
-          this.saveSuccess.set('Pass submitted successfully.');
-          this.registryId = response.id;
-          this.passNo = response.passNo;
-          this.status = response.reqStatus ?? PassStatus.SUBMITTED;
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe({
+          next: (response) => {
+            this.saved.set(true);
+            this.saveSuccess.set('Pass submitted successfully.');
+            this.registryId = response.id;
+            this.passNo = response.passNo;
+            this.status = response.reqStatus ?? PassStatus.SUBMITTED;
 
-          // Refresh history table automatically
-          if (this.showPassHistory() && this.registryId) {
-            this.loadPassHistory(this.registryId);
+            // Refresh history table automatically
+            if (this.showPassHistory() && this.registryId) {
+              this.loadPassHistory(this.registryId);
+            }
+          },
+          error: (err) => {
+            console.error("Submit Error:", err);
+            this.saveError.set(
+              err?.error?.message ?? 'Unable to submit vehicle pass.'
+            );
           }
-        },
-        error: (err) => {
-          console.error("Submit Error:", err);
-          this.saveError.set(
-            err?.error?.message ?? 'Unable to submit vehicle pass.'
-          );
-        }
-      });
+        });
     } else {
       console.log("SAVE MODE SUBMIT");
       this.http.post<PassRegistryResponseDTO>(
@@ -1082,30 +1145,30 @@ onSubmit(): void {
         formData,
         { headers: this.HEADERS }
       )
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
-      )
-      .subscribe({
-        next: (response) => {
-          this.saved.set(true);
-          this.saveSuccess.set('Pass submitted successfully.');
-          this.registryId = response.id;
-          this.passNo = response.passNo;
-          this.status = response.reqStatus ?? PassStatus.SUBMITTED;
+        .pipe(
+          timeout(HTTP_TIMEOUT_MS),
+          takeUntil(this.destroy$),
+          finalize(() => this.isSaving.set(false))
+        )
+        .subscribe({
+          next: (response) => {
+            this.saved.set(true);
+            this.saveSuccess.set('Pass submitted successfully.');
+            this.registryId = response.id;
+            this.passNo = response.passNo;
+            this.status = response.reqStatus ?? PassStatus.SUBMITTED;
 
-          if (this.showPassHistory() && this.registryId) {
-            this.loadPassHistory(this.registryId);
+            if (this.showPassHistory() && this.registryId) {
+              this.loadPassHistory(this.registryId);
+            }
+          },
+          error: (err) => {
+            console.error("Submit Error:", err);
+            this.saveError.set(
+              err?.error?.message ?? 'Unable to submit vehicle pass.'
+            );
           }
-        },
-        error: (err) => {
-          console.error("Submit Error:", err);
-          this.saveError.set(
-            err?.error?.message ?? 'Unable to submit vehicle pass.'
-          );
-        }
-      });
+        });
     }
   }
 
@@ -1114,20 +1177,20 @@ onSubmit(): void {
     this.saveError.set('');
 
     if (!this.validateVehicle()) {
-        console.log("Vehicle validation failed");
-        return false;
+      console.log("Vehicle validation failed");
+      return false;
     }
     if (!this.validateEmployee()) {
-        console.log("Employee validation failed");
-        return false;
+      console.log("Employee validation failed");
+      return false;
     }
     if (!this.validateGateAndParking()) {
-        console.log("Gate validation failed");
-        return false;
+      console.log("Gate validation failed");
+      return false;
     }
     if (!this.validateDocuments()) {
-        console.log("Document validation failed");
-        return false;
+      console.log("Document validation failed");
+      return false;
     }
 
     console.log("VALIDATION SUCCESS");

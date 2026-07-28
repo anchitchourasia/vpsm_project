@@ -363,6 +363,7 @@ pendingList = computed(() => {
 
 
   // ── NEW: Send for Modify ──────────────────────────────────────────────────
+  // ── Send for Modify ──────────────────────────────────────────────────
   sendForModify(pass: PassRecord): void {
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required — describe what needs to be modified.');
@@ -370,12 +371,13 @@ pendingList = computed(() => {
     }
     this.isActing.set(true);
     this.actionError.set('');
+
     const updatePayload = {
       status: 'NEEDS_MODIFICATION',
       enterBy: this.approverName(),
-      remarks: `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`,
-
+      remarks: `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
     };
+
     this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
         catchError(err => {
@@ -387,8 +389,8 @@ pendingList = computed(() => {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.id, this.approverCode(), 'SENT_FOR_MODIFICATION',
-          `Modification requested by Confirmer [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.logHistory(pass.id, this.approverCode(), 'NEEDS_MODIFICATION',
+          `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`🔄 Pass #${pass.id} sent back to requester for modification.`);
         this.isActing.set(false);
         this.activeAction.set(null);
@@ -606,15 +608,16 @@ pendingList = computed(() => {
   onSearch(value: string): void { this.searchText.set(value); this.currentPage.set(1); }
   goToPage(page: number): void { if (page >= 1 && page <= this.totalPages) this.currentPage.set(page); }
 
-  getStatusLabel(status: string): string {
+getStatusLabel(status: string): string {
     switch ((status || '').toLowerCase()) {
       case 'submitted': return 'Pending Confirmation';
       case 'confirmed': return 'Pending Approval';
-      case 'active': return 'Approved';
+      case 'active': return 'ACTIVE';
+      case 'approved': return 'ACTIVE';
       case 'rejected': return 'Rejected';
       case 'surrendered': return 'Surrendered';
       case 'expired': return 'Expired';
-      case 'needs_modification': return 'Needs Modification';   // ← NEW
+      case 'needs_modification': return 'Needs Modification';
       default: return status || '—';
     }
   }
