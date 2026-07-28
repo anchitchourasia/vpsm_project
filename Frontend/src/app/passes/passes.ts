@@ -149,20 +149,18 @@ export class Passes implements OnInit, OnDestroy {
 
 
 
-  /*
+ /*
   =====================================================
    SEARCH + FILTER
   =====================================================
   */
 
-
   filteredPasses = computed(() => {
-
     const search = this.searchText()
       .trim()
       .toLowerCase();
 
-    const status = this.filterStatus();
+    const status = this.filterStatus().trim().toUpperCase();
     const empType = this.filterEmpType();
     const vehicleType = this.filterVehicleType();
 
@@ -178,18 +176,32 @@ export class Passes implements OnInit, OnDestroy {
 
         const matchSearch =
           !search ||
+          (row.passNo || '').toString().toLowerCase().includes(search) ||
           (row.vehicleNo || '').toLowerCase().includes(search) ||
           (row.employeeNo || '').toLowerCase().includes(search) ||
+          (row.name || '').toLowerCase().includes(search) ||
           (row.contractorCode || '').toLowerCase().includes(search) ||
+          (row.contractorName || '').toLowerCase().includes(search) ||
           (row.empType || '').toLowerCase().includes(search);
 
-        const matchStatus =
-          status === 'ALL' ||
-          (row.status || '').trim().toUpperCase() === status;
+        // Standardized Status Matching
+        const rowStatus = (row.status || '').trim().toUpperCase();
+
+        let matchStatus = false;
+        if (status === 'ALL' || status === '') {
+          matchStatus = true;
+        } else if (status === 'REJECT' || status === 'REJECTED' || status === 'REGRET') {
+          matchStatus = (rowStatus === 'REJECT');
+        } else if (status === 'NEEDS_MODIFICATION' || status === 'MODIFY' || status === 'NEEDSMODIFICATION') {
+          matchStatus = (rowStatus === 'NEEDS_MODIFICATION');
+        } else if (status === 'ACTIVE' || status === 'APPROVED') {
+          matchStatus = (rowStatus === 'ACTIVE');
+        } else {
+          matchStatus = (rowStatus === status);
+        }
 
         return matchSearch && matchStatus && matchEmpType && matchVehicleType;
       });
-
   });
 
 
@@ -433,12 +445,14 @@ canEditPass(row: PassListRow): boolean {
 private mapListData(row: any): PassListRow {
     const rawStatus = String(row.status || '').trim().toUpperCase();
 
-    // Standardize display statuses
+    // Standardize display statuses uniformly
     let displayStatus = row.status || '';
     if (rawStatus === 'APPROVED' || rawStatus === 'ACTIVE') {
       displayStatus = 'ACTIVE';
     } else if (rawStatus === 'MODIFY' || rawStatus === 'NEEDS_MODIFICATION' || rawStatus === 'NEEDSMODIFICATION') {
       displayStatus = 'NEEDS_MODIFICATION';
+    } else if (rawStatus === 'REGRET' || rawStatus === 'REJECTED' || rawStatus === 'REJECT') {
+      displayStatus = 'REJECT';
     }
 
     return {
@@ -658,6 +672,7 @@ getStatusClass(status: string) {
       case 'MODIFY':
         return 'badge bg-warning text-dark';
 
+      case 'REJECT':
       case 'REJECTED':
       case 'REGRET':
         return 'badge bg-danger';

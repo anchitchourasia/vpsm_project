@@ -794,47 +794,48 @@
 
 
 
-<!-- ============================
+    <!-- ============================
       CONFIRMER / SUBMITTED
     =============================== -->
     @if (status === PassStatus.SUBMITTED && isConfirmerMode()) {
-      <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
-        <i class="bi bi-pencil-square"></i> Send Modification
-      </button>
+    <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
+      <i class="bi bi-pencil-square"></i> Send Modification
+    </button>
 
-      <button class="pe-btn pe-btn-reject" (click)="regretPass()" [disabled]="!reviewRemark().trim()">
-        <i class="bi bi-x-circle-fill"></i> Reject
-      </button>
+    <!-- WITH THIS: -->
+    <button class="pe-btn pe-btn-reject" (click)="rejectPass()" [disabled]="!reviewRemark()">
+      <i class="bi bi-x-circle-fill"></i> Reject
+    </button>
 
-      <button class="pe-btn pe-btn-submit" (click)="confirmPass()" [disabled]="!reviewRemark().trim()">
-        <i class="bi bi-check-circle-fill"></i> Confirm & Send Approver
-      </button>
+    <button class="pe-btn pe-btn-submit" (click)="confirmPass()" [disabled]="!reviewRemark().trim()">
+      <i class="bi bi-check-circle-fill"></i> Confirm & Send Approver
+    </button>
     }
 
     <!-- ============================
       APPROVER (Handles BOTH SUBMITTED and CONFIRMED)
     =============================== -->
     @if ((status === PassStatus.SUBMITTED || status === PassStatus.CONFIRMED) && isApproverMode()) {
-      <button class="pe-btn pe-btn-modify" (click)="modifyPass()">
-        <i class="bi bi-pencil-square"></i> Send Modification
-      </button>
+    <button class="pe-btn pe-btn-modify" (click)="modifyPass()">
+      <i class="bi bi-pencil-square"></i> Send Modification
+    </button>
 
-      <button class="pe-btn pe-btn-reject" (click)="regretPass()">
-        <i class="bi bi-x-circle-fill"></i> Reject
-      </button>
+    <button class="pe-btn pe-btn-reject" (click)="rejectPass()">
+      <i class="bi bi-x-circle-fill"></i> Reject
+    </button>
 
-      <button class="pe-btn pe-btn-submit" (click)="approvePass()">
-        <i class="bi bi-check-circle-fill"></i> Approve
-      </button>
+    <button class="pe-btn pe-btn-submit" (click)="approvePass()">
+      <i class="bi bi-check-circle-fill"></i> Approve
+    </button>
     }
 
     <!-- ============================
       READ ONLY BACK BUTTON
     =============================== -->
     @if (isReadOnlyMode && !isApproverMode() && !isConfirmerMode()) {
-      <button class="pe-btn pe-btn-clear" (click)="goBackToPasses()">
-        <i class="bi bi-arrow-left-circle"></i> Back
-      </button>
+    <button class="pe-btn pe-btn-clear" (click)="goBackToPasses()">
+      <i class="bi bi-arrow-left-circle"></i> Back
+    </button>
     }
 
   </div>

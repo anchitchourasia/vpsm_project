@@ -549,6 +549,7 @@ pendingList = computed(() => {
       });
   }
   // ── Reject Pass ───────────────────────────────────────────────────────────
+// ── Reject Pass ───────────────────────────────────────────────────────────
   reject(pass: PassRecord): void {
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required before rejecting.');
@@ -557,10 +558,9 @@ pendingList = computed(() => {
     this.isActing.set(true);
     this.actionError.set('');
     const updatePayload = {
-      status: 'Rejected',
+      status: 'REJECT',
       enterBy: this.approverName(),
       remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
-
     };
     this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
       .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
@@ -572,7 +572,7 @@ pendingList = computed(() => {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.id, this.approverCode(), 'REJECTED',
+        this.logHistory(pass.id, this.approverCode(), 'REJECT',
           `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
         this.actionSuccess.set(`❌ Pass #${pass.passId} rejected.`);
         this.isActing.set(false);
@@ -614,7 +614,9 @@ getStatusLabel(status: string): string {
       case 'confirmed': return 'Pending Approval';
       case 'active': return 'ACTIVE';
       case 'approved': return 'ACTIVE';
-      case 'rejected': return 'Rejected';
+      case 'reject':
+      case 'rejected':
+      case 'regret': return 'REJECT';
       case 'surrendered': return 'Surrendered';
       case 'expired': return 'Expired';
       case 'needs_modification': return 'Needs Modification';

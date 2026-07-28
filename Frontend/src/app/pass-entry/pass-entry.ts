@@ -86,7 +86,8 @@ export const PassStatus = {
   SUBMITTED: 'SUBMITTED',
   CONFIRMED: 'CONFIRMED',
   APPROVED: 'APPROVED',
-  REGRET: 'REGRET',
+  REJECT: 'REJECT',
+  REGRET: 'REJECT', // Fallback mapping for existing references
   MODIFY: 'MODIFY',
   NEEDS_MODIFICATION: 'NEEDS_MODIFICATION'
 } as const;
@@ -980,13 +981,13 @@ savePass(): void {
     this.updatePassStatus(this.registryId, 'ACTIVE');
   }
 
-  rejectPass(): void {
+rejectPass(): void {
     if (!this.registryId) return;
     if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
       alert('Remark is required before rejecting.');
       return;
     }
-    this.updatePassStatus(this.registryId, PassStatus.REGRET);
+    this.updatePassStatus(this.registryId, PassStatus.REJECT);
   }
 
   // Alias to satisfy template call (click)="regretPass()"

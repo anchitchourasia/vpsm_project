@@ -40,14 +40,14 @@
           <i class="bi bi-cloud-arrow-down"></i>
           Download Excel
         </button>
-        <select class="filter-select" (change)="onStatusChange($any($event.target).value)">
+        <select class="form-select" [ngModel]="filterStatus()"
+          (ngModelChange)="filterStatus.set($event); currentPage.set(1)">
           <option value="ALL">All Status</option>
           <option value="DRAFT">DRAFT</option>
+          <option value="SUBMITTED">SUBMITTED</option>
           <option value="ACTIVE">ACTIVE</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="REJECTED">Rejected</option>
           <option value="NEEDS_MODIFICATION">Needs Modification</option>
-          <option value="APPROVED">Approved</option>
+          <option value="REJECT">Rejected</option>
         </select>
 
         <select class="filter-select" (change)="onPageSizeChange($any($event.target).value)">
