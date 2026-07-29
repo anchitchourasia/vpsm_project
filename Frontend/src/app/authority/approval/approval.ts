@@ -363,12 +363,22 @@ pendingList = computed(() => {
 
 
   // ── NEW: Send for Modify ──────────────────────────────────────────────────
-  // ── Send for Modify ──────────────────────────────────────────────────
-  sendForModify(pass: PassRecord): void {
+sendForModify(pass?: PassRecord): void {
+    const targetPass = pass || this.selectedPass();
+    if (!targetPass) {
+      this.actionError.set('No pass selected.');
+      return;
+    }
+
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required — describe what needs to be modified.');
       return;
     }
+
+    const targetId = targetPass.passId || targetPass.id;
+    const confirmed = window.confirm(`Are you sure you want to send Pass #${targetId} back for MODIFICATION?`);
+    if (!confirmed) return;
+
     this.isActing.set(true);
     this.actionError.set('');
 
@@ -378,8 +388,10 @@ pendingList = computed(() => {
       remarks: `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
     };
 
-    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
-      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${targetPass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
           this.isActing.set(false);
@@ -389,9 +401,9 @@ pendingList = computed(() => {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.id, this.approverCode(), 'NEEDS_MODIFICATION',
+        this.logHistory(targetPass.id, this.approverCode(), 'NEEDS_MODIFICATION',
           `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`🔄 Pass #${pass.id} sent back to requester for modification.`);
+        this.actionSuccess.set(`🔄 Pass #${targetId} sent back to requester for modification.`);
         this.isActing.set(false);
         this.activeAction.set(null);
         this.loadPasses();
@@ -483,11 +495,21 @@ pendingList = computed(() => {
     return 'Valid';
   }
 
-  approve(pass: PassRecord): void {
+approve(pass?: PassRecord): void {
+    const targetPass = pass || this.selectedPass();
+    if (!targetPass) {
+      this.actionError.set('No pass selected.');
+      return;
+    }
+
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required before approving.');
       return;
     }
+
+    const targetId = targetPass.passId || targetPass.id;
+    const confirmed = window.confirm(`Are you sure you want to APPROVE Pass #${targetId}?`);
+    if (!confirmed) return;
 
     this.isActing.set(true);
     this.actionError.set('');
@@ -498,7 +520,7 @@ pendingList = computed(() => {
       enterBy: this.approverName()
     };
 
-    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.id}`, updatePayload, { headers: this.HEADERS })
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${targetPass.id}`, updatePayload, { headers: this.HEADERS })
       .pipe(
         timeout(TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -510,7 +532,7 @@ pendingList = computed(() => {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.actionSuccess.set(`✅ Pass #${pass.id} approved successfully.`);
+        this.actionSuccess.set(`✅ Pass #${targetId} approved successfully.`);
         this.isActing.set(false);
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);
@@ -549,21 +571,35 @@ pendingList = computed(() => {
       });
   }
   // ── Reject Pass ───────────────────────────────────────────────────────────
-// ── Reject Pass ───────────────────────────────────────────────────────────
-  reject(pass: PassRecord): void {
+reject(pass?: PassRecord): void {
+    const targetPass = pass || this.selectedPass();
+    if (!targetPass) {
+      this.actionError.set('No pass selected.');
+      return;
+    }
+
     if (!this.actionRemark().trim()) {
       this.actionError.set('Remark is required before rejecting.');
       return;
     }
+
+    const targetId = targetPass.passId || targetPass.id;
+    const confirmed = window.confirm(`Are you sure you want to REJECT Pass #${targetId}?`);
+    if (!confirmed) return;
+
     this.isActing.set(true);
     this.actionError.set('');
+
     const updatePayload = {
       status: 'REJECT',
       enterBy: this.approverName(),
       remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
     };
-    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
-      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${targetPass.passId || targetPass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
         catchError(err => {
           this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));
           this.isActing.set(false);
@@ -572,9 +608,9 @@ pendingList = computed(() => {
       )
       .subscribe(res => {
         if (res === null) return;
-        this.logHistory(pass.id, this.approverCode(), 'REJECT',
+        this.logHistory(targetPass.id, this.approverCode(), 'REJECT',
           `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
-        this.actionSuccess.set(`❌ Pass #${pass.passId} rejected.`);
+        this.actionSuccess.set(`❌ Pass #${targetId} rejected.`);
         this.isActing.set(false);
         this.loadPasses();
         setTimeout(() => this.closeDetails(), 2000);
@@ -610,7 +646,7 @@ pendingList = computed(() => {
 
 getStatusLabel(status: string): string {
     switch ((status || '').toLowerCase()) {
-      case 'submitted': return 'Pending Confirmation';
+      case 'submitted': return 'Pending Approval';
       case 'confirmed': return 'Pending Approval';
       case 'active': return 'ACTIVE';
       case 'approved': return 'ACTIVE';

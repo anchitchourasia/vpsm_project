@@ -67,6 +67,14 @@
               <td>{{ p.empType || '—' }}</td>
               <td>{{ p.gateNo || '—' }}</td>
 
+              <!-- STATUS CELL (Fixed: Now calls getStatusClass & getStatusLabel from approval.ts) -->
+              <td>
+                <span class="status-badge" [ngClass]="getStatusClass(p.status || p.reqStatus)">
+                  {{ getStatusLabel(p.status || p.reqStatus) }}
+                </span>
+              </td>
+
+              <!-- ACTION CELL (Review Button correctly placed under ACTION column) -->
               <td>
                 <button class="btn-review blue-btn" (click)="openReviewInPassEntry(p)">
                   <i class="bi bi-eye-fill"></i> Review
@@ -233,7 +241,8 @@
 
         <div class="modify-confirm-box" *ngIf="activeAction() === 'modify'">
           <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b"></i>
-          <span>This will send the pass back to the <strong>original requester</strong> for modification. Make sure your remark explains what needs to change.</span>
+          <span>This will send the pass back to the <strong>original requester</strong> for modification. Make sure your
+            remark explains what needs to change.</span>
         </div>
 
         <!-- History Panel -->
