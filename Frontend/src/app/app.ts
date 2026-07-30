@@ -4,8 +4,7 @@
 
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { CommonModule }     from '@angular/common';
-import { PassStateService } from './services/pass-state.service';
+import { CommonModule }     from '@angular/common'
 import { AuthService }      from './core/auth.service';
 
 @Component({
@@ -18,7 +17,6 @@ import { AuthService }      from './core/auth.service';
 export class App implements OnInit {
 
   private router    = inject(Router);
-  private passState = inject(PassStateService);
 
   auth = inject(AuthService);
 
