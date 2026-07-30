@@ -6,7 +6,7 @@ export const API_CONFIG = {
   APIKEY: environment.apiKey,
 
   // AUTH
-  AUTHORITY_BY_EMP: `${environment.apiBaseUrl}/api/authority`,
+  AUTHORITY_BY_EMP: `${environment.cvpsBaseUrl}/api/authority`,
   AUTHORITY_UPDATE: `${environment.apiBaseUrl}/api/authority/update`,
   EMPLOYEE_REPORT: `${environment.apiBaseUrl}/api/reports/employee-department`,
   EMPLOYEEREPORT: `${environment.apiBaseUrl}/api/reports/employee-department`,
