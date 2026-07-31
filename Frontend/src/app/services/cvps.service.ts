@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { Observable, of, catchError } from 'rxjs';
 
 export interface CreateRequestRequestDTO {
   requestNo?: number;
@@ -230,15 +230,19 @@ export class CvpsService {
   );
 }
 fetchEmployeeDetails(empCode: string): Observable<any> {
-
   const headers = new HttpHeaders({
     'x-api-key': API_CONFIG.API_KEY,
     'Accept': 'application/json'
   });
 
-  return this.http.get<any>(
-    `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(empCode)}`,
-    { headers }
+  const code = encodeURIComponent(empCode.trim());
+
+  // First try the report API, and if connection is refused (status 0), fallback to CVPS controller
+  return this.http.get<any>(`${API_CONFIG.EMPLOYEE_REPORT}/${code}`, { headers }).pipe(
+    catchError(() => {
+      console.warn('Primary employee report API unreachable, trying CVPS fallback endpoint...');
+      return this.http.get<any>(`${environment.cvpsBaseUrl}/api/requests/employee-name/${code}`, { headers });
+    })
   );
 }
 

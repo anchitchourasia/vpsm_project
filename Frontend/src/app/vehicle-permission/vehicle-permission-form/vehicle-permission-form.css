@@ -232,3 +232,58 @@
     margin-left: 0;
   }
 }
+.vp-driver-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr 1fr;
+  gap: 16px 24px;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .vp-driver-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .vp-driver-row {
+    grid-template-columns: 1fr;
+  }
+}
+.vp-employee-name-inline {
+  display: block;
+  margin-top: 4px;
+  color: #28a745;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  word-break: break-word;
+}
+/* Align all 5 driver fields + delete button on one single line */
+.vp-driver-row {
+  display: grid !important;
+  /* Proportions: Role | Emp Code | Name | Eye File | Eye Date | Trash Icon */
+  grid-template-columns: 1fr 1fr 1.2fr 1.5fr 1fr 42px !important;
+  gap: 10px !important;
+  align-items: start !important;
+  width: 100% !important;
+}
+
+/* Ensure action column aligns the delete button properly with the input fields */
+.vp-driver-action-col {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  height: 100% !important;
+}
+
+/* Red trash button styling */
+.vp-driver-action-col .vp-btn-del {
+  height: 38px !important;
+  width: 38px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+}
