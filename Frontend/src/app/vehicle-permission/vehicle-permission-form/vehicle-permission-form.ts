@@ -177,7 +177,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   onContractorCodeBlur(): void {
-
     if (this.isReadOnlyMode()) {
       return;
     }
@@ -993,28 +992,18 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.permissionDateTo.set(this.formatDate(req.permissionTo || ''));
   }
 
-  private resolveContractorName(contractorCode: string): void {
-
-    this.cvps.fetchContractorDetails(contractorCode)
-      .pipe(
-        takeUntil(this.destroy$),
-        catchError(err => {
-          console.error(err);
-          this.contractorName.set('');
-          this.errorMsg.set('Unable to fetch contractor details.');
-          return of(null);
-        })
-      )
-      .subscribe((response: any) => {
-
-        if (response) {
-          this.contractorName.set(response.contractorName ?? '');
-        } else {
-          this.contractorName.set('');
-        }
-
-      });
-  }
+private resolveContractorName(contractorCode: string): void {
+  this.cvps.fetchContractorDetails(contractorCode).subscribe({
+    next: (bp: any) => {
+      this.contractorCode.set(bp?.contractorCode || contractorCode);
+      this.contractorName.set(bp?.contractorName || '');
+    },
+    error: () => {
+      this.contractorName.set('');
+      this.errorMsg.set(`Unable to fetch contractor details for code ${contractorCode}.`);
+    }
+  });
+}
 
   saveDraft(): void {
     this.processFormSubmission('SAVED');
@@ -1047,19 +1036,13 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
 
     if (targetStatus === 'CREATED') {
-      const today = this.reqDate();
-      if (!this.permissionDateFrom() || this.permissionDateFrom() < today) {
-        this.errorMsg.set('Permission Date From cannot be blank or a past date.');
-        return false;
-      }
-      if (!this.permissionDateTo() || this.permissionDateTo() < this.permissionDateFrom()) {
+      if (!this.permissionDateTo()) {
         this.errorMsg.set('Permission Date To is invalid.');
         return false;
       }
+
       if (!this.hasAllRequiredVehicleDocs()) {
-        this.errorMsg.set(
-          'RC and Insurance documents must be completed before submitting.'
-        );
+        this.errorMsg.set('RC and Insurance documents must be completed before submitting.');
         return false;
       }
 
@@ -1073,6 +1056,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           return false;
         }
       }
+
 
       for (let idx = 0; idx < this.drivers().length; idx++) {
         const d = this.drivers()[idx];
