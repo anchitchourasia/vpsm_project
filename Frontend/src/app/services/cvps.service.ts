@@ -17,6 +17,14 @@ export interface CreateRequestRequestDTO {
   requestId?: number;
   userRemark?: string;
 }
+export interface DashboardSummaryDTO {
+  totalPasses: number;
+  approved: number;
+  submitted: number;
+  confirmed: number;
+  pendingConfirmer?: number;
+  pendingApprover?: number;
+}
 
 export interface VehicleDocumentDTO {
   id?: number;
@@ -174,15 +182,24 @@ export class CvpsService {
       API_CONFIG.CVPS_GET_ALL_REQUESTS
     );
   }
+
+
+  getDashboardSummary(): Observable<DashboardSummaryDTO> {
+    return this.http.get<DashboardSummaryDTO>(
+      `${environment.cvpsBaseUrl}/api/requests/dashboard-summary`
+    );
+  }
+
+
   getDocumentUrl(filename: string): string {
     return `${environment.cvpsBaseUrl}/api/documents/download/${encodeURIComponent(filename)}`;
   }
   getRequestHistory(requestNo: number): Observable<RequestHistoryDTO[]> {
     console.log('Service getRequestHistory called with:', requestNo);
-  return this.http.get<RequestHistoryDTO[]>(
-    `${environment.cvpsBaseUrl}/api/requests/history/${requestNo}`
-  );
-}
+    return this.http.get<RequestHistoryDTO[]>(
+      `${environment.cvpsBaseUrl}/api/requests/history/${requestNo}`
+    );
+  }
 
   downloadDocument(filename: string): Observable<Blob> {
     return this.http.get(this.getDocumentUrl(filename), {
@@ -218,32 +235,32 @@ export class CvpsService {
 
   fetchContractorDetails(contractorCode: string): Observable<any> {
 
-  const headers = new HttpHeaders({
-    'x-api-key': API_CONFIG.API_KEY,
-    'Accept': 'application/json'
-  });
+    const headers = new HttpHeaders({
+      'x-api-key': API_CONFIG.API_KEY,
+      'Accept': 'application/json'
+    });
 
-  return this.http.get<any>(
-    `${API_CONFIG.CVPS_BP_RECORDS}/${contractorCode.trim()}`,
-    { headers }
-  );
-}
-fetchEmployeeDetails(empCode: string): Observable<any> {
-  const headers = new HttpHeaders({
-    'x-api-key': API_CONFIG.API_KEY,
-    'Accept': 'application/json'
-  });
+    return this.http.get<any>(
+      `${API_CONFIG.CVPS_BP_RECORDS}/${contractorCode.trim()}`,
+      { headers }
+    );
+  }
+  fetchEmployeeDetails(empCode: string): Observable<any> {
+    const headers = new HttpHeaders({
+      'x-api-key': API_CONFIG.API_KEY,
+      'Accept': 'application/json'
+    });
 
-  const code = encodeURIComponent(empCode.trim());
+    const code = encodeURIComponent(empCode.trim());
 
-  // First try the report API, and if connection is refused (status 0), fallback to CVPS controller
-  return this.http.get<any>(`${API_CONFIG.EMPLOYEE_REPORT}/${code}`, { headers }).pipe(
-    catchError(() => {
-      console.warn('Primary employee report API unreachable, trying CVPS fallback endpoint...');
-      return this.http.get<any>(`${environment.cvpsBaseUrl}/api/requests/employee-name/${code}`, { headers });
-    })
-  );
-}
+    // First try the report API, and if connection is refused (status 0), fallback to CVPS controller
+    return this.http.get<any>(`${API_CONFIG.EMPLOYEE_REPORT}/${code}`, { headers }).pipe(
+      catchError(() => {
+        console.warn('Primary employee report API unreachable, trying CVPS fallback endpoint...');
+        return this.http.get<any>(`${environment.cvpsBaseUrl}/api/requests/employee-name/${code}`, { headers });
+      })
+    );
+  }
 
   triggerBlobDownload(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);

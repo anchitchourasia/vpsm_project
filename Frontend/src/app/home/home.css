@@ -184,3 +184,94 @@
   transition : color 0.15s;
 }
 .kpi-card:hover .kpi-link { color: #ffffff; }
+.home-notification {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.16s, box-shadow 0.16s, filter 0.16s;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-notification:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.02);
+}
+
+.home-notification i {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.home-notification-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.notification-arrow {
+  opacity: 0.85;
+  font-size: 18px;
+}
+
+/* Confirmer: navy/indigo like your KPI TOTAL/SUBMITTED palette */
+.confirmer-note {
+  background: linear-gradient(135deg, #151616 0%, #7b98e7 100%);
+  box-shadow: 0 4px 16px rgba(29, 78, 216, 0.28);
+  border: 1px solid rgba(191, 219, 254, 0.22);
+}
+
+.confirmer-note::before {
+  content: '';
+  position: absolute;
+  right: -18px;
+  top: -18px;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+/* Approver: teal/green like your KPI APPROVED palette */
+.approver-note {
+  background: linear-gradient(135deg, #064e3b 0%, #059669 100%);
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.26);
+  border: 1px solid rgba(167, 243, 208, 0.18);
+}
+
+.approver-note::before {
+  content: '';
+  position: absolute;
+  right: -18px;
+  top: -18px;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.home-empty-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #151616 0%, #151616 100%);
+  border: 1px solid #1a469e;
+  color: #f3f3f5;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.home-empty-note i {
+  color: #16a34a;
+  font-size: 17px;
+}

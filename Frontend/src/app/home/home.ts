@@ -1,149 +1,93 @@
 import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-// import { Router } from '@angular/router';
-import { Subject, catchError, of, takeUntil, timeout } from 'rxjs';
+import { Router } from '@angular/router';
+import { Subject, catchError, of, takeUntil, timeout, interval } from 'rxjs';
 import { API_CONFIG } from '../core/api.config';
+import { AuthService } from '../core/auth.service';
 
 const HTTP_TIMEOUT_MS = 12_000;
+const REFRESH_INTERVAL_MS = 30_000;
 
 @Component({
-  selector  : 'app-home',
+  selector: 'app-home',
   standalone: true,
-  imports   : [CommonModule],
-  styleUrl  : './home.css',
-  template  : `
-
-    <div class="page-header">
-      <div class="ph-left">
-        
-      </div>
-      <button class="btn-add-pass" (click)="openPassEntry()">
-        <i class="bi bi-plus-circle-fill"></i> ADD PASS
-      </button>
-    </div>
-
-    <div class="home-content">
-
-      <div *ngIf="isLoading()" class="home-state-row info-txt">
-        <i class="bi bi-arrow-repeat spin-icon"></i>&nbsp; Syncing live pass data from server...
-      </div>
-      <div *ngIf="hasError() && !isLoading()" class="home-state-row error-txt">
-        <i class="bi bi-exclamation-triangle-fill"></i>&nbsp; Could not reach server. Counts unavailable.
-      </div>
-
-      <div class="kpi-row">
-
-        <!-- TOTAL PASSES -->
-        <!-- REDIRECT (future): (click)="goToPassRegistry()" → /passes/active -->
-        <div class="kpi-card kpi-total">
-          <div class="kpi-top">
-            <span class="kpi-label">TOTAL PASSES</span>
-            <span class="kpi-icon-bg kpi-bg-total">
-              <i class="bi bi-card-list"></i>
-            </span>
-          </div>
-          <div class="kpi-value">{{ totalPasses() }}</div>
-          <div class="kpi-footer">
-            <span class="kpi-sub">Submitted + Confirmed + Approved</span>
-            <!-- <span class="kpi-link">Pass Registry <i class="bi bi-arrow-right"></i></span> -->
-          </div>
-        </div>
-
-        <!-- APPROVED -->
-        <!-- REDIRECT (future): (click)="goToPassDetails('Approved')" → /pass-details?tab=submitted&filter=Approved -->
-        <div class="kpi-card kpi-approved">
-          <div class="kpi-top">
-            <span class="kpi-label">APPROVED</span>
-            <span class="kpi-icon-bg kpi-bg-approved">
-              <i class="bi bi-patch-check-fill"></i>
-            </span>
-          </div>
-          <div class="kpi-value">{{ approvedPasses() }}</div>
-          <div class="kpi-footer">
-            <span class="kpi-sub">Fully approved &amp; active passes</span>
-            <!-- <span class="kpi-link">Pass Details <i class="bi bi-arrow-right"></i></span> -->
-          </div>
-        </div>
-
-        <!-- SUBMITTED -->
-        <!-- REDIRECT (future): (click)="goToPassDetails('ALL')" → /pass-details?tab=submitted&filter=ALL -->
-        <div class="kpi-card kpi-submitted">
-          <div class="kpi-top">
-            <span class="kpi-label">SUBMITTED</span>
-            <span class="kpi-icon-bg kpi-bg-submitted">
-              <i class="bi bi-send-fill"></i>
-            </span>
-          </div>
-          <div class="kpi-value">{{ submittedPasses() }}</div>
-          <div class="kpi-footer">
-            <span class="kpi-sub">All submitted pass requests</span>
-            <!-- <span class="kpi-link">Pass Details <i class="bi bi-arrow-right"></i></span> -->
-          </div>
-        </div>
-
-        <!-- CONFIRMED -->
-        <!-- REDIRECT (future): (click)="goToPassDetails('Confirmed')" → /pass-details?tab=submitted&filter=Confirmed -->
-        <div class="kpi-card kpi-confirmed">
-          <div class="kpi-top">
-            <span class="kpi-label">CONFIRMED</span>
-            <span class="kpi-icon-bg kpi-bg-confirmed">
-              <i class="bi bi-hourglass-split"></i>
-            </span>
-          </div>
-          <div class="kpi-value">{{ confirmedPasses() }}</div>
-          <div class="kpi-footer">
-            <span class="kpi-sub">Confirmed — awaiting final approval</span>
-            <!-- <span class="kpi-link">Pass Details <i class="bi bi-arrow-right"></i></span> -->
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  `,
+  imports: [CommonModule],
+  styleUrl: './home.css',
+  templateUrl: './home.html',
 })
 export class Home implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
-  private readonly HEADERS  = new HttpHeaders({
-    'x-api-key'   : API_CONFIG.API_KEY,
+  private readonly HEADERS = new HttpHeaders({
+    'x-api-key': API_CONFIG.API_KEY,
     'Content-Type': 'application/json',
   });
 
   private allPasses = signal<any[]>([]);
 
   isLoading = signal(true);
-  hasError  = signal(false);
+  hasError = signal(false);
+
+  constructor(
+    private http: HttpClient,
+    public auth: AuthService,
+    private router: Router
+  ) {}
+
+  private getStatus(p: any): string {
+    return String(
+      p?.reqStatus ||
+      p?.requestStatus ||
+      p?.status ||
+      p?.request?.reqStatus ||
+      p?.request?.requestStatus ||
+      ''
+    ).toUpperCase().trim();
+  }
+  readonly showKpis = computed(() => this.auth.isUploader());
 
   readonly approvedPasses = computed(() =>
-    this.allPasses().filter(p =>
-      (p.status || '').toLowerCase() === 'active'
-    ).length
+    this.allPasses().filter(p => this.getStatus(p) === 'APPROVED').length
   );
 
   readonly submittedPasses = computed(() =>
     this.allPasses().filter(p =>
-      (p.status || '').toLowerCase() === 'submitted'
+      ['CREATED', 'SUBMITTED', 'SAVED'].includes(this.getStatus(p))
     ).length
   );
 
   readonly confirmedPasses = computed(() =>
+    this.allPasses().filter(p => this.getStatus(p) === 'CONFIRMED').length
+  );
+
+  readonly pendingConfirmerCount = computed(() =>
     this.allPasses().filter(p =>
-      (p.status || '').toLowerCase() === 'confirmed'
+      ['CREATED', 'SUBMITTED', 'SAVED'].includes(this.getStatus(p))
     ).length
   );
 
-  // Sir's logic: Total = Submitted + Confirmed + Approved
+  readonly pendingApproverCount = computed(() =>
+    this.allPasses().filter(p => this.getStatus(p) === 'CONFIRMED').length
+  );
+
   readonly totalPasses = computed(() =>
     this.submittedPasses() + this.confirmedPasses() + this.approvedPasses()
   );
 
-  constructor(private http: HttpClient) {}
-  // constructor(private http: HttpClient, private router: Router) {}  // uncomment when redirects are enabled
+  readonly showConfirmerNotification = computed(() =>
+    this.auth.isConfirmer() && this.pendingConfirmerCount() > 0
+  );
+
+  readonly showApproverNotification = computed(() =>
+    this.auth.isApprover() && this.pendingApproverCount() > 0
+  );
 
   ngOnInit(): void {
     this.fetchPasses();
+    interval(REFRESH_INTERVAL_MS)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.fetchPasses(false));
   }
 
   ngOnDestroy(): void {
@@ -151,10 +95,11 @@ export class Home implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private fetchPasses(): void {
-    this.isLoading.set(true);
+  private fetchPasses(showLoading = true): void {
+    if (showLoading) this.isLoading.set(true);
     this.hasError.set(false);
-    this.http.get<any[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
+
+    this.http.get<any[]>(API_CONFIG.CVPS_GET_ALL_REQUESTS, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
@@ -164,22 +109,21 @@ export class Home implements OnInit, OnDestroy {
           return of([]);
         })
       )
-      .subscribe(data => {
-        this.allPasses.set(data ?? []);
+      .subscribe((data: any) => {
+        this.allPasses.set(Array.isArray(data) ? data : []);
         this.isLoading.set(false);
       });
   }
 
-  // ── REDIRECT METHODS (future use — uncomment constructor router injection above) ──
-  // goToPassRegistry(): void {
-  //   this.router.navigate(['/passes/active']);
-  // }
+  goToConfirmerPage(): void {
+    this.router.navigate(['/vehicle-permission/confirmer']);
+  }
 
-  // goToPassDetails(filter: string): void {
-  //   this.router.navigate(['/pass-details'], {
-  //     queryParams: { tab: 'submitted', filter }
-  //   });
-  // }
+  goToApproverPage(): void {
+    this.router.navigate(['/vehicle-permission/approver']);
+  }
 
-  openPassEntry(): void { window.open('/pass-entry', '_blank'); }
+  openPassEntry(): void {
+    window.open('/vehicle-permission/form', '_blank');
+  }
 }
