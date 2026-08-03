@@ -935,7 +935,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         empNo: (emp.empNo ?? '').toString(),
         name: (emp.name || '').trim(),
         mobileNo: (emp.mobileNo || '').trim(),
-        
+
         eyeTestFile: null,
         eyeTestFileName: existingEyeFileName,
         eyeTestExistingFile: existingEyeFileName,
@@ -1152,14 +1152,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         .map(driver => {
           const role = (driver.role || '').trim();
           const isDriver = role.toUpperCase() === 'DRIVER';
+          const resolvedEyeTestFileName = driver.eyeTestFile
+            ? driver.eyeTestFile.name
+            : (driver.eyeTestExistingFile || driver.eyeTestFileName || '');
           const documents: any[] = [];
 
-          if (isDriver && (driver.eyeTestFile || driver.eyeTestExistingFile || driver.eyeTestFileName)) {
+          if (isDriver) {
             documents.push({
               id: driver.eyeTestDocumentId || undefined,
               documentType: 'EYE_TEST',
               documentNo: '',
-              filename: driver.eyeTestFile ? driver.eyeTestFile.name : (driver.eyeTestExistingFile || driver.eyeTestFileName || ''),
+              filename: resolvedEyeTestFileName,
               validFrom: this.reqDate(),
               validTill: driver.eyeTestDate || null
             });
@@ -1171,6 +1174,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             mobileNo: '',
             empType: role,
             empJob: role,
+            eyeTestFile: resolvedEyeTestFileName,
+            eyeTestDate: driver.eyeTestDate || null,
             documents
           };
         })
