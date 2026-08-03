@@ -773,18 +773,9 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
         this.drawCompactField(
             pdf,
-            'Permission From',
-            this.formatDate((req as any).permissionFrom),
-            col1X,
-            y,
-            infoColW,
-            infoRowH
-        );
-        this.drawCompactField(
-            pdf,
             'Permission To',
             this.formatDate((req as any).permissionTo),
-            col2X,
+            col1X,
             y,
             infoColW,
             infoRowH
@@ -802,19 +793,17 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             pdf,
             'Current Status',
             this.status() || '-',
-            col3X,
+            col2X,
             y,
             infoColW,
             infoRowH
         );
 
-        y += infoRowH + rowGap;
-
         this.drawCompactField(
             pdf,
             'Approved Date',
             '-',
-            col1X,
+            col3X,
             y,
             infoColW,
             infoRowH
