@@ -14,7 +14,6 @@ interface CvpsRequestRecord {
     natureOfJob: string;
     vehicleNo: string;
     vehicleType: string;
-    permissionFrom: string;
     permissionTo: string;
     reqStatus: string;
     createdBy: string;
@@ -111,7 +110,6 @@ export class ContractorConfirmerComponent implements OnInit, OnDestroy {
             natureOfJob: req.natureOfJob || '',
             vehicleNo: req.vehicleNo || '',
             vehicleType: req.vehicleType || '',
-            permissionFrom: req.permissionFrom || '',
             permissionTo: req.permissionTo || '',
             reqStatus: (req.reqStatus || '').toUpperCase(),
             createdBy: req.createdBy || '',

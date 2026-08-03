@@ -14,7 +14,6 @@ interface VehiclePermissionRow {
     vehicleNo: string;
     vehicleType: string;
     natureOfJob: string;
-    permissionFrom: string;
     permissionTo: string;
     reqStatus: string;
     createdBy: string;
@@ -128,7 +127,6 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
             vehicleNo: req.vehicleNo || '',
             vehicleType: req.vehicleType || '',
             natureOfJob: req.natureOfJob || '',
-            permissionFrom: this.formatDate(req.permissionFrom),
             permissionTo: this.formatDate(req.permissionTo),
             reqStatus: this.normalizeRequestStatus(req.reqStatus),
             createdBy: req.createdBy || '',

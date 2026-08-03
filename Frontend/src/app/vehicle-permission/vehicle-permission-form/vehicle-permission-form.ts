@@ -989,7 +989,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.natureOfJob.set(req.natureOfJob || '');
     this.vehicleNumber.set((req.vehicleNo || '').toUpperCase());
     this.vehicleType.set(req.vehicleType || '');
-    this.permissionDateFrom.set(this.formatDate(req.permissionFrom || ''));
+    this.permissionDateFrom.set('');
     this.permissionDateTo.set(this.formatDate(req.permissionTo || ''));
   }
 
@@ -1118,7 +1118,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         natureOfJob: this.natureOfJob().trim(),
         vehicleNo: this.vehicleNumber().trim().toUpperCase(),
         vehicleType: this.vehicleType(),
-        permissionFrom: this.permissionDateFrom() || '',
         permissionTo: this.permissionDateTo() || '',
         reqStatus: targetStatus.trim().toUpperCase(),
         createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),

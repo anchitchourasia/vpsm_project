@@ -7,7 +7,6 @@ import { Observable, of, catchError } from 'rxjs';
 export interface CreateRequestRequestDTO {
   requestNo?: number;
   createdDate?: string;
-  permissionFrom: string;
   permissionTo: string;
   contractorId: string;
   createdBy: string;
