@@ -1336,3 +1336,11 @@ textarea.pe-input {
 .pe-doc-download:hover{
     background:#157347;
 }
+.pe-doc-download-link{
+    cursor:pointer;
+}
+
+.pe-doc-download-link:hover{
+    text-decoration:underline;
+    opacity:0.9;
+}

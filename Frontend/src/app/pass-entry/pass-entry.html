@@ -363,15 +363,19 @@
         </div>
         <div class="pe-doc-cell">
           @if(doc.existingFile){
-          <span class="pe-doc-uploaded-pill">
+          <span class="pe-doc-uploaded-pill pe-doc-download-link" (click)="downloadDocument(doc)" title="Download File">
+
             <i class="bi bi-check-circle-fill"></i>
             {{doc.existingFile}}
+
           </span>
           }
           @else if(doc.file){
-          <span class="pe-doc-uploaded-pill">
+          <span class="pe-doc-uploaded-pill pe-doc-download-link" (click)="downloadDocument(doc)" title="Download File">
+
             <i class="bi bi-file-earmark-pdf-fill"></i>
             {{shortName(doc.fileName)}}
+
           </span>
           }
           @else {
@@ -385,9 +389,7 @@
         <div class="pe-doc-cell pe-doc-actions">
 
           @if(doc.file || doc.existingFile){
-          <button type="button" class="pe-doc-download" (click)="downloadDocument(doc)" title="Download">
-            <i class="bi bi-download"></i>
-          </button>
+
           }
 
           <button type="button" class="pe-doc-remove" (click)="removeDoc(i)" [disabled]="isReadOnlyMode">

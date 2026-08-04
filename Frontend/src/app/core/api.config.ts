@@ -28,9 +28,9 @@ export const API_CONFIG = {
   PASSSTATUSUPDATE: `${environment.apiBaseUrl}/api/passes/status`,
 
   DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/passes/documents/download`,
-  DOCUMENTSDOWNLOAD: `${environment.apiBaseUrl}/api/passes/documents/download`,
-  PASS_DOCUMENT_DOWNLOAD:
-    `${environment.apiBaseUrl}/passes/documents/download`,
+  // DOCUMENTSDOWNLOAD: `${environment.apiBaseUrl}/api/passes/documents/download`,
+// PASS_DOCUMENT_DOWNLOAD:
+// `${environment.apiBaseUrl}/passes/documents/download`,
   // GATE / COMPLIANCE
   GATE_LOGS: `${environment.apiBaseUrl}/api/gate-logs/list`,
   COMPLIANCE: `${environment.apiBaseUrl}/api/compliance/list`,

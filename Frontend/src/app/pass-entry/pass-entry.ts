@@ -1276,9 +1276,60 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 downloadDocument(doc: PassDocument): void {
 
-  console.log("Document Object:", doc);
+  if (!doc.fileName) {
+    alert('Document not found.');
+    return;
+  }
 
-  alert("Document ID = " + doc.documentId);
+  this.http.get(
+    `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${doc.fileName}`,
+    {
+      headers: this.HEADERS,
+      observe: 'response',
+      responseType: 'blob'
+    }
+  ).subscribe({
 
+    next: (response: HttpResponse<Blob>) => {
+
+      const blob = response.body!;
+
+      let fileName =
+        doc.fileName ||
+        doc.existingFile ||
+        'document';
+
+      const disposition =
+        response.headers.get('Content-Disposition');
+
+      if (disposition) {
+        const match =
+          disposition.match(/filename="?([^"]+)"?/);
+
+        if (match) {
+          fileName = match[1];
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+
+      a.href = url;
+      a.download = fileName;
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    },
+
+    error: (err) => {
+      console.error(err);
+      alert('Unable to download document.');
+    }
+
+  });
 }
 }
