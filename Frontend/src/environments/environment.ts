@@ -21,7 +21,7 @@ export const environment = {
   apiBaseUrl: 'http://192.168.9.130:9092/vpms', 
   
   // Your Local Spring Boot Backend (Must include /cvps context path!)
-  cvpsBaseUrl: 'http://localhost:3030/cvps', 
+  cvpsBaseUrl: 'http://localhost:3035/cvps', 
   
   apiKey: 'VPMS_SECRET_KEY_2026'
 };
