@@ -26,7 +26,6 @@ export const routes: Routes = [
 
   // ADMIN / AUTHORITY — protected
   { path: 'authority/company', canActivate: [authGuard], loadComponent: () => import('./authority/authority').then(m => m.Authority) },
-  { path: 'authority/confirmer', canActivate: [authGuard], loadComponent: () => import('./authority/confirmer/confirmer').then(m => m.Confirmer) },
   { path: 'authority/approval', canActivate: [authGuard], loadComponent: () => import('./authority/approval/approval').then(m => m.Approval) },
 
   // PASS MANAGEMENT — protected
