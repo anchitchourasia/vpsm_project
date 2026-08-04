@@ -1,13 +1,17 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { takeUntil, timeout, catchError, finalize } from 'rxjs/operators';
 import { API_CONFIG } from '../core/api.config';
 import { PassStateService } from '../services/pass-state.service';
 import { AuthService } from '../core/auth.service';
+import {
+  HttpClient,
+  HttpHeaders,
+  HttpResponse
+} from '@angular/common/http';
 
 const HTTP_TIMEOUT_MS = 12000;
 
@@ -61,6 +65,7 @@ export interface PassRequest {
   enterBy: string;
   documents: PassDocument[];
 }
+
 
 export interface PassRegistryResponseDTO {
   id: number;
@@ -723,7 +728,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 11 : CRUD Operations
   //=====================================================
-savePass(): void {
+  savePass(): void {
     if (this.isReadOnlyMode) {
       return;
     }
@@ -981,7 +986,7 @@ savePass(): void {
     this.updatePassStatus(this.registryId, 'ACTIVE');
   }
 
-rejectPass(): void {
+  rejectPass(): void {
     if (!this.registryId) return;
     if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
       alert('Remark is required before rejecting.');
@@ -1026,7 +1031,7 @@ rejectPass(): void {
   }
 
   // Edit guard for creator form
- // Edit guard for creator form
+  // Edit guard for creator form
   canEdit(): boolean {
     if (this.isViewMode() || this.isApproverView) {
       return false;
@@ -1269,4 +1274,11 @@ rejectPass(): void {
       this.router.navigate(['/']);
     }
   }
+downloadDocument(doc: PassDocument): void {
+
+  console.log("Document Object:", doc);
+
+  alert("Document ID = " + doc.documentId);
+
+}
 }

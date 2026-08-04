@@ -382,10 +382,18 @@
           </label>
           }
         </div>
-        <div class="pe-doc-cell">
+        <div class="pe-doc-cell pe-doc-actions">
+
+          @if(doc.file || doc.existingFile){
+          <button type="button" class="pe-doc-download" (click)="downloadDocument(doc)" title="Download">
+            <i class="bi bi-download"></i>
+          </button>
+          }
+
           <button type="button" class="pe-doc-remove" (click)="removeDoc(i)" [disabled]="isReadOnlyMode">
             <i class="bi bi-x-circle-fill"></i>
           </button>
+
         </div>
       </div>
       }
