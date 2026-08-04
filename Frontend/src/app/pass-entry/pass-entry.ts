@@ -87,7 +87,7 @@ export const PassStatus = {
   CONFIRMED: 'CONFIRMED',
   APPROVED: 'APPROVED',
   REJECT: 'REJECT',
-  REGRET: 'REJECT', // Fallback mapping for existing references
+  REGRET: 'REJECT',
   MODIFY: 'MODIFY',
   NEEDS_MODIFICATION: 'NEEDS_MODIFICATION'
 } as const;
@@ -335,9 +335,9 @@ export class PassEntry implements OnInit, OnDestroy {
       const user = JSON.parse(session);
       console.log('Logged User = ', user);
 
-      this.enterBy = user.empCode ?? '';
+      this.enterBy = String(user.empCode ?? user.employeeNo ?? '').trim();
 
-      const role = String(user.role ?? '').toUpperCase();
+      const role = String(user.primaryRole ?? user.roles?.[0] ?? '').toUpperCase();
       console.log('Login Role = ', role);
 
       if (role === 'APPROVER') {
@@ -347,6 +347,15 @@ export class PassEntry implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Unable to parse session.', error);
+    }
+  }
+
+  private resolveApproverCode(): string {
+    try {
+      const user = JSON.parse(sessionStorage.getItem('vpsm_session') || 'null');
+      return String(user?.empCode ?? user?.employeeNo ?? '').trim();
+    } catch {
+      return '';
     }
   }
 
@@ -723,7 +732,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 11 : CRUD Operations
   //=====================================================
-savePass(): void {
+  savePass(): void {
     if (this.isReadOnlyMode) {
       return;
     }
@@ -939,10 +948,17 @@ savePass(): void {
   updatePassStatus(id: number, status: string): void {
     this.isSaving.set(true);
 
+    const code = this.resolveApproverCode();
+    if (!code) {
+      this.isSaving.set(false);
+      this.showMessage('Session expired or employee code missing. Please re-login.');
+      return;
+    }
+
     const payload = {
       status: status,
       remark: this.reviewRemark() || this.remark || `${status} requested`,
-      enterBy: this.enterBy || 'SYSTEM'
+      enterBy: code
     };
 
     this.http.put<any>(
@@ -977,11 +993,14 @@ savePass(): void {
 
   approvePass(): void {
     if (!this.registryId) return;
-    // Sends ACTIVE status to transition pass to active state
+    if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
+      alert('Remark is required before approving.');
+      return;
+    }
     this.updatePassStatus(this.registryId, 'ACTIVE');
   }
 
-rejectPass(): void {
+  rejectPass(): void {
     if (!this.registryId) return;
     if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
       alert('Remark is required before rejecting.');
@@ -1026,7 +1045,7 @@ rejectPass(): void {
   }
 
   // Edit guard for creator form
- // Edit guard for creator form
+  // Edit guard for creator form
   canEdit(): boolean {
     if (this.isViewMode() || this.isApproverView) {
       return false;
