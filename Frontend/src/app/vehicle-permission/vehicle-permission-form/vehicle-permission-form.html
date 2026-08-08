@@ -32,20 +32,35 @@
           readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
 
+      <!-- Department -->
       <div class="vp-field">
-        <label class="vp-label">Request Date</label>
-        <input class="vp-input" type="date" [value]="reqDate()" readonly
-          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+        <label class="vp-label">Department</label>
+
+        <select class="vp-input" [value]="permissionDepartment()"
+          (change)="permissionDepartment.set($any($event.target).value)" [disabled]="isReadOnlyMode()">
+
+          <option value="">Select Department</option>
+          <option value="HR">HR</option>
+          <option value="IT">IT</option>
+
+        </select>
       </div>
 
+      <!-- Nature of Job -->
       <div class="vp-field">
         <label class="vp-label">Nature of Job</label>
         <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
           (input)="natureOfJob.set($any($event.target).value)" [readonly]="isReadOnlyMode()" />
       </div>
 
+      <!-- Permission Date From -->
+      <div class="vp-field">
+        <label class="vp-label">Permission Date From</label>
+        <input class="vp-input" type="date" [value]="reqDate()" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+      </div>
 
-
+      <!-- Permission Date To -->
       <div class="vp-field">
         <label class="vp-label">Permission Date To</label>
         <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateTo()"
@@ -224,8 +239,11 @@
           <!-- View Mode -->
           <ng-container *ngIf="isReadOnlyMode(); else uploadEyeTest">
             <div class="vp-file-readonly">
-              <span *ngIf="driver.eyeTestExistingFile || driver.eyeTestFileName; else noEyeFile">
-                📄 {{ driver.eyeTestExistingFile || driver.eyeTestFileName }}
+              <span *ngIf="driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile; else noEyeFile">
+                📄 <a href="javascript:void(0)" class="text-primary text-decoration-underline" style="cursor: pointer;"
+                  (click)="downloadEyeTestFile(driver)">
+                  {{ driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile?.name }}
+                </a>
               </span>
               <ng-template #noEyeFile>
                 <span class="text-muted">No file uploaded</span>
@@ -237,9 +255,13 @@
           <ng-template #uploadEyeTest>
             <input type="file" class="vp-input" (change)="onEyeTestFileSelected($event, driver)"
               accept=".pdf,.png,.jpg,.jpeg" style="font-size: 0.82rem;" />
-            <small *ngIf="driver.eyeTestExistingFile || driver.eyeTestFileName" class="text-success d-block"
-              style="font-size: 0.75rem;">
-              Uploaded: {{ driver.eyeTestExistingFile || driver.eyeTestFileName }}
+            <small *ngIf="driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile"
+              class="text-success d-block" style="font-size: 0.75rem;">
+              Uploaded:
+              <a href="javascript:void(0)" class="text-success text-decoration-underline" style="cursor: pointer;"
+                (click)="downloadEyeTestFile(driver)">
+                {{ driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile?.name }}
+              </a>
             </small>
           </ng-template>
         </div>

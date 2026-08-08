@@ -166,7 +166,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   readonly formNo = 'W-OHS-SECURITY-12';
   readonly companyName = 'HEG Limited, Mandideep';
   readonly requestDate = signal(new Date().toLocaleDateString('en-GB'));
-  readonly department = signal(this.auth.department() || 'Security');
+  permissionDepartment = signal('');
   readonly category = 'Vehicle Entry';
   readonly isConfirmerMode = signal(false);
   readonly isApproverMode = signal(false);
@@ -203,6 +203,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   editingMode = signal(false);
   contractorCode = signal('');
   contractorName = signal('');
+  department = signal('');
   reqDate = signal(new Date().toISOString().split('T')[0]);
   natureOfJob = signal('');
   permissionDateFrom = signal('');
@@ -1000,6 +1001,7 @@ private resolveContractorName(contractorCode: string): void {
     },
     error: () => {
       this.contractorName.set('');
+      this.department.set('');      // NEWreadonly department = signal(this.auth.department() || 'Security');
       this.errorMsg.set(`Unable to fetch contractor details for code ${contractorCode}.`);
     }
   });
@@ -1608,4 +1610,27 @@ private resolveContractorName(contractorCode: string): void {
       )
     );
   }
-}
+  // <--- ADD THE NEW METHOD RIGHT HERE
+  downloadEyeTestFile(driver: DriverPerson): void {
+    const fileName = driver.eyeTestExistingFile || driver.eyeTestFileName;
+    if (!fileName) return;
+
+    if (driver.eyeTestFile) {
+      this.cvps.triggerBlobDownload(driver.eyeTestFile, driver.eyeTestFile.name);
+      return;
+    }
+
+    this.cvps.downloadDocument(fileName).pipe(
+      takeUntil(this.destroy$),
+      catchError(err => {
+        console.error('Error downloading Eye Test document:', err);
+        this.errorMsg.set(`Failed to download ${fileName}`);
+        return of(null);
+      })
+    ).subscribe(blob => {
+      if (blob) {
+        this.cvps.triggerBlobDownload(blob, fileName);
+      }
+    });
+  }
+} // <--- End of VehiclePermissionFormComponent class
