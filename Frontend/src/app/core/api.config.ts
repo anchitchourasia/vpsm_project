@@ -6,10 +6,11 @@ export const API_CONFIG = {
   APIKEY: environment.apiKey,
 
   // AUTH
-  AUTHORITY_BY_EMP: `${environment.cvpsBaseUrl}/api/authority`,
+  AUTHORITY_BY_EMP: `${environment.cvpsBaseUrl}/api/auth/user`,
   AUTHORITY_UPDATE: `${environment.apiBaseUrl}/api/authority/update`,
   EMPLOYEE_REPORT: `${environment.apiBaseUrl}/api/reports/employee-department`,
   EMPLOYEEREPORT: `${environment.apiBaseUrl}/api/reports/employee-department`,
+
 
   // PASSES / SAVE
   PASS_SAVE: `${environment.apiBaseUrl}/api/passes/save`,
@@ -46,6 +47,9 @@ export const API_CONFIG = {
   CVPS_GET_ALL_REQUESTS: `${environment.cvpsBaseUrl}/api/requests`,
   CVPS_DELETE_REQUEST: `${environment.cvpsBaseUrl}/api/requests`,
   CVPS_BP_RECORDS: `${environment.cvpsBaseUrl}/api/bp-records`,
+
+  // Department master API
+  DEPARTMENT_LIST: `${environment.cvpsBaseUrl}/api/dept`,
 } as const;
 
 export const CVPS_URLS = {

@@ -28,7 +28,7 @@ export interface SessionUser {
   source: 'authority' | 'employee';
 }
 
-const ROLE_PRIORITY = ['EMPLOYEE', 'UPLOADER', 'CONFIRMER', 'APPROVER', 'ADMIN'];
+const ROLE_PRIORITY = ['VERIFIER', 'UPLOADER', 'CONFIRMER', 'APPROVER'];
 
 function resolvePrimaryRole(roles: string[]): string {
   let best = 'EMPLOYEE';
@@ -71,53 +71,45 @@ export class AuthService {
     this._error.set('');
   }
 
-  resolveByEmpCode(empNo: string): Observable<any> {
+  // NEW (matches backend: returns UserRoleResponse)
+  resolveByEmpCode(empCode: string): Observable<any> {
     this.clearError();
 
-    return this.http.get<any[]>(
-      `${API_CONFIG.AUTHORITY_BY_EMP}/${empNo.trim()}`,
+    return this.http.get<{ empCode: string; roles: string[] }>(
+      `${API_CONFIG.AUTHORITY_BY_EMP}/${empCode.trim()}`,
       { headers: this.HEADERS }
     ).pipe(
       timeout(12000),
 
-      tap((authorities: any[]) => {
-
-        if (!authorities || authorities.length === 0) {
+      tap((response) => {
+        if (!response || !response.roles || response.roles.length === 0) {
           throw {
             status: 404,
             error: {
-              message: `Employee Code "${empNo}" not found.`
+              message: `Employee Code "${empCode}" not found.`
             }
           };
         }
 
-        const roles = authorities.map(a =>
-          String(a.authorityType || '').toUpperCase()
-        );
-
-        const first = authorities[0];
-
         const session: SessionUser = {
-          empCode: first.empCode,
-          empName: first.empCode,
-          companyCode: first.companyCode,
-          deptCode: first.departmentCode,
-          roles: roles,
-          primaryRole: resolvePrimaryRole(roles),
+          empCode: response.empCode,
+          empName: response.empCode,  // You can enhance this later
+          companyCode: 'HEG',  // Default, or fetch from elsewhere
+          deptCode: '',  // Default, or fetch from elsewhere
+          roles: response.roles.map(r => r.toUpperCase()),
+          primaryRole: resolvePrimaryRole(response.roles),
           gates: [],
           userCategory: 'Authority',
-          authorities: authorities,
+          authorities: [],  // New endpoint doesn't return authorities
           source: 'authority'
         };
 
         this._saveSession(session);
-
       }),
 
       catchError(err => {
-
         if (err?.status === 404) {
-          this._error.set(`Employee Code "${empNo}" not found.`);
+          this._error.set(`Employee Code "${empCode}" not found.`);
         } else if (err?.status === 401) {
           this._error.set("API authentication failed.");
         } else if (err?.status === 0) {
@@ -230,6 +222,7 @@ export class AuthService {
   isAdmin(): boolean { return this.hasRole('ADMIN'); }
   isUploader(): boolean { return this.hasRole('UPLOADER') || this.isAdmin(); }
   isConfirmer(): boolean { return this.hasRole('CONFIRMER') || this.isAdmin(); }
+  isVerifier(): boolean { return this.hasRole('VERIFIER') || this.isAdmin(); }
   isApprover(): boolean { return this.hasRole('APPROVER') || this.isAdmin(); }
   hasAuthority(): boolean { return this._session()?.source === 'authority'; }
   isRegularUser(): boolean { return this._session()?.source === 'employee'; }

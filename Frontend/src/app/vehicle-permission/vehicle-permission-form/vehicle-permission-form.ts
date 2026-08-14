@@ -10,11 +10,8 @@ import {
   CvpsService,
   CreateRequestDTO,
   ApiResponse,
-  VehicleDocumentDTO,
-  EmployeeDTO,
-  EmployeeDocumentDTO,
   WorkflowAction,
-  RequestHistoryDTO
+  RequestHistoryDTO, DepartmentDTO
 } from '../../services/cvps.service';
 
 import { environment } from '../../../environments/environment';
@@ -25,20 +22,16 @@ interface DocEntry {
   docType: string;
   docNo: string;
   validUpto: string;
-
   file: File | null;
-
   documentId?: number;
-
   existingFile?: string;         // Current filename used for save/update
   originalExistingFile?: string; // Filename loaded from DB (read-only reference)
-
   replaced?: boolean;
 }
 
 interface WorkflowRemarkEntry {
   id: string;
-  stage: 'UPLOADER' | 'CONFIRMER' | 'APPROVER';
+  stage: 'UPLOADER' | 'CONFIRMER'  | 'VERIFIER'| 'APPROVER';
   action: string;
   remark: string;
   byName: string;
@@ -52,42 +45,16 @@ interface DriverPerson {
   id: string;
   role: string;
   empNo: string;
-  name: string;
-  mobileNo: string;
-  aadhaarNo: string;
-  licenseNo: string;
-  licenseNumber?: string;
-  licenseType: string;
-  validFrom: string;
-  validTo: string;
-  aadhaarFile: File | null;
-  aadhaarFileName: string;
-  aadhaarExistingFile: string;
-  dlFile: File | null;
-  dlFileName: string;
-  dlExistingFile: string;
-  photoFile: File | null;
-  photoFileName: string;
-  photoExistingFile?: string;
-  aadhaarDocumentId?: number;
-  dlDocumentId?: number;
-  photoDocumentId?: number;
-  dbId?: number;
-  employeeCode: string;
   eyeTestFile: File | null;
   eyeTestFileName: string;
   eyeTestExistingFile: string;
   eyeTestDate: string;
   eyeTestDocumentId?: number;
+  employeeCode: string;
+  name: string;
 }
 
-const ALLOWED_DOC_TYPES = ['RC', 'Insurance', 'PUC', 'Fitness', 'Load Test'];
-
-const DRIVER_DOC_TYPES_UPPER = [
-  'DL', 'LICENSE', 'DRIVING_LICENSE',
-  'AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD',
-  'PHOTO', 'DRIVER_PHOTO', 'PHOTOGRAPH',
-];
+const ALLOWED_DOC_TYPES = ['RC', 'Insurance', 'PUC', 'Fitness'];
 
 const VEHICLE_TYPE_MAP: Record<string, string> = {
   'Two Wheeler': 'TWO_WHEEL',
@@ -118,31 +85,12 @@ function emptyDriver(): DriverPerson {
     id: crypto.randomUUID(),
     role: 'Driver',
     empNo: '',
-    name: '',
-    mobileNo: '',
-    aadhaarNo: '',
-    licenseNo: '',
-    licenseNumber: '',
-    licenseType: '',
-    validFrom: '',
-    validTo: '',
-    aadhaarFile: null,
-    aadhaarFileName: '',
-    aadhaarExistingFile: '',
-    dlFile: null,
-    dlFileName: '',
-    dlExistingFile: '',
-    photoFile: null,
-    photoFileName: '',
-    photoExistingFile: '',
-    aadhaarDocumentId: undefined,
-    dlDocumentId: undefined,
-    photoDocumentId: undefined,
-    employeeCode: '',
     eyeTestFile: null,
     eyeTestFileName: '',
     eyeTestExistingFile: '',
     eyeTestDate: '',
+    employeeCode: '',
+    name: '',
     eyeTestDocumentId: undefined
   };
 }
@@ -166,7 +114,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   readonly formNo = 'W-OHS-SECURITY-12';
   readonly companyName = 'HEG Limited, Mandideep';
   readonly requestDate = signal(new Date().toLocaleDateString('en-GB'));
-  permissionDepartment = signal('');
+
+
   readonly category = 'Vehicle Entry';
   readonly isConfirmerMode = signal(false);
   readonly isApproverMode = signal(false);
@@ -211,8 +160,14 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   lastLoadedDocs = signal<DocEntry[]>([]);
   lastLoadedDrivers = signal<DriverPerson[]>([]);
 
+
+  permissionDepartment = signal('');
+  departments = signal<DepartmentDTO[]>([]);
+
+
   vehicleNumber = signal('');
   vehicleType = signal('');
+  employeeNames = signal<Record<string, string>>({});
 
   readonly vehicleTypeOptions = [
     { label: 'Two Wheeler', value: 'TWO_WHEEL' },
@@ -242,6 +197,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   showWorkflowHistory = signal(false);
 
   ngOnInit(): void {
+
+    this.loadDepartments();
     this.route.queryParams
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
@@ -295,6 +252,39 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+  private loadDepartments(): void {
+    this.cvps.getDepartments()
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('Failed to load department list:', err);
+          this.errorMsg.set('Unable to load departments.');
+          return of<DepartmentDTO[]>([]);
+        })
+      )
+      .subscribe(departments => {
+        const normalizedDepartments = (departments || []).map(department => ({
+          ...department,
+          deptCode: Number(department.deptCode),
+          deptName: String(department.deptName || '').trim()
+        }));
+
+        this.departments.set(normalizedDepartments);
+
+        console.log('Department options loaded:', normalizedDepartments);
+        console.log('Current saved department:', this.permissionDepartment());
+      });
+  }
+  private setSavedDepartment(deptCode: unknown): void {
+    const code = String(deptCode ?? '').trim();
+
+    if (!code) {
+      this.permissionDepartment.set('');
+      return;
+    }
+
+    this.permissionDepartment.set(code);
   }
 
   addDoc(): void {
@@ -575,7 +565,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     if (backendStage.includes('CONFIRMER')) return 'CONFIRMER';
     if (backendStage.includes('UPLOADER') || backendStage.includes('CREATOR')) return 'UPLOADER';
 
-    if (['SAVED', 'DRAFT', 'CREATED', 'SUBMITTED'].includes(action)) return 'UPLOADER';
+    if (['SAVED', 'DRAFT', 'SUBMITTED'].includes(action)) return 'UPLOADER';
     if (['CONFIRMED', 'MODIFY'].includes(action)) return 'CONFIRMER';
     if (['APPROVED'].includes(action)) return 'APPROVER';
 
@@ -858,7 +848,6 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       case 'DRAFT':
         this.status.set('Saved');
         break;
-      case 'CREATED':
       case 'SUBMITTED':
         this.status.set('Submitted');
         break;
@@ -882,6 +871,12 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   private fillForm(dto: CreateRequestDTO): void {
     const req = dto.request;
+    this.setSavedDepartment((req as any)?.deptCode);
+
+    console.log(
+      'Department restored after edit load:',
+      this.permissionDepartment()
+    );
 
     if ((req as any)?.reqStatus) {
       this.setDisplayStatus((req as any).reqStatus);
@@ -912,55 +907,27 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.lastLoadedDocs.set(this.cloneDocs(mappedDocs));
 
     const employees = dto.employees || [];
+
     const mappedDrivers: DriverPerson[] = employees.map(emp => {
-      const e = emp as any; // Cast to 'any' for strict property checks
-
-      const photoDoc = emp.documents?.find(d => this.isPhotoDoc(d.documentType));
-      const aadhaarDoc = emp.documents?.find(d => this.isAadhaarDoc(d.documentType));
-      const dlDoc = emp.documents?.find(d => this.isDlDoc(d.documentType));
-
-      // Eye Test Document extraction
-      const eyeTestDoc = emp.documents?.find(d =>
-        d.documentType === 'EyeTest' ||
-        d.documentType === 'EYE_TEST' ||
-        d.documentType === 'Eye Test'
-      );
-
-      const rawEyeTestDate = e.eyeTestDate || e.eye_test_date || eyeTestDoc?.validTill;
-      const existingEyeFileName = this.getExistingFileName(eyeTestDoc) || e.eyeTestFile || '';
+      const rawEyeTestDate = emp.eyeTestDate || '';
+      const existingEyeTestFileName = emp.eyeTestFile || '';
 
       return {
         id: crypto.randomUUID(),
-        role: (emp.empJob || emp.empType || 'Driver').trim(),
-        empNo: (emp.empNo ?? '').toString(),
-        name: (emp.name || '').trim(),
-        mobileNo: (emp.mobileNo || '').trim(),
+        role: (emp.empType || 'Driver').trim(),
+        empNo: String(emp.empNo ?? ''),
+
+        // UI-only fields; not part of EmployeeDTO payload.
+        employeeCode: String(emp.empNo ?? ''),
+        name: '',
 
         eyeTestFile: null,
-        eyeTestFileName: existingEyeFileName,
-        eyeTestExistingFile: existingEyeFileName,
+        eyeTestFileName: existingEyeTestFileName,
+        eyeTestExistingFile: existingEyeTestFileName,
         eyeTestDate: this.formatDate(rawEyeTestDate),
-        eyeTestDocumentId: eyeTestDoc?.id,
 
-        employeeCode: (emp.empNo ?? '').toString(),
-        aadhaarNo: (aadhaarDoc?.documentNo || '').trim(),
-        licenseNo: (dlDoc?.documentNo || '').trim(),
-        licenseNumber: (dlDoc?.documentNo || '').trim(),
-        licenseType: '',
-        validFrom: this.formatDate(dlDoc?.validFrom),
-        validTo: this.formatDate(dlDoc?.validTill),
-        aadhaarFile: null,
-        aadhaarFileName: '',
-        aadhaarExistingFile: this.getExistingFileName(aadhaarDoc),
-        dlFile: null,
-        dlFileName: '',
-        dlExistingFile: this.getExistingFileName(dlDoc),
-        photoFile: null,
-        photoFileName: '',
-        photoExistingFile: this.getExistingFileName(photoDoc),
-        aadhaarDocumentId: aadhaarDoc?.id,
-        dlDocumentId: dlDoc?.id,
-        photoDocumentId: photoDoc?.id,
+        // This stores EmployeeDTO.id for edit/update context.
+        eyeTestDocumentId: emp.id
       };
     });
 
@@ -973,7 +940,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     // Auto-fetch missing names for loaded saved drivers/conductors
     mappedDrivers.forEach(d => {
-      if (d.empNo && !d.name) {
+      if (d.empNo) {
         this.onEmployeeCodeBlur(d);
       }
     });
@@ -993,26 +960,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     this.permissionDateTo.set(this.formatDate(req.permissionTo || ''));
   }
 
-private resolveContractorName(contractorCode: string): void {
-  this.cvps.fetchContractorDetails(contractorCode).subscribe({
-    next: (bp: any) => {
-      this.contractorCode.set(bp?.contractorCode || contractorCode);
-      this.contractorName.set(bp?.contractorName || '');
-    },
-    error: () => {
-      this.contractorName.set('');
-      this.department.set('');      // NEWreadonly department = signal(this.auth.department() || 'Security');
-      this.errorMsg.set(`Unable to fetch contractor details for code ${contractorCode}.`);
-    }
-  });
-}
+  private resolveContractorName(contractorCode: string): void {
+    this.cvps.fetchContractorDetails(contractorCode).subscribe({
+      next: (bp: any) => {
+        this.contractorCode.set(bp?.contractorCode || contractorCode);
+        this.contractorName.set(bp?.contractorName || '');
+      },
+      error: () => {
+        this.contractorName.set('');
+        this.department.set('');      // NEWreadonly department = signal(this.auth.department() || 'Security');
+        this.errorMsg.set(`Unable to fetch contractor details for code ${contractorCode}.`);
+      }
+    });
+  }
 
   saveDraft(): void {
     this.processFormSubmission('SAVED');
   }
 
   submitForm(): void {
-    this.processFormSubmission('CREATED');
+    this.processFormSubmission('SUBMITTED');
   }
 
   private validateForm(targetStatus: string): boolean {
@@ -1036,8 +1003,12 @@ private resolveContractorName(contractorCode: string): void {
       this.errorMsg.set('Nature of Job is required.');
       return false;
     }
+    if (!this.permissionDepartment()) {
+      this.errorMsg.set('Department is required.');
+      return false;
+    }
 
-    if (targetStatus === 'CREATED') {
+    if (targetStatus === 'SUBMITTED') {
       if (!this.permissionDateTo()) {
         this.errorMsg.set('Permission Date To is invalid.');
         return false;
@@ -1074,11 +1045,6 @@ private resolveContractorName(contractorCode: string): void {
           return false;
         }
 
-        if (!d.name?.trim()) {
-          this.errorMsg.set(`${label} Name is required.`);
-          return false;
-        }
-
         if (d.role.trim().toUpperCase() === 'DRIVER') {
           if (!d.eyeTestDate?.trim()) {
             this.errorMsg.set(`${label} Eye Test Date is required.`);
@@ -1107,6 +1073,9 @@ private resolveContractorName(contractorCode: string): void {
         permissionTo: this.permissionDateTo() || '',
         reqStatus: targetStatus.trim().toUpperCase(),
         createdBy: (this.auth.empCode() || 'SYSTEM').substring(0, 9).toUpperCase(),
+
+        deptCode: Number(this.permissionDepartment()),
+
         userRemark:
           targetStatus.trim().toUpperCase() === 'SAVED'
             ? (this.actionRemark().trim() || 'Request updated')
@@ -1128,40 +1097,24 @@ private resolveContractorName(contractorCode: string): void {
           documentType: (doc.docType || '').trim(),
           documentNo: (doc.docNo || '').trim(),
           filename: doc.file ? doc.file.name : (doc.originalExistingFile || doc.existingFile || ''),
-          validFrom: this.reqDate(),
           validTill: doc.validUpto || null
         })),
 
       employees: this.drivers()
-        .filter(driver => (driver.role || '').trim() || (driver.empNo || '').trim())
+        .filter(driver =>
+          (driver.role || '').trim() !== '' &&
+          (driver.empNo || '').trim() !== ''
+        )
         .map(driver => {
-          const role = (driver.role || '').trim();
-          const isDriver = role.toUpperCase() === 'DRIVER';
           const resolvedEyeTestFileName = driver.eyeTestFile
             ? driver.eyeTestFile.name
             : (driver.eyeTestExistingFile || driver.eyeTestFileName || '');
-          const documents: any[] = [];
-
-          if (isDriver) {
-            documents.push({
-              id: driver.eyeTestDocumentId || undefined,
-              documentType: 'EYE_TEST',
-              documentNo: '',
-              filename: resolvedEyeTestFileName,
-              validFrom: this.reqDate(),
-              validTill: driver.eyeTestDate || null
-            });
-          }
 
           return {
-            empNo: driver.empNo ? Number(driver.empNo) || null : null,
-            name: (driver.name || '').trim(),
-            mobileNo: '',
-            empType: role,
-            empJob: role,
-            eyeTestFile: resolvedEyeTestFileName,
-            eyeTestDate: driver.eyeTestDate || null,
-            documents
+            empNo: Number(driver.empNo),
+            empType: (driver.role || 'Driver').trim(),
+            eyeTestFile: resolvedEyeTestFileName || undefined,
+            eyeTestDate: driver.eyeTestDate || null
           };
         })
     };
@@ -1177,18 +1130,6 @@ private resolveContractorName(contractorCode: string): void {
     });
 
     this.drivers().forEach(driver => {
-
-      if (driver.aadhaarFile) {
-        files.push(driver.aadhaarFile);
-      }
-
-      if (driver.dlFile) {
-        files.push(driver.dlFile);
-      }
-
-      if (driver.photoFile) {
-        files.push(driver.photoFile);
-      }
 
       if (driver.eyeTestFile) {
         files.push(driver.eyeTestFile);
@@ -1353,7 +1294,7 @@ private resolveContractorName(contractorCode: string): void {
             this.handleUpdateSuccess(targetStatus, resolvedId || activeId);
             return;
           }
-          if (targetStatus === 'CREATED') {
+          if (targetStatus === 'SUBMITTED') {
             this.status.set('Submitted');
           }
           this.saveMsg.set(
@@ -1362,7 +1303,7 @@ private resolveContractorName(contractorCode: string): void {
               : 'Request submitted successfully!'
           );
 
-          if (targetStatus === 'CREATED') {
+          if (targetStatus === 'SUBMITTED') {
             this.router.navigate(['/vehicle-permission/list']);
           } else if (resolvedId) {
             this.router.navigate([], {
@@ -1402,7 +1343,7 @@ private resolveContractorName(contractorCode: string): void {
             : 'Request submitted successfully'
         );
 
-        if (targetStatus === 'CREATED') {
+        if (targetStatus === 'SUBMITTED') {
           this.router.navigate(['/vehicle-permission/list']);
         } else if (resolvedId) {
           this.router.navigate([], {
@@ -1473,23 +1414,10 @@ private resolveContractorName(contractorCode: string): void {
     this.showWorkflowHistory.set(false);
   }
 
-  getMinLicenseValidTo(validFrom: string): string {
-    if (!validFrom) return '';
-
-    const date = new Date(validFrom);
-    date.setDate(date.getDate() + 1);
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-  }
 
   getStatusClass(status: string): string {
     switch ((status || '').trim().toUpperCase()) {
       case 'SUBMITTED':
-      case 'CREATED':
         return 'wf-submitted';
 
       case 'CONFIRMED':
@@ -1526,15 +1454,11 @@ private resolveContractorName(contractorCode: string): void {
   onEmployeeCodeBlur(driver: DriverPerson): void {
     if (this.isReadOnlyMode()) return;
 
-    const code = (driver.empNo || driver.employeeCode || '').trim();
+    const code = (driver.empNo || '').trim();
 
     driver.empNo = code;
-    driver.employeeCode = code;
 
     if (!code) {
-      this.drivers.update(list =>
-        list.map(d => d.id === driver.id ? { ...d, name: '' } : d)
-      );
       return;
     }
 
@@ -1570,10 +1494,15 @@ private resolveContractorName(contractorCode: string): void {
           ''
         ).trim();
 
+        this.employeeNames.update(names => ({
+          ...names,
+          [code]: fetchedName
+        }));
+
         this.drivers.update(list =>
           list.map(d =>
             d.id === driver.id
-              ? { ...d, empNo: code, employeeCode: code, name: fetchedName }
+              ? { ...d, empNo: code }
               : d
           )
         );
