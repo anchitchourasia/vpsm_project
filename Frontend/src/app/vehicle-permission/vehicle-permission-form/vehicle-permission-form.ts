@@ -118,11 +118,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   readonly category = 'Vehicle Entry';
   readonly isConfirmerMode = signal(false);
+  readonly isVerifierMode = signal(false);
   readonly isApproverMode = signal(false);
   readonly isViewMode = signal(false);
 
   isReadOnlyMode(): boolean {
-    return this.isConfirmerMode() || this.isApproverMode() || this.isViewMode();
+    return (
+      this.isConfirmerMode() ||
+      this.isVerifierMode() ||
+      this.isApproverMode() ||
+      this.isViewMode()
+    );
   }
 
   onContractorCodeBlur(): void {
@@ -208,6 +214,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         const view = String(params['view'] || '').toLowerCase();
         this.isViewMode.set(view === 'true' || mode === 'view');
         this.isConfirmerMode.set(mode === 'confirmer');
+        this.isVerifierMode.set(mode === 'verifier');
         this.isApproverMode.set(mode === 'approver');
 
         const editId = params['edit'];
@@ -334,6 +341,17 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   rejectByConfirmer(): void {
+    this.processFormSubmission('REJECTED');
+  }
+  sendForModificationByVerifier(): void {
+    this.processFormSubmission('HOLD');
+  }
+
+  verifyByVerifier(): void {
+    this.processFormSubmission('VERIFIED');
+  }
+
+  rejectByVerifier(): void {
     this.processFormSubmission('REJECTED');
   }
 
@@ -550,7 +568,9 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     return Array.from(map.values());
   }
 
-  private resolveWorkflowStage(row: RequestHistoryDTO): 'UPLOADER' | 'CONFIRMER' | 'APPROVER' {
+  private resolveWorkflowStage(
+    row: RequestHistoryDTO
+  ): 'UPLOADER' | 'CONFIRMER' | 'VERIFIER' | 'APPROVER' {
     const action = String(row.actionTaken || '').trim().toUpperCase();
 
     const backendStage = String(
@@ -562,11 +582,15 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     ).trim().toUpperCase();
 
     if (backendStage.includes('APPROVER')) return 'APPROVER';
+    if (backendStage.includes('VERIFIER')) return 'VERIFIER';
     if (backendStage.includes('CONFIRMER')) return 'CONFIRMER';
-    if (backendStage.includes('UPLOADER') || backendStage.includes('CREATOR')) return 'UPLOADER';
+    if (backendStage.includes('UPLOADER') || backendStage.includes('CREATOR')) {
+      return 'UPLOADER';
+    }
 
     if (['SAVED', 'DRAFT', 'SUBMITTED'].includes(action)) return 'UPLOADER';
     if (['CONFIRMED', 'MODIFY'].includes(action)) return 'CONFIRMER';
+    if (['VERIFIED'].includes(action)) return 'VERIFIER';
     if (['APPROVED'].includes(action)) return 'APPROVER';
 
     if (action === 'HOLD' || action === 'REJECTED') {
@@ -616,9 +640,23 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   private requiresWorkflowRemark(targetStatus: string): boolean {
     const statusUpper = (targetStatus || '').trim().toUpperCase();
-    if (!(this.isConfirmerMode() || this.isApproverMode())) return false;
 
-    return ['CONFIRMED', 'APPROVED', 'REJECTED', 'MODIFY', 'HOLD'].includes(statusUpper);
+    if (
+      !this.isConfirmerMode() &&
+      !this.isVerifierMode() &&
+      !this.isApproverMode()
+    ) {
+      return false;
+    }
+
+    return [
+      'CONFIRMED',
+      'VERIFIED',
+      'APPROVED',
+      'REJECTED',
+      'MODIFY',
+      'HOLD'
+    ].includes(statusUpper);
   }
 
   private validateWorkflowRemark(targetStatus: string): boolean {
@@ -632,9 +670,10 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
 
     const statusUpper = (targetStatus || '').trim().toUpperCase();
-
     if (statusUpper === 'CONFIRMED') {
       this.errorMsg.set('Confirmer remark is required before confirm.');
+    } else if (statusUpper === 'VERIFIED') {
+      this.errorMsg.set('Verifier remark is required before verify.');
     } else if (statusUpper === 'APPROVED') {
       this.errorMsg.set('Approver remark is required before approve.');
     } else if (statusUpper === 'MODIFY' || statusUpper === 'HOLD') {
@@ -662,15 +701,22 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     let action = statusUpper;
     if (statusUpper === 'CONFIRMED') action = 'Confirmed';
+    else if (statusUpper === 'VERIFIED') action = 'Verified';
     else if (statusUpper === 'APPROVED') action = 'Approved';
-    else if (statusUpper === 'MODIFY' || statusUpper === 'HOLD') action = 'Sent for Modification';
-    else if (statusUpper === 'REJECTED') action = 'Rejected';
-    const stage: 'UPLOADER' | 'CONFIRMER' | 'APPROVER' =
+    else if (statusUpper === 'MODIFY' || statusUpper === 'HOLD') {
+      action = 'Sent for Modification';
+    } else if (statusUpper === 'REJECTED') {
+      action = 'Rejected';
+    }
+
+    const stage: 'UPLOADER' | 'CONFIRMER' | 'VERIFIER' | 'APPROVER' =
       this.isApproverMode()
         ? 'APPROVER'
-        : this.isConfirmerMode()
-          ? 'CONFIRMER'
-          : 'UPLOADER';
+        : this.isVerifierMode()
+          ? 'VERIFIER'
+          : this.isConfirmerMode()
+            ? 'CONFIRMER'
+            : 'UPLOADER';
     return {
       id: crypto.randomUUID(),
       stage,
@@ -1178,6 +1224,9 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     } else if (statusUpper === 'CONFIRMED') {
       this.status.set('Confirmed');
       this.saveMsg.set('Request confirmed successfully!');
+    } else if (statusUpper === 'VERIFIED') {
+      this.status.set('Verified');
+      this.saveMsg.set('Request verified successfully!');
     } else if (statusUpper === 'APPROVED') {
       this.status.set('Approved');
       this.saveMsg.set('Request approved successfully!');
@@ -1191,9 +1240,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     const nextUrl = this.isApproverMode()
       ? '/vehicle-permission/approver'
-      : this.isConfirmerMode()
-        ? '/vehicle-permission/confirmer'
-        : '/vehicle-permission/list';
+      : this.isVerifierMode()
+        ? '/vehicle-permission/verifier'
+        : this.isConfirmerMode()
+          ? '/vehicle-permission/confirmer'
+          : '/vehicle-permission/list';
 
     setTimeout(() => {
       this.saveMsg.set('');
@@ -1316,7 +1367,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
             this.savedRequestNo.set(resolvedId);
             this.editingMode.set(true);
           }
-          if (this.isConfirmerMode() || this.isApproverMode()) {
+          if (
+            this.isConfirmerMode() ||
+            this.isVerifierMode() ||
+            this.isApproverMode()
+          ) {
             this.handleUpdateSuccess(targetStatus, resolvedId || activeId);
             return;
           }

@@ -299,16 +299,27 @@
       </button>
     </div>
 
-    @if (isConfirmerMode() || isApproverMode()) {
+    @if (isConfirmerMode() || isVerifierMode() || isApproverMode()) {
     <div class="vp-field vp-workflow-entry-box">
       <label class="vp-label">
-        {{ isApproverMode() ? 'Approver Remark' : 'Confirmer Remark' }}
+        {{
+        isApproverMode()
+        ? 'Approver Remark'
+        : isVerifierMode()
+        ? 'Verifier Remark'
+        : 'Confirmer Remark'
+        }}
         <span style="color:red">*</span>
       </label>
 
-      <textarea class="vp-input vp-remark-textarea" rows="4" placeholder="Write your review remark here..."
-        [ngModel]="actionRemark()" (ngModelChange)="actionRemark.set($event)">
-      </textarea>
+      <textarea class="vp-input vp-remark-textarea" rows="4" [placeholder]="
+    isApproverMode()
+      ? 'Write your approval remark here...'
+      : isVerifierMode()
+        ? 'Write your verification remark here...'
+        : 'Write your review remark here...'
+  " [ngModel]="actionRemark()" (ngModelChange)="actionRemark.set($event)">
+</textarea>
     </div>
     }
 
@@ -378,6 +389,22 @@
     <button type="button" class="vp-btn-secondary" (click)="closeView()">
       Close
     </button>
+    } @else if (isVerifierMode()) {
+    <button type="button" class="vp-btn-secondary" (click)="sendForModificationByVerifier()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
+
+    <button type="button" class="vp-btn-primary" (click)="verifyByVerifier()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Verify
+    </button>
+
+    <button type="button" class="vp-btn-del" (click)="rejectByVerifier()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
+
 
     } @else {
     <button type="button" class="vp-btn-secondary" (click)="saveDraft()"
