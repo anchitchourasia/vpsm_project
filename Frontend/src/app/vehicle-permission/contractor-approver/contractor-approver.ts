@@ -19,6 +19,7 @@ interface ApproverRecord {
   vehicleNo: string;
   vehicleType: string;
   permissionTo: string;
+  deptCode: string;
   reqStatus: string;
   createdBy: string;
   createdDate: string;
@@ -74,8 +75,7 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
       }
     });
   }
-
-  // ── Load Requests matching CONFIRMED stage ────────────────────
+// ── Load Requests matching VERIFIED stage ────────────────────────────────
   loadPendingQueue(): void {
     this.isLoading.set(true);
     this.errorMsg.set('');
@@ -90,7 +90,7 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
     ).subscribe((records: CreateRequestDTO[]) => {
       const pendingApprovals = (records || [])
         .map(dto => this.mapDtoToRecord(dto))
-        .filter(r => (r.reqStatus || '').toUpperCase() === 'CONFIRMED');
+        .filter(r => (r.reqStatus || '').toUpperCase() === 'VERIFIED');
 
       this.allRecords.set(pendingApprovals);
     });
@@ -105,7 +105,8 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
       vehicleNo: req.vehicleNo || '',
       vehicleType: req.vehicleType || '',
       permissionTo: req.permissionTo || '',
-      reqStatus: (req.reqStatus || '').toUpperCase(),
+      reqStatus: String(req.reqStatus || '').trim().toUpperCase(),
+      deptCode: String(req.deptCode ?? '').trim(),
       createdBy: req.createdBy || '',
       createdDate: req.createdDate || '',
       employeeDetails: (dto.employees || []).map((emp: any) => ({

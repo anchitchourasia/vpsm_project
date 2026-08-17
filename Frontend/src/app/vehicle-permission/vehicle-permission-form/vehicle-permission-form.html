@@ -40,9 +40,12 @@
           (change)="permissionDepartment.set($any($event.target).value)" [disabled]="isReadOnlyMode()">
 
           <option value="">Select Department</option>
-          <option value="HR">HR</option>
-          <option value="IT">IT</option>
 
+          @for (department of departments(); track department.deptCode) {
+          <option [value]="department.deptCode.toString()">
+            {{ department.deptName }}
+          </option>
+          }
         </select>
       </div>
 
@@ -219,16 +222,15 @@
         <!-- 2. Employee Code Field -->
         <div class="vp-field">
           <label class="vp-label">Employee Code <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="Employee code"
-            [ngModel]="driver.empNo || driver.employeeCode"
-            (ngModelChange)="driver.empNo = $event; driver.employeeCode = $event" (blur)="onEmployeeCodeBlur(driver)"
-            [readonly]="isReadOnlyMode()" />
+          <input class="vp-input" type="text" placeholder="Employee code" [ngModel]="driver.empNo"
+            (ngModelChange)="driver.empNo = $event" (blur)="onEmployeeCodeBlur(driver)" [readonly]="isReadOnlyMode()" />
         </div>
 
         <!-- 3. Name Field (Auto-filled) -->
         <div class="vp-field">
           <label class="vp-label">Name</label>
-          <input class="vp-input" type="text" [value]="driver.name" placeholder="Name will auto-populate" readonly
+          <input class="vp-input" type="text" [value]="employeeNames()[driver.empNo] || ''"
+            placeholder="Name will auto-populate" readonly
             style="background-color:#f8f9fa; cursor:not-allowed; color:#495057;" />
         </div>
 

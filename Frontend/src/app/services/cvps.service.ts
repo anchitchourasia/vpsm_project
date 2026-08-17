@@ -14,9 +14,39 @@ export interface CreateRequestRequestDTO {
   reqStatus?: string;
   vehicleNo: string;
   natureOfJob: string;
-  requestId?: number;
   userRemark?: string;
+  deptCode: number;
+
+  // Present only when selected Department is IT.
+  confirmerEmpCode?: number;
 }
+export interface VehicleDocumentDTO {
+  id?: number;
+  documentNo: string;
+  documentType: string;
+  filename?: string | null;
+  validTill?: string | null;
+}
+
+export interface DepartmentDTO {
+  deptCode: number;
+  deptName: string;
+}
+
+export interface EmployeeDTO {
+  id?: number;
+  empNo: number;
+  empType: string;
+  eyeTestFile?: string;
+  eyeTestDate: string | null;
+}
+
+export interface CreateRequestDTO {
+  request: CreateRequestRequestDTO;
+  vehicleDocuments: VehicleDocumentDTO[];
+  employees: EmployeeDTO[];
+}
+
 export interface DashboardSummaryDTO {
   totalPasses: number;
   approved: number;
@@ -26,39 +56,6 @@ export interface DashboardSummaryDTO {
   pendingApprover?: number;
 }
 
-export interface VehicleDocumentDTO {
-  id?: number;
-  documentNo: string;
-  documentType: string;
-  filename?: string | null;
-  validFrom: string | null;
-  validTill?: string | null;
-}
-
-export interface EmployeeDocumentDTO {
-  id?: number;
-  documentNo: string | null;
-  documentType: string;
-  filename?: string | null;
-  validFrom: string | null;
-  validTill?: string | null;
-}
-
-export interface EmployeeDTO {
-  empNo?: number | null;
-  name: string;
-  mobileNo?: string;
-  empType: string;
-  empJob: string;
-  documents?: EmployeeDocumentDTO[];
-}
-
-export interface CreateRequestDTO {
-  request: CreateRequestRequestDTO;
-  vehicleDocuments: VehicleDocumentDTO[];
-  employees: EmployeeDTO[];
-}
-
 export interface ApiResponse {
   success: boolean;
   message: string;
@@ -66,7 +63,7 @@ export interface ApiResponse {
 }
 
 export interface WorkflowAction {
-  action: 'CONFIRM' | 'APPROVE' | 'REJECT' | 'HOLD';
+  action: 'CONFIRM' | 'VERIFY'| 'APPROVE' | 'REJECT' | 'HOLD';
   empNo: string;
   remarks: string;
 }
@@ -79,15 +76,14 @@ export interface RequestHistoryDTO {
 }
 
 export const CVPS_STATUS = {
-  CREATED: 'CREATED',
-  CONFIRMED: 'CONFIRMED',
-  APPROVED: 'APPROVED',
-  REJECTED: 'REJECTED',
-  HOLD: 'HOLD',
-  MODIFY: 'MODIFY',
-  MODIFIED: 'MODIFIED',
   SAVED: 'SAVED',
   SUBMITTED: 'SUBMITTED',
+  CONFIRMED: 'CONFIRMED',
+  VERIFIED: 'VERIFIED',
+  APPROVED: 'APPROVED',
+  MODIFIED: 'MODIFIED',
+  REJECTED: 'REJECTED',
+  HOLD: 'HOLD',
 } as const;
 
 export type CvpsStatusType = typeof CVPS_STATUS[keyof typeof CVPS_STATUS];
@@ -126,18 +122,6 @@ export class CvpsService {
     );
   }
 
-  // workflowAction(requestNo: number, payload: any, files: File[]): Observable<ApiResponse> {
-  //   const formData = new FormData();
-  //   formData.append('dto', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-
-  //   if (files && files.length > 0) {
-  //     files.forEach(file => formData.append('files', file));
-  //   } else {
-  //     formData.append('files', new Blob([], { type: 'application/octet-stream' }));
-  //   }
-
-  //   return this.http.put<ApiResponse>(`${environment.cvpsBaseUrl}/api/requests/update/${requestNo}`, formData);
-  // }
   executeWorkflowAction(requestNo: number, payload: WorkflowAction): Observable<ApiResponse> {
     const action = (payload.action || '').toUpperCase();
 
@@ -182,7 +166,11 @@ export class CvpsService {
       API_CONFIG.CVPS_GET_ALL_REQUESTS
     );
   }
-
+  getDepartments(): Observable<DepartmentDTO[]> {
+    return this.http.get<DepartmentDTO[]>(
+      API_CONFIG.DEPARTMENT_LIST
+    );
+  }
 
   getDashboardSummary(): Observable<DashboardSummaryDTO> {
     return this.http.get<DashboardSummaryDTO>(

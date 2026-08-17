@@ -12,7 +12,6 @@ import {
     CvpsService,
     CreateRequestDTO,
     EmployeeDTO,
-    EmployeeDocumentDTO,
 } from '../../services/cvps.service';
 
 type HistoryStage = 'UPLOADER' | 'CONFIRMER' | 'APPROVER';
@@ -70,15 +69,10 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
     readonly passEmployees = computed(() =>
         (this.dto()?.employees ?? []).map((employee: any) => {
-            const dlDoc = this.findEmployeeDocument(employee, 'DRIVINGLICENSE');
-            const aadhaarDoc = this.findEmployeeDocument(employee, 'AADHAAR');
 
             return {
                 ...employee,
                 _role: String(employee?.empJob || employee?.empType || employee?.role || '-').trim() || '-',
-                _aadhaarNo: String(aadhaarDoc?.documentNo || employee?.aadhaarNo || '').trim(),
-                _licenseNo: String(dlDoc?.documentNo || employee?.licenseNo || employee?.licenseNumber || '').trim(),
-                _licenseValidTill: String(dlDoc?.validTill || employee?.validTill || employee?.validTo || '').trim()
             };
         })
     );
@@ -476,22 +470,6 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             fillColor: [223, 240, 216],
             textColor: [40, 120, 60]
         };
-    }
-
-    private findEmployeeDocument(
-        employee: EmployeeDTO | null | undefined,
-        kind: 'AADHAAR' | 'DRIVINGLICENSE' | 'PHOTO'
-    ): EmployeeDocumentDTO | null {
-        const docs = Array.isArray(employee?.documents) ? employee!.documents : [];
-
-        if (!docs.length) return null;
-
-        return docs.find((doc: any) => {
-            const docType = doc?.documentType;
-            if (kind === 'AADHAAR') return this.isAadhaarDoc(docType);
-            if (kind === 'DRIVINGLICENSE') return this.isDlDoc(docType);
-            return this.isPhotoDoc(docType);
-        }) ?? null;
     }
 
     private getWorkflowPerson(stage: HistoryStage): string {
