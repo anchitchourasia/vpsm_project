@@ -33,7 +33,7 @@ export class Home implements OnInit, OnDestroy {
     private http: HttpClient,
     public auth: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   private getStatus(p: any): string {
     return String(
@@ -70,6 +70,11 @@ export class Home implements OnInit, OnDestroy {
   readonly pendingApproverCount = computed(() =>
     this.allPasses().filter(p => this.getStatus(p) === 'CONFIRMED').length
   );
+  // Verifier queue displays requests after confirmation.
+  // contractor-verifier.ts filters reqStatus === 'CONFIRMED'.
+  readonly pendingVerifierCount = computed(() =>
+    this.allPasses().filter(p => this.getStatus(p) === 'CONFIRMED').length
+  );
 
   readonly totalPasses = computed(() =>
     this.submittedPasses() + this.confirmedPasses() + this.approvedPasses()
@@ -81,6 +86,11 @@ export class Home implements OnInit, OnDestroy {
 
   readonly showApproverNotification = computed(() =>
     this.auth.isApprover() && this.pendingApproverCount() > 0
+  );
+  // Visible only when the logged-in user has Verifier role,
+  // for example employee code 70028.
+  readonly showVerifierNotification = computed(() =>
+    this.auth.isVerifier() && this.pendingVerifierCount() > 0
   );
 
   ngOnInit(): void {
@@ -122,6 +132,9 @@ export class Home implements OnInit, OnDestroy {
   goToApproverPage(): void {
     this.router.navigate(['/vehicle-permission/approver']);
   }
+  goToVerifierPage(): void {
+  this.router.navigate(['/vehicle-permission/verifier']);
+}
 
   openPassEntry(): void {
     window.open('/vehicle-permission/form', '_blank');

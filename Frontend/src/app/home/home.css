@@ -226,6 +226,14 @@
   box-shadow: 0 4px 16px rgba(29, 78, 216, 0.28);
   border: 1px solid rgba(191, 219, 254, 0.22);
 }
+/* Verifier pending alert */
+.verifier-note {
+  background: linear-gradient(135deg, #151616 0%, #7b98e7 100%);
+}
+
+.verifier-note:hover {
+  filter: brightness(1.04);
+}
 
 .confirmer-note::before {
   content: '';

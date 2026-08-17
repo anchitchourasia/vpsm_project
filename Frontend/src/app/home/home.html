@@ -23,6 +23,14 @@
     </div>
     <i class="bi bi-arrow-right-circle-fill notification-arrow"></i>
   </div>
+  <div *ngIf="showVerifierNotification()" class="home-notification verifier-note" (click)="goToVerifierPage()">
+    <i class="bi bi-bell-fill"></i>
+    <div class="home-notification-text">
+      <strong>Verifier Alert:</strong>
+      You have {{ pendingVerifierCount() }} request(s) pending for verification.
+    </div>
+    <i class="bi bi-arrow-right-circle-fill notification-arrow"></i>
+  </div>
 
   <div *ngIf="showApproverNotification()" class="home-notification approver-note" (click)="goToApproverPage()">
     <i class="bi bi-bell-fill"></i>
@@ -32,10 +40,14 @@
     </div>
     <i class="bi bi-arrow-right-circle-fill notification-arrow"></i>
   </div>
-  <div *ngIf="(auth.isConfirmer() || auth.isApprover()) && !showConfirmerNotification() && !showApproverNotification()"
-    class="home-empty-note">
+  <div *ngIf="
+    (auth.isConfirmer() || auth.isVerifier() || auth.isApprover()) &&
+    !showConfirmerNotification() &&
+    !showVerifierNotification() &&
+    !showApproverNotification()
+  " class="home-empty-note">
     <i class="bi bi-check-circle-fill"></i>
-    <span>No permissions pending . </span>
+    <span>No permissions pending.</span>
   </div>
   <div *ngIf="auth.isUploader()" class="kpi-row">
 
