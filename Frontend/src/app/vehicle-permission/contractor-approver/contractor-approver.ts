@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, of } from 'rxjs';
+import { Subject, of, forkJoin } from 'rxjs';
 import { takeUntil, catchError, finalize } from 'rxjs/operators';
 import { CvpsService, CreateRequestDTO } from '../../services/cvps.service';
 import { AuthService } from '../../core/auth.service';
@@ -15,6 +15,8 @@ interface WorkflowActionPayload {
 interface ApproverRecord {
   requestNo: number;
   contractorId: string;
+  contractorName: string;
+  departmentName: string;
   natureOfJob: string;
   vehicleNo: string;
   vehicleType: string;
@@ -38,6 +40,8 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private destroy$ = new Subject<void>();
   private router = inject(Router);
+  private departmentNames = new Map<string, string>();
+  private contractorNames = new Map<string, string>();
 
   readonly approverName = computed(() => this.auth.empName() || 'APPROVER');
   readonly empCode = computed(() => this.auth.empCode());
@@ -60,7 +64,24 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
   activeAction = signal<'modify' | 'approve' | 'reject' | null>(null);
 
   ngOnInit(): void {
-    this.loadPendingQueue();
+    this.cvps.getDepartments()
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('Failed to load department names:', err);
+          return of([]);
+        })
+      )
+      .subscribe(departments => {
+        this.departmentNames = new Map(
+          (departments || []).map((department: any) => [
+            String(department.deptCode ?? '').trim(),
+            String(department.deptName || '').trim()
+          ])
+        );
+
+        this.loadPendingQueue();
+      });
   }
 
   ngOnDestroy(): void {
@@ -75,40 +96,151 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
       }
     });
   }
-// ── Load Requests matching VERIFIED stage ────────────────────────────────
+  // ── Load Requests matching VERIFIED stage ────────────────────────────────
   loadPendingQueue(): void {
     this.isLoading.set(true);
     this.errorMsg.set('');
 
-    this.cvps.getAllRequests().pipe(
-      takeUntil(this.destroy$),
-      finalize(() => this.isLoading.set(false)),
-      catchError(err => {
-        this.errorMsg.set(err?.error?.message || 'Failed to load Approver Queue.');
-        return of([]);
-      })
-    ).subscribe((records: CreateRequestDTO[]) => {
-      const pendingApprovals = (records || [])
-        .map(dto => this.mapDtoToRecord(dto))
-        .filter(r => (r.reqStatus || '').toUpperCase() === 'VERIFIED');
+    this.cvps.getAllRequests()
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.errorMsg.set(
+            err?.error?.message || 'Failed to load Approver Queue.'
+          );
+          return of([] as CreateRequestDTO[]);
+        })
+      )
+      .subscribe((records: CreateRequestDTO[]) => {
+        const pendingApprovals = (records || [])
+          .map(dto => this.mapDtoToRecord(dto))
+          .filter(r => (r.reqStatus || '').toUpperCase() === 'VERIFIED');
 
-      this.allRecords.set(pendingApprovals);
+        this.loadMissingContractorNames(pendingApprovals);
+      });
+  }
+  private loadMissingContractorNames(
+    records: ApproverRecord[]
+  ): void {
+    const contractorCodes = Array.from(
+      new Set(
+        records
+          .map(record =>
+            String(record.contractorId || '').trim().toUpperCase()
+          )
+          .filter(Boolean)
+      )
+    );
+
+    const codesToLoad = contractorCodes.filter(
+      code => !this.contractorNames.has(code)
+    );
+
+    if (codesToLoad.length === 0) {
+      this.applyContractorNames(records);
+      return;
+    }
+
+    forkJoin(
+      codesToLoad.map(code =>
+        this.cvps.fetchContractorDetails(code).pipe(
+          catchError(err => {
+            console.error(
+              `Failed to fetch contractor details for ${code}:`,
+              err
+            );
+
+            return of(null);
+          })
+        )
+      )
+    )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(results => {
+        results.forEach((result: any, index: number) => {
+          const contractorCode = codesToLoad[index];
+
+          const contractorName = String(
+            result?.contractorName ||
+            result?.name ||
+            result?.contractor_name ||
+            result?.vendorName ||
+            result?.bpName ||
+            ''
+          ).trim();
+
+          if (contractorName) {
+            this.contractorNames.set(contractorCode, contractorName);
+          }
+        });
+
+        this.applyContractorNames(records);
+      });
+  }
+
+  private applyContractorNames(
+    records: ApproverRecord[]
+  ): void {
+    const enrichedRecords = records.map(record => {
+      const contractorCode = String(
+        record.contractorId || ''
+      ).trim().toUpperCase();
+
+      return {
+        ...record,
+        contractorName:
+          record.contractorName ||
+          this.contractorNames.get(contractorCode) ||
+          ''
+      };
     });
+
+    this.allRecords.set(enrichedRecords);
+    this.isLoading.set(false);
+  }
+
+  getContractorDisplay(record: ApproverRecord): string {
+    const contractorName = record.contractorName || '-';
+    const contractorCode = record.contractorId || '-';
+
+    return `${contractorName} (${contractorCode})`;
+  }
+
+  getDepartmentDisplay(record: ApproverRecord): string {
+    const departmentName = record.departmentName || '-';
+    const departmentCode = record.deptCode || '-';
+
+    return `${departmentName} (${departmentCode})`;
   }
   private mapDtoToRecord(dto: CreateRequestDTO): ApproverRecord {
-    const req = dto.request || ({} as any);
+    const req = (dto.request || {}) as any;
+
+    const deptCode = String(req.deptCode ?? '').trim();
+
+    const contractorName = String(
+      req.contractorName ||
+      req.contractorNameDisplay ||
+      req.bpName ||
+      req.vendorName ||
+      (dto as any)?.contractorName ||
+      ''
+    ).trim();
 
     return {
       requestNo: Number(req.requestNo || 0),
       contractorId: req.contractorId || '',
+      contractorName,
+      departmentName: this.departmentNames.get(deptCode) || '',
+
       natureOfJob: req.natureOfJob || '',
       vehicleNo: req.vehicleNo || '',
       vehicleType: req.vehicleType || '',
       permissionTo: req.permissionTo || '',
       reqStatus: String(req.reqStatus || '').trim().toUpperCase(),
-      deptCode: String(req.deptCode ?? '').trim(),
+      deptCode,
       createdBy: req.createdBy || '',
       createdDate: req.createdDate || '',
+
       employeeDetails: (dto.employees || []).map((emp: any) => ({
         id: emp.empNo || 0,
         empJob: emp.empJob || emp.empType || '',
@@ -117,17 +249,25 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
         mobileNo: emp.mobileNo || '',
         aadharNo: (emp.documents || []).find((d: any) =>
           ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(
-            String(d.documentType || '').trim().toUpperCase().replace(/\s+/g, '_')
+            String(d.documentType || '')
+              .trim()
+              .toUpperCase()
+              .replace(/\s+/g, '_')
           )
         )?.documentNo || ''
       })),
+
       vehicleDocuments: (dto.vehicleDocuments || []).map((doc: any) => ({
         id: doc.id,
         documentType: doc.documentType || '',
         documentNo: doc.documentNo || '',
         validFrom: doc.validFrom || '',
         validTill: doc.validTill || '',
-        filename: doc.filename || doc.fileName || doc.documentName || ''
+        filename:
+          doc.filename ||
+          doc.fileName ||
+          doc.documentName ||
+          ''
       }))
     };
   }
@@ -139,6 +279,8 @@ export class ContractorApproverComponent implements OnInit, OnDestroy {
     return this.allRecords().filter(r =>
       String(r.requestNo).includes(q) ||
       (r.contractorId || '').toLowerCase().includes(q) ||
+      (r.contractorName || '').toLowerCase().includes(q) ||
+      (r.departmentName || '').toLowerCase().includes(q) ||
       (r.vehicleNo || '').toLowerCase().includes(q) ||
       (r.natureOfJob || '').toLowerCase().includes(q)
     );

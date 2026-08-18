@@ -54,11 +54,11 @@
             <tr>
               <th>S.NO</th>
               <th>REQUEST NO</th>
-              <th>CONTRACTOR CODE</th>
+              <th>CONTRACTOR NAME (CONTRACTOR CODE)</th>
               <th>VEHICLE NO</th>
-              <th>TYPE</th>
+              <th>VEHICLE TYPE</th>
               <th>NATURE OF JOB</th>
-              <th>DEPT CODE</th>
+              <th>DEPT NAME (DEPT CODE)</th>
               <th>ACTION</th>
             </tr>
           </thead>
@@ -66,12 +66,21 @@
           <tbody>
             <tr *ngFor="let p of pagedList(); let i = index">
               <td class="muted">{{ (currentPage() - 1) * pageSize + i + 1 }}</td>
-              <td><strong class="pass-id-cell green">{{ p.requestNo }}</strong></td>
-              <td>{{ p.contractorId }}</td>
-              <td>{{ p.vehicleNo }}</td>
-              <td>{{ p.vehicleType }}</td>
-              <td>{{ p.natureOfJob }}</td>
-              <td>{{ p.deptCode }}</td>
+
+              <td>
+                <strong class="pass-id-cell green">{{ p.requestNo }}</strong>
+              </td>
+
+              <td>{{ getContractorDisplay(p) }}</td>
+
+              <td>{{ p.vehicleNo || '-' }}</td>
+
+              <td>{{ p.vehicleType || '-' }}</td>
+
+              <td>{{ (p.natureOfJob || '-').toUpperCase() }}</td>
+
+              <td>{{ getDepartmentDisplay(p) }}</td>
+
               <td>
                 <button class="btn-review green-btn" (click)="reviewRequest(p)">
                   <i class="bi bi-eye-fill"></i> Review

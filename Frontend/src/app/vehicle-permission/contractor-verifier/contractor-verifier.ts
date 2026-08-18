@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, of } from 'rxjs';
+import { Subject, of, forkJoin } from 'rxjs';
 import { takeUntil, catchError } from 'rxjs/operators';
 import { CvpsService, CreateRequestDTO, WorkflowAction } from '../../services/cvps.service';
 import { AuthService } from '../../core/auth.service';
@@ -11,6 +11,9 @@ import { AuthService } from '../../core/auth.service';
 interface CvpsRequestRecord {
     requestNo: number;
     contractorId: string;
+    contractorName: string;
+    departmentName: string;
+    deptCode: number;
     natureOfJob: string;
     vehicleNo: string;
     vehicleType: string;
@@ -51,6 +54,8 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
     private auth = inject(AuthService);
     private destroy$ = new Subject<void>();
     private router = inject(Router);
+    private departmentNames = new Map<number, string>();
+    private contractorNames = new Map<string, string>();
 
 
     // Signals for state management
@@ -82,7 +87,25 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
         }
 
         this.verifierName.set(this.auth.empName() || 'Contractor Verifier');
-        this.loadRequests();
+
+        this.cvps.getDepartments()
+            .pipe(
+                takeUntil(this.destroy$),
+                catchError(err => {
+                    console.error('Failed to load department names:', err);
+                    return of([]);
+                })
+            )
+            .subscribe(departments => {
+                this.departmentNames = new Map(
+                    (departments || []).map((department: any) => [
+                        Number(department.deptCode),
+                        String(department.deptName || '').trim()
+                    ])
+                );
+
+                this.loadRequests();
+            });
     }
 
 
@@ -96,7 +119,6 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
         this.isLoading.set(true);
         this.hasError.set(false);
 
-
         this.cvps.getAllRequests()
             .pipe(takeUntil(this.destroy$))
             .subscribe({
@@ -106,9 +128,7 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
                         .filter(r => (r.reqStatus || '').toUpperCase() === 'CONFIRMED')
                         .sort((a, b) => b.requestNo - a.requestNo);
 
-
-                    this.pendingList.set(mapped);
-                    this.isLoading.set(false);
+                    this.loadMissingContractorNames(mapped);
                 },
                 error: (err: any) => {
                     console.error('Error loading verifier queue:', err);
@@ -117,15 +137,125 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
                 }
             });
     }
+    private loadMissingContractorNames(
+        records: CvpsRequestRecord[]
+    ): void {
+        const contractorCodes = Array.from(
+            new Set(
+                records
+                    .map(record =>
+                        String(record.contractorId || '').trim().toUpperCase()
+                    )
+                    .filter(Boolean)
+            )
+        );
+
+        const codesToLoad = contractorCodes.filter(
+            code => !this.contractorNames.has(code)
+        );
+
+        if (codesToLoad.length === 0) {
+            this.applyContractorNames(records);
+            return;
+        }
+
+        forkJoin(
+            codesToLoad.map(code =>
+                this.cvps.fetchContractorDetails(code).pipe(
+                    catchError(err => {
+                        console.error(
+                            `Failed to fetch contractor details for ${code}:`,
+                            err
+                        );
+
+                        return of(null);
+                    })
+                )
+            )
+        )
+            .pipe(takeUntil(this.destroy$))
+            .subscribe(results => {
+                results.forEach((result: any, index: number) => {
+                    const contractorCode = codesToLoad[index];
+
+                    const contractorName = String(
+                        result?.contractorName ||
+                        result?.name ||
+                        result?.contractor_name ||
+                        result?.vendorName ||
+                        result?.bpName ||
+                        ''
+                    ).trim();
+
+                    if (contractorName) {
+                        this.contractorNames.set(
+                            contractorCode,
+                            contractorName
+                        );
+                    }
+                });
+
+                this.applyContractorNames(records);
+            });
+    }
+
+    private applyContractorNames(
+        records: CvpsRequestRecord[]
+    ): void {
+        const enrichedRecords = records.map(record => {
+            const contractorCode = String(
+                record.contractorId || ''
+            ).trim().toUpperCase();
+
+            return {
+                ...record,
+                contractorName:
+                    record.contractorName ||
+                    this.contractorNames.get(contractorCode) ||
+                    ''
+            };
+        });
+
+        this.pendingList.set(enrichedRecords);
+        this.isLoading.set(false);
+    }
+
+    getContractorDisplay(record: CvpsRequestRecord): string {
+        const contractorName = record.contractorName || '-';
+        const contractorCode = record.contractorId || '-';
+
+        return `${contractorName} (${contractorCode})`;
+    }
+
+    getDepartmentDisplay(record: CvpsRequestRecord): string {
+        const departmentName = record.departmentName || '-';
+        const departmentCode = record.deptCode || '-';
+
+        return `${departmentName} (${departmentCode})`;
+    }
 
 
     private mapDtoToRecord(dto: CreateRequestDTO): CvpsRequestRecord {
-        const req = dto.request || ({} as any);
+        const req = (dto.request || {}) as any;
 
+        const deptCode = Number(req.deptCode || 0);
+
+        const contractorName = String(
+            req.contractorName ||
+            req.contractorNameDisplay ||
+            req.bpName ||
+            req.vendorName ||
+            (dto as any)?.contractorName ||
+            ''
+        ).trim();
 
         return {
             requestNo: Number(req.requestNo || 0),
             contractorId: req.contractorId || '',
+            contractorName,
+            departmentName: this.departmentNames.get(deptCode) || '',
+            deptCode,
+
             natureOfJob: req.natureOfJob || '',
             vehicleNo: req.vehicleNo || '',
             vehicleType: req.vehicleType || '',
@@ -133,6 +263,7 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
             reqStatus: (req.reqStatus || '').toUpperCase(),
             createdBy: req.createdBy || '',
             createdDate: req.createdDate || '',
+
             employeeDetails: (dto.employees || []).map((emp: any) => ({
                 id: emp.empNo || 0,
                 empJob: emp.empJob || emp.empType || '',
@@ -141,11 +272,15 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
                 mobileNo: emp.mobileNo || '',
                 aadharNo: (emp.documents || []).find((d: any) =>
                     ['AADHAAR', 'AADHAR', 'ADHAR', 'AADHAAR_CARD'].includes(
-                        String(d.documentType || '').trim().toUpperCase().replace(/\s+/g, '_')
+                        String(d.documentType || '')
+                            .trim()
+                            .toUpperCase()
+                            .replace(/\s+/g, '_')
                     )
                 )?.documentNo || '',
                 documents: emp.documents || []
             })),
+
             vehicleDocuments: (dto.vehicleDocuments || []).map((doc: any) => ({
                 id: doc.id,
                 requestNo: Number(req.requestNo || 0),
@@ -153,7 +288,11 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
                 documentNo: doc.documentNo || '',
                 validFrom: doc.validFrom || '',
                 validTill: doc.validTill || '',
-                filename: doc.filename || doc.fileName || doc.documentName || ''
+                filename:
+                    doc.filename ||
+                    doc.fileName ||
+                    doc.documentName ||
+                    ''
             }))
         };
     }
@@ -168,6 +307,8 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
         return raw.filter(r =>
             r.requestNo.toString().includes(q) ||
             r.contractorId.toLowerCase().includes(q) ||
+            r.contractorName.toLowerCase().includes(q) ||
+            r.departmentName.toLowerCase().includes(q) ||
             r.vehicleNo.toLowerCase().includes(q) ||
             r.natureOfJob.toLowerCase().includes(q)
         );
@@ -254,31 +395,31 @@ export class ContractorVerifierComponent implements OnInit, OnDestroy {
 
 
     private submitAction(requestNo: number, targetAction: string): void {
-    this.isActing.set(true);
-    this.actionError.set('');
-    this.actionSuccess.set('');
+        this.isActing.set(true);
+        this.actionError.set('');
+        this.actionSuccess.set('');
 
-    const payload: WorkflowAction = {
-        action: targetAction as WorkflowAction['action'],
-        empNo: this.auth.empCode() || 'SYSTEM',
-        remarks: this.actionRemark().trim()
-    };
+        const payload: WorkflowAction = {
+            action: targetAction as WorkflowAction['action'],
+            empNo: this.auth.empCode() || 'SYSTEM',
+            remarks: this.actionRemark().trim()
+        };
 
-    this.cvps.executeWorkflowAction(requestNo, payload)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-            next: () => {
-                this.actionSuccess.set(`Request ${requestNo} processed as ${targetAction}.`);
-                this.isActing.set(false);
-                this.loadRequests();
-                setTimeout(() => this.closeDetails(), 1500);
-            },
-            error: (err: any) => {
-                this.actionError.set(err?.error?.message || 'Workflow execution error encountered.');
-                this.isActing.set(false);
-            }
-        });
-}
+        this.cvps.executeWorkflowAction(requestNo, payload)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: () => {
+                    this.actionSuccess.set(`Request ${requestNo} processed as ${targetAction}.`);
+                    this.isActing.set(false);
+                    this.loadRequests();
+                    setTimeout(() => this.closeDetails(), 1500);
+                },
+                error: (err: any) => {
+                    this.actionError.set(err?.error?.message || 'Workflow execution error encountered.');
+                    this.isActing.set(false);
+                }
+            });
+    }
 
 
     getDriverName(r: CvpsRequestRecord): string {
