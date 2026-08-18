@@ -32,13 +32,15 @@
           readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
       </div>
 
-      <!-- Department -->
       <div class="vp-field">
         <label class="vp-label">Department</label>
 
+        @if (isReadOnlyMode()) {
+        <input class="vp-input" type="text" [value]="getSelectedDepartmentName()" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+        } @else {
         <select class="vp-input" [value]="permissionDepartment()"
-          (change)="permissionDepartment.set($any($event.target).value)" [disabled]="isReadOnlyMode()">
-
+          (change)="permissionDepartment.set($any($event.target).value)">
           <option value="">Select Department</option>
 
           @for (department of departments(); track department.deptCode) {
@@ -47,6 +49,7 @@
           </option>
           }
         </select>
+        }
       </div>
 
       <!-- Nature of Job -->
@@ -229,7 +232,7 @@
         <!-- 3. Name Field (Auto-filled) -->
         <div class="vp-field">
           <label class="vp-label">Name</label>
-          <input class="vp-input" type="text" [value]="employeeNames()[driver.empNo] || ''"
+          <input class="vp-input" type="text" [value]="driver.name || employeeNames()[driver.empNo] || ''"
             placeholder="Name will auto-populate" readonly
             style="background-color:#f8f9fa; cursor:not-allowed; color:#495057;" />
         </div>

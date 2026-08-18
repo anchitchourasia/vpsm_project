@@ -293,6 +293,20 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     this.permissionDepartment.set(code);
   }
+  getSelectedDepartmentName(): string {
+    const selectedCode = String(this.permissionDepartment() || '').trim();
+
+    if (!selectedCode) {
+      return '-';
+    }
+
+    const selectedDepartment = this.departments().find(
+      department =>
+        String(department.deptCode).trim() === selectedCode
+    );
+
+    return selectedDepartment?.deptName || selectedCode;
+  }
 
   addDoc(): void {
     if (this.isReadOnlyMode()) return;
@@ -958,14 +972,26 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       const rawEyeTestDate = emp.eyeTestDate || '';
       const existingEyeTestFileName = emp.eyeTestFile || '';
 
+      const employeeCode = String(emp.empNo ?? '').trim();
+
+      const employeeName = String(
+        (emp as any)?.empName ||
+        (emp as any)?.EMP_NAME ||
+        (emp as any)?.name ||
+        (emp as any)?.NAME ||
+        (emp as any)?.employeeName ||
+        (emp as any)?.EMPLOYEE_NAME ||
+        ''
+      ).trim();
+
       return {
         id: crypto.randomUUID(),
         role: (emp.empType || 'Driver').trim(),
-        empNo: String(emp.empNo ?? ''),
+        empNo: employeeCode,
 
-        // UI-only fields; not part of EmployeeDTO payload.
-        employeeCode: String(emp.empNo ?? ''),
-        name: '',
+        // Preserve name if request-detail API already returns it.
+        employeeCode,
+        name: employeeName,
 
         eyeTestFile: null,
         eyeTestFileName: existingEyeTestFileName,
@@ -983,11 +1009,29 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     } else {
       this.drivers.set([emptyDriver()]);
     }
+    // Put names received in request details into the display lookup map.
+    const initialEmployeeNames = mappedDrivers.reduce(
+      (names, driver) => {
+        if (driver.empNo && driver.name) {
+          names[driver.empNo] = driver.name;
+        }
+        return names;
+      },
+      {} as Record<string, string>
+    );
 
-    // Auto-fetch missing names for loaded saved drivers/conductors
-    mappedDrivers.forEach(d => {
-      if (d.empNo) {
-        this.onEmployeeCodeBlur(d);
+    if (Object.keys(initialEmployeeNames).length > 0) {
+      this.employeeNames.update(names => ({
+        ...names,
+        ...initialEmployeeNames
+      }));
+    }
+
+    // Fetch names missing from request details.
+    // This intentionally works in read-only confirmer/verifier/approver modes.
+    mappedDrivers.forEach(driver => {
+      if (driver.empNo && !driver.name) {
+        this.resolveEmployeeName(driver.empNo, driver.id);
       }
     });
 
@@ -1531,13 +1575,11 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Employee Code Auto-fill Lookup
-  onEmployeeCodeBlur(driver: DriverPerson): void {
-    if (this.isReadOnlyMode()) return;
-
-    const code = (driver.empNo || '').trim();
-
-    driver.empNo = code;
+  private resolveEmployeeName(
+    empCode: string,
+    driverId?: string
+  ): void {
+    const code = String(empCode || '').trim();
 
     if (!code) {
       return;
@@ -1548,24 +1590,21 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         catchError(err => {
           console.error('Error fetching employee details:', err);
-          this.errorMsg.set(`Unable to fetch employee details for code ${code}.`);
           return of(null);
         })
       )
       .subscribe((response: any) => {
-        console.log('Employee API Raw Response:', response);
-
-        if (!response) return;
-
-        let empData = response;
-        if (empData?.data) {
-          empData = empData.data;
-        }
-        if (Array.isArray(empData) && empData.length > 0) {
-          empData = empData[0];
+        if (!response) {
+          return;
         }
 
-        const fetchedName = (
+        let empData = response?.data ?? response;
+
+        if (Array.isArray(empData)) {
+          empData = empData[0] ?? null;
+        }
+
+        const fetchedName = String(
           empData?.empName ||
           empData?.EMP_NAME ||
           empData?.name ||
@@ -1575,25 +1614,40 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           ''
         ).trim();
 
+        if (!fetchedName) {
+          return;
+        }
+
         this.employeeNames.update(names => ({
           ...names,
           [code]: fetchedName
         }));
 
-        this.drivers.update(list =>
-          list.map(d =>
-            d.id === driver.id
-              ? { ...d, empNo: code }
-              : d
-          )
-        );
-
-        if (!fetchedName) {
-          this.errorMsg.set(`No employee found for Employee Code ${code}.`);
-        } else {
-          this.errorMsg.set('');
+        if (driverId) {
+          this.drivers.update(list =>
+            list.map(driver =>
+              driver.id === driverId
+                ? { ...driver, name: fetchedName }
+                : driver
+            )
+          );
         }
       });
+  }
+  onEmployeeCodeBlur(driver: DriverPerson): void {
+    // Keep existing behavior: reviewer modes cannot edit employee code.
+    if (this.isReadOnlyMode()) {
+      return;
+    }
+
+    const code = String(driver.empNo || '').trim();
+    driver.empNo = code;
+
+    if (!code) {
+      return;
+    }
+
+    this.resolveEmployeeName(code, driver.id);
   }
 
   // Eye Test Handlers

@@ -67,8 +67,10 @@ export class Home implements OnInit, OnDestroy {
     ).length
   );
 
+  // Approver queue displays requests after verifier action.
+  // contractor-approver.ts filters reqStatus === 'VERIFIED'.
   readonly pendingApproverCount = computed(() =>
-    this.allPasses().filter(p => this.getStatus(p) === 'CONFIRMED').length
+    this.allPasses().filter(p => this.getStatus(p) === 'VERIFIED').length
   );
   // Verifier queue displays requests after confirmation.
   // contractor-verifier.ts filters reqStatus === 'CONFIRMED'.
@@ -133,8 +135,8 @@ export class Home implements OnInit, OnDestroy {
     this.router.navigate(['/vehicle-permission/approver']);
   }
   goToVerifierPage(): void {
-  this.router.navigate(['/vehicle-permission/verifier']);
-}
+    this.router.navigate(['/vehicle-permission/verifier']);
+  }
 
   openPassEntry(): void {
     window.open('/vehicle-permission/form', '_blank');
