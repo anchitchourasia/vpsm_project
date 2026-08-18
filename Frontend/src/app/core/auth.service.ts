@@ -71,21 +71,73 @@ export class AuthService {
     this._error.set('');
   }
 
+  // resolveByEmpCode(empNo: string, password: string = ''): Observable<any> {
+  //   this.clearError();
+
+  //   const payload = {
+  //     empNo: empNo.trim(),
+  //     password: password.trim()
+  //   };
+
+  //   return this.http.post<any>(`${API_CONFIG.AUTHORITY_BY_EMP}/login`, payload, { headers: this.HEADERS }).pipe(
+  //     timeout(12_000),
+  //     tap({
+  //       next: (res) => {
+  //         const empCodeStr = String(res.empNo || empNo).trim();
+  //         const roleStr    = String(res.role || 'UPLOADER').toUpperCase().trim();
+          
+  //         const session: SessionUser = {
+  //           empCode     : empCodeStr,
+  //           empName     : empCodeStr,
+  //           companyCode : 'HEG',
+  //           deptCode    : '',
+  //           roles       : [roleStr],
+  //           primaryRole : resolvePrimaryRole([roleStr]),
+  //           gates       : [],
+  //           userCategory: 'Authority',
+  //           authorities : [],
+  //           source      : 'authority',
+  //         };
+
+  //         this._saveSession(session);
+  //       },
+  //       error: (err) => {
+  //         if (err?.status === 401) {
+  //           this._error.set('Invalid Employee Code or Password.');
+  //         } else if (err?.status === 404) {
+  //           this._error.set(`Employee Code "${empNo}" not found.`);
+  //         } else if (err?.status === 0) {
+  //           this._error.set('Cannot reach server. Check backend network.');
+  //         } else {
+  //           this._error.set(err?.error?.message || 'Login failed. Try again.');
+  //         }
+  //       }
+  //     })
+  //   );
+  // }
+
+
   resolveByEmpCode(empNo: string, password: string = ''): Observable<any> {
     this.clearError();
 
+    // Spring Boot LoginRequest requires 'username' and 'password'
     const payload = {
-      empNo: empNo.trim(),
+      username: empNo.trim(),
       password: password.trim()
     };
 
-    return this.http.post<any>(`${API_CONFIG.AUTHORITY_BY_EMP}/login`, payload, { headers: this.HEADERS }).pipe(
+    return this.http.post<any>(API_CONFIG.AUTH_LOGIN, payload, { headers: this.HEADERS }).pipe(
       timeout(12_000),
       tap({
         next: (res) => {
-          const empCodeStr = String(res.empNo || empNo).trim();
+          // Spring Boot LoginResponse returns { token, username, role }
+          const empCodeStr = String(res.username || empNo).trim();
           const roleStr    = String(res.role || 'UPLOADER').toUpperCase().trim();
-          
+
+          if (res.token) {
+            sessionStorage.setItem('jwt_token', res.token);
+          }
+
           const session: SessionUser = {
             empCode     : empCodeStr,
             empName     : empCodeStr,
@@ -102,12 +154,12 @@ export class AuthService {
           this._saveSession(session);
         },
         error: (err) => {
-          if (err?.status === 401) {
-            this._error.set('Invalid Employee Code or Password.');
+          if (err?.status === 401 || err?.status === 403) {
+            this._error.set('Invalid Username or Password.');
           } else if (err?.status === 404) {
-            this._error.set(`Employee Code "${empNo}" not found.`);
+            this._error.set(`User "${empNo}" not found.`);
           } else if (err?.status === 0) {
-            this._error.set('Cannot reach server. Check backend network.');
+            this._error.set('Cannot reach server. Check backend network or port (3031).');
           } else {
             this._error.set(err?.error?.message || 'Login failed. Try again.');
           }
