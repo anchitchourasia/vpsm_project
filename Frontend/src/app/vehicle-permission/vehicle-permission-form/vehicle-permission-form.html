@@ -197,99 +197,118 @@
   <div class="vp-section">
     <div class="vp-section-title-row" style="margin-bottom: 20px;">
       <span class="vp-section-title">Driver Information</span>
+
       <button class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()" [disabled]="isReadOnlyMode()">
-        <i class="bi bi-person-plus-fill"></i> Add Driver
+        <i class="bi bi-person-plus-fill"></i>
+        Add Driver
       </button>
     </div>
 
-    @for (driver of drivers(); track driver.id; let i = $index) {
-    <div
-      style="border: 1px solid #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fdfdfd;">
+    <div class="vp-table-wrap vp-driver-table-wrap">
+      <table class="vp-table vp-driver-table">
+        <thead>
+          <tr>
+            <th>Role <span style="color: red;">*</span></th>
+            <th>Employee Code <span style="color: red;">*</span></th>
+            <th>Name</th>
+            <th>Eye Test File <span style="color: red;">*</span></th>
+            <th>Eye Test Date <span style="color: red;">*</span></th>
+            <th>Action</th>
+          </tr>
+        </thead>
 
-      <div style="margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px;">
-        <h4 style="margin: 0; font-size: 1.1rem; color: #495057;">Person {{ i + 1 }}</h4>
-      </div>
+        <tbody>
+          @for (driver of drivers(); track driver.id; let i = $index) {
+          <tr>
+            <!-- Role -->
+            <td>
+              <select class="vp-cell-select" [(ngModel)]="driver.role" [disabled]="isReadOnlyMode()">
+                <option value="">— Select Role —</option>
 
-      <div class="vp-driver-row">
-        <!-- 1. Role -->
-        <div class="vp-field">
-          <label class="vp-label">Role <span style="color: red;">*</span></label>
-          <select class="vp-select" [(ngModel)]="driver.role" [disabled]="isReadOnlyMode()">
-            <option value="">— Select Role —</option>
-            @for (r of driverRoleOptions; track r) {
-            <option [value]="r">{{ r }}</option>
-            }
-          </select>
-        </div>
+                @for (r of driverRoleOptions; track r) {
+                <option [value]="r">{{ r }}</option>
+                }
+              </select>
+            </td>
 
-        <!-- 2. Employee Code Field -->
-        <div class="vp-field">
-          <label class="vp-label">Employee Code <span style="color: red;">*</span></label>
-          <input class="vp-input" type="text" placeholder="Employee code" [ngModel]="driver.empNo"
-            (ngModelChange)="driver.empNo = $event" (blur)="onEmployeeCodeBlur(driver)" [readonly]="isReadOnlyMode()" />
-        </div>
+            <!-- Employee Code -->
+            <td>
+              <input class="vp-cell-input" type="text" placeholder="Employee code" [ngModel]="driver.empNo"
+                (ngModelChange)="driver.empNo = $event" (blur)="onEmployeeCodeBlur(driver)"
+                [readonly]="isReadOnlyMode()" />
+            </td>
 
-        <!-- 3. Name Field (Auto-filled) -->
-        <div class="vp-field">
-          <label class="vp-label">Name</label>
-          <input class="vp-input" type="text" [value]="driver.name || employeeNames()[driver.empNo] || ''"
-            placeholder="Name will auto-populate" readonly
-            style="background-color:#f8f9fa; cursor:not-allowed; color:#495057;" />
-        </div>
+            <!-- Name -->
+            <td>
+              <input class="vp-cell-input" type="text" [value]="driver.name || employeeNames()[driver.empNo] || ''"
+                placeholder="Name" readonly style="background-color: #f8f9fa; color: #495057;" />
+            </td>
 
-        <!-- 4. Eye Test File Column -->
-        <div class="vp-field">
-          <label class="vp-label">Eye Test File <span style="color: red;">*</span></label>
-
-          <!-- View Mode -->
-          <ng-container *ngIf="isReadOnlyMode(); else uploadEyeTest">
-            <div class="vp-file-readonly">
-              <span *ngIf="driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile; else noEyeFile">
-                📄 <a href="javascript:void(0)" class="text-primary text-decoration-underline" style="cursor: pointer;"
+            <!-- Eye Test File -->
+            <td>
+              <div class="vp-file-cell">
+                @if (isReadOnlyMode()) {
+                @if (
+                driver.eyeTestExistingFile ||
+                driver.eyeTestFileName ||
+                driver.eyeTestFile
+                ) {
+                <a href="javascript:void(0)" class="text-primary text-decoration-underline"
                   (click)="downloadEyeTestFile(driver)">
-                  {{ driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile?.name }}
+                  <i class="bi bi-file-earmark-pdf"></i>
+                  {{ shortName(
+                  driver.eyeTestExistingFile ||
+                  driver.eyeTestFileName ||
+                  driver.eyeTestFile?.name ||
+                  ''
+                  ) }}
                 </a>
-              </span>
-              <ng-template #noEyeFile>
-                <span class="text-muted">No file uploaded</span>
-              </ng-template>
-            </div>
-          </ng-container>
+                } @else {
+                <span class="text-muted">No file</span>
+                }
+                } @else {
+                <input type="file" class="vp-cell-input" accept=".pdf,.png,.jpg,.jpeg"
+                  (change)="onEyeTestFileSelected($event, driver)" />
 
-          <!-- Edit / Create Mode -->
-          <ng-template #uploadEyeTest>
-            <input type="file" class="vp-input" (change)="onEyeTestFileSelected($event, driver)"
-              accept=".pdf,.png,.jpg,.jpeg" style="font-size: 0.82rem;" />
-            <small *ngIf="driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile"
-              class="text-success d-block" style="font-size: 0.75rem;">
-              Uploaded:
-              <a href="javascript:void(0)" class="text-success text-decoration-underline" style="cursor: pointer;"
-                (click)="downloadEyeTestFile(driver)">
-                {{ driver.eyeTestExistingFile || driver.eyeTestFileName || driver.eyeTestFile?.name }}
-              </a>
-            </small>
-          </ng-template>
-        </div>
+                @if (
+                driver.eyeTestExistingFile ||
+                driver.eyeTestFileName ||
+                driver.eyeTestFile
+                ) {
+                <small class="text-success">
+                  Uploaded:
+                  {{ shortName(
+                  driver.eyeTestExistingFile ||
+                  driver.eyeTestFileName ||
+                  driver.eyeTestFile?.name ||
+                  ''
+                  ) }}
+                </small>
+                }
+                }
+              </div>
+            </td>
 
-        <!-- 5. Eye Test Date Column -->
-        <div class="vp-field">
-          <label class="vp-label">Eye Test Date <span style="color: red;">*</span></label>
-          <input class="vp-input" type="date" [(ngModel)]="driver.eyeTestDate" [readonly]="isReadOnlyMode()"
-            [disabled]="isReadOnlyMode()" />
-        </div>
+            <!-- Eye Test Date -->
+            <td>
+              <input class="vp-cell-input" type="date" [(ngModel)]="driver.eyeTestDate" [readonly]="isReadOnlyMode()"
+                [disabled]="isReadOnlyMode()" />
+            </td>
 
-        <!-- 6. Delete Action Column (Right beside Eye Test Date) -->
-        <div class="vp-field vp-driver-action-col">
-          <label class="vp-label">&nbsp;</label>
-          @if (drivers().length > 1) {
-          <button class="vp-btn-del" (click)="removeDriver(i)" [disabled]="isReadOnlyMode()" title="Remove Driver">
-            <i class="bi bi-trash-fill"></i>
-          </button>
+            <!-- Action -->
+            <td>
+              @if (drivers().length > 1) {
+              <button class="vp-btn-del" type="button" (click)="removeDriver(i)" [disabled]="isReadOnlyMode()"
+                title="Remove Driver">
+                <i class="bi bi-trash-fill"></i>
+              </button>
+              }
+            </td>
+          </tr>
           }
-        </div>
-      </div>
+        </tbody>
+      </table>
     </div>
-    }
   </div>
 
   <div class="vp-section">
