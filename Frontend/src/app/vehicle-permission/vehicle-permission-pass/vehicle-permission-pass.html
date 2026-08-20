@@ -51,7 +51,7 @@
                 <label class="vp-label">Nature of Job</label>
                 <input class="vp-input" type="text" [value]="request()?.natureOfJob || ''" readonly
                     style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
-            </div>  
+            </div>
 
             <div class="vp-field">
                 <label class="vp-label">Permission Date To</label>
@@ -135,7 +135,8 @@
                         <th>Contact No.</th>
                         <th>Aadhar No.</th>
                         <th>License No.</th>
-                        <th>Valid Upto</th>
+                        <th>License Valid Upto</th>
+                        <th>Eye Test Date</th>
                         <th>Remark</th>
                     </tr>
                 </thead>
@@ -143,11 +144,19 @@
                     @for (driver of passEmployees(); track driver.empNo || driver.name || $index) {
                     <tr>
                         <td>{{ driver._role || '-' }}</td>
-                        <td>{{ driver.name || '-' .toUpperCase}}</td>
-                        <td>{{ driver.mobileNo || '-' }}</td>
+
+                        <td>{{ driver._name || '-' }}</td>
+
+                        <td>{{ driver._mobileNo || '-' }}</td>
+
                         <td>{{ driver._aadhaarNo || '-' }}</td>
+
                         <td>{{ driver._licenseNo || '-' }}</td>
+
                         <td>{{ formatDate(driver._licenseValidTill) }}</td>
+
+                        <td>{{ formatDate(driver._eyeTestDate) }}</td>
+
                         <td>
                             <span [class]="getRemarkClass(driver._licenseValidTill)">
                                 {{ getRemarkText(driver._licenseValidTill) }}

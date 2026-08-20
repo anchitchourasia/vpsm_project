@@ -18,7 +18,7 @@ export const environment = {
   production: false,
   
   // External Report API
-  apiBaseUrl: 'http://192.168.8.25:3031/vpms', 
+  apiBaseUrl: 'http://192.168.9.130:9092/vpms', 
   
   // Your Local Spring Boot Backend (Must include /cvps context path!)
   cvpsBaseUrl: 'http://192.168.9.130:3033/cvps', 

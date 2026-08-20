@@ -3,7 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { API_CONFIG } from '../../core/api.config';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, of } from 'rxjs';
+import { Subject, of, forkJoin } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -14,7 +14,11 @@ import {
     EmployeeDTO,
 } from '../../services/cvps.service';
 
-type HistoryStage = 'UPLOADER' | 'CONFIRMER' | 'APPROVER';
+type HistoryStage =
+    | 'UPLOADER'
+    | 'CONFIRMER'
+    | 'VERIFIER'
+    | 'APPROVER';
 
 interface PassHistoryEntry {
     id: string;
@@ -59,9 +63,12 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     employeeDetails = signal<any | null>(null);
     uploaderName = signal('');
     confirmerName = signal('');
+    verifierName = signal('');
     approverName = signal('');
     status = signal<string>('Draft');
     remarksHistory = signal<PassHistoryEntry[]>([]);
+    // Read-only employee manpower details for pass display and PDF.
+    manpowerDetailsByEmpNo = signal<Record<string, any>>({});
 
     readonly request = computed(() => this.dto()?.request ?? null);
     readonly vehicleDocuments = computed(() => this.dto()?.vehicleDocuments ?? []);
@@ -69,10 +76,58 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
     readonly passEmployees = computed(() =>
         (this.dto()?.employees ?? []).map((employee: any) => {
+            const empNo = String(employee?.empNo || '').trim();
+
+            const manpower = this.manpowerDetailsByEmpNo()[empNo] || {};
 
             return {
                 ...employee,
-                _role: String(employee?.empJob || employee?.empType || employee?.role || '-').trim() || '-',
+
+                // Existing request role; no workflow or payload change.
+                _role: String(
+                    employee?.empJob ||
+                    employee?.empType ||
+                    employee?.role ||
+                    '-'
+                ).trim() || '-',
+
+                // Exact values from GET /api/manpower/documents/{empNo}.
+                _name: String(
+                    manpower?.empName ||
+                    employee?.name ||
+                    employee?.empName ||
+                    '-'
+                ).trim() || '-',
+
+                _mobileNo: String(
+                    manpower?.mobileNo ||
+                    employee?.mobileNo ||
+                    '-'
+                ).trim() || '-',
+
+                _aadhaarNo: String(
+                    manpower?.aadharNo ||
+                    employee?.aadharNo ||
+                    employee?.aadhaarNo ||
+                    '-'
+                ).trim() || '-',
+
+                _licenseNo: String(
+                    manpower?.licenseNo ||
+                    '-'
+                ).trim() || '-',
+
+                _licenseValidTill: String(
+                    manpower?.licenseExpDate ||
+                    '-'
+                ).trim() || '-',
+
+                // Eye Test Date comes from the existing request-detail API:
+                // GET /api/requests/{requestNo} → employees[].eyeTestDate
+                _eyeTestDate: String(
+                    employee?.eyeTestDate ||
+                    '-'
+                ).trim() || '-'
             };
         })
     );
@@ -126,6 +181,7 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                 this.dto.set(dto);
                 this.status.set(dto.request?.reqStatus || 'Draft');
                 console.log('Request Object:', dto.request);
+                this.loadManpowerDetails(dto.employees || []);
 
                 const emp = dto.employees?.[0];
 
@@ -139,7 +195,60 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                 }
             });
     }
+    private loadManpowerDetails(
+        employees: EmployeeDTO[]
+    ): void {
+        const employeeNumbers = Array.from(
+            new Set(
+                (employees || [])
+                    .map(employee => String(employee?.empNo || '').trim())
+                    .filter(Boolean)
+            )
+        );
 
+        if (employeeNumbers.length === 0) {
+            return;
+        }
+
+        forkJoin(
+            employeeNumbers.map(empNo =>
+                this.cvps.fetchManpowerDocuments(empNo)
+                    .pipe(
+                        catchError(err => {
+                            console.error(
+                                `Failed to load manpower details for employee ${empNo}:`,
+                                err
+                            );
+
+                            // Do not stop other employee lookups.
+                            return of(null);
+                        })
+                    )
+            )
+        )
+            .pipe(takeUntil(this.destroy$))
+            .subscribe(results => {
+                const mappedDetails: Record<string, any> = {};
+
+                results.forEach((response: any, index: number) => {
+                    const empNo = employeeNumbers[index];
+
+                    if (!response) {
+                        return;
+                    }
+
+                    // Supports either direct backend data or { data: ... } wrapper.
+                    mappedDetails[empNo] = response?.data ?? response;
+                });
+
+                this.manpowerDetailsByEmpNo.set(mappedDetails);
+
+                console.log(
+                    'Pass manpower details loaded:',
+                    mappedDetails
+                );
+            });
+    }
     private loadRemarkHistory(requestNo: number): void {
 
         this.cvps.getRequestHistory(requestNo)
@@ -236,45 +345,90 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         empCode: string,
         stage: HistoryStage
     ): void {
+        const code = String(empCode || '').trim();
 
-        const url =
-            `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(empCode.trim())}`;
+        if (!code) {
+            return;
+        }
+
+        // Uploader is contractor code, e.g. G20327.
+        // Keep existing contractor lookup for uploader name.
+        if (stage === 'UPLOADER' && code.toUpperCase().startsWith('G')) {
+            this.cvps.fetchContractorDetails(code)
+                .pipe(
+                    takeUntil(this.destroy$),
+                    catchError(err => {
+                        console.error(
+                            `Failed to load uploader name for ${code}:`,
+                            err
+                        );
+                        return of(null);
+                    })
+                )
+                .subscribe((response: any) => {
+                    const name = String(
+                        response?.contractorName ||
+                        response?.name ||
+                        code
+                    ).trim();
+
+                    this.uploaderName.set(name);
+                });
+
+            return;
+        }
+
+        // Confirmer, verifier and approver names:
+        // GET /api/reports/employee-department/{empCode}
+        const url = `${API_CONFIG.EMPLOYEEREPORT}/${encodeURIComponent(code)}`;
 
         this.http.get<any>(url, {
             headers: this.HEADERS
         })
             .pipe(
                 takeUntil(this.destroy$),
-                catchError(() => of(null))
+                catchError(err => {
+                    console.error(
+                        `Failed to load authorised employee name for ${code}:`,
+                        err
+                    );
+                    return of(null);
+                })
             )
-            .subscribe(emp => {
+            .subscribe((response: any) => {
+                if (!response) {
+                    return;
+                }
 
-                if (!emp) return;
+                // Supports direct response and { data: ... } wrapper.
+                const data = response?.data ?? response;
 
                 const name = String(
-                    emp.name ||
-                    emp.empName ||
-                    emp.employeeName ||
-                    '-'
-                ).toUpperCase();
+                    data?.empName ||
+                    data?.name ||
+                    data?.employeeName ||
+                    data?.EMP_NAME ||
+                    code
+                ).trim();
 
                 switch (stage) {
-
-                    case 'UPLOADER':
-                        this.uploaderName.set(name);
-                        break;
-
                     case 'CONFIRMER':
                         this.confirmerName.set(name);
+                        break;
+
+                    case 'VERIFIER':
+                        this.verifierName.set(name);
                         break;
 
                     case 'APPROVER':
                         this.approverName.set(name);
                         break;
+
+                    default:
+                        this.uploaderName.set(name);
+                        break;
                 }
-
             });
-
     }
 
     formatDate(value: string | null | undefined): string {
@@ -365,6 +519,10 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
         if (['SAVED', 'DRAFT', 'CREATED', 'SUBMITTED'].includes(action)) {
             return 'UPLOADER';
+        }
+
+        if (action === 'VERIFIED') {
+            return 'VERIFIER';
         }
 
         if (['APPROVED', 'REJECTED'].includes(action)) {
@@ -473,11 +631,12 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
     }
 
     private getWorkflowPerson(stage: HistoryStage): string {
-
         switch (stage) {
-
             case 'CONFIRMER':
                 return this.confirmerName() || '-';
+
+            case 'VERIFIER':
+                return this.verifierName() || '-';
 
             case 'APPROVER':
                 return this.approverName() || '-';
@@ -485,7 +644,6 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             default:
                 return this.uploaderName() || '-';
         }
-
     }
 
     private getUploaderName(): string {
@@ -498,7 +656,28 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
             return '-';
         }
 
-        return this.formatDate(match.createdAt);
+        return this.formatDateTime(match.createdAt);
+    }
+    private formatDateTime(value: string | null | undefined): string {
+        if (!value) {
+            return '-';
+        }
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
+
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
     }
 
     private async loadImageAsDataUrl(url: string): Promise<string | null> {
@@ -657,6 +836,21 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         const req = this.request();
         if (!req) {
             this.errorMsg.set('No request data available for PDF.');
+            return;
+        }
+        const uploader = this.getLatestHistoryByStage('UPLOADER');
+        const confirmer = this.getLatestHistoryByStage('CONFIRMER');
+        const verifier = this.getLatestHistoryByStage('VERIFIER');
+        const approver = this.getLatestHistoryByStage('APPROVER');
+
+        if (
+            (confirmer?.byEmpCode && !this.confirmerName()) ||
+            (verifier?.byEmpCode && !this.verifierName()) ||
+            (approver?.byEmpCode && !this.approverName())
+        ) {
+            this.errorMsg.set(
+                'Authorised employee names are still loading. Please wait a moment and print again.'
+            );
             return;
         }
 
@@ -856,16 +1050,27 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
 
         autoTable(pdf, {
             startY: y,
-            head: [['Role', 'Name', 'Contact No.', 'Aadhar No.', 'License No.', 'License Valid Upto', 'Remark (License)']],
+            head: [[
+                'Role',
+                'Name',
+                'Contact No.',
+                'Aadhar No.',
+                'License No.',
+                'License Valid Upto',
+                'Eye Test Date',
+                'Remark (License)'
+            ]],
             body: (this.passEmployees() || []).map((driver: any) => {
                 const remark = this.getRemarkPdfStyle(driver._licenseValidTill);
+
                 return [
                     driver._role || '-',
-                    driver.name || '-',
-                    driver.mobileNo || '-',
+                    driver._name || '-',
+                    driver._mobileNo || '-',
                     driver._aadhaarNo || '-',
                     driver._licenseNo || '-',
                     this.formatDate(driver._licenseValidTill),
+                    this.formatDate(driver._eyeTestDate),
                     remark.text
                 ];
             }),
@@ -888,16 +1093,17 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                 fillColor: [252, 252, 252]
             },
             columnStyles: {
-                0: { cellWidth: 22 }, // Role
-                1: { cellWidth: 28 }, // Name
-                2: { cellWidth: 22 }, // Contact No.
-                3: { cellWidth: 24 }, // Aadhar No.
+                0: { cellWidth: 17 }, // Role
+                1: { cellWidth: 24 }, // Name
+                2: { cellWidth: 20 }, // Contact No.
+                3: { cellWidth: 22 }, // Aadhaar No.
                 4: { cellWidth: 24 }, // License No.
-                5: { cellWidth: 22 }, // Valid Upto
-                6: { cellWidth: 44 }  // Remark
+                5: { cellWidth: 21 }, // License Valid Upto
+                6: { cellWidth: 20 }, // Eye Test Date
+                7: { cellWidth: 38 }  // Remark
             },
             didParseCell: (data) => {
-                if (data.section === 'body' && data.column.index === 6) {
+                if (data.section === 'body' && data.column.index === 7) {
                     const rowDriver = this.passEmployees()[data.row.index];
                     const remark = this.getRemarkPdfStyle(rowDriver?._licenseValidTill);
                     data.cell.styles.fillColor = remark.fillColor;
@@ -912,6 +1118,7 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         const blockWidth = 44;
         const gap = 3;
         const footerSignY = 274;
+
         const totalPages = pdf.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             pdf.setPage(i);
@@ -921,45 +1128,40 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
                 sectionLeft,
                 footerSignY,
                 blockWidth,
-                this.contractorName() || '-',
-                String(req?.contractorId || '-'),
+                this.uploaderName() || uploader?.byEmpCode || '-',
+                uploader?.byEmpCode || '-',
                 this.getWorkflowDate('UPLOADER'),
-                'contractor name'
+                'uploader'
             );
-
-            const uploader = this.getFirstHistoryByStage('UPLOADER');
 
             this.drawSignatureBlock(
                 pdf,
                 sectionLeft + (blockWidth + gap),
                 footerSignY,
                 blockWidth,
-                this.uploaderName(),
-                uploader?.byEmpCode || '-',
-                this.getWorkflowDate('UPLOADER'),
-                'uploader'
+                this.confirmerName() || confirmer?.byEmpCode || '-',
+                confirmer?.byEmpCode || '-',
+                this.getWorkflowDate('CONFIRMER'),
+                'confirmer'
             );
-            const confirmer = this.getLatestHistoryByStage('CONFIRMER');
 
             this.drawSignatureBlock(
                 pdf,
                 sectionLeft + (blockWidth + gap) * 2,
                 footerSignY,
                 blockWidth,
-                this.confirmerName(),
-                confirmer?.byEmpCode || '-',
-                this.getWorkflowDate('CONFIRMER'),
-                'confirmer'
+                this.verifierName() || verifier?.byEmpCode || '-',
+                verifier?.byEmpCode || '-',
+                this.getWorkflowDate('VERIFIER'),
+                'verifier'
             );
-
-            const approver = this.getLatestHistoryByStage('APPROVER');
 
             this.drawSignatureBlock(
                 pdf,
                 sectionLeft + (blockWidth + gap) * 3,
                 footerSignY,
                 blockWidth,
-                this.approverName(),
+                this.approverName() || approver?.byEmpCode || '-',
                 approver?.byEmpCode || '-',
                 this.getWorkflowDate('APPROVER'),
                 'approver'
