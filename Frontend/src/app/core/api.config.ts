@@ -47,6 +47,11 @@ export const API_CONFIG = {
   CVPS_GET_ALL_REQUESTS: `${environment.cvpsBaseUrl}/api/requests`,
   CVPS_DELETE_REQUEST: `${environment.cvpsBaseUrl}/api/requests`,
   CVPS_BP_RECORDS: `${environment.cvpsBaseUrl}/api/bp-records`,
+  CVPS_GET_MANPOWER_DOCUMENTS:
+  `${environment.cvpsBaseUrl}/api/manpower/documents/{empNo}`,
+  CVPS_DOWNLOAD_MANPOWER_DOCUMENT:
+  `${environment.cvpsBaseUrl}/api/manpower/documents/download/{fileName}`,
+  
 
   // Department master API
   DEPARTMENT_LIST: `${environment.cvpsBaseUrl}/api/dept`,

@@ -244,7 +244,6 @@
                 placeholder="Name" readonly style="background-color: #f8f9fa; color: #495057;" />
             </td>
 
-            <!-- Eye Test File -->
             <td>
               <div class="vp-file-cell">
                 @if (isReadOnlyMode()) {
@@ -256,12 +255,14 @@
                 <a href="javascript:void(0)" class="text-primary text-decoration-underline"
                   (click)="downloadEyeTestFile(driver)">
                   <i class="bi bi-file-earmark-pdf"></i>
-                  {{ shortName(
+                  {{
+                  shortName(
                   driver.eyeTestExistingFile ||
                   driver.eyeTestFileName ||
                   driver.eyeTestFile?.name ||
                   ''
-                  ) }}
+                  )
+                  }}
                 </a>
                 } @else {
                 <span class="text-muted">No file</span>
@@ -277,15 +278,22 @@
                 ) {
                 <small class="text-success">
                   Uploaded:
-                  {{ shortName(
+                  {{
+                  shortName(
                   driver.eyeTestExistingFile ||
                   driver.eyeTestFileName ||
                   driver.eyeTestFile?.name ||
                   ''
-                  ) }}
+                  )
+                  }}
                 </small>
                 }
                 }
+
+                <button type="button" class="vp-driver-view-more" (click)="openDriverDetails(driver)">
+                  <i class="bi bi-eye-fill"></i>
+                  View More
+                </button>
               </div>
             </td>
 
@@ -453,3 +461,165 @@
     }
   </div>
 </div>
+@if (selectedDriverForView(); as driver) {
+  <div
+    class="vp-driver-modal-overlay"
+    (click)="closeDriverDetails()"
+  >
+    <div
+      class="vp-driver-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Driver details"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="vp-driver-modal-header">
+        <h2>
+          <i class="bi bi-person-vcard-fill"></i>
+          Driver Details
+        </h2>
+
+        <button
+          type="button"
+          class="vp-driver-modal-close"
+          (click)="closeDriverDetails()"
+          aria-label="Close Driver Details"
+          title="Close"
+        >
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="vp-driver-modal-body">
+        <!-- Personal Information -->
+        <section class="vp-driver-modal-section">
+          <h3>
+            <i class="bi bi-person-fill"></i>
+            Personal Information
+          </h3>
+
+          <div class="vp-driver-details-grid">
+            <div class="vp-driver-detail">
+              <span>Driver Name</span>
+              <strong>
+                {{
+                  driver.name ||
+                  employeeNames()[driver.empNo] ||
+                  '—'
+                }}
+              </strong>
+            </div>
+
+            <div class="vp-driver-detail">
+              <span>Employee Number</span>
+              <strong>{{ driver.empNo || '—' }}</strong>
+            </div>
+
+            <div class="vp-driver-detail">
+              <span>Mobile Number</span>
+              <strong>{{ driver.mobileNo || '—' }}</strong>
+            </div>
+
+            <div class="vp-driver-detail">
+              <span>Aadhaar Number</span>
+              <strong>{{ driver.aadhaarNo || '—' }}</strong>
+            </div>
+
+            <div class="vp-driver-detail vp-driver-file-detail">
+              <span>Aadhaar File</span>
+
+              @if (hasDriverFile(driver.aadhaarFileName)) {
+                <button
+                  type="button"
+                  class="vp-driver-download-btn"
+                  (click)="downloadDriverDocument(driver.aadhaarFileName)"
+                >
+                  <i class="bi bi-download"></i>
+                  Download
+                </button>
+              } @else {
+                <small class="vp-driver-no-file">
+                  Not available
+                </small>
+              }
+            </div>
+
+            <div class="vp-driver-detail vp-driver-file-detail">
+              <span>Driver Photo</span>
+
+              @if (hasDriverFile(driver.photoFileName)) {
+                <button
+                  type="button"
+                  class="vp-driver-download-btn"
+                  (click)="downloadDriverDocument(driver.photoFileName)"
+                >
+                  <i class="bi bi-download"></i>
+                  Download
+                </button>
+              } @else {
+                <small class="vp-driver-no-file">
+                  Not available
+                </small>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Driving Licence Information -->
+        <section class="vp-driver-modal-section">
+          <h3>
+            <i class="bi bi-card-text"></i>
+            Driving Licence Information
+          </h3>
+
+          <div class="vp-driver-details-grid">
+            <div class="vp-driver-detail">
+              <span>License Number</span>
+              <strong>{{ driver.licenseNo || '—' }}</strong>
+            </div>
+
+            <div class="vp-driver-detail">
+              <span>License From</span>
+              <strong>{{ driver.licenseFrom || '—' }}</strong>
+            </div>
+
+            <div class="vp-driver-detail">
+              <span>License To</span>
+              <strong>{{ driver.licenseTo || '—' }}</strong>
+            </div>
+
+            <div class="vp-driver-detail vp-driver-file-detail">
+              <span>License File</span>
+
+              @if (hasDriverFile(driver.licenseFileName)) {
+                <button
+                  type="button"
+                  class="vp-driver-download-btn"
+                  (click)="downloadDriverDocument(driver.licenseFileName)"
+                >
+                  <i class="bi bi-download"></i>
+                  Download
+                </button>
+              } @else {
+                <small class="vp-driver-no-file">
+                  Not available
+                </small>
+              }
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="vp-driver-modal-footer">
+        <button
+          type="button"
+          class="vp-btn-secondary"
+          (click)="closeDriverDetails()"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+}
+

@@ -52,6 +52,18 @@ interface DriverPerson {
   eyeTestDocumentId?: number;
   employeeCode: string;
   name: string;
+  // Read-only driver-detail popup fields.
+  mobileNo: string;
+  aadhaarNo: string;
+
+  licenseNo: string;
+  licenseType: string;
+  licenseFrom: string;
+  licenseTo: string;
+
+  aadhaarFileName: string;
+  photoFileName: string;
+  licenseFileName: string;
 }
 
 const ALLOWED_DOC_TYPES = ['RC', 'Insurance', 'PUC', 'Fitness'];
@@ -85,13 +97,26 @@ function emptyDriver(): DriverPerson {
     id: crypto.randomUUID(),
     role: 'Driver',
     empNo: '',
+    employeeCode: '',
+    name: '',
+
     eyeTestFile: null,
     eyeTestFileName: '',
     eyeTestExistingFile: '',
     eyeTestDate: '',
-    employeeCode: '',
-    name: '',
-    eyeTestDocumentId: undefined
+    eyeTestDocumentId: undefined,
+
+    mobileNo: '',
+    aadhaarNo: '',
+
+    licenseNo: '',
+    licenseType: '',
+    licenseFrom: '',
+    licenseTo: '',
+
+    aadhaarFileName: '',
+    photoFileName: '',
+    licenseFileName: ''
   };
 }
 
@@ -201,6 +226,8 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   actionRemark = signal('');
   remarksHistory = signal<WorkflowRemarkEntry[]>([]);
   showWorkflowHistory = signal(false);
+  // Read-only per-driver details popup.
+  selectedDriverForView = signal<DriverPerson | null>(null);
 
   ngOnInit(): void {
 
@@ -321,6 +348,130 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
   toggleWorkflowHistory(): void {
     this.showWorkflowHistory.update(v => !v);
+  }
+  openDriverDetails(driver: DriverPerson): void {
+    const empNo = String(driver.empNo || '').trim();
+
+    // Open popup immediately using data already present on screen.
+    this.selectedDriverForView.set(driver);
+
+    if (!empNo) {
+      console.warn('Manpower API not called: employee number is empty.');
+      return;
+    }
+
+    console.log(
+      'Calling manpower documents API for employee:',
+      empNo
+    );
+
+    this.cvps.fetchManpowerDocuments(empNo)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError((err: any) => {
+          console.error(
+            `Manpower documents API failed for employee ${empNo}:`,
+            err
+          );
+
+          // Do not affect existing form or popup behavior.
+          return of(null);
+        })
+      )
+      .subscribe((response: any) => {
+        console.log(
+          'Manpower documents API response:',
+          response
+        );
+
+        if (!response) {
+          return;
+        }
+
+        const data = response?.data ?? response;
+
+        /*
+         * Only update popup memory. No payload, save logic,
+         * validation, workflow, or backend request data is changed.
+         *
+         * Field names are temporary fallbacks until you share
+         * the exact ManpowerDocumentBO JSON response.
+         */
+        const updatedDriver: DriverPerson = {
+          ...driver,
+
+          // Exact fields returned by:
+          // GET /api/manpower/documents/{empNo}
+          name: String(
+            data?.empName ||
+            driver.name ||
+            ''
+          ).trim(),
+
+          mobileNo: String(
+            data?.mobileNo ||
+            driver.mobileNo ||
+            ''
+          ).trim(),
+
+          aadhaarNo: String(
+            data?.aadharNo ||
+            driver.aadhaarNo ||
+            ''
+          ).trim(),
+
+          licenseNo: String(
+            data?.licenseNo ||
+            driver.licenseNo ||
+            ''
+          ).trim(),
+
+          // Backend: licenseActDate = licence start/issued date.
+          licenseFrom: this.formatDate(
+            data?.licenseActDate ||
+            driver.licenseFrom ||
+            ''
+          ),
+
+          // Backend: licenseExpDate = licence expiry date.
+          licenseTo: this.formatDate(
+            data?.licenseExpDate ||
+            driver.licenseTo ||
+            ''
+          ),
+
+          aadhaarFileName: String(
+            data?.aadharFile ||
+            driver.aadhaarFileName ||
+            ''
+          ).trim(),
+
+          photoFileName: String(
+            data?.empPhoto ||
+            driver.photoFileName ||
+            ''
+          ).trim(),
+
+          licenseFileName: String(
+            data?.licenseFile ||
+            driver.licenseFileName ||
+            ''
+          ).trim()
+        };
+        this.selectedDriverForView.set(updatedDriver);
+
+        // Update displayed name only; does not affect request payload.
+        if (updatedDriver.name) {
+          this.employeeNames.update(names => ({
+            ...names,
+            [empNo]: updatedDriver.name
+          }));
+        }
+      });
+  }
+
+  closeDriverDetails(): void {
+    this.selectedDriverForView.set(null);
   }
 
   closeView(): void {
@@ -968,28 +1119,39 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
 
     const employees = dto.employees || [];
 
-    const mappedDrivers: DriverPerson[] = employees.map(emp => {
+    const mappedDrivers: DriverPerson[] = employees.map((emp: any) => {
       const rawEyeTestDate = emp.eyeTestDate || '';
       const existingEyeTestFileName = emp.eyeTestFile || '';
-
       const employeeCode = String(emp.empNo ?? '').trim();
 
       const employeeName = String(
-        (emp as any)?.empName ||
-        (emp as any)?.EMP_NAME ||
-        (emp as any)?.name ||
-        (emp as any)?.NAME ||
-        (emp as any)?.employeeName ||
-        (emp as any)?.EMPLOYEE_NAME ||
+        emp?.empName ||
+        emp?.EMP_NAME ||
+        emp?.name ||
+        emp?.NAME ||
+        emp?.employeeName ||
+        emp?.EMPLOYEE_NAME ||
         ''
       ).trim();
+
+      const employeeDocuments = emp?.documents || [];
+
+      const aadhaarDocument = employeeDocuments.find((doc: any) =>
+        this.isAadhaarDoc(doc?.documentType)
+      );
+
+      const licenseDocument = employeeDocuments.find((doc: any) =>
+        this.isDlDoc(doc?.documentType)
+      );
+
+      const photoDocument = employeeDocuments.find((doc: any) =>
+        this.isPhotoDoc(doc?.documentType)
+      );
 
       return {
         id: crypto.randomUUID(),
         role: (emp.empType || 'Driver').trim(),
         empNo: employeeCode,
-
-        // Preserve name if request-detail API already returns it.
         employeeCode,
         name: employeeName,
 
@@ -997,9 +1159,53 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
         eyeTestFileName: existingEyeTestFileName,
         eyeTestExistingFile: existingEyeTestFileName,
         eyeTestDate: this.formatDate(rawEyeTestDate),
+        eyeTestDocumentId: emp.id,
 
-        // This stores EmployeeDTO.id for edit/update context.
-        eyeTestDocumentId: emp.id
+        mobileNo: String(
+          emp?.mobileNo ||
+          emp?.mobile ||
+          emp?.phoneNo ||
+          emp?.phone ||
+          ''
+        ).trim(),
+
+        aadhaarNo: String(
+          emp?.aadhaarNo ||
+          emp?.aadharNo ||
+          aadhaarDocument?.documentNo ||
+          ''
+        ).trim(),
+
+        licenseNo: String(
+          emp?.licenseNo ||
+          emp?.licenseNumber ||
+          licenseDocument?.documentNo ||
+          ''
+        ).trim(),
+
+        licenseType: String(
+          emp?.licenseType ||
+          emp?.dlType ||
+          ''
+        ).trim(),
+
+        licenseFrom: this.formatDate(
+          emp?.licenseFrom ||
+          emp?.licenseValidFrom ||
+          licenseDocument?.validFrom ||
+          ''
+        ),
+
+        licenseTo: this.formatDate(
+          emp?.licenseTo ||
+          emp?.licenseValidTo ||
+          licenseDocument?.validTill ||
+          ''
+        ),
+
+        aadhaarFileName: this.getExistingFileName(aadhaarDocument),
+        photoFileName: this.getExistingFileName(photoDocument),
+        licenseFileName: this.getExistingFileName(licenseDocument)
       };
     });
 
@@ -1673,6 +1879,34 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
           : d
       )
     );
+  }
+  hasDriverFile(fileName: string | undefined): boolean {
+    return !!String(fileName || '').trim();
+  }
+
+  downloadDriverDocument(
+    fileName: string | undefined
+  ): void {
+    const resolvedFileName = String(fileName || '').trim();
+
+    if (!resolvedFileName) {
+      return;
+    }
+
+    this.cvps.downloadManpowerDocument(resolvedFileName)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('Error downloading driver document:', err);
+          this.errorMsg.set(`Failed to download ${resolvedFileName}`);
+          return of(null);
+        })
+      )
+      .subscribe(blob => {
+        if (blob) {
+          this.cvps.triggerBlobDownload(blob, resolvedFileName);
+        }
+      });
   }
   // <--- ADD THE NEW METHOD RIGHT HERE
   downloadEyeTestFile(driver: DriverPerson): void {

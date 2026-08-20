@@ -63,7 +63,7 @@ export interface ApiResponse {
 }
 
 export interface WorkflowAction {
-  action: 'CONFIRM' | 'VERIFY'| 'APPROVE' | 'REJECT' | 'HOLD';
+  action: 'CONFIRM' | 'VERIFY' | 'APPROVE' | 'REJECT' | 'HOLD';
   empNo: string;
   remarks: string;
 }
@@ -166,6 +166,16 @@ export class CvpsService {
       API_CONFIG.CVPS_GET_ALL_REQUESTS
     );
   }
+  fetchManpowerDocuments(empNo: string): Observable<any> {
+    const normalizedEmpNo = String(empNo || '').trim();
+
+    const url = API_CONFIG.CVPS_GET_MANPOWER_DOCUMENTS.replace(
+      '{empNo}',
+      encodeURIComponent(normalizedEmpNo)
+    );
+
+    return this.http.get<any>(url);
+  }
   getDepartments(): Observable<DepartmentDTO[]> {
     return this.http.get<DepartmentDTO[]>(
       API_CONFIG.DEPARTMENT_LIST
@@ -191,6 +201,18 @@ export class CvpsService {
 
   downloadDocument(filename: string): Observable<Blob> {
     return this.http.get(this.getDocumentUrl(filename), {
+      responseType: 'blob'
+    });
+  }
+  downloadManpowerDocument(filename: string): Observable<Blob> {
+    const normalizedFileName = String(filename || '').trim();
+
+    const url = API_CONFIG.CVPS_DOWNLOAD_MANPOWER_DOCUMENT.replace(
+      '{fileName}',
+      encodeURIComponent(normalizedFileName)
+    );
+
+    return this.http.get(url, {
       responseType: 'blob'
     });
   }
