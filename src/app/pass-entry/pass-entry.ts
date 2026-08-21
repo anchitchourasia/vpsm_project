@@ -699,6 +699,34 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 9 : Validation
   //=====================================================
+  /**
+ * Draft save validation:
+ * Vehicle, employee, gate, and parking are required.
+ * Documents are optional while saving a draft.
+ */
+  private validateDraftForm(): boolean {
+    console.log('DRAFT VALIDATION START');
+    this.saveError.set('');
+
+    if (!this.validateVehicle()) {
+      console.log('Draft vehicle validation failed');
+      return false;
+    }
+
+    if (!this.validateEmployee()) {
+      console.log('Draft employee validation failed');
+      return false;
+    }
+
+    if (!this.validateGateAndParking()) {
+      console.log('Draft gate/parking validation failed');
+      return false;
+    }
+
+    // Intentionally do not call validateDocuments() for Save.
+    console.log('DRAFT VALIDATION SUCCESS');
+    return true;
+  }
   private validateVehicle(): boolean {
     if (!this.vehicleNo.trim()) {
       this.saveError.set('Vehicle Number is required.');
@@ -791,7 +819,13 @@ export class PassEntry implements OnInit, OnDestroy {
       status: this.status,
       remark: this.remark,
       enterBy: this.enterBy,
-      documents: this.documents()
+      documents: this.documents().filter(doc =>
+        !!doc.documentType?.trim() ||
+        !!doc.documentNo?.trim() ||
+        !!doc.expiryDate ||
+        !!doc.file ||
+        !!doc.existingFile
+      )
     };
 
     console.log('========= PASS FORM PAYLOAD =========');
@@ -834,7 +868,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.saveError.set('');
     this.saveSuccess.set('');
 
-    if (!this.validateForm()) {
+    if (!this.validateDraftForm()) {
       return;
     }
 
