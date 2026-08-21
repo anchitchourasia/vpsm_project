@@ -1,0 +1,191 @@
+<div class="page-wrapper">
+  <div class="page-header">
+    <div class="header-left">
+      <i class="bi bi-person-check-fill header-icon blue"></i>
+      <div>
+        <h2 class="heading blue">Contractor Confirmer Queue</h2>
+        <p class="sub-text">Logged in as <strong>{{ confirmerName() }}</strong> · Review and confirm contractor
+          permissions</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="count-chip blue-chip">{{ pendingList().length }} Pending</span>
+      <button class="btn-refresh" (click)="loadRequests()"><i class="bi bi-arrow-clockwise"></i></button>
+    </div>
+  </div>
+
+  <div class="state-box" *ngIf="isLoading()">
+    <i class="bi bi-arrow-repeat spin"></i>
+    <p>Loading pending permissions...</p>
+  </div>
+
+  <div class="state-box error-state" *ngIf="hasError() && !isLoading()">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <p>Could not connect to service. Please check backend port 8086.</p>
+  </div>
+
+  <div *ngIf="!isLoading() && !hasError()">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <i class="bi bi-search si"></i>
+        <input class="search-input" type="text" placeholder="Search by request number, contractor, vehicle..."
+          [value]="searchText()" (input)="onSearch($any($event.target).value)" />
+      </div>
+    </div>
+
+    <div class="state-box" *ngIf="pendingList().length === 0">
+      <i class="bi bi-inbox" style="font-size:3rem;color:#bbb"></i>
+      <p style="margin-top:12px">No permissions pending your confirmation.</p>
+    </div>
+
+    <div class="table-card" *ngIf="pendingList().length > 0">
+      <div class="table-scroll">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>S.NO</th>
+              <th>REQUEST NO</th>
+              <th>CONTRACTOR NAME (CONTRACTOR CODE)</th>
+              <th>VEHICLE NO</th>
+              <th>VEHICLE TYPE</th>
+              <th>NATURE OF JOB</th>
+              <th>DEPT NAME (DEPT CODE)</th>
+              <th>ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of pagedList(); let i = index">
+              <td class="muted">
+                {{ (currentPage() - 1) * pageSize + i + 1 }}
+              </td>
+
+              <td>
+                <strong class="pass-id-cell blue">
+                  {{ p.requestNo }}
+                </strong>
+              </td>
+
+              <td>{{ getContractorDisplay(p) }}</td>
+
+              <td>{{ p.vehicleNo || '-' }}</td>
+
+              <td>{{ p.vehicleType || '-' }}</td>
+
+              <td>{{ (p.natureOfJob || '-').toUpperCase() }}</td>
+
+              <td>{{ getDepartmentDisplay(p) }}</td>
+
+              <td>
+                <button class="btn-review blue-btn" (click)="openDetails(p)">
+                  <i class="bi bi-eye-fill"></i> Review
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-bar">
+        <span class="pg-info">Showing page {{ currentPage() }} of {{ totalPages }}</span>
+        <div class="pg-btns">
+          <button class="pg-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">‹</button>
+          <button *ngFor="let p of totalPagesArr" class="pg-btn" [class.active]="p===currentPage()"
+            (click)="goToPage(p)">{{ p }}</button>
+          <button class="pg-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" *ngIf="selectedPass() as p" (click)="closeDetails()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-hdr blue-hdr">
+        <h3><i class="bi bi-clipboard2-check-fill"></i> Review Request #{{ p.requestNo }}</h3>
+        <button class="close-btn" (click)="closeDetails()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert success-alert" *ngIf="actionSuccess()">{{ actionSuccess() }}</div>
+        <div class="alert error-alert" *ngIf="actionError()"><i class="bi bi-exclamation-circle-fill"></i> {{
+          actionError() }}</div>
+
+        <div class="sec-title"><i class="bi bi-car-front-fill"></i> Vehicle Specifications</div>
+        <div class="dg">
+          <div class="di"><label>Vehicle Number</label><span>{{ p.vehicleNo }}</span></div>
+          <div class="di"><label>Vehicle Type</label><span>{{ p.vehicleType }}</span></div>
+          <div class="di"><label>Nature of Job</label><span>{{ p.natureOfJob }}</span></div>
+        </div>
+
+        <div class="sec-title"><i class="bi bi-person-badge-fill"></i> Personnel Details</div>
+        <div class="dg">
+          <div class="di"><label>Contractor ID</label><span>{{ p.contractorId }}</span></div>
+          <div class="di"><label>Driver Name</label><span>{{ getDriverName(p) }}</span></div>
+          <div class="di"><label>Driver Aadhaar</label><span>{{ getDriverAadhar(p) }}</span></div>
+        </div>
+
+        <div class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Document Attachments</div>
+        <div class="doc-table-wrap">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>DOC TYPE</th>
+                <th>DOCUMENT NO</th>
+                <th>VALID FROM</th>
+                <th>VALID TILL</th>
+                <th style="text-align: center;">ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let doc of p.vehicleDocuments">
+                <td><span class="doc-type-badge">{{ doc.documentType }}</span></td>
+                <td><strong>{{ doc.documentNo }}</strong></td>
+                <td>{{ formatDate(doc.validFrom) }}</td>
+                <td>{{ formatDate(doc.validTill) }}</td>
+                <td style="text-align: center;">
+                  <button *ngIf="doc.filename" class="vpl-btn-dl"
+                    (click)="downloadDoc(doc.filename, doc.documentType + '_' + doc.documentNo + '.pdf')"
+                    style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 1.1rem; padding: 2px 8px;"
+                    title="Download Document">
+                    <i class="bi bi-download"></i>
+                  </button>
+                  <span *ngIf="!doc.filename" class="muted">—</span>
+                </td>
+              </tr>
+              <tr *ngIf="!p.vehicleDocuments || p.vehicleDocuments.length === 0">
+                <td colspan="5" class="text-center muted">No compliance documents attached.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sec-title"><i class="bi bi-pencil-fill"></i> Action Validation Comment</div>
+        <div class="form-group">
+          <textarea class="form-textarea" rows="3" placeholder="Provide action remarks (mandatory)..."
+            [(ngModel)]="actionRemark"></textarea>
+        </div>
+
+        <div class="modify-hint" *ngIf="activeAction() === 'modify'">
+          <i class="bi bi-arrow-return-left"></i> Returning request to Contractor for modification.
+        </div>
+
+        <div class="modal-footer">
+          <button class="footer-btn btn-cancel" (click)="closeDetails()">Close</button>
+
+          <button class="footer-btn btn-modify-footer" [class.btn-modify-armed]="activeAction() === 'modify'"
+            (click)="activeAction() === 'modify' ? sendForModify(p) : setAction('modify')" [disabled]="isActing()">
+            {{ activeAction() === 'modify' ? 'Confirm Send Back' : 'Send Back for Modification' }}
+          </button>
+
+          <button class="footer-btn btn-red" [class.btn-reject-armed]="activeAction() === 'reject'"
+            (click)="activeAction() === 'reject' ? reject(p) : setAction('reject')" [disabled]="isActing()">
+            {{ activeAction() === 'reject' ? 'Confirm Permanent Reject' : 'Reject' }}
+          </button>
+
+          <button class="footer-btn btn-blue" (click)="confirm(p)" [disabled]="isActing() || activeAction() !== null">
+            <i class="bi bi-check-circle-fill"></i> Confirm & Pass
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
