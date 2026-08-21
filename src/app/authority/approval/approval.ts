@@ -1,0 +1,719 @@
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
+import { API_CONFIG } from '../../core/api.config';
+import { PassStateService } from '../../services/pass-state.service';
+import { Router } from '@angular/router';
+
+
+const TIMEOUT_MS = 15000;
+
+interface PassRecord {
+
+  id: number;
+  passId?: number;
+
+  employeeNo: string;
+  employeeCompanyNo?: string;
+
+  employeeName?: string;
+  empName?: string;
+  name?: string;
+
+  dept?: string;
+
+  contractorCode?: string;
+  contractorName?: string;
+
+  aadhaarNo?: string;
+  aadharNo?: string;
+
+  gateNo: string;
+  parkingToBeUsed: string;
+
+  vehicleNo: string;
+  vehicleType: string;
+  brandModel?: string;
+
+  mobileNo?: string;
+
+  reqStatus: string;
+  status?: string;
+
+  remarks?: string;
+
+  enterBy?: string;
+  enterDate?: string;
+
+  empType: string;
+
+
+
+  documents: DocumentRecord[];
+}
+
+
+interface DocumentRecord {
+  documentId: number;
+  documentType: string;
+  documentNo: string;
+  startDate: string;
+  expiryDate: string;
+  fileName?: string;
+  vehicle?: { vehicleId: number };
+}
+
+interface HistoryRecord {
+  id?: number;
+  passNo: string;
+  empCode: string;
+  action: string;
+  remark: string;
+  dateOfEntry: string;
+}
+
+
+@Component({
+  selector: 'app-approval',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './approval.html',
+  styleUrl: './approval.css'
+})
+export class Approval implements OnInit, OnDestroy {
+
+  private readonly HEADERS = new HttpHeaders({
+    'x-api-key': API_CONFIG.API_KEY,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  });
+  private readonly destroy$ = new Subject<void>();
+  // ✅ Read from sessionStorage where AuthService actually saves the session
+  private get _sessionUser(): any {
+    try { return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null'); }
+    catch { return null; }
+  }
+
+  readonly approverName = signal(this._sessionUser?.primaryRole || 'APPROVER');
+  readonly approverCode = signal(this._sessionUser?.empCode || 'APPROVER');
+
+  allPasses = signal<PassRecord[]>([]);
+  isLoading = signal(true);
+  hasError = signal(false);
+  searchText = signal('');
+  currentPage = signal(1);
+  readonly pageSize = 10;
+
+
+
+  selectedPass = signal<PassRecord | null>(null);
+
+  // ✅ NEW — holds live-enriched employee details fetched on modal open
+  selectedPassExtra = signal<{
+    deptCode: string;
+    contractorName: string;
+    contractorCode: string;
+    aadhaarNo: string;
+    empName: string;
+    empType: string;
+  } | null>(null);
+  isLoadingExtra = signal(false);
+
+
+  actionRemark = signal('');
+  actionError = signal('');
+  actionSuccess = signal('');
+  isActing = signal(false);
+
+
+  activeAction = signal<'modify' | 'approve' | 'reject' | null>(null);
+
+  // ── Documents State ───────────────────────────────────────────────────────
+  passDocuments = signal<DocumentRecord[]>([]);
+  isLoadingDocs = signal(false);
+  docLoadError = signal('');
+  // ── Pass History State ──────────────────────────────────────────────────────
+  empPassHistory = signal<HistoryRecord[]>([]);
+  isLoadingHistory = signal(false);
+  historyLoadError = signal('');
+  showHistory = signal(false);
+
+pendingList = computed(() => {
+    const q = this.searchText().toLowerCase().trim();
+    const list = this.allPasses().filter(p => {
+
+      const status =
+        (p.reqStatus || (p as any).status || '').toLowerCase();
+
+      // Include both SUBMITTED and CONFIRMED passes for Approver workflow
+      return status === 'submitted' || status === 'confirmed';
+    });
+    if (!q) return list;
+
+    return list.filter(p =>
+      String(p.id).includes(q) ||
+      (p.employeeNo || '').toLowerCase().includes(q) ||
+      (p.vehicleNo || '').toLowerCase().includes(q) ||
+      (p.gateNo || '').toLowerCase().includes(q) ||
+      (p.empType || '').toLowerCase().includes(q)
+    );
+
+  });
+
+  pagedList = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return this.pendingList().slice(start, start + this.pageSize);
+  });
+
+  get totalPages() { return Math.max(1, Math.ceil(this.pendingList().length / this.pageSize)); }
+  get totalPagesArr() { return Array.from({ length: this.totalPages }, (_, i) => i + 1); }
+
+  protected svc = inject(PassStateService);
+  constructor(private http: HttpClient, private router: Router) { }
+
+  ngOnInit(): void {
+    this.svc.loadEmployeeNames();
+    this.loadPasses();
+  }
+
+  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+
+  loadPasses(): void {
+    this.isLoading.set(true);
+    this.hasError.set(false);
+    this.http.get<PassRecord[]>(API_CONFIG.PASS_LIST, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('[Approval] Load error:', err);
+          this.hasError.set(true);
+          this.isLoading.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(data => {
+
+        console.log('API Response:', data);
+
+        const enriched = (Array.isArray(data) ? data : []).map((p: any) => ({
+          ...p,
+
+          // API sends id
+          passId: p.passId ?? p.id,
+
+          // API sends reqStatus
+          status: p.status ?? p.reqStatus,
+
+          employeeName:
+            p.employeeName ??
+            p.empName ??
+            p.name ??
+            this.svc.resolveEmpName(p.employeeNo ?? '')
+        }));
+
+        console.log('Enriched:', enriched);
+
+        this.allPasses.set(enriched);
+        this.isLoading.set(false);
+      });
+
+  }
+  openReviewInPassEntry(p: PassRecord): void {
+    if (!p || !p.id) {
+      console.error('Pass ID not found.', p);
+      return;
+    }
+
+    this.router.navigate(
+      ['/pass-entry'],
+      {
+        queryParams: {
+          mode: 'approver',
+          id: p.id
+        }
+      }
+    );
+  }
+
+  openDetails(p: PassRecord): void {
+    this.selectedPass.set(p);
+    this.actionRemark.set('');
+    this.actionError.set('');
+    this.actionSuccess.set('');
+    this.activeAction.set(null);          // ← reset armed state on open
+    this.passDocuments.set([]);
+    this.docLoadError.set('');
+    this.showHistory.set(false);
+    this.enrichPassWithEmployeeData(p);
+
+    if (p.documents?.length) {
+      this.passDocuments.set(p.documents);
+    } else {
+      this.docLoadError.set('No documents found.');
+    }
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.loadEmpPassHistory(p.id);
+
+  }
+
+  closeDetails(): void {
+    this.selectedPass.set(null);
+    this.actionRemark.set('');
+    this.actionError.set('');
+    this.actionSuccess.set('');
+    this.activeAction.set(null);     // ← NEW
+    this.passDocuments.set([]);
+    this.docLoadError.set('');
+    // ── reset history ──
+    this.empPassHistory.set([]);
+    this.historyLoadError.set('');
+    this.showHistory.set(false);
+  }
+  setAction(action: 'modify' | 'approve' | 'reject'): void {
+    this.activeAction.set(this.activeAction() === action ? null : action);
+    this.actionError.set('');
+    this.actionSuccess.set('');
+  }
+  // ─────────────────────────────────────────────────────────────────
+  // enrichPassWithEmployeeData — fetches live employee/contractor
+  // details and stores them in selectedPassExtra signal.
+  //
+  // 📍 WHEN  → Called inside openDetails() every time a pass is opened
+  // 📍 WHERE → confirmer.ts → private method, called from openDetails()
+  // 📍 HOW   →
+  //   1. Calls GET /api/reports/employee-department (same API as pass-entry)
+  //   2. Matches by employeeNo (Company_Employee) OR contractorNo (Contractor)
+  //   3. Picks: deptCode, contractorName, aadhaarNo, empName
+  //   4. Stores result in selectedPassExtra signal
+  //   5. HTML reads from selectedPassExtra — never from raw pass object for these fields
+  //   6. Falls back to pass object values if API has no match
+  // ─────────────────────────────────────────────────────────────────
+  private enrichPassWithEmployeeData(pass: PassRecord): void {
+    this.isLoadingExtra.set(true);
+    this.selectedPassExtra.set(null);
+
+    this.http
+      .get<any[]>(`${API_CONFIG.BASE_URL}/api/reports/employee-department`, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(() => {
+          // Silent fail — modal still works, just shows raw pass data
+          this.isLoadingExtra.set(false);
+          return of([]);
+        })
+      )
+      .subscribe((rows: any[]) => {
+        this.isLoadingExtra.set(false);
+        if (!rows || rows.length === 0) return;
+
+        // ✅ FIX: Do NOT trust pass.empType from DB — it may be wrong for old records.
+        // Try BOTH lookups simultaneously. Whichever finds a row wins.
+        // Priority: contractorCode match first (more specific), then employeeNo match.
+
+        // Try 1: Match as Contractor — by contractorNo field
+        let match: any = null;
+        if (pass.contractorCode) {
+          match = rows.find(r =>
+            r.contractorNo &&
+            String(r.contractorNo).toUpperCase() === String(pass.contractorCode).toUpperCase()
+          );
+        }
+
+        // Try 2: Match as Company Employee — by numeric id
+        if (!match && pass.employeeNo) {
+          match = rows.find(r => String(r.id) === String(pass.employeeNo));
+        }
+
+        // Try 3: Match employeeNo against contractorNo (edge case: old pass saved ecNo in employeeNo for a contractor)
+        if (!match && pass.employeeNo) {
+          match = rows.find(r =>
+            r.contractorNo &&
+            String(r.contractorNo).toUpperCase() === String(pass.employeeNo).toUpperCase()
+          );
+        }
+
+        if (match) {
+          const isContractor = !!(match.contractorNo);
+          this.selectedPassExtra.set({
+            deptCode: String(match.deptCode || '—'),
+            contractorName: isContractor ? String(match.name || '—') : '—',
+            contractorCode: isContractor ? String(match.contractorNo || match.contractorCode || '—') : '—',
+            aadhaarNo: String(match.aadhaarNo || match.aadharNo || pass.aadhaarNo || '—'),
+            empName: String(match.name || pass.employeeName || '—'),
+            // ✅ FIX: empType from employee API match — overrides whatever was wrong in DB
+            empType: isContractor ? 'Contractor' : String(match.empType || pass.empType || '—'),
+          });
+        } else {
+          // No API match — fall back to pass row values
+          this.selectedPassExtra.set({
+            deptCode: '—',
+            contractorName: pass.contractorName || '—',
+            contractorCode: pass.contractorCode || '—',
+            aadhaarNo: pass.aadhaarNo || pass.aadharNo || '—',
+            empName: pass.employeeName || pass.empName || '—',
+            empType: pass.empType || '—',   // fallback only if API returned no rows
+          });
+        }
+      });
+  }
+
+
+  // ── NEW: Send for Modify ──────────────────────────────────────────────────
+sendForModify(pass?: PassRecord): void {
+    const targetPass = pass || this.selectedPass();
+    if (!targetPass) {
+      this.actionError.set('No pass selected.');
+      return;
+    }
+
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required — describe what needs to be modified.');
+      return;
+    }
+
+    const targetId = targetPass.passId || targetPass.id;
+    const confirmed = window.confirm(`Are you sure you want to send Pass #${targetId} back for MODIFICATION?`);
+    if (!confirmed) return;
+
+    this.isActing.set(true);
+    this.actionError.set('');
+
+    const updatePayload = {
+      status: 'NEEDS_MODIFICATION',
+      enterBy: this.approverName(),
+      remarks: `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
+    };
+
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${targetPass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Send for Modify failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          this.activeAction.set(null);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(targetPass.id, this.approverCode(), 'NEEDS_MODIFICATION',
+          `Modification requested by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`🔄 Pass #${targetId} sent back to requester for modification.`);
+        this.isActing.set(false);
+        this.activeAction.set(null);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
+
+  // ── GET /api/documents/list → filter by vehicleId ────────────────────────
+
+  private loadDocuments(vehicleId: number): void {
+    this.isLoadingDocs.set(true);
+    this.docLoadError.set('');
+
+  }
+  // ✅ FIXED — calls /api/history/list and filters by passId
+  private loadEmpPassHistory(passId: number): void {
+    this.isLoadingHistory.set(true);
+    this.historyLoadError.set('');
+    this.empPassHistory.set([]);
+
+    this.http.get<HistoryRecord[]>(`${API_CONFIG.PASS_HISTORY}/${passId}`, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.historyLoadError.set(
+            'Could not load pass history (' + (err?.status || 'network error') + ')'
+          );
+          this.isLoadingHistory.set(false);
+          return of([]);
+        })
+      )
+      .subscribe(data => {
+        const history = (Array.isArray(data) ? data : [])
+          .filter(h => String(h.passNo) === String(passId))
+          .sort((a: any, b: any) =>
+            new Date(b.dateOfEntry).getTime() - new Date(a.dateOfEntry).getTime()
+          ); // newest first
+        this.empPassHistory.set(history);
+        if (history.length === 0) {
+          this.historyLoadError.set('No audit history found for this pass.');
+        }
+        this.isLoadingHistory.set(false);
+      });
+  }
+
+  // ── Open PDF in new tab using /api/documents/download/{id} ───────────────
+  viewDocument(doc: DocumentRecord): void {
+    if (!doc?.documentId || !doc?.fileName) {
+      alert('No file attached to this document.');
+      return;
+    }
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}?id=${doc.documentId}`;
+    this.http.get(url, { responseType: 'blob', headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('❌ PDF download error:', err?.status);
+          alert('Could not load file. It may not have been uploaded yet.');
+          return of(null);
+        })
+      )
+      .subscribe((blob: Blob | null) => {
+        if (!blob) return;
+        // Open PDF in new tab instead of downloading
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+      });
+  }
+
+  // ── Date / Status helpers (same as vehicles.ts) ───────────────────────────
+  formatDocDate(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  getDocStatusClass(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0) return 'doc-expired';
+    if (days <= 30) return 'doc-expiring';
+    return 'doc-valid';
+  }
+
+  getDocStatusText(expiryDate: string): string {
+    const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+    if (days < 0) return 'Expired';
+    if (days <= 30) return `${days}d left`;
+    return 'Valid';
+  }
+
+approve(pass?: PassRecord): void {
+    const targetPass = pass || this.selectedPass();
+    if (!targetPass) {
+      this.actionError.set('No pass selected.');
+      return;
+    }
+
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required before approving.');
+      return;
+    }
+
+    const targetId = targetPass.passId || targetPass.id;
+    const confirmed = window.confirm(`Are you sure you want to APPROVE Pass #${targetId}?`);
+    if (!confirmed) return;
+
+    this.isActing.set(true);
+    this.actionError.set('');
+
+    const updatePayload = {
+      status: 'ACTIVE',
+      remark: `Approved by ${this.approverName()}: ${this.actionRemark().trim()}`,
+      enterBy: this.approverName()
+    };
+
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${targetPass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Approval failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.actionSuccess.set(`✅ Pass #${targetId} approved successfully.`);
+        this.isActing.set(false);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
+
+  returnToConfirmer(pass: PassRecord): void {
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required before returning.');
+      return;
+    }
+    this.isActing.set(true);
+    this.actionError.set('');
+    const updatePayload = {
+      status: 'Submitted',
+      enterBy: this.approverName(),
+      remarks: `Returned by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
+
+    };
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${pass.passId}`, updatePayload, { headers: this.HEADERS })
+      .pipe(timeout(TIMEOUT_MS), takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Return failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(pass.id, this.approverCode(), 'RETURNED',
+          `Returned to Confirmer by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`↩️ Pass #${pass.passId} returned to Confirmer queue.`);
+        this.isActing.set(false);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
+  // ── Reject Pass ───────────────────────────────────────────────────────────
+reject(pass?: PassRecord): void {
+    const targetPass = pass || this.selectedPass();
+    if (!targetPass) {
+      this.actionError.set('No pass selected.');
+      return;
+    }
+
+    if (!this.actionRemark().trim()) {
+      this.actionError.set('Remark is required before rejecting.');
+      return;
+    }
+
+    const targetId = targetPass.passId || targetPass.id;
+    const confirmed = window.confirm(`Are you sure you want to REJECT Pass #${targetId}?`);
+    if (!confirmed) return;
+
+    this.isActing.set(true);
+    this.actionError.set('');
+
+    const updatePayload = {
+      status: 'REJECT',
+      enterBy: this.approverName(),
+      remarks: `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`,
+    };
+
+    this.http.put(`${API_CONFIG.PASS_STATUS_UPDATE}/${targetPass.passId || targetPass.id}`, updatePayload, { headers: this.HEADERS })
+      .pipe(
+        timeout(TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          this.actionError.set('Rejection failed: ' + (err?.error?.message || err?.message || 'Server error'));
+          this.isActing.set(false);
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res === null) return;
+        this.logHistory(targetPass.id, this.approverCode(), 'REJECT',
+          `Rejected by Approver [${this.approverName()}]: ${this.actionRemark().trim()}`);
+        this.actionSuccess.set(`❌ Pass #${targetId} rejected.`);
+        this.isActing.set(false);
+        this.loadPasses();
+        setTimeout(() => this.closeDetails(), 2000);
+      });
+  }
+
+  private logHistory(passId: number, empCode: string, action: string, remark: string): void {
+    const payload = {
+      passNo: String(passId),
+      empCode: empCode || 'SYSTEM',
+      action,
+      remark: remark.substring(0, 200),
+      dateOfEntry: new Date()
+    };
+
+    console.log('✅ APPROVER HISTORY PAYLOAD =>', JSON.stringify(payload, null, 2));
+
+    this.http.post(API_CONFIG.PASS_HISTORY, payload, { headers: this.HEADERS })
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError((err) => {
+          console.error('❌ APPROVER HISTORY ERROR =>', err?.status, err?.error);
+          return of(null);
+        })
+      )
+      .subscribe((res) => {
+        console.log('✅ APPROVER HISTORY RESPONSE =>', res);
+      });
+  }
+
+  onSearch(value: string): void { this.searchText.set(value); this.currentPage.set(1); }
+  goToPage(page: number): void { if (page >= 1 && page <= this.totalPages) this.currentPage.set(page); }
+
+getStatusLabel(status: string): string {
+    switch ((status || '').toLowerCase()) {
+      case 'submitted': return 'Pending Approval';
+      case 'confirmed': return 'Pending Approval';
+      case 'active': return 'ACTIVE';
+      case 'approved': return 'ACTIVE';
+      case 'reject':
+      case 'rejected':
+      case 'regret': return 'REJECT';
+      case 'surrendered': return 'Surrendered';
+      case 'expired': return 'Expired';
+      case 'needs_modification': return 'Needs Modification';
+      default: return status || '—';
+    }
+  }
+  getActionClass(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'CONFIRMED': return 'badge-confirmed';
+      case 'APPROVED': return 'badge-active';
+      case 'REJECTED': return 'badge-rejected';
+      case 'SENT_FOR_MODIFICATION': return 'badge-modify';
+      case 'RETURNED': return 'badge-submitted';
+      default: return 'badge-default';
+    }
+  }
+
+  getActionIcon(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'CONFIRMED': return 'bi-check-circle-fill';
+      case 'APPROVED': return 'bi-patch-check-fill';
+      case 'REJECTED': return 'bi-x-circle-fill';
+      case 'SENT_FOR_MODIFICATION': return 'bi-pencil-square';
+      case 'RETURNED': return 'bi-arrow-return-left';
+      default: return 'bi-dot';
+    }
+  }
+
+  getActionRowClass(action: string): string {
+    switch ((action || '').toUpperCase()) {
+      case 'APPROVED': return 'hist-row-approved';
+      case 'REJECTED': return 'hist-row-rejected';
+      case 'CONFIRMED': return 'hist-row-confirmed';
+      case 'SENT_FOR_MODIFICATION': return 'hist-row-modify';
+      default: return '';
+    }
+  }
+
+  getStatusClass(status: string): string {
+    switch ((status || '').toLowerCase()) {
+      case 'submitted': return 'badge-submitted';
+      case 'confirmed': return 'badge-confirmed';
+      case 'active': return 'badge-active';
+      case 'rejected': return 'badge-rejected';
+      case 'surrendered': return 'badge-surrendered';
+      case 'expired': return 'badge-expired';
+      case 'needs_modification': return 'badge-modify';
+      default: return 'badge-default';
+    }
+  }
+
+  formatDate(d: string): string {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('en-GB'); } catch { return d; }
+  }
+  formatDateTime(d: string): string {
+    if (!d) return '—';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const date = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${date}, ${time}`;
+  }
+}
