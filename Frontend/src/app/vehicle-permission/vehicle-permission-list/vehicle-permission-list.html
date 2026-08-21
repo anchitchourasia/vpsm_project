@@ -1,0 +1,141 @@
+<div class="vpl-shell">
+
+    <div class="vpl-page-header">
+        <div class="vpl-header-left">
+            <i class="bi bi-truck-front-fill vpl-header-icon"></i>
+            <div>
+                <h1 class="vpl-title">Contractor Vehicle Permissions</h1>
+                <p class="vpl-sub">All vendor / contractor vehicle permission requests</p>
+            </div>
+        </div>
+
+        <div class="vpl-header-actions">
+            <button class="vpl-btn-refresh" type="button" (click)="refresh()">
+                <i class="bi bi-arrow-clockwise"></i>
+                Refresh
+            </button>
+
+            <button class="vpl-btn-add" type="button" (click)="createNew()">
+                <i class="bi bi-plus-circle-fill"></i>
+                New Permission
+            </button>
+        </div>
+    </div>
+
+    <div class="vpl-filters">
+        <div class="vpl-search-wrap">
+            <i class="bi bi-search vpl-search-icon"></i>
+            <input class="vpl-search" type="text" placeholder="Search request no, contractor, vehicle, job, creator..."
+                [value]="searchText()" (input)="onSearchChange($any($event.target).value)" />
+        </div>
+
+        <select class="vpl-filter-select" [value]="statusFilter()" (change)="onStatusChange($any($event.target).value)">
+            @for (status of statusOptions; track status) {
+            <option [value]="status">{{ status }}</option>
+            }
+        </select>
+
+        <button class="vpl-btn-add" type="button" (click)="clearFilters()">
+            
+            Clear
+        </button>
+    </div>
+
+    @if (errorMsg()) {
+    <div class="vpl-alert-error">
+        <i class="bi bi-exclamation-circle"></i>
+        {{ errorMsg() }}
+    </div>
+    }
+
+    @if (successMsg()) {
+    <div class="vpl-alert-success">
+        <i class="bi bi-check-circle"></i>
+        {{ successMsg() }}
+    </div>
+    }
+
+    <div class="vpl-card">
+        @if (loading()) {
+        <div class="vpl-loading">
+            <i class="bi bi-arrow-repeat vpl-spin"></i>
+            Loading records...
+        </div>
+        } @else {
+        <div class="vpl-table-wrap">
+            <table class="vpl-table">
+                <thead>
+                    <tr>
+                        <th>Req No.</th>
+                        <th>Contractor ID</th>
+                        <th>Vehicle No.</th>
+                        <th>Vehicle Type</th>
+                        <th>Nature of Job</th>
+                        <th>Permission To</th>
+                        <th>Personnel</th>
+                        <th>Vehicle Docs</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @for (row of filteredRows(); track row.requestNo) {
+                    <tr class="vpl-row">
+                        <td class="vpl-id">#{{ row.requestNo }}</td>
+                        <td class="vpl-name">{{ row.contractorCode }}</td>
+                        <td><span class="vpl-vehicle-no">{{ row.vehicleNo }}</span></td>
+                        <td>{{ row.vehicleType }}</td>
+                        <td>{{ row.natureOfJob }}</td>
+                        <td>{{ row.permissionTo }}</td>
+                        <td>{{ row.personnelCount }}</td>
+                        <td>{{ row.vehicleDocumentCount }}</td>
+                        <td>
+                            <span class="vpl-badge" [ngClass]="getStatusClass(row.reqStatus)">
+                                {{ getStatusLabel(row.reqStatus) }}
+                            </span>
+                        </td>
+                        <td>{{ row.createdBy }}</td>
+                        <td>{{ row.createdDate || '-' }}</td>
+                        <td>
+                            <div class="vpl-action-group">
+                                <button type="button" class="vpl-btn-view" (click)="viewRequest(row)">
+                                    View
+                                </button>
+                                @if (canEdit(row.reqStatus)) {
+                                <button class="vpl-btn-view" type="button" (click)="editRequest(row)">
+                                    <i class="bi bi-pencil-square"></i>
+                                    Edit
+                                </button>
+                                }
+                                
+
+                                @if (row.reqStatus === 'APPROVED') {
+                                <button class="vpl-btn-pass-sm" type="button" (click)="downloadPass(row)">
+                                    <i class="bi bi-download"></i>
+                                    Download Pass
+                                </button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                    } @empty {
+                    <tr>
+                        <td colspan="13" class="vpl-empty">
+                            <i class="bi bi-inbox vpl-empty-icon"></i>
+                            <div>No records found</div>
+                        </td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="vpl-footer-count">
+            Showing {{ filteredRows().length }} record(s)
+        </div>
+        }
+    </div>
+</div>

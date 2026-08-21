@@ -1,0 +1,187 @@
+<div class="vp-shell">
+    <div class="vp-letterhead">
+        <div class="vp-letterhead-top">
+            <img src="/logos/security.jpg" alt="Security Group Logo" class="vp-logo-left" />
+
+            <div class="vp-letterhead-center">
+                <h1 class="vp-letterhead-title">Vendors Vehicle/Contractor Permission Form</h1>
+                <p class="vp-letterhead-sub">HEG LIMITED, MANDIDEEP</p>
+            </div>
+
+            <img src="/logos/heg_logo.jpg" alt="HEG Logo" class="vp-logo-right" />
+        </div>
+
+        <div class="vp-letterhead-meta">
+            <span class="vp-status-pill" [ngClass]="getStatusClass(status())">{{ status() }}</span>
+            <div class="vp-form-no">{{ formNo }}</div>
+        </div>
+    </div>
+
+    @if (errorMsg()) {
+    <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div>
+    }
+
+    @if (loading()) {
+    <div class="vp-alert vp-alert-success">Loading pass details...</div>
+    }
+
+    @if (!loading() && request()) {
+    <div class="vp-section">
+        <div class="vp-section-title">General Information</div>
+        <div class="vp-grid-2">
+            <div class="vp-field">
+                <label class="vp-label">Contractor Code</label>
+                <input class="vp-input" type="text" [value]="request()?.contractorId || ''" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Contractor Name</label>
+                <input class="vp-input" type="text" [value]="contractorName()" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Request Date</label>
+                <input class="vp-input" type="date" [value]="formatDateForInput(request()?.createdDate)" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Nature of Job</label>
+                <input class="vp-input" type="text" [value]="request()?.natureOfJob || ''" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Permission Date To</label>
+                <input class="vp-input" type="date" [value]="formatDateForInput(request()?.permissionTo)" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Approved Date</label>
+                <input class="vp-input" type="text" value="-" readonly
+                    style="background-color:#f8f9fa; cursor:not-allowed; color:#495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Print Date</label>
+                <input class="vp-input" type="text" value="-" readonly
+                    style="background-color:#f8f9fa; cursor:not-allowed; color:#495057;" />
+            </div>
+        </div>
+    </div>
+
+    <div class="vp-section">
+        <div class="vp-section-title">Vehicle Details</div>
+
+        <div class="vp-grid-2" style="margin-bottom: 16px;">
+            <div class="vp-field">
+                <label class="vp-label">Vehicle No.</label>
+                <input class="vp-input" type="text" [value]="request()?.vehicleNo || ''" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+
+            <div class="vp-field">
+                <label class="vp-label">Vehicle Type</label>
+                <input class="vp-input" type="text" [value]="request()?.vehicleType || ''" readonly
+                    style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+            </div>
+        </div>
+
+        @if (vehicleDocuments().length > 0) {
+        <div class="vp-table-wrap">
+            <table class="vp-table">
+                <thead>
+                    <tr>
+                        <th>Vehicle Documents</th>
+                        <th>Doc. Number</th>
+                        <th>Valid Upto</th>
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (doc of vehicleDocuments(); track doc.id || doc.documentType) {
+                    <tr>
+                        <td>{{ doc.documentType || '-' }}</td>
+                        <td>{{ doc.documentNo || '-' }}</td>
+                        <td>{{ formatDate(doc.validTill) }}</td>
+                        <td>
+                            <span [class]="getRemarkClass(doc.validTill)">
+                                {{ getRemarkText(doc.validTill) }}
+                            </span>
+                        </td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        } @else {
+        <div class="vp-empty-row">No vehicle documents available.</div>
+        }
+    </div>
+
+    <div class="vp-section">
+        <div class="vp-section-title">Driver / Conductor Details</div>
+
+        @if (passEmployees().length > 0) {
+        <div class="vp-table-wrap">
+            <table class="vp-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Name</th>
+                        <th>Contact No.</th>
+                        <th>Aadhar No.</th>
+                        <th>License No.</th>
+                        <th>License Valid Upto</th>
+                        <th>Eye Test Date</th>
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (driver of passEmployees(); track driver.empNo || driver.name || $index) {
+                    <tr>
+                        <td>{{ driver._role || '-' }}</td>
+
+                        <td>{{ driver._name || '-' }}</td>
+
+                        <td>{{ driver._mobileNo || '-' }}</td>
+
+                        <td>{{ driver._aadhaarNo || '-' }}</td>
+
+                        <td>{{ driver._licenseNo || '-' }}</td>
+
+                        <td>{{ formatDate(driver._licenseValidTill) }}</td>
+
+                        <td>{{ formatDate(driver._eyeTestDate) }}</td>
+
+                        <td>
+                            <span [class]="getRemarkClass(driver._licenseValidTill)">
+                                {{ getRemarkText(driver._licenseValidTill) }}
+                            </span>
+                        </td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        } @else {
+        <div class="vp-empty-row">No employee information available.</div>
+        }
+    </div>
+
+    <div class="vp-actions no-print">
+        <button type="button" class="vp-btn-secondary" (click)="goBack()">
+            <i class="bi bi-arrow-left"></i>
+            Back
+        </button>
+
+        <button type="button" class="vp-btn-primary" (click)="printPass()">
+            <i class="bi bi-printer-fill"></i>
+            Print / Save PDF
+        </button>
+    </div>
+    }
+</div>
