@@ -1,0 +1,162 @@
+<div class="reports-page">
+
+  <div class="reports-topbar">
+    <div>
+      <div class="reports-title">
+        <i class="bi bi-file-earmark-bar-graph-fill"></i>
+        Document Expiry Report
+      </div>
+
+      <p class="reports-subtitle">
+        Find passes where RC, Insurance, or License is expired or expires by the selected date.
+      </p>
+    </div>
+
+    <div class="reports-count">
+      <i class="bi bi-list-check"></i>
+      {{ filteredRows().length }} Records
+    </div>
+  </div>
+
+  <section class="reports-filter-card">
+    <div class="reports-filter-heading">
+      <i class="bi bi-funnel-fill"></i>
+      Report Filter
+    </div>
+
+    <div class="reports-filter-row">
+      <div class="reports-date-field">
+        <label for="expiryCutoffDate">
+          Expiry Date <span class="reports-required">*</span>
+        </label>
+
+        <input
+          id="expiryCutoffDate"
+          type="date"
+          [(ngModel)]="cutoffDate"
+          [min]="todayDate"
+          class="reports-date-input" />
+      </div>
+
+      <div class="reports-filter-actions">
+        <button
+          type="button"
+          class="reports-btn reports-btn-primary"
+          (click)="generateReport()"
+          [disabled]="!cutoffDate()">
+          <i class="bi bi-search"></i>
+          Generate Report
+        </button>
+
+        <button
+          type="button"
+          class="reports-btn reports-btn-clear"
+          (click)="resetReport()">
+          <i class="bi bi-arrow-counterclockwise"></i>
+          Reset
+        </button>
+      </div>
+    </div>
+
+    <div class="reports-filter-note">
+      <i class="bi bi-info-circle-fill"></i>
+      Includes a pass when at least one document expiry date is on or before the selected date.
+    </div>
+  </section>
+
+  @if (!searched()) {
+    <section class="reports-empty-state">
+      <i class="bi bi-calendar2-check"></i>
+      <h3>Select an expiry date</h3>
+      <p>Choose a date and click <strong>Generate Report</strong> to view document-expiry records.</p>
+    </section>
+  }
+
+  @if (searched()) {
+    <section class="reports-result-card">
+
+      <div class="reports-result-header">
+        <div>
+          <h3>Document Expiry Results</h3>
+          <p>
+            Showing records for expiry date on or before
+            <strong>{{ formatDate(cutoffDate()) }}</strong>
+          </p>
+        </div>
+
+        <div class="reports-search-box">
+          <i class="bi bi-search"></i>
+          <input
+            type="text"
+            placeholder="Search pass, employee, name..."
+            [(ngModel)]="searchText" />
+        </div>
+      </div>
+
+      @if (filteredRows().length > 0) {
+        <div class="reports-table-wrap">
+          <table class="reports-table">
+            <thead>
+              <tr>
+                <th>Pass No</th>
+                <th>Emp No</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Mobile No</th>
+                <th>RC</th>
+                <th>Insurance</th>
+                <th>License</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (row of filteredRows(); track row.passNo + '-' + row.employeeNo) {
+                <tr>
+                  <td class="reports-pass-no">{{ row.passNo }}</td>
+                  <td>{{ row.employeeNo }}</td>
+                  <td class="reports-name">{{ row.name }}</td>
+                  <td>{{ row.department }}</td>
+                  <td>{{ row.mobileNo }}</td>
+
+                  <td>
+                    <div class="reports-document-cell">
+                      <span>{{ formatDate(row.rc.expiryDate) }}</span>
+                      <span class="reports-status" [class]="statusClass(row.rc.status)">
+                        {{ statusLabel(row.rc.status) }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td>
+                    <div class="reports-document-cell">
+                      <span>{{ formatDate(row.insurance.expiryDate) }}</span>
+                      <span class="reports-status" [class]="statusClass(row.insurance.status)">
+                        {{ statusLabel(row.insurance.status) }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td>
+                    <div class="reports-document-cell">
+                      <span>{{ formatDate(row.license.expiryDate) }}</span>
+                      <span class="reports-status" [class]="statusClass(row.license.status)">
+                        {{ statusLabel(row.license.status) }}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="reports-no-results">
+          <i class="bi bi-check-circle-fill"></i>
+          No records found for the selected date.
+        </div>
+      }
+
+    </section>
+  }
+
+</div>

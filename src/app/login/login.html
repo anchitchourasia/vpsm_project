@@ -1,0 +1,188 @@
+<!-- Frontend/src/app/login/login.html -->
+<div class="login-wrap">
+  <div class="login-card">
+
+    <!-- Logo + Brand -->
+    <div class="login-brand">
+      <div class="login-logo-box">
+        <img src="assets/heg-logo.png" alt="HEG" width="56" height="56" />
+      </div>
+      <h1 class="login-company">HEG Limited</h1>
+      <p class="login-system">Vehicle Pass Management System</p>
+    </div>
+
+    <!-- Divider -->
+    <div class="login-divider"></div>
+
+    <!-- ── VIEW 1: LOGIN FORM ────────────────────────────────────────── -->
+    @if (!isResetMode) {
+      <div class="login-form">
+
+        <!-- Employee Code Input -->
+        <label class="login-label" for="empCode">
+          Employee / Staff Code
+        </label>
+
+        <input
+          id="empCode"
+          class="login-input"
+          type="text"
+          [(ngModel)]="empCodeInput"
+          placeholder="Enter your code  e.g.  70028"
+          (keyup.enter)="onLogin()"
+          [disabled]="isLoading"
+          autocomplete="off"
+          spellcheck="false"
+        />
+
+        <!-- Password Input -->
+        <label class="login-label" for="password" style="margin-top: 12px;">
+          Password
+        </label>
+
+        <input
+          id="password"
+          class="login-input"
+          type="password"
+          [(ngModel)]="passwordInput"
+          placeholder="Enter your password"
+          (keyup.enter)="onLogin()"
+          [disabled]="isLoading"
+          autocomplete="current-password"
+        />
+
+        <!-- Forgot Password Link -->
+        <div style="text-align: right; margin-top: 6px;">
+          <a
+            type="button"
+            (click)="toggleResetMode(true)"
+            style="color: #2563eb; font-size: 13px; text-decoration: none; cursor: pointer; font-weight: 500;"
+          >
+            Forgot password?
+          </a>
+        </div>
+
+        @if (errorMsg) {
+          <div class="login-error">
+            ⚠️&nbsp;&nbsp;{{ errorMsg }}
+          </div>
+        }
+
+        @if (successMsg) {
+          <div class="login-success">
+            ✅&nbsp;&nbsp;{{ successMsg }}
+          </div>
+        }
+
+        @if (resolvedRole) {
+          <div class="login-success">
+            ✅&nbsp;&nbsp;Logged in as <strong>{{ resolvedRole }}</strong>
+          </div>
+        }
+
+        <button
+          class="login-btn"
+          (click)="onLogin()"
+          [disabled]="isLoading"
+        >
+          @if (isLoading) {
+            <span class="login-spinner"></span>&nbsp; Verifying...
+          } @else {
+            Sign In →
+          }
+        </button>
+
+      </div>
+    }
+
+    <!-- ── VIEW 2: RESET / UPDATE PASSWORD FORM ──────────────────────── -->
+    @else {
+      <div class="login-form">
+
+        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b; text-align: center; font-weight: 600;">
+          Reset Your Password
+        </h3>
+
+        <!-- Reset Employee Code Input -->
+        <label class="login-label" for="resetEmpCode">
+          Employee / Staff Code
+        </label>
+
+        <input
+          id="resetEmpCode"
+          class="login-input"
+          type="text"
+          [(ngModel)]="resetEmpCodeInput"
+          placeholder="Enter your code  e.g.  70028"
+          [disabled]="isLoading"
+          autocomplete="off"
+          spellcheck="false"
+        />
+
+        <!-- New Password Input -->
+        <label class="login-label" for="newPassword" style="margin-top: 12px;">
+          Enter your new password
+        </label>
+
+        <input
+          id="newPassword"
+          class="login-input"
+          type="password"
+          [(ngModel)]="newPasswordInput"
+          placeholder="New password"
+          [disabled]="isLoading"
+          autocomplete="new-password"
+        />
+
+        <!-- Confirm Password Input -->
+        <label class="login-label" for="confirmPassword" style="margin-top: 12px;">
+          Enter password again
+        </label>
+
+        <input
+          id="confirmPassword"
+          class="login-input"
+          type="password"
+          [(ngModel)]="confirmPasswordInput"
+          placeholder="Confirm new password"
+          (keyup.enter)="onResetPassword()"
+          [disabled]="isLoading"
+          autocomplete="new-password"
+        />
+
+        @if (errorMsg) {
+          <div class="login-error">
+            ⚠️&nbsp;&nbsp;{{ errorMsg }}
+          </div>
+        }
+
+        <button
+          class="login-btn"
+          style="margin-top: 16px;"
+          (click)="onResetPassword()"
+          [disabled]="isLoading"
+        >
+          @if (isLoading) {
+            <span class="login-spinner"></span>&nbsp; Updating...
+          } @else {
+            Update Password
+          }
+        </button>
+
+        <button
+          type="button"
+          class="login-btn"
+          style="margin-top: 8px; background-color: #64748b;"
+          (click)="toggleResetMode(false)"
+          [disabled]="isLoading"
+        >
+          ← Back to Login
+        </button>
+
+      </div>
+    }
+
+    <p class="login-note">Having trouble? Contact your System Administrator.</p>
+
+  </div>
+</div>

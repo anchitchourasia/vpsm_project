@@ -1,0 +1,14 @@
+================================================
+         HEG VEHICLE PASS MANAGEMENT SYSTEM     
+================================================
+PASS ID     : 224
+EMPLOYEE NO : 10
+EMP TYPE    : CONTRACT
+DEPARTMENT  : ADMINISTRATION
+VEHICLE NO  : MP100100
+VEHICLE TYPE: CAR
+GATE        : GATE_01
+ISSUE DATE  : 16 Jul 2026
+VALID TILL  : 15 Aug 2026
+STATUS      : Active
+================================================
