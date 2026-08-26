@@ -67,7 +67,7 @@
 ════════════════════════════════════════════════════════ */
 .kpi-row {
   display              : grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap                  : 16px;
 }
 @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
@@ -184,3 +184,122 @@
   transition : color 0.15s;
 }
 .kpi-card:hover .kpi-link { color: #ffffff; }
+/* ════════════════════════════════════════════════════════
+   APPROVER HOME NOTIFICATION KPI
+════════════════════════════════════════════════════════ */
+
+.kpi-pending-approval {
+  width: 100%;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  background: linear-gradient(135deg, #713f12 0%, #d97706 100%);
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.30);
+}
+
+.kpi-pending-approval:hover {
+  box-shadow: 0 8px 28px rgba(217, 119, 6, 0.42);
+}
+
+.kpi-bg-pending {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fef3c7;
+}
+
+.kpi-pending-approval .kpi-value {
+  color: #ffffff;
+}
+
+.kpi-pending-approval .kpi-sub {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.kpi-pending-approval .kpi-link {
+  color: rgba(255, 255, 255, 0.92);
+}
+/* ════════════════════════════════════════════════════════
+   APPROVER NOTIFICATION BAR
+════════════════════════════════════════════════════════ */
+
+.approver-notification {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  border: 1px solid #047857;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #047857 0%, #059669 55%, #10b981 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.approver-notification:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+  box-shadow: 0 7px 20px rgba(5, 150, 105, 0.38);
+}
+
+.approver-notification:active {
+  transform: translateY(0);
+}
+
+.approver-notification:focus-visible {
+  outline: 3px solid rgba(16, 185, 129, 0.35);
+  outline-offset: 2px;
+}
+
+.approver-notification-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.approver-notification-message i {
+  flex-shrink: 0;
+  font-size: 1.05rem;
+}
+
+.approver-notification-arrow {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.95rem;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.approver-notification:hover .approver-notification-arrow {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateX(2px);
+}
+
+@media (max-width: 600px) {
+  .approver-notification {
+    min-height: auto;
+    padding: 12px 14px;
+  }
+
+  .approver-notification-message {
+    font-size: 0.76rem;
+  }
+
+  .approver-notification-arrow {
+    width: 30px;
+    height: 30px;
+  }
+}

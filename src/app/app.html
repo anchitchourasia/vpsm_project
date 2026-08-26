@@ -32,13 +32,6 @@
         <span class="sb-label">Home</span>
       </a>
 
-      <!-- Dashboard — authority only -->
-      @if (auth.hasAuthority()) {
-      <a routerLink="/dashboard" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
-        <i class="bi bi-bar-chart-line-fill sb-icon"></i>
-        <span class="sb-label">Dashboard</span>
-      </a>
-      }
 
       <!-- ── SECTION: PASS MANAGEMENT ── -->
       <div class="sb-section-label">PASS MANAGEMENT</div>
