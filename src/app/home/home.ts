@@ -18,9 +18,7 @@ const HTTP_TIMEOUT_MS = 12_000;
       <div class="ph-left">
         
       </div>
-      <button class="btn-add-pass" (click)="openPassEntry()">
-        <i class="bi bi-plus-circle-fill"></i> ADD PASS
-      </button>
+
     </div>
 
     <div class="home-content">

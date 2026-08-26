@@ -20,12 +20,12 @@ export const API_CONFIG = {
   PASS_STATUS_UPDATE: `${environment.apiBaseUrl}/api/passes/status`,
 
   // aliases used by pass-entry.ts
-  PASSSAVE: `${environment.apiBaseUrl}/api/passes/save`,
-  PASSUPDATE: `${environment.apiBaseUrl}/api/passes/update`,
-  PASSLISTV1: `${environment.apiBaseUrl}/api/passes/listV1`,
-  PASSLIST: `${environment.apiBaseUrl}/api/passes/list`,
-  PASSHISTORY: `${environment.apiBaseUrl}/api/history`,
-  PASSSTATUSUPDATE: `${environment.apiBaseUrl}/api/passes/status`,
+  // PASSSAVE: `${environment.apiBaseUrl}/api/passes/save`,
+  // PASSUPDATE: `${environment.apiBaseUrl}/api/passes/update`,
+  // PASSLISTV1: `${environment.apiBaseUrl}/api/passes/listV1`,
+  // PASSLIST: `${environment.apiBaseUrl}/api/passes/list`,
+  // PASSHISTORY: `${environment.apiBaseUrl}/api/history`,
+  // PASSSTATUSUPDATE: `${environment.apiBaseUrl}/api/passes/status`,
 
   DOCUMENTS_DOWNLOAD: `${environment.apiBaseUrl}/api/passes/documents/download`,
 

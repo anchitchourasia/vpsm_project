@@ -40,12 +40,12 @@
           <i class="bi bi-cloud-arrow-down"></i>
           Download Excel
         </button>
-        <select class="form-select" [ngModel]="filterStatus()"
+        <select class="filter-select" [ngModel]="filterStatus()"
           (ngModelChange)="filterStatus.set($event); currentPage.set(1)">
           <option value="ALL">All Status</option>
-          <option value="DRAFT">DRAFT</option>
-          <option value="SUBMITTED">SUBMITTED</option>
-          <option value="ACTIVE">ACTIVE</option>
+          <option value="SAVED">Saved</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="ACTIVE">Active</option>
           <option value="NEEDS_MODIFICATION">Needs Modification</option>
           <option value="REJECT">Rejected</option>
         </select>
@@ -157,24 +157,18 @@
       <!-- ============================================ -->
       <div class="pagination-container" *ngIf="filteredPasses().length > 0">
         <div class="pagination-info">
-          Showing <strong>{{ recordStart() }}</strong> to <strong>{{ recordEnd() }}</strong> of <strong>{{ filteredPasses().length }}</strong> entries
+          Showing <strong>{{ recordStart() }}</strong> to <strong>{{ recordEnd() }}</strong> of <strong>{{
+            filteredPasses().length }}</strong> entries
         </div>
 
         <div class="pagination-controls" *ngIf="totalPages > 1">
           <!-- First Page -->
-          <button 
-            class="page-btn nav-btn" 
-            [disabled]="currentPage() === 1" 
-            (click)="changePage(1)"
-            title="First Page">
+          <button class="page-btn nav-btn" [disabled]="currentPage() === 1" (click)="changePage(1)" title="First Page">
             &laquo;
           </button>
 
           <!-- Previous Page -->
-          <button 
-            class="page-btn nav-btn" 
-            [disabled]="currentPage() === 1" 
-            (click)="changePage(currentPage() - 1)">
+          <button class="page-btn nav-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
             Prev
           </button>
 
@@ -182,10 +176,7 @@
           <span class="ellipsis" *ngIf="visiblePages()[0] > 1">...</span>
 
           <!-- Number Buttons -->
-          <button 
-            *ngFor="let p of visiblePages()" 
-            class="page-btn" 
-            [class.active]="p === currentPage()" 
+          <button *ngFor="let p of visiblePages()" class="page-btn" [class.active]="p === currentPage()"
             (click)="changePage(p)">
             {{ p }}
           </button>
@@ -194,18 +185,13 @@
           <span class="ellipsis" *ngIf="visiblePages()[visiblePages().length - 1] < totalPages">...</span>
 
           <!-- Next Page -->
-          <button 
-            class="page-btn nav-btn" 
-            [disabled]="currentPage() === totalPages" 
+          <button class="page-btn nav-btn" [disabled]="currentPage() === totalPages"
             (click)="changePage(currentPage() + 1)">
             Next
           </button>
 
           <!-- Last Page -->
-          <button 
-            class="page-btn nav-btn" 
-            [disabled]="currentPage() === totalPages" 
-            (click)="changePage(totalPages)"
+          <button class="page-btn nav-btn" [disabled]="currentPage() === totalPages" (click)="changePage(totalPages)"
             title="Last Page">
             &raquo;
           </button>

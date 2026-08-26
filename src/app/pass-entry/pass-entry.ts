@@ -81,7 +81,6 @@ export interface PassRegistryResponseDTO {
 
 // Pass Status Constants
 export const PassStatus = {
-  DRAFT: 'DRAFT',
   SAVED: 'SAVED',
   SUBMITTED: 'SUBMITTED',
   CONFIRMED: 'CONFIRMED',
@@ -166,7 +165,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // Workflow
   //=====================================================
-  status: string = PassStatus.DRAFT;
+  status: string = PassStatus.SAVED;
   remark: string | null = null;
   enterBy: string = '';
 
@@ -314,7 +313,7 @@ export class PassEntry implements OnInit, OnDestroy {
         } else {
           // New Entry
           this.registryId = null;
-          this.status = PassStatus.DRAFT;
+          this.status = PassStatus.SAVED;
         }
       });
   }
@@ -335,7 +334,10 @@ export class PassEntry implements OnInit, OnDestroy {
       const user = JSON.parse(session);
       console.log('Logged User = ', user);
 
-      this.enterBy = String(user.empCode ?? user.employeeNo ?? '').trim();
+      this.enterBy = String(
+        user.empCode ??
+        ''
+      ).trim();
 
       const role = String(user.primaryRole ?? user.roles?.[0] ?? '').toUpperCase();
       console.log('Login Role = ', role);
@@ -879,7 +881,7 @@ export class PassEntry implements OnInit, OnDestroy {
       currentUpperStatus === PassStatus.NEEDS_MODIFICATION ||
       currentUpperStatus === 'NEEDSMODIFICATION'
     ) {
-      this.status = PassStatus.DRAFT;
+      this.status = PassStatus.SAVED;
     }
 
     this.isSaving.set(true);
@@ -903,7 +905,7 @@ export class PassEntry implements OnInit, OnDestroy {
             this.saveSuccess.set('Vehicle pass updated successfully.');
             this.registryId = response.id;
             this.passNo = response.passNo;
-            this.status = response.reqStatus ?? PassStatus.DRAFT;
+            this.status = response.reqStatus ?? PassStatus.SAVED;
           },
           error: (err) => {
             this.saveError.set(
@@ -931,7 +933,7 @@ export class PassEntry implements OnInit, OnDestroy {
           this.saveSuccess.set('Vehicle pass saved successfully.');
           this.registryId = response.id;
           this.passNo = response.passNo;
-          this.status = response.reqStatus ?? PassStatus.DRAFT;
+          this.status = response.reqStatus ?? PassStatus.SAVED;
         },
         error: (err) => {
           this.saveError.set(
@@ -1014,8 +1016,12 @@ export class PassEntry implements OnInit, OnDestroy {
           this.contractorCode = response.contractorCode ?? null;
           this.gateNo = response.gateNo ?? '';
           this.parkingToBeUsed = response.parkingToBeUsed ?? '';
-          this.status = response.reqStatus ?? PassStatus.DRAFT;
-          this.enterBy = response.enterBy ?? '';
+          this.status = response.reqStatus ?? PassStatus.SAVED;
+          this.enterBy = String(
+            response.enterBy ??
+            (response as any).enteredBy ??
+            ''
+          ).trim();
 
           if (response.documents && response.documents.length > 0) {
             this.documents.set(
@@ -1180,7 +1186,6 @@ export class PassEntry implements OnInit, OnDestroy {
     }
     const s = (this.status || '').toUpperCase();
     return (
-      s === PassStatus.DRAFT ||
       s === PassStatus.SAVED ||
       s === PassStatus.MODIFY ||
       s === PassStatus.NEEDS_MODIFICATION ||

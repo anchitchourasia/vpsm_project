@@ -18,7 +18,6 @@ export const routes: Routes = [
   // PASS REGISTRY — protected
   { path: 'passes/all', canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
   { path: 'passes/active', canActivate: [authGuard], loadComponent: () => import('./passes/passes').then(m => m.Passes) },
-  { path: 'passes/surrendered', canActivate: [authGuard], loadComponent: () => import('./passes/surrendered-passes').then(m => m.SurrenderedPasses) },
   {
     path: 'reports',
     loadComponent: () =>

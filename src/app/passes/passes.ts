@@ -455,7 +455,6 @@ canEditPass(row: PassListRow): boolean {
     const status = (row?.status || '').trim().toUpperCase();
     
     return (
-      status === 'DRAFT' ||
       status === 'SAVED' ||
       status === 'NEEDS_MODIFICATION' ||
       status === 'NEEDSMODIFICATION' ||
@@ -688,7 +687,6 @@ private mapListData(row: any): PassListRow {
 getStatusClass(status: string) {
     switch (status?.toUpperCase()) {
       case 'SAVED':
-      case 'DRAFT':
         return 'badge bg-primary';
 
       case 'SUBMITTED':
