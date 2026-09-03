@@ -1,0 +1,604 @@
+<div class="vp-shell">
+  <div class="vp-header-card">
+    <div class="vp-header-left">
+      <i class="bi bi-truck vp-header-icon"></i>
+      <div>
+        <h1 class="vp-header-title">Contractor Vehicle Permission Form</h1>
+        <p class="vp-header-sub">{{ companyName }}</p>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap: 15px;">
+      <span class="vp-status-pill" [ngClass]="getStatusClass(status())">{{ status() }}</span>
+      <div class="vp-form-no">{{ formNo }}</div>
+    </div>
+  </div>
+
+  @if (saveMsg()) { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
+  @if (errorMsg()) { <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div> }
+
+  <div class="vp-section">
+    <div class="vp-section-title">General Information</div>
+    <div class="vp-grid-2">
+
+      <div class="vp-field">
+        <label class="vp-label">Permission No.</label>
+        <input class="vp-input" type="text" [value]="savedRequestNo() || '-'" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+      </div>
+
+      <div class="vp-field">
+        <label class="vp-label">Contractor Code</label>
+        <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode()"
+          (ngModelChange)="contractorCode.set($event)" (blur)="onContractorCodeBlur()" [readonly]="isReadOnlyMode()" />
+      </div>
+
+      <div class="vp-field">
+        <label class="vp-label">Contractor Name</label>
+        <input class="vp-input" type="text" placeholder="Contractor name will auto-populate" [value]="contractorName()"
+          readonly style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+      </div>
+
+      <div class="vp-field">
+        <label class="vp-label">Department</label>
+
+        @if (isReadOnlyMode()) {
+        <input class="vp-input" type="text" [value]="getSelectedDepartmentName()" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+        } @else {
+        <select class="vp-input" [value]="permissionDepartment()"
+          (change)="permissionDepartment.set($any($event.target).value)">
+          <option value="">Select Department</option>
+
+          @for (department of departments(); track department.deptCode) {
+          <option [value]="department.deptCode.toString()">
+            {{ department.deptName }}
+          </option>
+          }
+        </select>
+        }
+      </div>
+
+      <!-- Nature of Job -->
+      <div class="vp-field">
+        <label class="vp-label">Nature of Job</label>
+        <input class="vp-input" type="text" placeholder="Describe the work / job" [value]="natureOfJob()"
+          (input)="natureOfJob.set($any($event.target).value)" [readonly]="isReadOnlyMode()" />
+      </div>
+
+      <!-- Permission Date From -->
+      <div class="vp-field">
+        <label class="vp-label">Permission Date From</label>
+        <input class="vp-input" type="date" [value]="reqDate()" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+      </div>
+
+      <!-- Permission Date To -->
+      <div class="vp-field">
+        <label class="vp-label">Permission Date To</label>
+        <input class="vp-input" type="date" [min]="reqDate()" [value]="permissionDateTo()"
+          (input)="permissionDateTo.set($any($event.target).value)" [readonly]="isReadOnlyMode()" />
+      </div>
+    </div>
+  </div>
+
+  <div class="vp-section">
+    <div class="vp-section-title">Vehicle Information</div>
+    <div class="vp-grid-2">
+      <div class="vp-field">
+        <label class="vp-label">Vehicle Number</label>
+        <input class="vp-input" type="text" placeholder="e.g. MP04 AB 1234" [value]="vehicleNumber()"
+          (input)="vehicleNumber.set($any($event.target).value.toUpperCase())" [readonly]="isReadOnlyMode()" />
+      </div>
+
+      <div class="vp-field">
+        <label class="vp-label">Vehicle Type</label>
+        <select class="vp-select" [value]="vehicleType()" (change)="vehicleType.set($any($event.target).value)"
+          [disabled]="isReadOnlyMode()">
+          <option value="">Select Vehicle</option>
+
+          @for (opt of vehicleTypeOptions; track opt.value) {
+          <option [value]="opt.value">
+            {{ opt.label }}
+          </option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="vp-section">
+    <div class="vp-section-title-row">
+      <span class="vp-section-title">Required Documents</span>
+      <span style="margin-left: 15px; font-weight: 600; color: #6c757d; font-size: 0.9rem;">
+        {{ docs().length }} / {{ ALLOWED_DOC_TYPES.length }} added
+      </span>
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDoc()"
+        [disabled]="isReadOnlyMode() || docs().length >= ALLOWED_DOC_TYPES.length">
+        <i class="bi bi-plus-circle-fill"></i> Add Document
+      </button>
+    </div>
+
+    @if (docs().length > 0) {
+    <div class="vp-table-wrap">
+      <table class="vp-table">
+        <thead>
+          <tr>
+            <th>Doc Type</th>
+            <th>Doc No</th>
+            <th>Valid Upto</th>
+            <th>File (PDF)</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (doc of docs(); track doc.id; let i = $index) {
+          <tr>
+            <td>
+              <select class="vp-cell-select" [(ngModel)]="doc.docType" (ngModelChange)="onDocTypeChange(doc)"
+                [disabled]="isReadOnlyMode()">
+                <option value="">— Type —</option>
+                @for (t of availableDocTypes(doc); track t) {
+                <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </td>
+
+            <td>
+              <input type="text" class="vp-cell-input" placeholder="Doc number" [(ngModel)]="doc.docNo"
+                (input)="onDocNoInput($event, doc)" maxlength="60" [readonly]="isReadOnlyMode()" />
+            </td>
+
+            <td>
+              <input type="date" class="vp-cell-input" [(ngModel)]="doc.validUpto" [min]="reqDate()"
+                [readonly]="isReadOnlyMode()" />
+            </td>
+
+            <td>
+              <div class="vp-file-cell">
+                @if (doc.file) {
+                <span class="text-success">
+                  <i class="bi bi-file-earmark-check-fill"></i>
+                  {{ shortName(doc.file.name) }}
+                </span>
+
+                @if (doc.existingFile) {
+                <small class="text-muted">
+                  Replaces: {{ shortName(doc.existingFile) }}
+                </small>
+                }
+                }
+
+                @else if (doc.existingFile) {
+                <a [href]="getDocumentUrl(doc.existingFile)" download class="btn btn-sm btn-outline-success">
+                  <i class="bi bi-download"></i>
+                  {{ shortName(doc.existingFile) }}
+                </a>
+                }
+
+                @if (!isReadOnlyMode()) {
+                <label class="vp-btn-ghost" [for]="'doc-file-' + doc.id">
+                  <i class="bi bi-arrow-repeat"></i>
+                  {{ doc.existingFile ? 'Replace' : 'Upload' }}
+
+                  <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" [id]="'doc-file-' + doc.id"
+                    (change)="onDocFileSelected($event, doc)" />
+                </label>
+                }
+              </div>
+            </td>
+
+            <td>
+              <button class="vp-btn-del" (click)="removeDoc(i)" [disabled]="isReadOnlyMode()">
+                <i class="bi bi-trash-fill"></i>
+              </button>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </div>
+
+  <div class="vp-section">
+    <div class="vp-section-title-row" style="margin-bottom: 20px;">
+      <span class="vp-section-title">Driver Information</span>
+
+      <button class="vp-btn-add" style="margin-left: auto;" (click)="addDriver()" [disabled]="isReadOnlyMode()">
+        <i class="bi bi-person-plus-fill"></i>
+        Add Driver
+      </button>
+    </div>
+
+    <div class="vp-table-wrap vp-driver-table-wrap">
+      <table class="vp-table vp-driver-table">
+        <thead>
+          <tr>
+            <th>Role <span style="color: red;">*</span></th>
+            <th>Employee Code <span style="color: red;">*</span></th>
+            <th>Name</th>
+            <th>Eye Test File <span style="color: red;">*</span></th>
+            <th>Eye Test Date <span style="color: red;">*</span></th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (driver of drivers(); track driver.id; let i = $index) {
+          <tr>
+            <!-- Role -->
+            <td>
+              <select class="vp-cell-select" [(ngModel)]="driver.role" [disabled]="isReadOnlyMode()">
+                <option value="">— Select Role —</option>
+
+                @for (r of driverRoleOptions; track r) {
+                <option [value]="r">{{ r }}</option>
+                }
+              </select>
+            </td>
+
+            <!-- Employee Code -->
+            <td>
+              <input class="vp-cell-input" type="text" placeholder="Employee code" [ngModel]="driver.empNo"
+                (ngModelChange)="driver.empNo = $event" (blur)="onEmployeeCodeBlur(driver)"
+                [readonly]="isReadOnlyMode()" />
+            </td>
+
+            <!-- Name -->
+            <td>
+              <input class="vp-cell-input" type="text" [value]="driver.name || employeeNames()[driver.empNo] || ''"
+                placeholder="Name" readonly style="background-color: #f8f9fa; color: #495057;" />
+            </td>
+
+            <td>
+              <div class="vp-file-cell">
+                @if (isReadOnlyMode()) {
+                @if (
+                driver.eyeTestExistingFile ||
+                driver.eyeTestFileName ||
+                driver.eyeTestFile
+                ) {
+                <a href="javascript:void(0)" class="text-primary text-decoration-underline"
+                  (click)="downloadEyeTestFile(driver)">
+                  <i class="bi bi-file-earmark-pdf"></i>
+                  {{
+                  shortName(
+                  driver.eyeTestExistingFile ||
+                  driver.eyeTestFileName ||
+                  driver.eyeTestFile?.name ||
+                  ''
+                  )
+                  }}
+                </a>
+                } @else {
+                <span class="text-muted">No file</span>
+                }
+                } @else {
+                <input type="file" class="vp-cell-input" accept=".pdf,.png,.jpg,.jpeg"
+                  (change)="onEyeTestFileSelected($event, driver)" />
+
+                @if (
+                driver.eyeTestExistingFile ||
+                driver.eyeTestFileName ||
+                driver.eyeTestFile
+                ) {
+                <small class="text-success">
+                  Uploaded:
+                  {{
+                  shortName(
+                  driver.eyeTestExistingFile ||
+                  driver.eyeTestFileName ||
+                  driver.eyeTestFile?.name ||
+                  ''
+                  )
+                  }}
+                </small>
+                }
+                }
+
+                <button type="button" class="vp-driver-view-more" (click)="openDriverDetails(driver)">
+                  <i class="bi bi-eye-fill"></i>
+                  View More
+                </button>
+              </div>
+            </td>
+
+            <!-- Eye Test Date -->
+            <td>
+              <input class="vp-cell-input" type="date" [(ngModel)]="driver.eyeTestDate" [readonly]="isReadOnlyMode()"
+                [disabled]="isReadOnlyMode()" />
+            </td>
+
+            <!-- Action -->
+            <td>
+              @if (drivers().length > 1) {
+              <button class="vp-btn-del" type="button" (click)="removeDriver(i)" [disabled]="isReadOnlyMode()"
+                title="Remove Driver">
+                <i class="bi bi-trash-fill"></i>
+              </button>
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="vp-section">
+    <div class="vp-workflow-head">
+      <span class="vp-section-title">Workflow Remarks</span>
+
+      <button type="button" class="vp-btn-add" (click)="toggleWorkflowHistory()">
+        <i class="bi bi-clock-history"></i>
+        {{ showWorkflowHistory() ? 'Hide History' : 'History' }}
+      </button>
+    </div>
+
+    @if (isConfirmerMode() || isVerifierMode() || isApproverMode()) {
+    <div class="vp-field vp-workflow-entry-box">
+      <label class="vp-label">
+        {{
+        isApproverMode()
+        ? 'Approver Remark'
+        : isVerifierMode()
+        ? 'Verifier Remark'
+        : 'Confirmer Remark'
+        }}
+        <span style="color:red">*</span>
+      </label>
+
+      <textarea class="vp-input vp-remark-textarea" rows="4" [placeholder]="
+    isApproverMode()
+      ? 'Write your approval remark here...'
+      : isVerifierMode()
+        ? 'Write your verification remark here...'
+        : 'Write your review remark here...'
+  " [ngModel]="actionRemark()" (ngModelChange)="actionRemark.set($event)">
+</textarea>
+    </div>
+    }
+
+    @if (showWorkflowHistory()) {
+    @if (remarksHistory().length > 0) {
+    <div class="vp-workflow-history-wrap">
+      @for (item of remarksHistory(); track item.id) {
+      <div class="vp-workflow-card">
+        <div class="vp-workflow-card-head">
+          <div class="vp-workflow-stage">
+            {{ item.byName }} - {{ item.action }}
+          </div>
+
+          <div class="vp-workflow-meta">
+            ({{ item.byEmpCode }}) · {{ formatRemarkDate(item.createdAt) }}
+          </div>
+        </div>
+
+        <div class="vp-workflow-remark">
+          {{ item.remark }}
+        </div>
+      </div>
+      }
+    </div>
+    } @else {
+    <div class="vp-workflow-empty">
+      No workflow remarks available yet.
+    </div>
+    }
+    }
+  </div>
+
+  <div class="vp-actions">
+    @if (isApproverMode()) {
+    <button type="button" class="vp-btn-secondary" (click)="sendForModificationByApprover()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
+
+    <button type="button" class="vp-btn-primary" (click)="approveByApprover()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Approve
+    </button>
+
+    <button type="button" class="vp-btn-del" (click)="rejectByApprover()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
+
+    } @else if (isConfirmerMode()) {
+    <button type="button" class="vp-btn-secondary" (click)="sendForModificationByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
+
+    <button type="button" class="vp-btn-primary" (click)="confirmByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Confirm
+    </button>
+
+    <button type="button" class="vp-btn-del" (click)="rejectByConfirmer()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
+
+    } @else if (isViewMode()) {
+    <button type="button" class="vp-btn-secondary" (click)="closeView()">
+      Close
+    </button>
+    } @else if (isVerifierMode()) {
+    <button type="button" class="vp-btn-secondary" (click)="sendForModificationByVerifier()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Send for Modification
+    </button>
+
+    <button type="button" class="vp-btn-primary" (click)="verifyByVerifier()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Verify
+    </button>
+
+    <button type="button" class="vp-btn-del" (click)="rejectByVerifier()"
+      [disabled]="isSaving() || isSubmitting() || !isEditDataLoaded()">
+      Reject
+    </button>
+
+
+    } @else {
+    <button type="button" class="vp-btn-secondary" (click)="saveDraft()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSaving()) {
+      <i class="bi bi-hourglass-split"></i>
+      Saving...
+      } @else {
+      <i class="bi bi-floppy-fill"></i>
+      Save Draft
+      }
+    </button>
+
+    <button type="button" class="vp-btn-primary" (click)="submitForm()"
+      [disabled]="isSaving() || isSubmitting() || (editingMode() && !isEditDataLoaded())">
+      @if (isSubmitting()) {
+      <i class="bi bi-hourglass-split"></i>
+      {{ editingMode() ? 'Submitting Update...' : 'Submitting...' }}
+      } @else {
+      <i class="bi bi-send-fill"></i>
+      Submit Request
+      }
+    </button>
+    }
+  </div>
+</div>
+@if (selectedDriverForView(); as driver) {
+<div class="vp-driver-modal-overlay" (click)="closeDriverDetails()">
+  <div class="vp-driver-modal" role="dialog" aria-modal="true" aria-label="Driver details"
+    (click)="$event.stopPropagation()">
+    <div class="vp-driver-modal-header">
+      <h2>
+        <i class="bi bi-person-vcard-fill"></i>
+        Driver Details
+      </h2>
+
+      <button type="button" class="vp-driver-modal-close" (click)="closeDriverDetails()"
+        aria-label="Close Driver Details" title="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="vp-driver-modal-body">
+      <!-- Personal Information -->
+      <section class="vp-driver-modal-section">
+        <h3>
+          <i class="bi bi-person-fill"></i>
+          Personal Information
+        </h3>
+
+        <div class="vp-driver-details-grid">
+          <div class="vp-driver-detail">
+            <span>Driver Name</span>
+            <strong>
+              {{
+              driver.name ||
+              employeeNames()[driver.empNo] ||
+              '—'
+              }}
+            </strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>Employee Number</span>
+            <strong>{{ driver.empNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>Mobile Number</span>
+            <strong>{{ driver.mobileNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>Aadhaar Number</span>
+            <strong>{{ driver.aadhaarNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail vp-driver-file-detail">
+            <span>Aadhaar File</span>
+
+            @if (hasDriverFile(driver.aadhaarFileName)) {
+            <button type="button" class="vp-driver-download-btn"
+              (click)="downloadDriverDocument(driver.aadhaarFileName)">
+              <i class="bi bi-download"></i>
+              Download
+            </button>
+            } @else {
+            <small class="vp-driver-no-file">
+              Not available
+            </small>
+            }
+          </div>
+
+          <div class="vp-driver-detail vp-driver-file-detail">
+            <span>Driver Photo</span>
+
+            @if (hasDriverFile(driver.photoFileName)) {
+            <button type="button" class="vp-driver-download-btn" (click)="downloadDriverDocument(driver.photoFileName)">
+              <i class="bi bi-download"></i>
+              Download
+            </button>
+            } @else {
+            <small class="vp-driver-no-file">
+              Not available
+            </small>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Driving Licence Information -->
+      <section class="vp-driver-modal-section">
+        <h3>
+          <i class="bi bi-card-text"></i>
+          Driving Licence Information
+        </h3>
+
+        <div class="vp-driver-details-grid">
+          <div class="vp-driver-detail">
+            <span>License Number</span>
+            <strong>{{ driver.licenseNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>License From</span>
+            <strong>{{ driver.licenseFrom || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>License To</span>
+            <strong>{{ driver.licenseTo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail vp-driver-file-detail">
+            <span>License File</span>
+
+            @if (hasDriverFile(driver.licenseFileName)) {
+            <button type="button" class="vp-driver-download-btn"
+              (click)="downloadDriverDocument(driver.licenseFileName)">
+              <i class="bi bi-download"></i>
+              Download
+            </button>
+            } @else {
+            <small class="vp-driver-no-file">
+              Not available
+            </small>
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="vp-driver-modal-footer">
+      <button type="button" class="vp-btn-secondary" (click)="closeDriverDetails()">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+}

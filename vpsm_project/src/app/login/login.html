@@ -1,0 +1,65 @@
+<!-- Frontend/src/app/login/login.html -->
+<div class="login-wrap">
+  <div class="login-card">
+
+    <!-- Logo + Brand -->
+    <div class="login-brand">
+      <div class="login-logo-box">
+        <img src="assets/heg-logo.png" alt="HEG" width="56" height="56" />
+      </div>
+      <h1 class="login-company">HEG Limited</h1>
+      <p class="login-system">Vehicle Pass Management System</p>
+    </div>
+
+    <!-- Divider -->
+    <div class="login-divider"></div>
+
+    <!-- Form -->
+    <div class="login-form">
+
+      <label class="login-label" for="empCode">
+        Employee / Staff Code
+      </label>
+
+      <input
+        id="empCode"
+        class="login-input"
+        type="text"
+        [(ngModel)]="empCodeInput"
+        placeholder="Enter your code  e.g.  70028"
+        (keyup.enter)="onLogin()"
+        [disabled]="isLoading"
+        autocomplete="off"
+        spellcheck="false"
+      />
+
+      @if (errorMsg) {
+        <div class="login-error">
+          ⚠️&nbsp;&nbsp;{{ errorMsg }}
+        </div>
+      }
+
+      @if (resolvedRole) {
+        <div class="login-success">
+          ✅&nbsp;&nbsp;Logged in as <strong>{{ resolvedRole }}</strong>
+        </div>
+      }
+
+      <button
+        class="login-btn"
+        (click)="onLogin()"
+        [disabled]="isLoading"
+      >
+        @if (isLoading) {
+          <span class="login-spinner"></span>&nbsp; Verifying...
+        } @else {
+          Sign In →
+        }
+      </button>
+
+    </div>
+
+    <p class="login-note">Having trouble? Contact your System Administrator.</p>
+
+  </div>
+</div>

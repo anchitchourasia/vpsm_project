@@ -1,0 +1,201 @@
+<div class="page-wrapper">
+
+  <!-- PAGE HEADER -->
+  <div class="page-top">
+    <div class="page-title-row">
+      <i class="bi bi-shield-lock-fill page-icon" style="color:#1a237e"></i>
+      <h2 class="page-heading">Authority Management</h2>
+      <span class="record-pill" style="background:#e8eaf6;color:#1a237e">
+        {{ filteredList().length }} Records
+      </span>
+    </div>
+    <button class="btn-grant" (click)="openForm()">
+      <i class="bi bi-person-plus-fill"></i> Grant Authority
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div *ngIf="isLoading()" class="state-box">
+    <i class="bi bi-arrow-repeat spin-icon"></i>
+    <p>Loading authorities...</p>
+  </div>
+
+  <!-- ERROR -->
+  <div *ngIf="hasError() && !isLoading()" class="state-box error-box">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <p>Failed to load authority records. Check if backend is running.</p>
+    <button class="btn-retry" (click)="loadAuthorities()">
+      <i class="bi bi-arrow-clockwise"></i> Retry
+    </button>
+  </div>
+
+  <!-- CONTENT -->
+  <div *ngIf="!isLoading() && !hasError()">
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <i class="bi bi-search search-icon"></i>
+        <input
+          type="text"
+          placeholder="Search by emp code, company, department, type..."
+          [value]="searchText()"
+          (input)="onSearch($any($event.target).value)"
+          class="search-input"
+        />
+      </div>
+      <div class="filter-group">
+        <select (change)="onPageSize($any($event.target).value)" class="filter-select">
+          <option value="10">10 / page</option>
+          <option value="20">20 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="dtable">
+          <thead>
+            <tr>
+              <th>S.NO</th>
+              <th>COMPANY CODE</th>
+              <th>DEPT CODE</th>
+              <th>EMP CODE</th>
+              <th>AUTHORITY TYPE</th>
+              <th>VALID FROM</th>
+              <th>VALID TILL</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of pagedList(); let i = index">
+              <td class="td-muted">{{ (currentPage()-1)*pageSize()+i+1 }}</td>
+              <td><strong>{{ a.companyCode || '—' }}</strong></td>
+              <td>{{ a.departmentCode || '—' }}</td>
+              <td>{{ a.empCode || '—' }}</td>
+              <td>
+                <span [class]="getAuthorityBadgeClass(a.authorityType)">
+                  {{ a.authorityType || '—' }}
+                </span>
+              </td>
+              <td class="td-muted">{{ formatDate(a.validFrom) }}</td>
+              <td class="td-muted">{{ formatDate(a.validTill) }}</td>
+              <td>
+                <span [class]="isExpired(a.validTill) ? 'badge badge-expired' : 'badge badge-active'">
+                  {{ isExpired(a.validTill) ? 'Expired' : 'Active' }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="pagedList().length === 0">
+              <td colspan="8" class="no-data">
+                <i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:6px;"></i>
+                No authority records found.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PAGINATION -->
+      <div class="pagination-bar">
+        <span class="page-info">
+          Showing
+          {{ filteredList().length === 0 ? 0 : (currentPage()-1)*pageSize()+1 }}–{{
+            currentPage()*pageSize() < filteredList().length
+              ? currentPage()*pageSize()
+              : filteredList().length
+          }}
+          of {{ filteredList().length }}
+        </span>
+        <div class="page-btns">
+          <button class="page-btn" (click)="goToPage(currentPage()-1)" [disabled]="currentPage()===1">‹</button>
+          <button *ngFor="let p of totalPagesArr" class="page-btn"
+            [class.active]="p===currentPage()" (click)="goToPage(p)">{{ p }}</button>
+          <button class="page-btn" (click)="goToPage(currentPage()+1)" [disabled]="currentPage()===totalPages">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ GRANT AUTHORITY MODAL ══ -->
+  <div class="modal-overlay" *ngIf="showForm()" (click)="closeForm()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-header">
+        <h3><i class="bi bi-shield-plus-fill"></i> Grant Authority</h3>
+        <button class="modal-close" (click)="closeForm()">✕</button>
+      </div>
+
+      <!-- SUCCESS -->
+      <div *ngIf="submitSuccess()" class="form-success">
+        <i class="bi bi-check-circle-fill"></i> Authority granted successfully!
+      </div>
+
+      <!-- ERROR -->
+      <div *ngIf="submitError()" class="form-error">
+        <i class="bi bi-exclamation-circle-fill"></i> {{ submitError() }}
+      </div>
+
+      <div *ngIf="!submitSuccess()" class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Company Code <span class="req">*</span></label>
+            <input type="text" class="form-control"
+              [value]="form().companyCode"
+              (input)="updateField('companyCode', $any($event.target).value)"
+              placeholder="e.g. HEG" />
+          </div>
+          <div class="form-group">
+            <label>Department Code</label>
+            <input type="text" class="form-control"
+              [value]="form().departmentCode"
+              (input)="updateField('departmentCode', $any($event.target).value)"
+              placeholder="e.g. SECURITY" />
+          </div>
+          <div class="form-group">
+            <label>Employee Code <span class="req">*</span></label>
+            <input type="text" class="form-control"
+              [value]="form().empCode"
+              (input)="updateField('empCode', $any($event.target).value)"
+              placeholder="e.g. EMP001" />
+          </div>
+          <div class="form-group">
+            <label>Authority Type <span class="req">*</span></label>
+            <select class="form-control"
+              [value]="form().authorityType"
+              (change)="updateField('authorityType', $any($event.target).value)">
+              <option value="">-- Select Type --</option>
+              <option value="CONFIRMER">CONFIRMER</option>
+              <option value="APPROVER">APPROVER</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Valid From <span class="req">*</span></label>
+            <input type="date" class="form-control"
+              [value]="form().validFrom"
+              (change)="updateField('validFrom', $any($event.target).value)" />
+          </div>
+          <div class="form-group">
+            <label>Valid Till <span class="req">*</span></label>
+            <input type="date" class="form-control"
+              [value]="form().validTill"
+              (change)="updateField('validTill', $any($event.target).value)" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-cancel" (click)="closeForm()">Cancel</button>
+          <button class="btn-submit" (click)="submitGrant()" [disabled]="isSubmitting()">
+            <i class="bi" [class.bi-shield-plus-fill]="!isSubmitting()" [class.bi-arrow-repeat]="isSubmitting()"></i>
+            {{ isSubmitting() ? 'Granting...' : 'Grant Authority' }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
