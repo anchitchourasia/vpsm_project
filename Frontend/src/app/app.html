@@ -1,0 +1,159 @@
+<!-- ==================================================
+     FULL APPLICATION SHELL
+     Sidebar remains visible for authenticated users.
+     ================================================== -->
+<div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
+
+  <aside class="sidebar" [class.collapsed]="sidebarCollapsed()" (click)="sidebarCollapsed() && expandSidebar()">
+
+    <!-- BRAND -->
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <img src="assets/heg-logo.png" alt="HEG Limited" class="sb-logo-img" width="32" height="32" />
+      </div>
+
+      <span class="sb-company">HEG Limited</span>
+
+      <button type="button" class="sb-toggle" (click)="$event.stopPropagation(); toggleSidebar()"
+        [title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+
+        <span class="toggle-arrow" [class.rotated]="sidebarCollapsed()">
+          <i class="bi bi-chevron-left"></i>
+        </span>
+      </button>
+    </div>
+
+    <!-- NAVIGATION: Render only after session restoration completes -->
+    @if (auth.sessionReady()) {
+    <nav class="sb-nav">
+
+      <!-- MAIN -->
+      <div class="sb-section-label">MAIN</div>
+
+      <a routerLink="/" routerLinkActive="sb-active" [routerLinkActiveOptions]="{ exact: true }" class="sb-item"
+        (click)="$event.stopPropagation()">
+
+        <i class="bi bi-house-door-fill sb-icon"></i>
+        <span class="sb-label">Home</span>
+      </a>
+
+      <!-- PASS MANAGEMENT -->
+      <div class="sb-section-label">PASS MANAGEMENT</div>
+
+      <!-- UPLOADER -->
+      @if (auth.isUploader()) {
+      <a routerLink="/pass-entry" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()"
+        title="Open Pass Entry Form">
+
+        <i class="bi bi-plus-circle-fill sb-icon" style="color:#AC9457"></i>
+
+        <span class="sb-label">
+          Add Pass
+          <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem; margin-left:6px; opacity:0.55">
+          </i>
+        </span>
+      </a>
+
+      <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+
+        <i class="bi bi-collection-fill sb-icon"></i>
+        <span class="sb-label">All Pass</span>
+      </a>
+
+      <a routerLink="/reports" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+
+        <i class="bi bi-file-earmark-bar-graph-fill sb-icon"></i>
+        <span class="sb-label">Reports</span>
+      </a>
+      }
+
+      <!-- CONFIRMER -->
+      @if (auth.isConfirmer()) {
+      <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+
+        <i class="bi bi-collection-fill sb-icon"></i>
+        <span class="sb-label">All Pass</span>
+      </a>
+
+      <a routerLink="/authority/confirmer" routerLinkActive="sb-active" class="sb-item"
+        (click)="$event.stopPropagation()">
+
+        <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#AC9457"></i>
+
+        <span class="sb-label">
+          Pending for Confirmer
+
+          @if (pendingForConfirmer() > 0) {
+          <span class="sb-badge sb-badge-blue">
+            {{ pendingForConfirmer() }}
+          </span>
+          }
+        </span>
+      </a>
+      }
+
+      <!-- APPROVER -->
+      @if (auth.isApprover()) {
+      <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+
+        <i class="bi bi-collection-fill sb-icon"></i>
+        <span class="sb-label">All Pass</span>
+      </a>
+
+      <a routerLink="/authority/approval" routerLinkActive="sb-active" class="sb-item"
+        (click)="$event.stopPropagation()">
+
+        <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#6a1b9a"></i>
+
+        <span class="sb-label">
+          Pending for Approver
+
+          @if (pendingForApprover() > 0) {
+          <span class="sb-badge sb-badge-purple">
+            {{ pendingForApprover() }}
+          </span>
+          }
+        </span>
+      </a>
+      }
+
+
+    </nav>
+    } @else {
+    <div class="sb-nav-loading">
+      <i class="bi bi-arrow-repeat sb-spin-icon"></i>
+      <span class="sb-loading-txt">Loading...</span>
+    </div>
+    }
+
+    <!-- SIDEBAR FOOTER -->
+    <div class="sb-footer">
+      <div class="sb-footer-avatar">
+        <i class="bi bi-person-fill"></i>
+      </div>
+
+      <div class="sb-footer-info">
+        @if (auth.isLoggedIn()) {
+        <div class="sb-footer-name">{{ auth.empCode() }}</div>
+        <div class="sb-footer-role">
+          {{ auth.company() }} · {{ auth.role() }}
+        </div>
+        }
+      </div>
+
+      @if (auth.isLoggedIn()) {
+      <button type="button" class="sb-signout-btn" (click)="auth.logout(); $event.stopPropagation()" title="Sign Out">
+
+        <i class="bi bi-box-arrow-left"></i>
+      </button>
+      }
+    </div>
+  </aside>
+
+  <!-- PAGE CONTENT -->
+  <div class="main-area">
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

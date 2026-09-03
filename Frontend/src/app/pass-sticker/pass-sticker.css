@@ -1,0 +1,204 @@
+/* Page */
+
+.page{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:#f5f5f5;
+    gap:30px;
+}
+
+
+/* 3 x 3 inch sticker */
+
+.sticker{
+
+    width:3in;
+    height:3in;
+
+    border-radius:50%;
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+
+    box-sizing:border-box;
+
+    padding:16px;
+
+    text-align:center;
+
+    color:#000;
+
+    font-family:Arial, Helvetica, sans-serif;
+
+}
+
+
+/* Colours */
+
+.heg{
+    background:#ffeb00;
+}
+
+.contract{
+    background:#d91c1c;
+}
+
+
+/* Logo */
+
+.logo{
+
+    width:70px;
+
+    margin-top:4px;
+    margin-bottom:10px;
+
+}
+
+
+/* Text */
+
+.title1{
+
+    font-size:20px;
+
+    font-weight:900;
+
+    line-height:1.05;
+
+    text-transform:uppercase;
+
+}
+
+.title2{
+
+    font-size:20px;
+
+    font-weight:900;
+
+    line-height:1.05;
+
+    text-transform:uppercase;
+
+    margin-top:2px;
+
+}
+
+.company{
+    margin-top:6px;
+    margin-bottom:22px;   /* creates gap below HEG LTD. */
+    font-size:20px;
+    font-weight:bold;
+}
+
+.pass-heading{
+
+    margin-top:26px;
+
+    font-size:18px;
+
+    font-weight:bold;
+
+}
+
+.pass-no{
+
+    margin-top:12px;
+
+    font-size:34px;
+
+    font-weight:bold;
+
+    letter-spacing:2px;
+
+}
+
+
+/* Button */
+
+.print-btn{
+
+    padding:12px 30px;
+
+    border:none;
+
+    border-radius:8px;
+
+    background:#0d6efd;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-size:16px;
+
+}
+
+
+/* Printing */
+
+@media print{
+
+    body{
+
+        margin:0;
+
+    }
+
+    .print-btn{
+
+        display:none;
+
+    }
+
+    .page{
+
+        background:white;
+
+    }
+
+}
+.field{
+
+    width:100%;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-top:10px;
+
+    font-size:15px;
+
+    font-weight:bold;
+
+}
+
+.label{
+
+    text-align:left;
+
+}
+
+.value{
+
+    text-align:right;
+
+    max-width:50%;
+
+    word-break:break-word;
+
+}
+
+.parking{
+
+    margin-top:12px;
+
+}

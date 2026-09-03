@@ -1,0 +1,239 @@
+<div class="page-wrapper">
+
+  <div class="page-top">
+    <div class="page-title-row">
+      <i class="bi bi-card-checklist page-icon"></i>
+
+      <h2 class="page-heading">
+        Pass Registry
+      </h2>
+
+      <span class="record-pill">
+        {{ allPasses().length }} Records
+      </span>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading()" class="state-box">
+    <i class="bi bi-arrow-repeat spin-icon"></i>
+    <p>Loading passes...</p>
+  </div>
+
+  <div *ngIf="hasError() && !isLoading()" class="state-box error-box">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <p>Failed to load data.</p>
+
+    <button class="btn-retry" (click)="loadPasses()">
+      <i class="bi bi-arrow-clockwise"></i>
+      Retry
+    </button>
+  </div>
+
+  <div *ngIf="!isLoading() && !hasError()">
+
+    <div class="filter-bar">
+      <div class="search-box">
+        <i class="bi bi-search search-icon"></i>
+
+        <input type="text" class="search-input" placeholder="Search pass id, employee, contractor, vehicle..."
+          [value]="searchText()" (input)="onSearch($any($event.target).value)" />
+      </div>
+
+      <div class="filter-group">
+        <button class="btn-download-excel" (click)="downloadExcel()">
+          <i class="bi bi-cloud-arrow-down"></i>
+          Download Excel
+        </button>
+
+        <select class="filter-select" [ngModel]="filterStatus()" (ngModelChange)="onStatusChange($event)">
+          <option value="ALL">All Status</option>
+          <option value="SAVED">Saved</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="ACTIVE">Active</option>
+          <option value="NEEDS_MODIFICATION">Needs Modification</option>
+          <option value="REJECT">Rejected</option>
+        </select>
+
+        <select class="filter-select" [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
+          <option value="10">10 / page</option>
+          <option value="20">20 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="dtable">
+          <thead>
+            <tr>
+
+              <!-- PASS NO HEADER FILTER -->
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>PASS NO</span>
+
+                  <input type="text" class="th-filter-input" placeholder="Search Pass No" [value]="filterPassNo()"
+                    (input)="onPassNoChange($any($event.target).value)" maxlength="20" />
+                </div>
+              </th>
+
+              <th>VEHICLE NO</th>
+
+              <!-- VEHICLE TYPE HEADER FILTER -->
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>VEHICLE TYPE</span>
+
+                  <select class="th-filter-select" [ngModel]="filterVehicleType()"
+                    (ngModelChange)="onVehicleTypeChange($event)">
+                    <option value="ALL">All</option>
+                    <option value="TWO-WHEELER">Two-Wheeler</option>
+                    <option value="FOUR-WHEELER">Four-Wheeler</option>
+                  </select>
+                </div>
+              </th>
+
+              <!-- EMP TYPE HEADER FILTER -->
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>EMP TYPE</span>
+
+                  <select class="th-filter-select" [ngModel]="filterEmpType()"
+                    (ngModelChange)="onEmpTypeChange($event)">
+                    <option value="ALL">All</option>
+                    <option value="HEG">HEG</option>
+                    <option value="TACC">TACC</option>
+                    <option value="CONTRACT">CONTRACT</option>
+                    <option value="CRE-PRM">CRE-PRM</option>
+                  </select>
+                </div>
+              </th>
+
+              <th>NAME</th>
+
+              <!-- ECNO HEADER FILTER -->
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>ECNO</span>
+
+                  <input type="text" class="th-filter-input" placeholder="Search EC No" [value]="filterEmployeeNo()"
+                    (input)="onEmpNoChange($any($event.target).value)" maxlength="20" />
+                </div>
+              </th>
+
+              <!-- DEPARTMENT HEADER FILTER -->
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <span>DEPARTMENT</span>
+
+                  <input type="text" class="th-filter-input" placeholder="Search Department" [value]="filterDept()"
+                    (input)="onDeptChange($any($event.target).value)" maxlength="50" />
+                </div>
+              </th>
+
+              <th>MOBILE NO</th>
+              <th>CONTRACTOR NAME</th>
+              <th>STATUS</th>
+              <th>ACTION</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let p of pagedPasses(); let i = index">
+              <td><strong>{{ p.passNo }}</strong></td>
+              <td><strong>{{ p.vehicleNo }}</strong></td>
+              <td><strong>{{ p.vehicleType }}</strong></td>
+              <td><strong>{{ p.empType }}</strong></td>
+              <td><strong>{{ p.name }}</strong></td>
+              <td><strong>{{ p.employeeNo }}</strong></td>
+              <td><strong>{{ p.deptName }}</strong></td>
+              <td><strong>{{ p.mobileNo }}</strong></td>
+              <td><strong>{{ p.contractorName }}</strong></td>
+
+              <td>
+                <span [class]="getStatusClass(p.status)">
+                  {{ p.status || '—' }}
+                </span>
+              </td>
+
+              <td>
+                <button *ngIf="canEditPass(p)" class="btn-edit" (click)="openEditInPassEntry(p)">
+                  <i class="bi bi-pencil-square"></i>
+                  Edit
+                </button>
+
+                <button class="btn-view" (click)="viewPass(p)">
+                  <i class="bi bi-eye"></i>
+                  View
+                </button>
+
+                <button *ngIf="
+                    (p.status || '').toUpperCase() === 'ACTIVE' ||
+                    (p.status || '').toUpperCase() === 'APPROVED'
+                  " class="btn-sticker" (click)="printSticker(p)">
+                  <i class="bi bi-printer-fill"></i>
+                  Print Sticker
+                </button>
+              </td>
+            </tr>
+
+            <tr *ngIf="pagedPasses().length === 0">
+              <td colspan="12" class="no-data">
+                No pass record found.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-container" *ngIf="filteredPasses().length > 0">
+
+        <div class="pagination-info">
+          Showing
+          <strong>{{ recordStart() }}</strong>
+          to
+          <strong>{{ recordEnd() }}</strong>
+          of
+          <strong>{{ filteredPasses().length }}</strong>
+          entries
+        </div>
+
+        <div class="pagination-controls" *ngIf="totalPages > 1">
+
+          <button class="page-btn nav-btn" [disabled]="currentPage() === 1" (click)="changePage(1)" title="First Page">
+            &laquo;
+          </button>
+
+          <button class="page-btn nav-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
+            Prev
+          </button>
+
+          <span class="ellipsis" *ngIf="visiblePages()[0] > 1">
+            ...
+          </span>
+
+          <button *ngFor="let p of visiblePages()" class="page-btn" [class.active]="p === currentPage()"
+            (click)="changePage(p)">
+            {{ p }}
+          </button>
+
+          <span class="ellipsis" *ngIf="visiblePages()[visiblePages().length - 1] < totalPages">
+            ...
+          </span>
+
+          <button class="page-btn nav-btn" [disabled]="currentPage() === totalPages"
+            (click)="changePage(currentPage() + 1)">
+            Next
+          </button>
+
+          <button class="page-btn nav-btn" [disabled]="currentPage() === totalPages" (click)="changePage(totalPages)"
+            title="Last Page">
+            &raquo;
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
