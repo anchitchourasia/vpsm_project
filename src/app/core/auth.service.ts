@@ -181,19 +181,50 @@ export class AuthService {
   }
 
   tryRestoreSession(): void {
-    try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
-      if (raw) {
-        const stored: SessionUser = JSON.parse(raw);
-        if (stored?.empCode && stored?.primaryRole) {
-          this._session.set(stored);
-        }
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+
+    if (raw) {
+      const stored: SessionUser = JSON.parse(raw);
+
+      if (stored?.empCode && stored?.primaryRole) {
+        this._session.set(stored);
+        this.sessionReady.set(true);
+        return;
       }
-    } catch {
-      sessionStorage.removeItem(SESSION_KEY);
     }
-    this.sessionReady.set(true);
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY);
   }
+
+  const empCodeFromPortal = new URLSearchParams(
+    window.location.search
+  ).get('empCode')?.trim();
+
+  if (!empCodeFromPortal) {
+    this.sessionReady.set(true);
+    return;
+  }
+
+  this.resolveByEmpCode(empCodeFromPortal).subscribe({
+    next: () => {
+      // The existing resolveByEmpCode() calls _saveSession().
+      // Remove empCode from the visible URL after successful login.
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+
+      this.sessionReady.set(true);
+    },
+    error: () => {
+      // No valid CVPS session was created.
+      // The guard will send the user to normal CVPS login.
+      this.sessionReady.set(true);
+    }
+  });
+}
 
   // ── Role helpers ──────────────────────────────────
   hasRole(role: string): boolean { return this.allRoles().includes(role.toUpperCase()); }

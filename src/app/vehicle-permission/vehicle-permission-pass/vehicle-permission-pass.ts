@@ -863,8 +863,8 @@ export class VehiclePermissionPassComponent implements OnInit, OnDestroy {
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
 
-        const leftLogo = await this.loadImageAsDataUrl('/logos/security.jpg');
-        const rightLogo = await this.loadImageAsDataUrl('/logos/heg_logo.jpg');
+        const leftLogo = await this.loadImageAsDataUrl('logos/security.jpg');
+        const rightLogo = await this.loadImageAsDataUrl('logos/heg_logo.jpg');
 
         pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, pageWidth, pageHeight, 'F');

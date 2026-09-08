@@ -17,23 +17,18 @@
   @if (saveMsg()) { <div class="vp-alert vp-alert-success">{{ saveMsg() }}</div> }
   @if (errorMsg()) { <div class="vp-alert vp-alert-error">{{ errorMsg() }}</div> }
 
-<div class="vp-section">
-  <div class="vp-section-title">General Information</div>
-  <div class="vp-grid-2">
+  <div class="vp-section">
+    <div class="vp-section-title">General Information</div>
+    <div class="vp-grid-2">
 
-    <div class="vp-field">
-      <label class="vp-label">Permission No.</label>
-      <input
-        class="vp-input"
-        type="text"
-        [value]="savedRequestNo() || '-'"
-        readonly
-        style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;"
-      />
-    </div>
+      <div class="vp-field">
+        <label class="vp-label">Permission No.</label>
+        <input class="vp-input" type="text" [value]="savedRequestNo() || '-'" readonly
+          style="background-color: #f8f9fa; cursor: not-allowed; color: #495057;" />
+      </div>
 
-    <div class="vp-field">
-      <label class="vp-label">Contractor Code</label>
+      <div class="vp-field">
+        <label class="vp-label">Contractor Code</label>
         <input class="vp-input" type="text" placeholder="Enter contractor code" [ngModel]="contractorCode()"
           (ngModelChange)="contractorCode.set($event)" (blur)="onContractorCodeBlur()" [readonly]="isReadOnlyMode()" />
       </div>
@@ -372,11 +367,11 @@
       <div class="vp-workflow-card">
         <div class="vp-workflow-card-head">
           <div class="vp-workflow-stage">
-            {{ item.stage }} - {{ item.action }}
+            {{ item.byName }} - {{ item.action }}
           </div>
 
           <div class="vp-workflow-meta">
-            {{ item.byName }} ({{ item.byEmpCode }}) · {{ formatRemarkDate(item.createdAt) }}
+            ({{ item.byEmpCode }}) · {{ formatRemarkDate(item.createdAt) }}
           </div>
         </div>
 
@@ -474,164 +469,136 @@
   </div>
 </div>
 @if (selectedDriverForView(); as driver) {
-  <div
-    class="vp-driver-modal-overlay"
-    (click)="closeDriverDetails()"
-  >
-    <div
-      class="vp-driver-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Driver details"
-      (click)="$event.stopPropagation()"
-    >
-      <div class="vp-driver-modal-header">
-        <h2>
-          <i class="bi bi-person-vcard-fill"></i>
-          Driver Details
-        </h2>
+<div class="vp-driver-modal-overlay" (click)="closeDriverDetails()">
+  <div class="vp-driver-modal" role="dialog" aria-modal="true" aria-label="Driver details"
+    (click)="$event.stopPropagation()">
+    <div class="vp-driver-modal-header">
+      <h2>
+        <i class="bi bi-person-vcard-fill"></i>
+        Driver Details
+      </h2>
 
-        <button
-          type="button"
-          class="vp-driver-modal-close"
-          (click)="closeDriverDetails()"
-          aria-label="Close Driver Details"
-          title="Close"
-        >
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
+      <button type="button" class="vp-driver-modal-close" (click)="closeDriverDetails()"
+        aria-label="Close Driver Details" title="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
 
-      <div class="vp-driver-modal-body">
-        <!-- Personal Information -->
-        <section class="vp-driver-modal-section">
-          <h3>
-            <i class="bi bi-person-fill"></i>
-            Personal Information
-          </h3>
+    <div class="vp-driver-modal-body">
+      <!-- Personal Information -->
+      <section class="vp-driver-modal-section">
+        <h3>
+          <i class="bi bi-person-fill"></i>
+          Personal Information
+        </h3>
 
-          <div class="vp-driver-details-grid">
-            <div class="vp-driver-detail">
-              <span>Driver Name</span>
-              <strong>
-                {{
-                  driver.name ||
-                  employeeNames()[driver.empNo] ||
-                  '—'
-                }}
-              </strong>
-            </div>
-
-            <div class="vp-driver-detail">
-              <span>Employee Number</span>
-              <strong>{{ driver.empNo || '—' }}</strong>
-            </div>
-
-            <div class="vp-driver-detail">
-              <span>Mobile Number</span>
-              <strong>{{ driver.mobileNo || '—' }}</strong>
-            </div>
-
-            <div class="vp-driver-detail">
-              <span>Aadhaar Number</span>
-              <strong>{{ driver.aadhaarNo || '—' }}</strong>
-            </div>
-
-            <div class="vp-driver-detail vp-driver-file-detail">
-              <span>Aadhaar File</span>
-
-              @if (hasDriverFile(driver.aadhaarFileName)) {
-                <button
-                  type="button"
-                  class="vp-driver-download-btn"
-                  (click)="downloadDriverDocument(driver.aadhaarFileName)"
-                >
-                  <i class="bi bi-download"></i>
-                  Download
-                </button>
-              } @else {
-                <small class="vp-driver-no-file">
-                  Not available
-                </small>
-              }
-            </div>
-
-            <div class="vp-driver-detail vp-driver-file-detail">
-              <span>Driver Photo</span>
-
-              @if (hasDriverFile(driver.photoFileName)) {
-                <button
-                  type="button"
-                  class="vp-driver-download-btn"
-                  (click)="downloadDriverDocument(driver.photoFileName)"
-                >
-                  <i class="bi bi-download"></i>
-                  Download
-                </button>
-              } @else {
-                <small class="vp-driver-no-file">
-                  Not available
-                </small>
-              }
-            </div>
+        <div class="vp-driver-details-grid">
+          <div class="vp-driver-detail">
+            <span>Driver Name</span>
+            <strong>
+              {{
+              driver.name ||
+              employeeNames()[driver.empNo] ||
+              '—'
+              }}
+            </strong>
           </div>
-        </section>
 
-        <!-- Driving Licence Information -->
-        <section class="vp-driver-modal-section">
-          <h3>
-            <i class="bi bi-card-text"></i>
-            Driving Licence Information
-          </h3>
-
-          <div class="vp-driver-details-grid">
-            <div class="vp-driver-detail">
-              <span>License Number</span>
-              <strong>{{ driver.licenseNo || '—' }}</strong>
-            </div>
-
-            <div class="vp-driver-detail">
-              <span>License From</span>
-              <strong>{{ driver.licenseFrom || '—' }}</strong>
-            </div>
-
-            <div class="vp-driver-detail">
-              <span>License To</span>
-              <strong>{{ driver.licenseTo || '—' }}</strong>
-            </div>
-
-            <div class="vp-driver-detail vp-driver-file-detail">
-              <span>License File</span>
-
-              @if (hasDriverFile(driver.licenseFileName)) {
-                <button
-                  type="button"
-                  class="vp-driver-download-btn"
-                  (click)="downloadDriverDocument(driver.licenseFileName)"
-                >
-                  <i class="bi bi-download"></i>
-                  Download
-                </button>
-              } @else {
-                <small class="vp-driver-no-file">
-                  Not available
-                </small>
-              }
-            </div>
+          <div class="vp-driver-detail">
+            <span>Employee Number</span>
+            <strong>{{ driver.empNo || '—' }}</strong>
           </div>
-        </section>
-      </div>
 
-      <div class="vp-driver-modal-footer">
-        <button
-          type="button"
-          class="vp-btn-secondary"
-          (click)="closeDriverDetails()"
-        >
-          Close
-        </button>
-      </div>
+          <div class="vp-driver-detail">
+            <span>Mobile Number</span>
+            <strong>{{ driver.mobileNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>Aadhaar Number</span>
+            <strong>{{ driver.aadhaarNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail vp-driver-file-detail">
+            <span>Aadhaar File</span>
+
+            @if (hasDriverFile(driver.aadhaarFileName)) {
+            <button type="button" class="vp-driver-download-btn"
+              (click)="downloadDriverDocument(driver.aadhaarFileName)">
+              <i class="bi bi-download"></i>
+              Download
+            </button>
+            } @else {
+            <small class="vp-driver-no-file">
+              Not available
+            </small>
+            }
+          </div>
+
+          <div class="vp-driver-detail vp-driver-file-detail">
+            <span>Driver Photo</span>
+
+            @if (hasDriverFile(driver.photoFileName)) {
+            <button type="button" class="vp-driver-download-btn" (click)="downloadDriverDocument(driver.photoFileName)">
+              <i class="bi bi-download"></i>
+              Download
+            </button>
+            } @else {
+            <small class="vp-driver-no-file">
+              Not available
+            </small>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Driving Licence Information -->
+      <section class="vp-driver-modal-section">
+        <h3>
+          <i class="bi bi-card-text"></i>
+          Driving Licence Information
+        </h3>
+
+        <div class="vp-driver-details-grid">
+          <div class="vp-driver-detail">
+            <span>License Number</span>
+            <strong>{{ driver.licenseNo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>License From</span>
+            <strong>{{ driver.licenseFrom || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail">
+            <span>License To</span>
+            <strong>{{ driver.licenseTo || '—' }}</strong>
+          </div>
+
+          <div class="vp-driver-detail vp-driver-file-detail">
+            <span>License File</span>
+
+            @if (hasDriverFile(driver.licenseFileName)) {
+            <button type="button" class="vp-driver-download-btn"
+              (click)="downloadDriverDocument(driver.licenseFileName)">
+              <i class="bi bi-download"></i>
+              Download
+            </button>
+            } @else {
+            <small class="vp-driver-no-file">
+              Not available
+            </small>
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="vp-driver-modal-footer">
+      <button type="button" class="vp-btn-secondary" (click)="closeDriverDetails()">
+        Close
+      </button>
     </div>
   </div>
+</div>
 }
-

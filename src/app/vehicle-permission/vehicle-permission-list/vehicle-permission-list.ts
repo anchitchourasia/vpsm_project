@@ -55,29 +55,67 @@ export class VehiclePermissionListComponent implements OnInit, OnDestroy {
         'MODIFY',
         'SUBMITTED'
     ];
-
+    private shouldLimitToOwnContractorRequests(): boolean {
+        /*
+         * Only uploader/contractor users are restricted to the requests
+         * belonging to their own Contractor ID.
+         *
+         * Confirmer, verifier, approver, and admin visibility remains unchanged.
+         */
+        return (
+            !this.auth.isAdmin() &&
+            !this.auth.isConfirmer() &&
+            !this.auth.isVerifier() &&
+            !this.auth.isApprover()
+        );
+    }
     filteredRows = computed(() => {
         const search = this.searchText().trim().toLowerCase();
         const status = this.statusFilter().trim().toUpperCase();
 
+        const loggedInContractorCode = String(this.auth.empCode() || '')
+            .trim()
+            .toUpperCase();
+
+        const limitToOwnContractorRequests =
+            this.shouldLimitToOwnContractorRequests();
+
         return this.rows().filter(row => {
-            const rowStatus = (row.reqStatus || '').trim().toUpperCase();
+            const rowStatus = String(row.reqStatus || '')
+                .trim()
+                .toUpperCase();
+
+            const rowContractorCode = String(row.contractorCode || '')
+                .trim()
+                .toUpperCase();
+
+            /*
+             * Uploader: show only records whose Contractor ID equals
+             * the logged-in uploader/contractor code.
+             *
+             * Authority users: preserve the existing list behavior.
+             */
+            const matchesContractor =
+                !limitToOwnContractorRequests ||
+                (
+                    !!loggedInContractorCode &&
+                    rowContractorCode === loggedInContractorCode
+                );
 
             const matchesStatus =
                 status === 'ALL' ||
                 rowStatus === status;
 
-
             const matchesSearch =
                 !search ||
                 String(row.requestNo).includes(search) ||
-                (row.contractorCode || '').toLowerCase().includes(search) ||
-                (row.vehicleNo || '').toLowerCase().includes(search) ||
-                (row.vehicleType || '').toLowerCase().includes(search) ||
-                (row.natureOfJob || '').toLowerCase().includes(search) ||
-                (row.createdBy || '').toLowerCase().includes(search);
+                String(row.contractorCode || '').toLowerCase().includes(search) ||
+                String(row.vehicleNo || '').toLowerCase().includes(search) ||
+                String(row.vehicleType || '').toLowerCase().includes(search) ||
+                String(row.natureOfJob || '').toLowerCase().includes(search) ||
+                String(row.createdBy || '').toLowerCase().includes(search);
 
-            return matchesStatus && matchesSearch;
+            return matchesContractor && matchesStatus && matchesSearch;
         });
     });
 

@@ -1,30 +1,41 @@
 import { Component, inject, ChangeDetectorRef } from '@angular/core';
-import { CommonModule }  from '@angular/common';
-import { FormsModule }   from '@angular/forms';
-import { Router }        from '@angular/router';
-import { AuthService }   from '../core/auth.service';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { AuthService } from '../core/auth.service';
 
 @Component({
-  selector   : 'app-login',
-  standalone : true,
-  imports    : [CommonModule, FormsModule],
+  selector: 'app-login',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './login.html',
-  styleUrl   : './login.css',
+  styleUrl: './login.css',
 })
 export class Login {
 
-  private auth   = inject(AuthService);
+  private auth = inject(AuthService);
   private router = inject(Router);
-  private cdr    = inject(ChangeDetectorRef);
+  private route = inject(ActivatedRoute);
+  private cdr = inject(ChangeDetectorRef);
 
   empCodeInput = '';
-  isLoading    = false;
-  errorMsg     = '';
+  isLoading = false;
+  errorMsg = '';
   resolvedRole = '';
 
   constructor() {
     if (this.auth.isLoggedIn()) {
       this.router.navigate(['/']);
+      return;
+    }
+
+    const empCodeFromPortal = this.route.snapshot.queryParamMap
+      .get('empCode')
+      ?.trim();
+
+    if (empCodeFromPortal) {
+      this.empCodeInput = empCodeFromPortal;
+      this.onLogin();
     }
   }
 
@@ -34,8 +45,8 @@ export class Login {
       this.errorMsg = 'Please enter your Employee Code.';
       return;
     }
-    this.isLoading    = true;
-    this.errorMsg     = '';
+    this.isLoading = true;
+    this.errorMsg = '';
     this.resolvedRole = '';
 
     this.auth.resolveByEmpCode(code).subscribe({

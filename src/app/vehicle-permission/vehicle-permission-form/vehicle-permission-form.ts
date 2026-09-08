@@ -204,6 +204,7 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   vehicleNumber = signal('');
   vehicleType = signal('');
   employeeNames = signal<Record<string, string>>({});
+  workflowActorNames = signal<Record<string, string>>({});
 
   readonly vehicleTypeOptions = [
     { label: 'Two Wheeler', value: 'TWO_WHEEL' },
@@ -772,42 +773,96 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
   }
 
   private loadRemarkHistory(requestNo: number): void {
-    console.log('Inside loadRemarkHistory:', requestNo);
-    this.cvps.getRequestHistory(requestNo)
-      .pipe(
-        takeUntil(this.destroy$),
-        catchError((err) => {
-          console.error('Failed to load workflow history:', err);
-          this.remarksHistory.set([]);
-          return of([]);
-        })
-      )
-      .subscribe((rows: RequestHistoryDTO[]) => {
-        console.log('History API response:', rows);
-        const mapped: WorkflowRemarkEntry[] = (rows || []).map((row, index) => {
-          const stage = this.resolveWorkflowStage(row);
+  console.log('Inside loadRemarkHistory:', requestNo);
 
-          return {
-            id: String(row.historyId ?? index + 1),
-            stage,
-            action: row.actionTaken || '—',
-            remark: String(row.remarks ?? '').trim(),
-            byName: row.empNo || 'SYSTEM',
-            byEmpCode: row.empNo || 'SYSTEM',
-            statusAfter: row.actionTaken || '',
-            createdAt: row.actionDate || ''
-          };
-        });
-        mapped.sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return timeA - timeB;
-        });
-        console.log('Mapped + Sorted history:', mapped);
-        this.remarksHistory.set(mapped);
+  this.cvps.getRequestHistory(requestNo)
+    .pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        console.error('Failed to load workflow history:', err);
+        this.remarksHistory.set([]);
+        return of([]);
+      })
+    )
+    .subscribe((rows: RequestHistoryDTO[]) => {
+      console.log('History API response:', rows);
+
+      const mapped: WorkflowRemarkEntry[] = (rows || []).map((row, index) => {
+        const stage = this.resolveWorkflowStage(row);
+
+        const empCode = String(
+          (row as any).empNo ||
+          (row as any).employeeCode ||
+          (row as any).byEmpCode ||
+          'SYSTEM'
+        ).trim();
+
+        /*
+         * If the history API already returns a name, use it immediately.
+         * Otherwise temporarily show the code, then replace it after the
+         * contractor/employee API response arrives.
+         */
+        const backendName = String(
+          (row as any).empName ||
+          (row as any).employeeName ||
+          (row as any).actorName ||
+          (row as any).byName ||
+          ''
+        ).trim();
+
+        const cachedName = this.workflowActorNames()[empCode] || '';
+
+        return {
+          id: String(row.historyId ?? index + 1),
+          stage,
+          action: String(row.actionTaken || '—').trim(),
+          remark: String(row.remarks || '').trim(),
+          byName: backendName || cachedName || empCode,
+          byEmpCode: empCode,
+          statusAfter: String(
+            (row as any).statusAfter ||
+            row.actionTaken ||
+            ''
+          ).trim(),
+          createdAt: String(
+            (row as any).actionDate ||
+            (row as any).createdAt ||
+            ''
+          )
+        };
       });
-  }
 
+      mapped.sort((a, b) => {
+        const timeA = a.createdAt
+          ? new Date(a.createdAt).getTime()
+          : 0;
+
+        const timeB = b.createdAt
+          ? new Date(b.createdAt).getTime()
+          : 0;
+
+        return timeA - timeB;
+      });
+
+      this.remarksHistory.set(mapped);
+
+      /*
+       * Fetch the actual display name for each unique actor.
+       * The cache inside resolveWorkflowActorName() prevents duplicate calls.
+       */
+      mapped.forEach(item => {
+        if (
+          item.byEmpCode !== 'SYSTEM' &&
+          item.byName === item.byEmpCode
+        ) {
+          this.resolveWorkflowActorName(
+            item.byEmpCode,
+            item.stage
+          );
+        }
+      });
+    });
+}
   private requiresWorkflowRemark(targetStatus: string): boolean {
     const statusUpper = (targetStatus || '').trim().toUpperCase();
 
@@ -1784,6 +1839,126 @@ export class VehiclePermissionFormComponent implements OnInit, OnDestroy {
       default:
         return 'wf-waiting';
     }
+  }
+  private resolveWorkflowActorName(
+    empCode: string,
+    stage: 'UPLOADER' | 'CONFIRMER' | 'VERIFIER' | 'APPROVER'
+  ): void {
+    const code = String(empCode || '').trim();
+
+    if (!code || code === 'SYSTEM') {
+      return;
+    }
+
+    /*
+     * Already resolved: no second API request.
+     */
+    if (this.workflowActorNames()[code]) {
+      return;
+    }
+
+    /*
+     * Uploader contractor codes, for example G20327,
+     * must use the contractor/BP API.
+     */
+    if (stage === 'UPLOADER' && code.toUpperCase().startsWith('G')) {
+      this.cvps.fetchContractorDetails(code)
+        .pipe(
+          takeUntil(this.destroy$),
+          catchError(err => {
+            console.error(
+              `Failed to load contractor name for workflow actor ${code}:`,
+              err
+            );
+            return of(null);
+          })
+        )
+        .subscribe((response: any) => {
+          if (!response) {
+            return;
+          }
+
+          const data = response?.data ?? response;
+
+          const name = String(
+            data?.contractorName ||
+            data?.name ||
+            data?.contractor_name ||
+            code
+          ).trim();
+
+          this.workflowActorNames.update(names => ({
+            ...names,
+            [code]: name
+          }));
+
+          this.updateWorkflowActorName(code, name);
+        });
+
+      return;
+    }
+
+    /*
+     * Authority employees: confirmer, verifier, approver.
+     * Examples: 636, 70100, 1832.
+     *
+     * This reuses your existing employee-details API through CvpsService.
+     */
+    this.cvps.fetchEmployeeDetails(code)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error(
+            `Failed to load employee name for workflow actor ${code}:`,
+            err
+          );
+          return of(null);
+        })
+      )
+      .subscribe((response: any) => {
+        if (!response) {
+          return;
+        }
+
+        const data = response?.data ?? response;
+
+        const name = String(
+          data?.empName ||
+          data?.employeeName ||
+          data?.name ||
+          data?.EMP_NAME ||
+          data?.NAME ||
+          code
+        ).trim();
+
+        this.workflowActorNames.update(names => ({
+          ...names,
+          [code]: name
+        }));
+
+        this.updateWorkflowActorName(code, name);
+      });
+  } private updateWorkflowActorName(
+    empCode: string,
+    name: string
+  ): void {
+    const code = String(empCode || '').trim();
+    const resolvedName = String(name || '').trim();
+
+    if (!code || !resolvedName) {
+      return;
+    }
+
+    this.remarksHistory.update(history =>
+      history.map(item =>
+        String(item.byEmpCode || '').trim() === code
+          ? {
+            ...item,
+            byName: resolvedName
+          }
+          : item
+      )
+    );
   }
 
   private resolveEmployeeName(
