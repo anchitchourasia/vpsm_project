@@ -61,20 +61,75 @@ export class Home implements OnInit, OnDestroy {
       ''
     ).trim();
   }
+  private getContractorId(pass: any): string {
+    return String(
+      pass?.contractorId ??
+      pass?.contractorCode ??
+      pass?.request?.contractorId ??
+      pass?.request?.contractorCode ??
+      ''
+    ).trim();
+  }
+
+  private shouldLimitToOwnContractorRequests(): boolean {
+    /*
+     * Only uploader users are restricted to their own Contractor ID.
+     *
+     * Confirmer, verifier, approver, and admin dashboard behavior
+     * remains unchanged.
+     */
+    return this.auth.isUploader() &&
+      !this.auth.isAdmin() &&
+      !this.auth.isConfirmer() &&
+      !this.auth.isVerifier() &&
+      !this.auth.isApprover();
+  }
+
+  private getDashboardPasses(): any[] {
+    const passes = this.allPasses();
+
+    /*
+     * Authority/admin users retain the existing unfiltered data.
+     */
+    if (!this.shouldLimitToOwnContractorRequests()) {
+      return passes;
+    }
+
+    const loggedInContractorId = String(this.auth.empCode() || '')
+      .trim()
+      .toUpperCase();
+
+    /*
+     * A missing login code must never expose all records.
+     */
+    if (!loggedInContractorId) {
+      return [];
+    }
+
+    return passes.filter(pass =>
+      this.getContractorId(pass).toUpperCase() === loggedInContractorId
+    );
+  }
   readonly showKpis = computed(() => this.auth.isUploader());
 
   readonly approvedPasses = computed(() =>
-    this.allPasses().filter(p => this.getStatus(p) === 'APPROVED').length
+    this.getDashboardPasses()
+      .filter(pass => this.getStatus(pass) === 'APPROVED')
+      .length
   );
 
   readonly submittedPasses = computed(() =>
-    this.allPasses().filter(p =>
-      ['CREATED', 'SUBMITTED', 'SAVED'].includes(this.getStatus(p))
-    ).length
+    this.getDashboardPasses()
+      .filter(pass =>
+        ['CREATED', 'SUBMITTED', 'SAVED'].includes(this.getStatus(pass))
+      )
+      .length
   );
 
   readonly confirmedPasses = computed(() =>
-    this.allPasses().filter(p => this.getStatus(p) === 'CONFIRMED').length
+    this.getDashboardPasses()
+      .filter(pass => this.getStatus(pass) === 'CONFIRMED')
+      .length
   );
 
   readonly pendingConfirmerCount = computed(() => {
