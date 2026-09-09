@@ -4,7 +4,9 @@
      ================================================== -->
 <div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
 
+
   <aside class="sidebar" [class.collapsed]="sidebarCollapsed()" (click)="sidebarCollapsed() && expandSidebar()">
+
 
     <!-- BRAND -->
     <div class="sb-brand">
@@ -12,7 +14,9 @@
         <img src="assets/heg-logo.png" alt="HEG Limited" class="sb-logo-img" width="32" height="32"/>
       </div>
 
+
       <span class="sb-company">HEG Limited</span>
+
 
       <button
         type="button"
@@ -21,18 +25,22 @@
         [title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
       >
 
+
         <span class="toggle-arrow" [class.rotated]="sidebarCollapsed()">
           <i class="bi bi-chevron-left"></i>
         </span>
       </button>
     </div>
 
+
     <!-- NAVIGATION: Render only after session restoration completes -->
     @if (auth.sessionReady()) {
     <nav class="sb-nav">
 
+
       <!-- MAIN -->
       <div class="sb-section-label">MAIN</div>
+
 
       <a
         routerLink="/"
@@ -42,12 +50,24 @@
         (click)="$event.stopPropagation()"
       >
 
+
         <i class="bi bi-house-door-fill sb-icon"></i>
         <span class="sb-label">Home</span>
       </a>
+       <a
+      class="sb-item"
+      [href]="getCvpsVerifierUrl()"
+      target="_blank"
+      (click)="$event.stopPropagation()"
+      title="Open CVPS Verifier"
+    >
+      <i class="bi bi-shield-check sb-icon" style="color:#0f766e"></i>
+      <span class="sb-label">CVPS Verifier</span>
+    </a>
 
       <!-- PASS MANAGEMENT -->
       <div class="sb-section-label">PASS MANAGEMENT</div>
+
 
       <!-- UPLOADER -->
       @if (auth.isUploader()) {
@@ -59,7 +79,9 @@
         title="Open Pass Entry Form"
       >
 
+
         <i class="bi bi-plus-circle-fill sb-icon" style="color:#AC9457"></i>
+
 
         <span class="sb-label">
           Add Pass
@@ -68,26 +90,33 @@
         </span>
       </a>
 
+
       <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+
 
         <i class="bi bi-collection-fill sb-icon"></i>
         <span class="sb-label">All Pass</span>
       </a>
 
+
       <a routerLink="/reports" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
+
 
         <i class="bi bi-file-earmark-bar-graph-fill sb-icon"></i>
         <span class="sb-label">Reports</span>
       </a>
       }
 
+
       <!-- CONFIRMER -->
       @if (auth.isConfirmer()) {
       <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
 
+
         <i class="bi bi-collection-fill sb-icon"></i>
         <span class="sb-label">All Pass</span>
       </a>
+
 
       <a
         routerLink="/authority/confirmer"
@@ -96,10 +125,13 @@
         (click)="$event.stopPropagation()"
       >
 
+
         <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#AC9457"></i>
+
 
         <span class="sb-label">
           Pending for Confirmer
+
 
           @if (pendingForConfirmer() > 0) {
           <span class="sb-badge sb-badge-blue">
@@ -110,13 +142,16 @@
       </a>
       }
 
+
       <!-- APPROVER -->
       @if (auth.isApprover()) {
       <a routerLink="/passes/all" routerLinkActive="sb-active" class="sb-item" (click)="$event.stopPropagation()">
 
+
         <i class="bi bi-collection-fill sb-icon"></i>
         <span class="sb-label">All Pass</span>
       </a>
+
 
       <a
         routerLink="/authority/approval"
@@ -125,10 +160,13 @@
         (click)="$event.stopPropagation()"
       >
 
+
         <i class="bi bi-arrow-left-circle-fill sb-icon" style="color:#6a1b9a"></i>
+
 
         <span class="sb-label">
           Pending for Approver
+
 
           @if (pendingForApprover() > 0) {
           <span class="sb-badge sb-badge-purple">
@@ -136,17 +174,6 @@
           </span>
           }
         </span>
-      </a>
-      <!-- CVPS verifier shortcut for current VPMS approver -->
-      <a
-        class="sb-item"
-        [href]="getCvpsVerifierUrl()"
-        target="_blank"
-        (click)="$event.stopPropagation()"
-        title="Open CVPS Verifier"
-      >
-        <i class="bi bi-shield-check sb-icon" style="color:#0f766e"></i>
-        <span class="sb-label">CVPS Verifier</span>
       </a>
       }
 
@@ -159,11 +186,13 @@
     </div>
     }
 
+
     <!-- SIDEBAR FOOTER -->
     <div class="sb-footer">
       <div class="sb-footer-avatar">
         <i class="bi bi-person-fill"></i>
       </div>
+
 
       <div class="sb-footer-info">
         @if (auth.isLoggedIn()) {
@@ -174,14 +203,17 @@
         }
       </div>
 
+
       @if (auth.isLoggedIn()) {
       <button type="button" class="sb-signout-btn" (click)="auth.logout(); $event.stopPropagation()" title="Sign Out">
+
 
         <i class="bi bi-box-arrow-left"></i>
       </button>
       }
     </div>
   </aside>
+
 
   <!-- PAGE CONTENT -->
   <div class="main-area">
