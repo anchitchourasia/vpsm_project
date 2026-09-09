@@ -87,14 +87,8 @@
         <label> Vehicle Type <span class="req">*</span> </label>
         <select class="pe-input" [(ngModel)]="vehicleType" [disabled]="isReadOnlyMode">
           <option value=""> -- Select Vehicle Type -- </option>
-          <option value="BIKE"> Bike </option>
-          <option value="SCOOTER">Scooter</option>
-          <option value="CAR"> Car </option>
-          <option value="TRUCK">Truck</option>
-          <option value="DUMPER">Dumper</option>
-          <option value="JCB">JCB</option>
-          <option value="CRANE">Crane</option>
-          <option value="TRACTOR">Tractor</option>
+          <option value="TWO-WHEELER">Two-Wheeler</option>
+          <option value="FOUR-WHEELER">Four-Wheeler</option>
         </select>
       </div>
 
@@ -105,557 +99,588 @@
       </div>
 
 
-<div class="pe-field">
+      <div class="pe-field">
         <label> Pass No </label>
         <input type="text" class="pe-input " [(ngModel)]="passNo" placeholder="Enter Pass No" />
       </div>
-    
 
-    <div class="pe-field">
+
+      <div class="pe-field">
         <label> Status </label>
-         <span class="pe-status-value">
+        <span class="pe-status-value">
           {{status}}
         </span>
       </div>
-    
-    <div class="pe-field">
+
+      <div class="pe-field">
         <label> Enter By </label>
-         <span class="pe-status-value">
+        <span class="pe-status-value">
           {{enterBy || '-'}}
         </span>
       </div>
-    
-  </div>
 
-  <!-- =====================================================
-       EMPLOYEE / CONTRACTOR DETAILS
-  ===================================================== -->
-  <div class="pe-section">
-    <div class="pe-section-header">
-      <i class="bi bi-person-badge-fill"></i>
-      <span>Employee / Contractor Details</span>
     </div>
 
-    <div class="pe-grid pe-grid-3">
-      <div class="pe-field">
-        <label> Employee Type <span class="req">*</span> </label>
-        <select class="pe-input" [ngModel]="empType()" (ngModelChange)="onEmpTypeChange($event)"
-          [disabled]="isReadOnlyMode">
-
-          <option value=""> -- Select Employee Type -- </option>
-          <option value="HEG">HEG</option>
-          <option value="TACC">TACC </option>
-          <option value="CONTRACT"> CONTRACT </option>
-          <option value="CRE-PRM"> CRE-PRM </option>
-        </select>
-        <span class="pe-field-hint"> Select type before EC No </span>
+    <!-- =====================================================
+       EMPLOYEE / CONTRACTOR DETAILS
+  ===================================================== -->
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-person-badge-fill"></i>
+        <span>Employee / Contractor Details</span>
       </div>
 
-      <div class="pe-field">
-        <label> EC No <span class="req">*</span> </label>
-        <div class="pe-input-group">
-          <input type="text" class="pe-input" placeholder="Enter Employee Code" [(ngModel)]="ecNo"
-            [disabled]="isReadOnlyMode" (blur)="onEcNoBlur()" (input)="onUpperInput($event,'ecNo')" maxlength="20" />
+      <div class="pe-grid pe-grid-3">
+        <div class="pe-field">
+          <label> Employee Type <span class="req">*</span> </label>
+          <select class="pe-input" [ngModel]="empType()" (ngModelChange)="onEmpTypeChange($event)"
+            [disabled]="isReadOnlyMode">
 
-          @if(fetchingEmployee()){
-          <span class="pe-fetching">
-            <i class="bi bi-arrow-repeat spin"></i>
+            <option value=""> -- Select Employee Type -- </option>
+            <option value="HEG">HEG</option>
+            <option value="TACC">TACC </option>
+            <option value="CONTRACT"> CONTRACT </option>
+            <option value="CRE-PRM"> CRE-PRM </option>
+          </select>
+          <span class="pe-field-hint"> Select type before EC No </span>
+        </div>
+
+        <div class="pe-field">
+          <label> EC No <span class="req">*</span> </label>
+          <div class="pe-input-group">
+            <input type="text" class="pe-input" placeholder="Enter Employee Code" [(ngModel)]="ecNo"
+              [disabled]="isReadOnlyMode" (blur)="onEcNoBlur()" (input)="onUpperInput($event,'ecNo')" maxlength="20" />
+
+            @if(fetchingEmployee()){
+            <span class="pe-fetching">
+              <i class="bi bi-arrow-repeat spin"></i>
+            </span>
+            }
+          </div>
+
+          @if(!empType()){
+          <span class="pe-field-hint pe-hint-locked">
+            <i class="bi bi-lock-fill"></i>
+            Select Employee Type First
+          </span>
+          } @else {
+          <span class="pe-field-hint">
+            Employee details fetched automatically
           </span>
           }
         </div>
 
-        @if(!empType()){
-        <span class="pe-field-hint pe-hint-locked">
-          <i class="bi bi-lock-fill"></i>
-          Select Employee Type First
-        </span>
-        } @else {
-        <span class="pe-field-hint">
-          Employee details fetched automatically
-        </span>
-        }
+        <div class="pe-field">
+          <label> Employee Name </label>
+          <input type="text" class="pe-input pe-readonly" [value]="empName()" readonly placeholder="Auto Filled" />
+        </div>
       </div>
 
-      <div class="pe-field">
-        <label> Employee Name </label>
-        <input type="text" class="pe-input pe-readonly" [value]="empName()" readonly placeholder="Auto Filled" />
-      </div>
-    </div>
 
-
-    <!-- =====================================================
+      <!-- =====================================================
          ROW 2 : DEPARTMENT + DEPT CODE + AADHAR
     ===================================================== -->
-    <div class="pe-grid pe-grid-3">
-      <!-- DEPARTMENT -->
-      <div class="pe-field">
-        <label> Department </label>
-        <input type="text" class="pe-input pe-readonly" [value]="empDept()" readonly placeholder="Auto Filled" />
+      <div class="pe-grid pe-grid-3">
+        <!-- DEPARTMENT -->
+        <div class="pe-field">
+          <label> Department </label>
+          <input type="text" class="pe-input pe-readonly" [value]="empDept()" readonly placeholder="Auto Filled" />
+        </div>
+
+        <!-- DEPARTMENT CODE -->
+        <div class="pe-field">
+          <label> Department Code </label>
+          <input type="text" class="pe-input pe-readonly" [value]="empDeptCode()" readonly placeholder="Auto Filled" />
+        </div>
+
+        <!-- MOBILE NUMBER -->
+        <div class="pe-field">
+          <label>Mobile Number</label>
+          <input type="text" class="pe-input pe-readonly" [value]="empMobile()" readonly placeholder="Auto Filled" />
+        </div>
       </div>
 
-      <!-- DEPARTMENT CODE -->
-      <div class="pe-field">
-        <label> Department Code </label>
-        <input type="text" class="pe-input pe-readonly" [value]="empDeptCode()" readonly placeholder="Auto Filled" />
-      </div>
-
-      <!-- AADHAR -->
-      <div class="pe-field">
-        <label> Aadhar Number </label>
-        <input type="text" class="pe-input pe-readonly" [value]="empAadhar()" readonly placeholder="Auto Filled" />
-      </div>
-    </div>
-
-    <!-- =====================================================
+      <!-- =====================================================
          ROW 3 : CONTRACTOR DETAILS
     ===================================================== -->
 
 
-    <div class="pe-grid pe-grid-3">
-      <!-- CONTRACTOR CODE -->
-      <div class="pe-field">
-        <label> Contractor Code </label>
-        <input type="text" class="pe-input pe-readonly" [value]="empContractorCode" readonly
-          placeholder="Auto Filled" />
+      <div class="pe-grid pe-grid-3">
+
+        <!-- AADHAR -->
+        <div class="pe-field">
+          <label> Aadhar Number </label>
+          <input type="text" class="pe-input pe-readonly" [value]="empAadhar()" readonly placeholder="Auto Filled" />
+        </div>
+        <!-- CONTRACTOR CODE -->
+        <div class="pe-field">
+          <label> Contractor Code </label>
+          <input type="text" class="pe-input pe-readonly" [value]="empContractorCode" readonly
+            placeholder="Auto Filled" />
+        </div>
+
+        <!-- CONTRACTOR NAME -->
+        <div class="pe-field">
+          <label> Contractor Name </label>
+          <input type="text" class="pe-input pe-readonly" [value]="empContractorName" readonly
+            placeholder="Auto Filled" />
+        </div>
       </div>
 
-      <!-- CONTRACTOR NAME -->
-      <div class="pe-field">
-        <label> Contractor Name </label>
-        <input type="text" class="pe-input pe-readonly" [value]="empContractorName" readonly
-          placeholder="Auto Filled" />
-      </div>
-    </div>
-
-    <!-- =====================================================
+      <!-- =====================================================
          EMPLOYEE FETCH ERROR
     ===================================================== -->
-    @if(empFetchError()){
+      @if(empFetchError()){
 
-    <div class="pe-fetch-error">
-      <i class="bi bi-exclamation-triangle-fill"></i>
-      {{empFetchError()}}
-    </div>
-    }
-    <!-- =====================================================
+      <div class="pe-fetch-error">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        {{empFetchError()}}
+      </div>
+      }
+      <!-- =====================================================
          EMPLOYEE FETCH SUCCESS
     ===================================================== -->
 
 
-    @if(empName() && !fetchingEmployee() && !empFetchError()){
+      @if(empName() && !fetchingEmployee() && !empFetchError()){
 
-    <div class="pe-fetch-success">
-      <i class="bi bi-check-circle-fill"></i>
-      Employee Found :
-      <strong>
-        {{empName()}}
-      </strong>
-      &nbsp;
-      {{empDept()}}
-    </div>
-    }
-  </div>
-  <!-- =====================================================
-       PASS DETAILS
-  ===================================================== -->
-  <div class="pe-section">
-    <div class="pe-section-header">
-      <i class="bi bi-card-checklist"></i>
-      <span>
-        Pass Details
-      </span>
-    </div>
-
-    <!-- =====================================================
-         GATE + PARKING
-    ===================================================== -->
-    <div class="pe-grid pe-grid-2">
-
-      <!-- GATE NUMBER -->
-      <div class="pe-field">
-        <label> Gate No <span class="req">*</span> </label>
-        <select class="pe-input" [(ngModel)]="gateNo" [disabled]="isReadOnlyMode">
-          <option value=""> -- Select Gate -- </option>
-          <option value="COLONY_GATE"> COLONY GATE </option>
-          <option value="SP_GATE"> SP GATE </option>
-          <option value="GATE_01"> GATE 01 </option>
-          <option value="GATE_03"> GATE 03 </option>
-          <option value="GATE_07"> GATE 07 </option>
-        </select>
-      </div>
-
-      <!-- PARKING AREA -->
-      <div class="pe-field">
-        <label> Parking To Be Used<span class="req">*</span></label>
-        <select class="pe-input" [(ngModel)]="parkingToBeUsed" [disabled]="isReadOnlyMode">
-          <option value="">-- Select Parking Area --</option>
-          <option value="MainParking">Main Parking</option>
-          <option value="StoreParking">Store Parking</option>
-          <option value="RH05Parking">RH05 Parking</option>
-          <option value="BhujariyaParking">Bhujariya Parking</option>
-          <option value="3DParking">3D Parking</option>
-          <option value="SDParking">S&D Parking</option>
-          <option value="RDParking">R&D Parking</option>
-          <option value="BhilwaraParking">Bhilwara Parking</option>
-          <option value="RKDFParking">RKDF Parking</option>
-          <option value="AdminParking">Admin Parking</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-
-  <div class="pe-section">
-    <div class="pe-section-header">
-      <i class="bi bi-file-earmark-check-fill"></i>
-      <span> Required Documents </span>
-      <span class="pe-doc-count"> {{documents().length}} Added </span>
-    </div>
-
-    <div class="pe-doc-table">
-      <div class="pe-doc-header-row">
-        <span> Document Type </span>
-        <span> Document No</span>
-        <span> Expiry Date </span>
-        <span> File </span>
-        <span> Action </span>
-      </div>
-
-      <!-- DOCUMENT ROW -->
-      @for(doc of documents(); track $index; let i=$index){
-      <div class="pe-doc-row">
-        <div class="pe-doc-cell">
-          <select class="pe-input pe-input-sm" [(ngModel)]="doc.documentType" [disabled]="isReadOnlyMode"
-            (ngModelChange)="onDocumentTypeChange(i,$event)">
-            <option value=""> -- Select Type -- </option>
-            @for(type of availableDocTypes(i); track type){
-            <option [value]="type">
-              {{type}}
-            </option>
-            }
-          </select>
-        </div>
-        <div class="pe-doc-cell">
-
-          <input type="text" class="pe-input pe-input-sm" placeholder="Document Number" [(ngModel)]="doc.documentNo"
-            [readonly]="isReadOnlyMode" (input)="onDocNoInput($event,doc)" maxlength="60" />
-        </div>
-        <div class="pe-doc-cell">
-          <input type="date" class="pe-input pe-input-sm" [(ngModel)]="doc.expiryDate" [min]="todayDate"
-            [disabled]="isReadOnlyMode" />
-
-        </div>
-        <div class="pe-doc-cell">
-
-  <!-- Existing file from server -->
-  @if (doc.existingFile) {
-
-    <div class="pe-existing-file">
-
-      <!-- File name -->
-      <span class="pe-doc-uploaded-pill">
+      <div class="pe-fetch-success">
         <i class="bi bi-check-circle-fill"></i>
-        {{ doc.existingFile }}
-      </span>
-
-      <!-- Download existing file -->
-      <button
-  type="button"
-  class="pe-doc-download-btn"
-  (click)="downloadDocument(doc.existingFile)"
-  title="Download File">
-
-  <i class="bi bi-download"></i>
-  <span>Download</span>
-</button>
-
-      <!-- Change / Replace file -->
-      <label class="pe-file-btn pe-change-btn">
-
-        <i class="bi bi-arrow-repeat"></i>
-        Change
-
-        <input
-          type="file"
-          hidden
-          accept=".pdf,.jpg,.jpeg,.png"
-          (change)="onDocumentFileSelected($event, i)" />
-
-      </label>
-
-    </div>
-
-  }
-
-  <!-- New file selected -->
-  @else if (doc.file) {
-
-    <div class="pe-existing-file">
-
-      <span class="pe-doc-uploaded-pill">
-        <i class="bi bi-file-earmark-pdf-fill"></i>
-        {{ shortName(doc.fileName) }}
-      </span>
-
-      <!-- Download selected file -->
-      <button
-        type="button"
-        class="pe-download-btn"
-        (click)="downloadSelectedFile(doc)">
-
-        <i class="bi bi-download"></i>
-        Download
-
-      </button>
-
-      <!-- Change selected file -->
-      <label class="pe-file-btn pe-change-btn">
-
-        <i class="bi bi-arrow-repeat"></i>
-        Change
-
-        <input
-          type="file"
-          hidden
-          accept=".pdf,.jpg,.jpeg,.png"
-          (change)="onDocumentFileSelected($event, i)" />
-
-      </label>
-
-    </div>
-
-  }
-
-  <!-- No file -->
-  @else {
-
-    <label class="pe-file-btn">
-
-      <i class="bi bi-cloud-upload"></i>
-      Upload File
-
-      <input
-        type="file"
-        hidden
-        accept=".pdf,.jpg,.jpeg,.png"
-        (change)="onDocumentFileSelected($event, i)" />
-
-    </label>
-
-  }
-
-</div>
-        <div class="pe-doc-cell">
-          <button type="button" class="pe-doc-remove" (click)="removeDoc(i)" [disabled]="isReadOnlyMode">
-            <i class="bi bi-x-circle-fill"></i>
-          </button>
-        </div>
+        Employee Found :
+        <strong>
+          {{empName()}}
+        </strong>
+        &nbsp;
+        {{empDept()}}
       </div>
       }
-      <!-- ADD DOCUMENT BUTTON -->
-      <button type="button" class="pe-add-doc-btn" (click)="addDocument()" [disabled]="
+    </div>
+    <!-- =====================================================
+       PASS DETAILS
+  ===================================================== -->
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-card-checklist"></i>
+        <span>
+          Pass Details
+        </span>
+      </div>
+
+      <!-- =====================================================
+         GATE + PARKING
+    ===================================================== -->
+      <div class="pe-grid pe-grid-2">
+
+        <!-- GATE NUMBER -->
+        <div class="pe-field">
+          <label> Gate No <span class="req">*</span> </label>
+          <select class="pe-input" [(ngModel)]="gateNo" [disabled]="isReadOnlyMode">
+            <option value=""> -- Select Gate -- </option>
+            <option value="COLONY_GATE"> COLONY GATE </option>
+            <option value="SP_GATE"> SP GATE </option>
+            <option value="GATE_01"> GATE 01 </option>
+            <option value="GATE_03"> GATE 03 </option>
+            <option value="GATE_07"> GATE 07 </option>
+          </select>
+        </div>
+
+        <!-- PARKING AREA -->
+        <div class="pe-field">
+          <label> Parking To Be Used<span class="req">*</span></label>
+          <select class="pe-input" [(ngModel)]="parkingToBeUsed" [disabled]="isReadOnlyMode">
+            <option value="">-- Select Parking Area --</option>
+            <option value="MainParking">Main Parking</option>
+            <option value="StoreParking">Store Parking</option>
+            <option value="RH05Parking">RH05 Parking</option>
+            <option value="BhujariyaParking">Bhujariya Parking</option>
+            <option value="3DParking">3D Parking</option>
+            <option value="SDParking">S&D Parking</option>
+            <option value="RDParking">R&D Parking</option>
+            <option value="BhilwaraParking">Bhilwara Parking</option>
+            <option value="RKDFParking">RKDF Parking</option>
+            <option value="AdminParking">Admin Parking</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="pe-section">
+      <div class="pe-section-header">
+        <i class="bi bi-file-earmark-check-fill"></i>
+        <span> Required Documents </span>
+        <span class="pe-doc-count"> {{documents().length}} Added </span>
+      </div>
+
+      <div class="pe-doc-table">
+        <div class="pe-doc-header-row">
+          <span> Document Type </span>
+          <span> Document No</span>
+          <span> Expiry Date </span>
+          <span> File </span>
+          <span> Action </span>
+        </div>
+
+        <!-- DOCUMENT ROW -->
+        @for(doc of documents(); track $index; let i=$index){
+        <div class="pe-doc-row">
+          <div class="pe-doc-cell">
+            <select class="pe-input pe-input-sm" [(ngModel)]="doc.documentType" [disabled]="isReadOnlyMode"
+              (ngModelChange)="onDocumentTypeChange(i,$event)">
+              <option value=""> -- Select Type -- </option>
+              @for(type of availableDocTypes(i); track type){
+              <option [value]="type">
+                {{type}}
+              </option>
+              }
+            </select>
+          </div>
+          <div class="pe-doc-cell">
+
+            <input type="text" class="pe-input pe-input-sm" placeholder="Document Number" [(ngModel)]="doc.documentNo"
+              [readonly]="isReadOnlyMode" (input)="onDocNoInput($event,doc)" maxlength="60" />
+          </div>
+          <div class="pe-doc-cell">
+            <input type="date" class="pe-input pe-input-sm" [(ngModel)]="doc.expiryDate" [min]="todayDate"
+              [disabled]="isReadOnlyMode" />
+
+          </div>
+          <div class="pe-doc-cell">
+
+            <!-- Existing file from server -->
+            @if (doc.existingFile) {
+
+            <div class="pe-existing-file">
+
+              <!-- File name -->
+              <span class="pe-doc-uploaded-pill">
+                <i class="bi bi-check-circle-fill"></i>
+                {{ doc.existingFile }}
+              </span>
+
+              <!-- Download existing file -->
+              <button type="button" class="pe-doc-download-btn" (click)="downloadDocument(doc.existingFile)"
+                title="Download File">
+
+                <i class="bi bi-download"></i>
+                <span>Download</span>
+              </button>
+
+              <!-- Change / Replace file -->
+              @if (!isReadOnlyMode) {
+              <label class="pe-file-btn pe-change-btn">
+
+                <i class="bi bi-arrow-repeat"></i>
+                Change
+
+                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onDocumentFileSelected($event, i)" />
+
+              </label>
+              }
+
+            </div>
+
+            }
+
+            <!-- New file selected -->
+            @else if (doc.file) {
+
+            <div class="pe-existing-file">
+
+              <span class="pe-doc-uploaded-pill">
+                <i class="bi bi-file-earmark-pdf-fill"></i>
+                {{ shortName(doc.fileName) }}
+              </span>
+
+              <!-- Download selected file -->
+              <button type="button" class="pe-download-btn" (click)="downloadSelectedFile(doc)">
+
+                <i class="bi bi-download"></i>
+                Download
+
+              </button>
+
+              <!-- Change selected file -->
+              @if (!isReadOnlyMode) {
+              <label class="pe-file-btn pe-change-btn">
+
+                <i class="bi bi-arrow-repeat"></i>
+                Change
+
+                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onDocumentFileSelected($event, i)" />
+
+              </label>
+              }
+
+            </div>
+
+            }
+
+            <!-- No file -->
+            @else {
+
+            @if (!isReadOnlyMode) {
+            <label class="pe-file-btn">
+
+              <i class="bi bi-cloud-upload"></i>
+              Upload File
+
+              <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onDocumentFileSelected($event, i)" />
+
+            </label>
+            } @else {
+            <span class="pe-doc-uploaded-pill pe-doc-empty-pill">
+              <i class="bi bi-dash-circle"></i>
+              No file uploaded
+            </span>
+            }
+
+            }
+
+          </div>
+          <div class="pe-doc-cell">
+            <button type="button" class="pe-doc-remove" (click)="removeDoc(i)" [disabled]="isReadOnlyMode">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          </div>
+        </div>
+        }
+        <!-- ADD DOCUMENT BUTTON -->
+        <button type="button" class="pe-add-doc-btn" (click)="addDocument()" [disabled]="
                     isReadOnlyMode ||
                     documents().length >= ALLOWED_DOC_TYPES.length
                     ">
-        <i class="bi bi-plus-circle-fill"></i>
-        Add Document
-      </button>
-      <div class="pe-doc-info">
-        <i class="bi bi-info-circle-fill"></i>
-        Allowed Documents:
-        <strong>RC, INSURANCE, LICENSE </strong>
+          <i class="bi bi-plus-circle-fill"></i>
+          Add Document
+        </button>
+        <div class="pe-doc-info">
+          <i class="bi bi-info-circle-fill"></i>
+          Allowed Documents:
+          <strong>RC, INSURANCE, LICENSE </strong>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- =====================================================
+    <!-- =====================================================
          SAVE / ERROR MESSAGE
     ===================================================== -->
 
 
-  @if(saveSuccess()){
-  <div class="pe-alert pe-alert-success">
-    <i class="bi bi-check-circle-fill"></i>
-    {{saveSuccess()}}
-  </div>
-  }
+    @if(saveSuccess()){
+    <div class="pe-alert pe-alert-success">
+      <i class="bi bi-check-circle-fill"></i>
+      {{saveSuccess()}}
+    </div>
+    }
 
 
-  @if(saveError()){
-  <div class="pe-alert pe-alert-error">
-    <i class="bi bi-exclamation-triangle-fill"></i>
-    {{saveError()}}
-  </div>
-  }
+    @if(saveError()){
+    <div class="pe-alert pe-alert-error">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      {{saveError()}}
+    </div>
+    }
 
 
 
-  <!-- =====================================================
+    <!-- =====================================================
      PASS HISTORY
      ALL USERS
 ===================================================== -->
 
-  @if(registryId){
+    @if(registryId){
 
 
-  <div class="pe-section">
+    <div class="pe-section">
 
 
-    <div class="pe-section-header">
+      <div class="pe-section-header">
 
-      <i class="bi bi-clock-history"></i>
+        <i class="bi bi-clock-history"></i>
 
-      <span>
-        Pass History
-      </span>
-
-
-    </div>
-
-
-
-    <!-- HISTORY BUTTON -->
-
-    <button type="button" class="pe-btn pe-btn-history" (click)="togglePassHistory()">
-
-
-      <i class="bi bi-clock-history"></i>
-
-
-      {{
-      showPassHistory()
-      ?
-      'Hide History'
-      :
-      'Show History'
-      }}
-
-
-    </button>
-
-
-
-
-
-    @if(showPassHistory()){
-
-
-
-    <div class="pe-history-box">
-
-
-
-      @if(isLoadingPassHistory()){
-
-
-      <div class="pe-history-state">
-
-
-        <i class="bi bi-arrow-repeat spin"></i>
-
-
-        Loading history...
+        <span>
+          Pass History
+        </span>
 
 
       </div>
 
 
-      }
+
+      <!-- HISTORY BUTTON -->
+
+      <button type="button" class="pe-btn pe-btn-history" (click)="togglePassHistory()">
+
+
+        <i class="bi bi-clock-history"></i>
+
+
+        {{
+        showPassHistory()
+        ?
+        'Hide History'
+        :
+        'Show History'
+        }}
+
+
+      </button>
 
 
 
 
 
-      @if(passHistoryError()){
-
-
-      <div class="pe-history-state pe-history-error">
-
-
-        <i class="bi bi-exclamation-triangle-fill"></i>
-
-
-        {{passHistoryError()}}
-
-
-      </div>
-
-
-      }
+      @if(showPassHistory()){
 
 
 
-
-
-      @if(
-      !isLoadingPassHistory()
-      &&
-      !passHistoryError()
-      &&
-      passHistory().length > 0
-      ){
+      <div class="pe-history-box">
 
 
 
-      <div class="pe-history-list">
+        @if(isLoadingPassHistory()){
+
+
+        <div class="pe-history-state">
+
+
+          <i class="bi bi-arrow-repeat spin"></i>
+
+
+          Loading history...
+
+
+        </div>
+
+
+        }
 
 
 
-        @for(h of passHistory(); track h.id){
+
+
+        @if(passHistoryError()){
+
+
+        <div class="pe-history-state pe-history-error">
+
+
+          <i class="bi bi-exclamation-triangle-fill"></i>
+
+
+          {{passHistoryError()}}
+
+
+        </div>
+
+
+        }
 
 
 
-        <div class="pe-history-row">
+
+
+        @if(
+        !isLoadingPassHistory()
+        &&
+        !passHistoryError()
+        &&
+        passHistory().length > 0
+        ){
 
 
 
-          <div class="pe-history-top">
-
-
-            <span class="pe-history-action">
-
-              {{h.action}}
-
-            </span>
+        <div class="pe-history-list">
 
 
 
-            <span class="pe-history-date">
+          @for(h of passHistory(); track h.id){
 
-              {{formatDateTime(h.dateOfEntry)}}
 
-            </span>
+
+          <div class="pe-history-row">
+
+
+
+            <div class="pe-history-top">
+
+
+              <span class="pe-history-action">
+
+                {{h.action}}
+
+              </span>
+
+
+
+              <span class="pe-history-date">
+
+                {{formatDateTime(h.dateOfEntry)}}
+
+              </span>
+
+
+            </div>
+
+
+
+
+
+            <div class="pe-history-meta">
+
+              By :
+
+              <strong>
+
+                {{h.empCode || 'SYSTEM'}}
+
+              </strong>
+
+
+            </div>
+
+
+
+
+
+            <div class="pe-history-remark">
+
+              {{h.remark || '-'}}
+
+            </div>
+
 
 
           </div>
 
 
+          }
 
 
 
-          <div class="pe-history-meta">
-
-            By :
-
-            <strong>
-
-              {{h.empCode || 'SYSTEM'}}
-
-            </strong>
+        </div>
 
 
-          </div>
+        }
 
 
 
 
 
-          <div class="pe-history-remark">
 
-            {{h.remark || '-'}}
+        @if(
+        !isLoadingPassHistory()
+        &&
+        !passHistoryError()
+        &&
+        passHistory().length === 0
+        ){
 
-          </div>
 
+        <div class="pe-history-state">
+
+
+          No history available
 
 
         </div>
@@ -672,184 +697,152 @@
 
 
 
+    </div>
+
+
+    }
+
+    <!-- =====================================================
+     REVIEW REMARK
+===================================================== -->
+
+
+    @if(
+    isConfirmerMode()
+    ||
+    isApproverMode()
+    ){
 
 
 
-      @if(
-      !isLoadingPassHistory()
-      &&
-      !passHistoryError()
-      &&
-      passHistory().length === 0
-      ){
+    <div class="pe-section">
 
 
-      <div class="pe-history-state">
+      <div class="pe-section-header">
 
 
-        No history available
+        <i class="bi bi-chat-left-text-fill"></i>
+
+
+        <span>
+
+          {{
+          isApproverMode()
+          ?
+          'Approver Remark'
+          :
+          'Confirmer Remark'
+          }}
+
+        </span>
 
 
       </div>
 
 
-      }
 
 
 
-    </div>
+      <div class="pe-field">
 
 
-    }
+        <label>
 
+          Remark
 
+          <span class="req">*</span>
+        </label>
 
-  </div>
-
-
-  }
-
-  <!-- =====================================================
-     REVIEW REMARK
-===================================================== -->
-
-
-  @if(
-  isConfirmerMode()
-  ||
-  isApproverMode()
-  ){
-
-
-
-  <div class="pe-section">
-
-
-    <div class="pe-section-header">
-
-
-      <i class="bi bi-chat-left-text-fill"></i>
-
-
-      <span>
-
-        {{
-        isApproverMode()
-        ?
-        'Approver Remark'
-        :
-        'Confirmer Remark'
-        }}
-
-      </span>
-
-
-    </div>
-
-
-
-
-
-    <div class="pe-field">
-
-
-      <label>
-
-        Remark
-
-        <span class="req">*</span>
-      </label>
-
-      <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="remark"
-        (ngModelChange)="remark = $event">
+        <textarea class="pe-input" rows="4" placeholder="Enter remark" [ngModel]="remark"
+          (ngModelChange)="remark = $event">
 
 </textarea>
 
-      <span class="pe-field-hint">
-        Remark required for workflow action
-      </span>
+        <span class="pe-field-hint">
+          Remark required for workflow action
+        </span>
+      </div>
     </div>
-  </div>
-  }
+    }
 
 
-  <!-- =====================================================
+    <!-- =====================================================
      ACTION BUTTONS
 ===================================================== -->
 
 
-  <div class="pe-actions">
+    <div class="pe-actions">
 
 
 
-    <!-- ============================
+      <!-- ============================
  ENTRY USER
 =============================== -->
 
 
-    @if(canEdit()){
+      @if(canEdit()){
 
 
 
-    <button type="button" class="pe-btn pe-btn-clear" (click)="goBackToPasses()" [disabled]="isSaving()">
+      <button type="button" class="pe-btn pe-btn-clear" (click)="goBackToPasses()" [disabled]="isSaving()">
 
 
-      <i class="bi bi-x-square"></i>
+        <i class="bi bi-x-square"></i>
 
-      Clear
-
-
-    </button>
+        Clear
 
 
-
-
-
-    <button type="button" class="pe-btn pe-btn-save" (click)="savePass()" [disabled]="isSaving()">
+      </button>
 
 
 
-      @if(isSaving()){
 
 
-      <i class="bi bi-hourglass-split spin"></i>
+      <button type="button" class="pe-btn pe-btn-save" (click)="savePass()" [disabled]="isSaving()">
 
-      Saving...
+
+
+        @if(isSaving()){
+
+
+        <i class="bi bi-hourglass-split spin"></i>
+
+        Saving...
+
+
+        }
+        @else{
+
+
+        <i class="bi bi-floppy-fill"></i>
+
+        Save
+
+
+        }
+
+
+      </button>
+
+
+
+
+
+      <button type="button" class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving()">
+
+
+
+        <i class="bi bi-send-fill"></i>
+
+
+        Submit
+
+
+      </button>
+
 
 
       }
-      @else{
-
-
-      <i class="bi bi-floppy-fill"></i>
-
-      Save
-
-
-      }
-
-
-    </button>
-
-
-
-
-
-    <button type="button" class="pe-btn pe-btn-submit" (click)="onSubmit()" [disabled]="isSaving()">
-
-
-
-      <i class="bi bi-send-fill"></i>
-
-
-      Submit
-
-
-    </button>
-
-
-
-    }
 
 
 
@@ -857,53 +850,53 @@
 
 
 
-    <!-- ============================
+      <!-- ============================
       CONFIRMER / SUBMITTED
     =============================== -->
-    @if (status === PassStatus.SUBMITTED && isConfirmerMode()) {
-    <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
-      <i class="bi bi-pencil-square"></i> Send Modification
-    </button>
+      @if (status === PassStatus.SUBMITTED && isConfirmerMode()) {
+      <button class="pe-btn pe-btn-modify" (click)="modifyPass()" [disabled]="!reviewRemark().trim()">
+        <i class="bi bi-pencil-square"></i> Send Modification
+      </button>
 
-    <!-- WITH THIS: -->
-    <button class="pe-btn pe-btn-reject" (click)="rejectPass()" [disabled]="!reviewRemark()">
-      <i class="bi bi-x-circle-fill"></i> Reject
-    </button>
+      <!-- WITH THIS: -->
+      <button class="pe-btn pe-btn-reject" (click)="rejectPass()" [disabled]="!reviewRemark()">
+        <i class="bi bi-x-circle-fill"></i> Reject
+      </button>
 
-    <button class="pe-btn pe-btn-submit" (click)="confirmPass()" [disabled]="!reviewRemark().trim()">
-      <i class="bi bi-check-circle-fill"></i> Confirm & Send Approver
-    </button>
-    }
+      <button class="pe-btn pe-btn-submit" (click)="confirmPass()" [disabled]="!reviewRemark().trim()">
+        <i class="bi bi-check-circle-fill"></i> Confirm & Send Approver
+      </button>
+      }
 
-    <!-- ============================
+      <!-- ============================
       APPROVER (Handles BOTH SUBMITTED and CONFIRMED)
     =============================== -->
-    @if ((status === PassStatus.SUBMITTED || status === PassStatus.CONFIRMED) && isApproverMode()) {
-    <button class="pe-btn pe-btn-modify" (click)="modifyPass()">
-      <i class="bi bi-pencil-square"></i> Send Modification
-    </button>
+      @if ((status === PassStatus.SUBMITTED || status === PassStatus.CONFIRMED) && isApproverMode()) {
+      <button class="pe-btn pe-btn-modify" (click)="modifyPass()">
+        <i class="bi bi-pencil-square"></i> Send Modification
+      </button>
 
-    <button class="pe-btn pe-btn-reject" (click)="rejectPass()">
-      <i class="bi bi-x-circle-fill"></i> Reject
-    </button>
+      <button class="pe-btn pe-btn-reject" (click)="rejectPass()">
+        <i class="bi bi-x-circle-fill"></i> Reject
+      </button>
 
-    <button class="pe-btn pe-btn-submit" (click)="approvePass()">
-      <i class="bi bi-check-circle-fill"></i> Approve
-    </button>
-    }
+      <button class="pe-btn pe-btn-submit" (click)="approvePass()">
+        <i class="bi bi-check-circle-fill"></i> Approve
+      </button>
+      }
 
-    <!-- ============================
+      <!-- ============================
       READ ONLY BACK BUTTON
     =============================== -->
-    @if (isReadOnlyMode && !isApproverMode() && !isConfirmerMode()) {
-    <button class="pe-btn pe-btn-clear" (click)="goBackToPasses()">
-      <i class="bi bi-arrow-left-circle"></i> Back
-    </button>
-    }
+      @if (isReadOnlyMode && !isApproverMode() && !isConfirmerMode()) {
+      <button class="pe-btn pe-btn-clear" (click)="goBackToPasses()">
+        <i class="bi bi-arrow-left-circle"></i> Back
+      </button>
+      }
+
+    </div>
+
+
+
 
   </div>
-
-
-
-
-</div>

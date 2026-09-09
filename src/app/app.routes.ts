@@ -10,9 +10,6 @@ export const routes: Routes = [
   // HOME — protected
   { path: '', canActivate: [authGuard], loadComponent: () => import('./home/home').then(m => m.Home) },
 
-  // MY PASS — protected
-  // { path: 'my-pass', canActivate: [authGuard], loadComponent: () => import('./my-pass/my-pass').then(m => m.MyPass) },
-
 
 
   // PASS REGISTRY — protected
@@ -24,7 +21,7 @@ export const routes: Routes = [
       import('./reports/reports')
         .then(m => m.ReportsComponent)
   },
-
+  
   // AUDIT — protected
   { path: 'history', canActivate: [authGuard], loadComponent: () => import('./history/history').then(m => m.History) },
 

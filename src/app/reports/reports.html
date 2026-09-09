@@ -30,28 +30,25 @@
           Expiry Date <span class="reports-required">*</span>
         </label>
 
-        <input
-          id="expiryCutoffDate"
-          type="date"
-          [(ngModel)]="cutoffDate"
-          [min]="todayDate"
+        <input id="expiryCutoffDate" type="date" [(ngModel)]="cutoffDate" [min]="todayDate"
           class="reports-date-input" />
       </div>
 
       <div class="reports-filter-actions">
-        <button
-          type="button"
-          class="reports-btn reports-btn-primary"
-          (click)="generateReport()"
-          [disabled]="!cutoffDate()">
+        <button type="button" class="reports-btn reports-btn-primary" (click)="generateReport()"
+          [disabled]="!cutoffDate() || isLoading()">
+
+          @if (isLoading()) {
+          <i class="bi bi-arrow-repeat spin-icon"></i>
+          Loading...
+          } @else {
           <i class="bi bi-search"></i>
           Generate Report
+          }
         </button>
 
-        <button
-          type="button"
-          class="reports-btn reports-btn-clear"
-          (click)="resetReport()">
+        <button type="button" class="reports-btn reports-btn-clear" (click)="resetReport()" [disabled]="isLoading()">
+
           <i class="bi bi-arrow-counterclockwise"></i>
           Reset
         </button>
@@ -60,103 +57,141 @@
 
     <div class="reports-filter-note">
       <i class="bi bi-info-circle-fill"></i>
-      Includes a pass when at least one document expiry date is on or before the selected date.
+      Includes a pass when at least one document is expired, missing, or expires on or before the selected date.
     </div>
   </section>
 
-  @if (!searched()) {
-    <section class="reports-empty-state">
-      <i class="bi bi-calendar2-check"></i>
-      <h3>Select an expiry date</h3>
-      <p>Choose a date and click <strong>Generate Report</strong> to view document-expiry records.</p>
-    </section>
+  @if (isLoading()) {
+  <section class="reports-empty-state">
+    <i class="bi bi-arrow-repeat spin-icon"></i>
+    <h3>Generating report...</h3>
+    <p>Loading live document-expiry data from the VPMS server.</p>
+  </section>
   }
 
-  @if (searched()) {
-    <section class="reports-result-card">
+  @if (hasError() && !isLoading()) {
+  <section class="reports-no-results reports-error-state">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    {{ errorMessage() || 'Unable to load document expiry report.' }}
+  </section>
+  }
 
-      <div class="reports-result-header">
-        <div>
-          <h3>Document Expiry Results</h3>
-          <p>
-            Showing records for expiry date on or before
-            <strong>{{ formatDate(cutoffDate()) }}</strong>
-          </p>
-        </div>
+  @if (!searched() && !isLoading() && !hasError()) {
+  <section class="reports-empty-state">
+    <i class="bi bi-calendar2-check"></i>
+    <h3>Select an expiry date</h3>
+    <p>
+      Choose a date and click <strong>Generate Report</strong>
+      to view document-expiry records.
+    </p>
+  </section>
+  }
 
-        <div class="reports-search-box">
-          <i class="bi bi-search"></i>
-          <input
-            type="text"
-            placeholder="Search pass, employee, name..."
-            [(ngModel)]="searchText" />
-        </div>
+  @if (searched() && !isLoading() && !hasError()) {
+  <section class="reports-result-card">
+
+    <div class="reports-result-header">
+      <div>
+        <h3>Document Expiry Results</h3>
+        <p>
+          Showing records for expiry date on or before
+          <strong>{{ formatDate(cutoffDate()) }}</strong>
+        </p>
       </div>
 
-      @if (filteredRows().length > 0) {
-        <div class="reports-table-wrap">
-          <table class="reports-table">
-            <thead>
-              <tr>
-                <th>Pass No</th>
-                <th>Emp No</th>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Mobile No</th>
-                <th>RC</th>
-                <th>Insurance</th>
-                <th>License</th>
-              </tr>
-            </thead>
+      <div class="reports-search-box">
+        <i class="bi bi-search"></i>
 
-            <tbody>
-              @for (row of filteredRows(); track row.passNo + '-' + row.employeeNo) {
-                <tr>
-                  <td class="reports-pass-no">{{ row.passNo }}</td>
-                  <td>{{ row.employeeNo }}</td>
-                  <td class="reports-name">{{ row.name }}</td>
-                  <td>{{ row.department }}</td>
-                  <td>{{ row.mobileNo }}</td>
+        <input type="text" placeholder="Search employee, name, department..." [(ngModel)]="searchText" />
+      </div>
+      <div class="filter-group">
+        <button class="btn-download-excel" (click)="downloadExcel()">
+          <i class="bi bi-cloud-arrow-down"></i>
+          Download Excel
+        </button>
+      </div>
+    </div>
 
-                  <td>
-                    <div class="reports-document-cell">
-                      <span>{{ formatDate(row.rc.expiryDate) }}</span>
-                      <span class="reports-status" [class]="statusClass(row.rc.status)">
-                        {{ statusLabel(row.rc.status) }}
-                      </span>
-                    </div>
-                  </td>
+    @if (filteredRows().length > 0) {
+    <div class="reports-table-wrap">
+      <table class="reports-table">
+        <thead>
+          <tr>
+            <th>Emp No</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Mobile No</th>
+            <th>RC</th>
+            <th>Insurance</th>
+            <th>License</th>
+          </tr>
+        </thead>
 
-                  <td>
-                    <div class="reports-document-cell">
-                      <span>{{ formatDate(row.insurance.expiryDate) }}</span>
-                      <span class="reports-status" [class]="statusClass(row.insurance.status)">
-                        {{ statusLabel(row.insurance.status) }}
-                      </span>
-                    </div>
-                  </td>
+        <tbody>
+          @for (row of filteredRows(); track row.employeeNo) {
+          <tr>
+            <td>{{ row.employeeNo }}</td>
 
-                  <td>
-                    <div class="reports-document-cell">
-                      <span>{{ formatDate(row.license.expiryDate) }}</span>
-                      <span class="reports-status" [class]="statusClass(row.license.status)">
-                        {{ statusLabel(row.license.status) }}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      } @else {
-        <div class="reports-no-results">
-          <i class="bi bi-check-circle-fill"></i>
-          No records found for the selected date.
-        </div>
-      }
+            <td class="reports-name">
+              {{ row.name }}
+            </td>
 
-    </section>
+            <td>
+              {{ row.department }}
+            </td>
+
+            <td>
+              {{ row.mobileNo }}
+            </td>
+
+            <td>
+              <div class="reports-document-cell">
+                <span>
+                  {{ formatDate(row.rc.expiryDate) }}
+                </span>
+
+                <span class="reports-status" [class]="statusClass(row.rc.status)">
+                  {{ statusLabel(row.rc.status) }}
+                </span>
+              </div>
+            </td>
+
+            <td>
+              <div class="reports-document-cell">
+                <span>
+                  {{ formatDate(row.insurance.expiryDate) }}
+                </span>
+
+                <span class="reports-status" [class]="statusClass(row.insurance.status)">
+                  {{ statusLabel(row.insurance.status) }}
+                </span>
+              </div>
+            </td>
+
+            <td>
+              <div class="reports-document-cell">
+                <span>
+                  {{ formatDate(row.license.expiryDate) }}
+                </span>
+
+                <span class="reports-status" [class]="statusClass(row.license.status)">
+                  {{ statusLabel(row.license.status) }}
+                </span>
+              </div>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <div class="reports-no-results">
+      <i class="bi bi-check-circle-fill"></i>
+      No records found for the selected date.
+    </div>
+    }
+
+  </section>
   }
 
 </div>

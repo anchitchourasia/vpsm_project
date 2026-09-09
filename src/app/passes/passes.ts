@@ -24,9 +24,7 @@ import {
 
 import { API_CONFIG } from '../core/api.config';
 
-
 const HTTP_TIMEOUT_MS = 12000;
-
 
 /*
 =====================================================
@@ -35,7 +33,6 @@ const HTTP_TIMEOUT_MS = 12000;
 =====================================================
 */
 interface PassListRow {
-
   id: number;
   passId: number;
 
@@ -56,6 +53,7 @@ interface PassListRow {
   contractorName: string;
 
   aadhaarNo: string;
+  mobileNo: string;
 
   status: string;
   passStatus: string;
@@ -64,233 +62,319 @@ interface PassListRow {
   validityDate: string;
 
   gateNo: string;
-
 }
 
-
-
 @Component({
-
   selector: 'app-passes',
-
   standalone: true,
-
   imports: [
     CommonModule,
     FormsModule
   ],
-
   templateUrl: './passes.html',
-
   styleUrl: './passes.css'
-
 })
-
-
 export class Passes implements OnInit, OnDestroy {
 
-
   private http = inject(HttpClient);
-
   private router = inject(Router);
-
-
 
   private destroy$ = new Subject<void>();
 
-
-
   private readonly HEADERS = new HttpHeaders({
-
     'x-api-key': API_CONFIG.API_KEY,
-
     'Content-Type': 'application/json'
-
   });
-
-
-
-
 
   /*
   =====================================================
    LIST DATA
   =====================================================
   */
-
   allPasses = signal<PassListRow[]>([]);
 
-
   isLoading = signal(false);
-
   hasError = signal(false);
-
-
 
   /*
   =====================================================
    FILTER
   =====================================================
   */
-
-
   searchText = signal('');
 
   filterStatus = signal('ALL');
   filterEmpType = signal('ALL');
   filterVehicleType = signal('ALL');
+  filterVehicleNo = signal('');
 
+  filterEmployeeNo = signal('');
+  filterPassNo = signal('');
+  filterDept = signal('');
+  filterName = signal('');
 
   currentPage = signal(1);
 
   pageSize = signal(10);
   isApprover = signal(false);
 
-
-
-
- /*
+  /*
   =====================================================
    SEARCH + FILTER
   =====================================================
   */
-
   filteredPasses = computed(() => {
     const search = this.searchText()
       .trim()
       .toLowerCase();
 
-    const status = this.filterStatus().trim().toUpperCase();
-    const empType = this.filterEmpType();
-    const vehicleType = this.filterVehicleType();
+    const status = this.filterStatus()
+      .trim()
+      .toUpperCase();
 
-    return this.allPasses()
-      .filter(row => {
-        const matchEmpType =
-          empType === 'ALL' ||
-          (row.empType || '').trim().toUpperCase() === empType;
+    const empType = this.filterEmpType()
+      .trim()
+      .toUpperCase();
 
-        const matchVehicleType =
-          vehicleType === 'ALL' ||
-          (row.vehicleType || '').trim().toUpperCase() === vehicleType;
+    const vehicleType = this.filterVehicleType()
+      .trim()
+      .toUpperCase();
 
-        const matchSearch =
-          !search ||
-          (row.passNo || '').toString().toLowerCase().includes(search) ||
-          (row.vehicleNo || '').toLowerCase().includes(search) ||
-          (row.employeeNo || '').toLowerCase().includes(search) ||
-          (row.name || '').toLowerCase().includes(search) ||
-          (row.contractorCode || '').toLowerCase().includes(search) ||
-          (row.contractorName || '').toLowerCase().includes(search) ||
-          (row.empType || '').toLowerCase().includes(search);
+    const employeeNo = this.filterEmployeeNo()
+      .trim()
+      .toLowerCase();
 
-        // Standardized Status Matching
-        const rowStatus = (row.status || '').trim().toUpperCase();
+    const passNo = this.filterPassNo()
+      .trim()
+      .toLowerCase();
 
-        let matchStatus = false;
-        if (status === 'ALL' || status === '') {
-          matchStatus = true;
-        } else if (status === 'REJECT' || status === 'REJECTED' || status === 'REGRET') {
-          matchStatus = (rowStatus === 'REJECT');
-        } else if (status === 'NEEDS_MODIFICATION' || status === 'MODIFY' || status === 'NEEDSMODIFICATION') {
-          matchStatus = (rowStatus === 'NEEDS_MODIFICATION');
-        } else if (status === 'ACTIVE' || status === 'APPROVED') {
-          matchStatus = (rowStatus === 'ACTIVE');
+    const dept = this.filterDept()
+      .trim()
+      .toLowerCase();
+
+    const vehicleNo = this.filterVehicleNo()
+      .trim()
+      .toLowerCase();
+
+    const name = this.filterName()
+      .trim()
+      .toLowerCase();
+
+    return this.allPasses().filter(row => {
+      /*
+       * Normalize fields because native-query / Oracle values may
+       * contain trailing spaces, for example:
+       * "TUNNEL KILN                  "
+       */
+      const rowPassNo = String(row.passNo ?? '')
+        .trim()
+        .toLowerCase();
+
+      const rowEmployeeNo = String(row.employeeNo ?? '')
+        .trim()
+        .toLowerCase();
+
+      const rowDeptName = String(row.deptName ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      const rowDeptCode = String(row.deptCode ?? '')
+        .trim()
+        .toLowerCase();
+
+      const rowVehicleType = String(row.vehicleType ?? '')
+        .trim()
+        .toUpperCase();
+
+      const rowEmpType = String(row.empType ?? '')
+        .trim()
+        .toUpperCase();
+
+      const rowStatus = String(row.status ?? '')
+        .trim()
+        .toUpperCase();
+
+      const rowVehicleNo = String(row.vehicleNo ?? '')
+        .trim()
+        .toLowerCase();
+
+      const rowName = String(row.name ?? '')
+        .trim()
+        .toLowerCase();
+
+      /*
+       * Header filter: PASS NO
+       * Example: typing "12" matches pass numbers 12, 120, 912, etc.
+       */
+      const matchPassNo =
+        passNo === '' ||
+        rowPassNo.includes(passNo);
+
+      /*
+      * Header filter: VEHICLE NO
+      * Example: typing "MP09" matches "MP09AB1234".
+      */
+      const matchVehicleNo =
+        vehicleNo === '' ||
+        rowVehicleNo.includes(vehicleNo);
+
+
+      const matchName =
+        name === '' ||
+        rowName.includes(name);
+
+      /*
+       * Header filter: ECNO
+       * Example: typing "113" matches employee code 113.
+       */
+      const matchEmployeeNo =
+        employeeNo === '' ||
+        rowEmployeeNo.includes(employeeNo);
+
+      /*
+       * Header filter: DEPARTMENT
+       * Supports department text and department code.
+       *
+       * "tunnel" -> TUNNEL KILN
+       * "kiln"   -> TUNNEL KILN
+       * "265"    -> department code 265
+       */
+      const matchDept =
+        dept === '' ||
+        rowDeptName.includes(dept) ||
+        rowDeptCode.includes(dept);
+
+      const matchEmpType =
+        empType === 'ALL' ||
+        rowEmpType === empType;
+
+      const matchVehicleType =
+        vehicleType === 'ALL' ||
+        rowVehicleType === vehicleType;
+
+      let matchStatus = true;
+
+      if (status !== 'ALL' && status !== '') {
+        if (
+          status === 'REJECT' ||
+          status === 'REJECTED' ||
+          status === 'REGRET'
+        ) {
+          matchStatus = rowStatus === 'REJECT';
+        } else if (
+          status === 'NEEDS_MODIFICATION' ||
+          status === 'MODIFY' ||
+          status === 'NEEDSMODIFICATION'
+        ) {
+          matchStatus = rowStatus === 'NEEDS_MODIFICATION';
+        } else if (
+          status === 'ACTIVE' ||
+          status === 'APPROVED'
+        ) {
+          matchStatus = rowStatus === 'ACTIVE';
         } else {
-          matchStatus = (rowStatus === status);
+          matchStatus = rowStatus === status;
         }
+      }
 
-        return matchSearch && matchStatus && matchEmpType && matchVehicleType;
-      });
+      /*
+       * Existing global search behavior retained.
+       * Department and mobile number are included as useful additions.
+       */
+      const matchSearch =
+        search === '' ||
+        rowPassNo.includes(search) ||
+        String(row.vehicleNo ?? '').toLowerCase().includes(search) ||
+        rowEmployeeNo.includes(search) ||
+        String(row.name ?? '').toLowerCase().includes(search) ||
+        rowDeptName.includes(search) ||
+        rowDeptCode.includes(search) ||
+        String(row.contractorCode ?? '').toLowerCase().includes(search) ||
+        String(row.contractorName ?? '').toLowerCase().includes(search) ||
+        String(row.empType ?? '').toLowerCase().includes(search) ||
+        String(row.vehicleType ?? '').toLowerCase().includes(search) ||
+        String(row.status ?? '').toLowerCase().includes(search) ||
+        String(row.mobileNo ?? '').toLowerCase().includes(search);
+
+      /*
+       * All filters must match independently.
+       * This is the key fix: matchDept is no longer wrongly
+       * nested inside the Pass No condition.
+       */
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchEmpType &&
+        matchVehicleType &&
+        matchPassNo &&
+        matchEmployeeNo &&
+        matchDept &&
+        matchVehicleNo &&
+        matchName
+      );
+    });
   });
-
-
-
-
 
   /*
   =====================================================
    PAGINATION
   =====================================================
   */
-
-
   pagedPasses = computed(() => {
-
-
     const start =
-
-      (this.currentPage() - 1)
-      *
+      (this.currentPage() - 1) *
       this.pageSize();
-
-
 
     return this.filteredPasses()
       .slice(
         start,
         start + this.pageSize()
       );
-
   });
 
-
-
-
-
   get totalPages(): number {
-
-
     return Math.max(
-
       1,
-
       Math.ceil(
         this.filteredPasses().length /
         this.pageSize()
       )
-
     );
-
-
   }
-
-
-
-
 
   get totalPagesArray(): number[] {
-
-
     return Array.from(
-
       {
-
         length: this.totalPages
-
       },
-
       (_, i) => i + 1
-
-
     );
-
-
   }
+
   /*
   =====================================================
    PAGINATION ADDITIONS
   =====================================================
   */
-
   readonly recordStart = computed(() => {
     if (this.filteredPasses().length === 0) return 0;
-    return (this.currentPage() - 1) * this.pageSize() + 1;
+
+    return (
+      (this.currentPage() - 1) *
+      this.pageSize()
+    ) + 1;
   });
 
   readonly recordEnd = computed(() => {
-    const end = this.currentPage() * this.pageSize();
-    return Math.min(end, this.filteredPasses().length);
+    const end =
+      this.currentPage() *
+      this.pageSize();
+
+    return Math.min(
+      end,
+      this.filteredPasses().length
+    );
   });
 
   readonly visiblePages = computed(() => {
@@ -298,31 +382,37 @@ export class Passes implements OnInit, OnDestroy {
     const current = this.currentPage();
     const maxVisible = 5;
 
-    let start = Math.max(1, current - Math.floor(maxVisible / 2));
-    let end = Math.min(total, start + maxVisible - 1);
+    let start = Math.max(
+      1,
+      current - Math.floor(maxVisible / 2)
+    );
+
+    let end = Math.min(
+      total,
+      start + maxVisible - 1
+    );
 
     if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
+      start = Math.max(
+        1,
+        end - maxVisible + 1
+      );
     }
 
     const pages: number[] = [];
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
+
     return pages;
   });
-
-
-
-
 
   /*
   =====================================================
    INIT
   =====================================================
   */
-
-
   ngOnInit(): void {
     const session = sessionStorage.getItem('vpsm_session');
 
@@ -330,13 +420,21 @@ export class Passes implements OnInit, OnDestroy {
       try {
         const user = JSON.parse(session);
 
-        const primaryRole = String(user?.primaryRole || '').trim().toUpperCase();
+        const primaryRole = String(
+          user?.primaryRole || ''
+        )
+          .trim()
+          .toUpperCase();
+
         const roles = Array.isArray(user?.roles)
-          ? user.roles.map((r: any) => String(r).trim().toUpperCase())
+          ? user.roles.map((r: any) =>
+            String(r).trim().toUpperCase()
+          )
           : [];
 
         this.isApprover.set(
-          primaryRole === 'APPROVER' || roles.includes('APPROVER')
+          primaryRole === 'APPROVER' ||
+          roles.includes('APPROVER')
         );
       } catch (e) {
         console.error('Session parse error', e);
@@ -349,20 +447,10 @@ export class Passes implements OnInit, OnDestroy {
     this.loadPasses();
   }
 
-
-
   ngOnDestroy(): void {
-
     this.destroy$.next();
-
     this.destroy$.complete();
-
   }
-
-
-
-
-
 
   /*
   =====================================================
@@ -370,90 +458,60 @@ export class Passes implements OnInit, OnDestroy {
    Native Query API
   =====================================================
   */
-
-
   loadPasses(): void {
-
-
     this.isLoading.set(true);
-
     this.hasError.set(false);
 
-
-
     this.http.get<any[]>(
-
       API_CONFIG.PASS_LIST_V1,
-
       {
         headers: this.HEADERS
       }
-
     )
-
-
       .pipe(
-
         timeout(HTTP_TIMEOUT_MS),
-
         takeUntil(this.destroy$),
-
-
         catchError(err => {
-
-
-          console.error(
-            "PASS LIST ERROR",
-            err
-          );
-
+          console.error('PASS LIST ERROR', err);
 
           this.hasError.set(true);
-
+          this.isLoading.set(false);
 
           return of([]);
-
-
         })
-
       )
-
-
       .subscribe({
         next: (data) => {
           console.log('PASS_LIST_V1 Response:', data);
 
-          const rows = data.map(x => this.mapListData(x));
+          const rows = (data ?? []).map(x =>
+            this.mapListData(x)
+          );
 
           this.allPasses.set(rows);
-
           this.isLoading.set(false);
         },
-
         error: (err) => {
           console.error('PASS_LIST_V1 Error:', err);
           this.isLoading.set(false);
         }
       });
-
-
-
   }
+
   /*
- =====================================================
-  canEditPass
- =====================================================
- */
-
-
-
-canEditPass(row: PassListRow): boolean {
+  =====================================================
+   CAN EDIT PASS
+  =====================================================
+  */
+  canEditPass(row: PassListRow): boolean {
     if (this.isApproverUser()) {
       return false;
     }
 
-    const status = (row?.status || '').trim().toUpperCase();
-    
+    const status = String(row?.status ?? '')
+      .trim()
+      .toUpperCase();
+
     return (
       status === 'SAVED' ||
       status === 'NEEDS_MODIFICATION' ||
@@ -462,182 +520,157 @@ canEditPass(row: PassListRow): boolean {
     );
   }
 
-
-
-
-
-
-
   /*
   =====================================================
    MAP NATIVE QUERY RESPONSE
   =====================================================
   */
+  private mapListData(row: any): PassListRow {
+    const rawStatus = String(row.status ?? '')
+      .trim()
+      .toUpperCase();
 
-
-private mapListData(row: any): PassListRow {
-    const rawStatus = String(row.status || '').trim().toUpperCase();
-
-    // Standardize display statuses uniformly
     let displayStatus = row.status || '';
+
     if (rawStatus === 'APPROVED' || rawStatus === 'ACTIVE') {
       displayStatus = 'ACTIVE';
-    } else if (rawStatus === 'MODIFY' || rawStatus === 'NEEDS_MODIFICATION' || rawStatus === 'NEEDSMODIFICATION') {
+    } else if (
+      rawStatus === 'MODIFY' ||
+      rawStatus === 'NEEDS_MODIFICATION' ||
+      rawStatus === 'NEEDSMODIFICATION'
+    ) {
       displayStatus = 'NEEDS_MODIFICATION';
-    } else if (rawStatus === 'REGRET' || rawStatus === 'REJECTED' || rawStatus === 'REJECT') {
+    } else if (
+      rawStatus === 'REGRET' ||
+      rawStatus === 'REJECTED' ||
+      rawStatus === 'REJECT'
+    ) {
       displayStatus = 'REJECT';
     }
 
     return {
       id: row.id,
       passId: row.id,
-      passNo: row.passNo,
-      vehicleNo: row.vehicleNo,
-      vehicleType: row.vehicleType,
-      employeeNo: String(row.employeeNo),
-      empType: row.empType,
-      name: row.name,
-      deptCode: row.deptCode,
-      deptName: row.deptName,
-      contractorCode: row.contractorCode,
-      contractorName: row.contractorName,
-      aadhaarNo: row.aadhaarNo,
-      status: displayStatus,
-      passStatus: displayStatus,
-      issueDate: row.issueDate,
-      validityDate: row.validityDate,
-      gateNo: row.gateNo
+
+      passNo: String(row.passNo ?? '').trim(),
+
+      vehicleNo: String(row.vehicleNo ?? '').trim(),
+      vehicleType: String(row.vehicleType ?? '').trim(),
+
+      employeeNo: String(row.employeeNo ?? '').trim(),
+      empType: String(row.empType ?? '').trim(),
+
+      name: String(row.name ?? '').trim(),
+
+      deptCode: String(row.deptCode ?? '').trim(),
+      deptName: String(row.deptName ?? '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+
+      contractorCode: String(row.contractorCode ?? '').trim(),
+      contractorName: String(row.contractorName ?? '').trim(),
+
+      aadhaarNo: String(row.aadhaarNo ?? '').trim(),
+      mobileNo: String(row.mobileNo ?? '').trim(),
+
+      status: String(displayStatus ?? '').trim(),
+      passStatus: String(displayStatus ?? '').trim(),
+
+      issueDate: String(row.issueDate ?? '').trim(),
+      validityDate: String(row.validityDate ?? '').trim(),
+
+      gateNo: String(row.gateNo ?? '').trim()
     };
   }
 
-
-
-
-
-
-
   /*
   =====================================================
-   SEARCH
+   FILTER EVENTS
   =====================================================
   */
-
-
-  onSearch(value: string) {
-
+  onSearch(value: string): void {
     this.searchText.set(value);
-
     this.currentPage.set(1);
-
   }
 
-
-
-
-
-  /*
-  =====================================================
-   STATUS FILTER
-  =====================================================
-  */
-
-
-  onStatusChange(value: string) {
-
+  onStatusChange(value: string): void {
     this.filterStatus.set(value);
-
     this.currentPage.set(1);
-
   }
-  onEmpTypeChange(value: string) {
+
+  onEmpTypeChange(value: string): void {
     this.filterEmpType.set(value);
     this.currentPage.set(1);
   }
 
-  onVehicleTypeChange(value: string) {
+  onVehicleTypeChange(value: string): void {
     this.filterVehicleType.set(value);
     this.currentPage.set(1);
   }
 
+  onEmpNoChange(value: string): void {
+    this.filterEmployeeNo.set(value);
+    this.currentPage.set(1);
+  }
 
+  onPassNoChange(value: string): void {
+    this.filterPassNo.set(value);
+    this.currentPage.set(1);
+  }
 
+  onDeptChange(value: string): void {
+    this.filterDept.set(value);
+    this.currentPage.set(1);
+  }
 
+  onVehicleNoChange(value: string): void {
+    this.filterVehicleNo.set(String(value ?? '').trim().toUpperCase());
+    this.currentPage.set(1);
+  }
+
+  onNameChange(value: string): void {
+    this.filterName.set(String(value ?? '').trim().toUpperCase());
+    this.currentPage.set(1);
+  }
 
   /*
   =====================================================
    PAGE
   =====================================================
   */
-
-
-  changePage(page: number) {
-
+  changePage(page: number): void {
     if (
       page >= 1 &&
       page <= this.totalPages
     ) {
-
       this.currentPage.set(page);
-
     }
-
   }
 
-
-
-
-  onPageSizeChange(value: string) {
-
-    this.pageSize.set(
-      Number(value)
-    );
-
+  onPageSizeChange(value: string): void {
+    this.pageSize.set(Number(value));
     this.currentPage.set(1);
-
   }
-
-
-
-
-
 
   /*
   =====================================================
    EDIT
-   Only redirect with ID
-   Complete data loaded in Entry Page
   =====================================================
   */
-
-
-  editPass(row: PassListRow) {
-
-
+  editPass(row: PassListRow): void {
     this.router.navigate(
-
       [
-
         '/pass-entry',
-
         row.passId
-
       ]
-
     );
-
-
   }
-
-
-
 
   /*
   =====================================================
    VIEW
   =====================================================
   */
-
-
   viewPass(row: PassListRow): void {
     if (!row || !row.id) {
       console.error('Pass ID not found.', row);
@@ -657,34 +690,16 @@ private mapListData(row: any): PassListRow {
     );
   }
 
-
-
-
-
-
-
   formatDate(date: string): string {
-
-
-    if (!date)
+    if (!date) {
       return '-';
-
-
+    }
 
     return new Date(date)
-
-      .toLocaleDateString(
-        'en-GB'
-      );
-
-
+      .toLocaleDateString('en-GB');
   }
 
-
-
-
-
-getStatusClass(status: string) {
+  getStatusClass(status: string): string {
     switch (status?.toUpperCase()) {
       case 'SAVED':
         return 'badge bg-primary';
@@ -715,25 +730,15 @@ getStatusClass(status: string) {
   }
 
   /*
-=====================================================
- EDIT REDIRECT
- List -> Entry Page
- Load complete data by ID
-=====================================================
-*/
-  //=====================================================
-  // EDIT REDIRECT
-  // Pass List -> Pass Entry
-  //=====================================================
+  =====================================================
+   EDIT REDIRECT
+   Pass List -> Pass Entry
+  =====================================================
+  */
   openEditInPassEntry(row: PassListRow): void {
-
-    // Validate ID
     if (!row || !row.id) {
-
       console.error('Pass ID not found.', row);
-
       return;
-
     }
 
     console.log('Opening Edit Page for ID :', row.id);
@@ -747,35 +752,44 @@ getStatusClass(status: string) {
         }
       }
     );
-
   }
-
-
 
   isApproverUser(): boolean {
     const session = sessionStorage.getItem('vpsm_session');
-    if (!session) return false;
+
+    if (!session) {
+      return false;
+    }
 
     try {
       const user = JSON.parse(session);
 
-      const primaryRole = String(user?.primaryRole || '').trim().toUpperCase();
+      const primaryRole = String(
+        user?.primaryRole || ''
+      )
+        .trim()
+        .toUpperCase();
+
       const roles = Array.isArray(user?.roles)
-        ? user.roles.map((r: any) => String(r).trim().toUpperCase())
+        ? user.roles.map((r: any) =>
+          String(r).trim().toUpperCase()
+        )
         : [];
 
-      return primaryRole === 'APPROVER' || roles.includes('APPROVER');
+      return (
+        primaryRole === 'APPROVER' ||
+        roles.includes('APPROVER')
+      );
     } catch {
       return false;
     }
   }
 
-
-
-  //=====================================================
-  // downloadExcel
-  //=====================================================
-
+  /*
+  =====================================================
+   DOWNLOAD EXCEL
+  =====================================================
+  */
   downloadExcel(): void {
     const rows = this.filteredPasses();
 
@@ -794,25 +808,36 @@ getStatusClass(status: string) {
       'Name': p.name ?? '',
       'EC No': p.employeeNo ?? '',
       'Department': p.deptName ?? '',
-      'Mobile No': p.aadhaarNo ?? '',
+      'Mobile No': p.mobileNo ?? '',
       'Contractor Name': p.contractorName ?? '',
       'Contractor Code': p.contractorCode ?? '',
-      'Status': p.status ?? '',
+      'Status': p.status ?? ''
     }));
 
-    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook: XLSX.WorkBook = XLSX.utils.book_new();
+    const worksheet: XLSX.WorkSheet =
+      XLSX.utils.json_to_sheet(exportData);
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Pass Registry');
+    const workbook: XLSX.WorkBook =
+      XLSX.utils.book_new();
 
-    const fileName = `Pass_Registry_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      'Pass Registry'
+    );
+
+    const fileName =
+      `Pass_Registry_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
     XLSX.writeFile(workbook, fileName);
   }
-  //=====================================================
-  // PRINT STICKER
-  //=====================================================
-  printSticker(row: PassListRow): void {
 
+  /*
+  =====================================================
+   PRINT STICKER
+  =====================================================
+  */
+  printSticker(row: PassListRow): void {
     if (!row) {
       return;
     }
@@ -825,9 +850,5 @@ getStatusClass(status: string) {
         }
       }
     );
-
   }
-
-
-
 }

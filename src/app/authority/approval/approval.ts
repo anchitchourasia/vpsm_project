@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Subject, takeUntil, timeout, catchError, of } from 'rxjs';
+import { Subject, takeUntil, timeout, catchError, of, debounceTime, distinctUntilChanged } from 'rxjs';
 import { API_CONFIG } from '../../core/api.config';
 import { PassStateService } from '../../services/pass-state.service';
 import { Router } from '@angular/router';
@@ -14,6 +14,7 @@ interface PassRecord {
 
   id: number;
   passId?: number;
+  passNo?: number;
 
   employeeNo: string;
   employeeCompanyNo?: string;
@@ -90,6 +91,10 @@ export class Approval implements OnInit, OnDestroy {
     'Content-Type': 'application/json'
   });
   private readonly destroy$ = new Subject<void>();
+
+  // Delays filtering until the user pauses typing.
+  // This reduces UI lag in the deployed production build.
+  private readonly searchInput$ = new Subject<string>();
   // ✅ Read from sessionStorage where AuthService actually saves the session
   private get _sessionUser(): any {
     try { return JSON.parse(sessionStorage.getItem('vpsm_session') || 'null'); }
@@ -140,26 +145,43 @@ export class Approval implements OnInit, OnDestroy {
   historyLoadError = signal('');
   showHistory = signal(false);
 
-pendingList = computed(() => {
-    const q = this.searchText().toLowerCase().trim();
+  pendingList = computed(() => {
+    const q = String(this.searchText() ?? '').trim().toLowerCase();
+
+    // Existing business rule remains unchanged:
+    // Approver Queue shows only Submitted and Confirmed passes.
     const list = this.allPasses().filter(p => {
+      const status = String(p.reqStatus ?? p.status ?? '')
+        .trim()
+        .toLowerCase();
 
-      const status =
-        (p.reqStatus || (p as any).status || '').toLowerCase();
-
-      // Include both SUBMITTED and CONFIRMED passes for Approver workflow
       return status === 'submitted' || status === 'confirmed';
     });
-    if (!q) return list;
 
+    // When the search box is empty, show every eligible queue record.
+    if (!q) {
+      return list;
+    }
+
+    // Search all visible and useful fields safely.
     return list.filter(p =>
-      String(p.id).includes(q) ||
-      (p.employeeNo || '').toLowerCase().includes(q) ||
-      (p.vehicleNo || '').toLowerCase().includes(q) ||
-      (p.gateNo || '').toLowerCase().includes(q) ||
-      (p.empType || '').toLowerCase().includes(q)
+      String(p.id ?? '').toLowerCase().includes(q) ||
+      String(p.passId ?? '').toLowerCase().includes(q) ||
+      String(p.passNo ?? '').toLowerCase().includes(q) ||
+      String(p.employeeNo ?? '').toLowerCase().includes(q) ||
+      String(p.employeeCompanyNo ?? '').toLowerCase().includes(q) ||
+      String(p.employeeName ?? '').toLowerCase().includes(q) ||
+      String(p.empName ?? '').toLowerCase().includes(q) ||
+      String(p.name ?? '').toLowerCase().includes(q) ||
+      String(p.vehicleNo ?? '').toLowerCase().includes(q) ||
+      String(p.vehicleType ?? '').toLowerCase().includes(q) ||
+      String(p.empType ?? '').toLowerCase().includes(q) ||
+      String(p.gateNo ?? '').toLowerCase().includes(q) ||
+      String(p.status ?? p.reqStatus ?? '').toLowerCase().includes(q) ||
+      String(this.getStatusLabel(p.status ?? p.reqStatus ?? ''))
+        .toLowerCase()
+        .includes(q)
     );
-
   });
 
   pagedList = computed(() => {
@@ -174,9 +196,20 @@ pendingList = computed(() => {
   constructor(private http: HttpClient, private router: Router) { }
 
   ngOnInit(): void {
-    this.svc.loadEmployeeNames();
-    this.loadPasses();
-  }
+  this.searchInput$
+    .pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    )
+    .subscribe(value => {
+      this.searchText.set(value);
+      this.currentPage.set(1);
+    });
+
+  this.svc.loadEmployeeNames();
+  this.loadPasses();
+}
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
@@ -202,6 +235,9 @@ pendingList = computed(() => {
 
           // API sends id
           passId: p.passId ?? p.id,
+
+          // ✅ Explicitly resolve passNo — covers common naming variants
+          passNo: p.passNo ?? p.pass_no ?? p.passNumber ?? p.pass_number ?? p.id,
 
           // API sends reqStatus
           status: p.status ?? p.reqStatus,
@@ -363,7 +399,7 @@ pendingList = computed(() => {
 
 
   // ── NEW: Send for Modify ──────────────────────────────────────────────────
-sendForModify(pass?: PassRecord): void {
+  sendForModify(pass?: PassRecord): void {
     const targetPass = pass || this.selectedPass();
     if (!targetPass) {
       this.actionError.set('No pass selected.');
@@ -495,7 +531,7 @@ sendForModify(pass?: PassRecord): void {
     return 'Valid';
   }
 
-approve(pass?: PassRecord): void {
+  approve(pass?: PassRecord): void {
     const targetPass = pass || this.selectedPass();
     if (!targetPass) {
       this.actionError.set('No pass selected.');
@@ -571,7 +607,7 @@ approve(pass?: PassRecord): void {
       });
   }
   // ── Reject Pass ───────────────────────────────────────────────────────────
-reject(pass?: PassRecord): void {
+  reject(pass?: PassRecord): void {
     const targetPass = pass || this.selectedPass();
     if (!targetPass) {
       this.actionError.set('No pass selected.');
@@ -641,10 +677,12 @@ reject(pass?: PassRecord): void {
       });
   }
 
-  onSearch(value: string): void { this.searchText.set(value); this.currentPage.set(1); }
+  onSearch(value: string): void {
+  this.searchInput$.next(value);
+}
   goToPage(page: number): void { if (page >= 1 && page <= this.totalPages) this.currentPage.set(page); }
 
-getStatusLabel(status: string): string {
+  getStatusLabel(status: string): string {
     switch ((status || '').toLowerCase()) {
       case 'submitted': return 'Pending Approval';
       case 'confirmed': return 'Pending Approval';

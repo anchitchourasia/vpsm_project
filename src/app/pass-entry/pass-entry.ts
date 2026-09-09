@@ -43,6 +43,7 @@ export interface EmployeeLookupResponse {
   contractorName?: string;
   aadhaarNo?: string;
   empType?: string;
+  mobileNo?: string;
 }
 
 export interface PassRequest {
@@ -92,6 +93,10 @@ export const PassStatus = {
 } as const;
 
 const ALLOWED_DOC_TYPES = ['RC', 'INSURANCE', 'LICENSE'];
+
+// ✅ NEW — All 3 types are mandatory before a pass can be Submitted.
+// Save/Draft is unaffected — validateDraftForm() never calls validateDocuments().
+const REQUIRED_DOC_TYPES_FOR_SUBMIT = ALLOWED_DOC_TYPES;
 
 /**
  * Creates an empty document object.
@@ -181,6 +186,7 @@ export class PassEntry implements OnInit, OnDestroy {
   empDeptCode = signal<string>('');
   empType_display = signal<string>('');
   empAadhar = signal<string>('');
+  empMobile = signal<string>('');
   empContractorCode = '';
   empContractorName = '';
   contractorName = '';
@@ -192,15 +198,16 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // Document Details
   //=====================================================
-  documents = signal<PassDocument[]>([
-    emptyDocument()
-  ]);
+  documents = signal<PassDocument[]>(
+    ALLOWED_DOC_TYPES.map(() => emptyDocument())
+  );
 
   //=====================================================
   // UI Signals
   //=====================================================
   registryId: number | null = null;
   passNo: number | null = null;
+  private existingPasses = signal<PassRegistryResponseDTO[]>([]);
   fetchingEmployee = signal<boolean>(false);
   empFetchError = signal<string>('');
   isSaving = signal<boolean>(false);
@@ -269,14 +276,15 @@ export class PassEntry implements OnInit, OnDestroy {
     // Load Logged User
     //=====================================================
     this.loadLoggedInUser();
+    this.loadExistingPasses();
 
     //=====================================================
     // Initialize Documents
     //=====================================================
     if (this.documents().length === 0) {
-      this.documents.set([
-        emptyDocument()
-      ]);
+      this.documents.set(
+        ALLOWED_DOC_TYPES.map(() => emptyDocument())
+      );
     }
 
     //=====================================================
@@ -319,6 +327,51 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   //=====================================================
+  // LoadExistingPasses
+  //=====================================================
+
+  private loadExistingPasses(): void {
+    this.http.get<PassRegistryResponseDTO[]>(
+      API_CONFIG.PASS_LIST,
+      { headers: this.HEADERS }
+    )
+      .pipe(
+        timeout(HTTP_TIMEOUT_MS),
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.warn('Could not load existing passes for Pass No validation.', err);
+          return of([]);
+        })
+      )
+      .subscribe(passes => {
+        this.existingPasses.set(
+          Array.isArray(passes) ? passes : []
+        );
+      });
+  }
+
+  //=====================================================
+  //  Validate Duplicate Pass No
+  //=====================================================
+
+  private isDuplicatePassNo(): boolean {
+    const enteredPassNo = String(this.passNo ?? '')
+      .trim()
+      .toUpperCase();
+
+    if (!enteredPassNo) {
+      return false;
+    }
+
+    return this.existingPasses().some(pass =>
+      String(pass.passNo ?? '')
+        .trim()
+        .toUpperCase() === enteredPassNo &&
+      pass.id !== Number(this.registryId ?? 0)
+    );
+  }
+
+  //=====================================================
   // Load Logged-in User Details
   //=====================================================
   private loadLoggedInUser(): void {
@@ -336,6 +389,11 @@ export class PassEntry implements OnInit, OnDestroy {
 
       this.enterBy = String(
         user.empCode ??
+        user.employeeNo ??
+        user.employee_code ??
+        user.employeeCode ??
+        user.username ??
+        user.userName ??
         ''
       ).trim();
 
@@ -470,6 +528,7 @@ export class PassEntry implements OnInit, OnDestroy {
         this.empDept.set(String(res.deptName || '').toUpperCase());
         this.empDeptCode.set(String(res.deptCode || ''));
         this.empAadhar.set(String(res.aadhaarNo || res.aadharNo || ''));
+        this.empMobile.set(String(res.mobileNo || res.mobile || ''));
         this.empType_display.set(apiType);
         this.empContractorCode = String(res.contractorCode || '');
         this.contractorCode = String(res.contractorCode || '');
@@ -484,6 +543,7 @@ export class PassEntry implements OnInit, OnDestroy {
     this.empDept.set('');
     this.empDeptCode.set('');
     this.empAadhar.set('');
+    this.empMobile.set('');
     this.empType_display.set('');
     this.empContractorCode = '';
     this.empContractorName = '';
@@ -498,14 +558,8 @@ export class PassEntry implements OnInit, OnDestroy {
     if (this.isReadOnlyMode) return;
 
     const docs = [...this.documents()];
-    const lastDoc = docs[docs.length - 1];
 
-    if (
-      !lastDoc.documentType ||
-      !lastDoc.documentNo ||
-      !lastDoc.expiryDate
-    ) {
-      alert('Please complete the current document before adding a new one.');
+    if (docs.length >= ALLOWED_DOC_TYPES.length) {
       return;
     }
 
@@ -730,18 +784,41 @@ export class PassEntry implements OnInit, OnDestroy {
     return true;
   }
   private validateVehicle(): boolean {
+
+    if (this.passNo === null || this.passNo === undefined || String(this.passNo).trim() === '') {
+      this.saveError.set('Pass No is required.');
+      return false;
+    }
+
+    if (this.isDuplicatePassNo()) {
+      this.saveError.set('Pass No already exists. Please enter a unique Pass No.');
+      return false;
+    }
+    if (this.passNo === null || this.passNo === undefined || String(this.passNo).trim() === '') {
+      this.saveError.set('Pass No is required.');
+      return false;
+    }
+
+    if (this.isDuplicatePassNo()) {
+      this.saveError.set(`Pass No ${this.passNo} already exists. Please enter a unique Pass No.`);
+      return false;
+    }
+
     if (!this.vehicleNo.trim()) {
       this.saveError.set('Vehicle Number is required.');
       return false;
     }
+
     if (!this.vehicleType.trim()) {
       this.saveError.set('Vehicle Type is required.');
       return false;
     }
+
     if (!this.brandModel.trim()) {
       this.saveError.set('Brand / Model is required.');
       return false;
     }
+
     return true;
   }
 
@@ -751,10 +828,8 @@ export class PassEntry implements OnInit, OnDestroy {
       this.saveError.set('Please add at least one document.');
       return false;
     }
-
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
-
       if (!doc.documentType) {
         this.saveError.set(`Please select Document Type for row ${i + 1}.`);
         return false;
@@ -772,6 +847,30 @@ export class PassEntry implements OnInit, OnDestroy {
         return false;
       }
     }
+
+    // ✅ NEW — Submit-only rule: all 3 required document types must be present
+    // and fully completed (type + number + expiry + file/existingFile).
+    // Having 1 or 2 of the 3 is NOT enough — Submit must be blocked.
+    const completedTypes = docs
+      .filter(doc =>
+        !!doc.documentType &&
+        !!doc.documentNo.trim() &&
+        !!doc.expiryDate &&
+        (!!doc.file || !!doc.existingFile)
+      )
+      .map(doc => doc.documentType.trim().toUpperCase());
+
+    const missingTypes = REQUIRED_DOC_TYPES_FOR_SUBMIT.filter(
+      type => !completedTypes.includes(type)
+    );
+
+    if (missingTypes.length > 0) {
+      this.saveError.set(
+        `All 3 required documents (RC, Insurance, License) must be completed before submitting. Missing: ${missingTypes.join(', ')}.`
+      );
+      return false;
+    }
+
     return true;
   }
 
@@ -802,6 +901,7 @@ export class PassEntry implements OnInit, OnDestroy {
     }
     return true;
   }
+
 
   //=====================================================
   // SECTION 10 : Build Request
@@ -1017,11 +1117,7 @@ export class PassEntry implements OnInit, OnDestroy {
           this.gateNo = response.gateNo ?? '';
           this.parkingToBeUsed = response.parkingToBeUsed ?? '';
           this.status = response.reqStatus ?? PassStatus.SAVED;
-          this.enterBy = String(
-            response.enterBy ??
-            (response as any).enteredBy ??
-            ''
-          ).trim();
+
 
           if (response.documents && response.documents.length > 0) {
             this.documents.set(
@@ -1037,7 +1133,9 @@ export class PassEntry implements OnInit, OnDestroy {
               }))
             );
           } else {
-            this.documents.set([emptyDocument()]);
+            this.documents.set(
+              ALLOWED_DOC_TYPES.map(() => emptyDocument())
+            );
           }
 
           this.saved.set(true);

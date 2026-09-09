@@ -79,7 +79,7 @@ const KPI_REFRESH_INTERVAL_MS = 30_000;
         <!-- APPROVED / ACTIVE -->
         <div class="kpi-card kpi-approved">
           <div class="kpi-top">
-            <span class="kpi-label">APPROVED</span>
+            <span class="kpi-label">ACTIVE</span>
             <span class="kpi-icon-bg kpi-bg-approved">
               <i class="bi bi-patch-check-fill"></i>
             </span>
