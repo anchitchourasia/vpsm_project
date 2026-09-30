@@ -118,7 +118,7 @@ export class Passes implements OnInit, OnDestroy {
 
   currentPage = signal(1);
 
-  pageSize = signal(10);
+  pageSize = signal(25);
   isApprover = signal(false);
   sortColumn = signal<SortColumn | null>(null);
   sortDirection = signal<"asc" | "desc">("asc");
