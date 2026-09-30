@@ -1,13 +1,13 @@
-import { Component, OnInit, OnDestroy, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Router, ActivatedRoute } from '@angular/router';
-import { Subject, of } from 'rxjs';
-import { takeUntil, timeout, catchError, finalize } from 'rxjs/operators';
-import { API_CONFIG } from '../core/api.config';
-import { PassStateService } from '../services/pass-state.service';
-import { AuthService } from '../core/auth.service';
+import { Component, OnInit, OnDestroy, signal } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { Router, ActivatedRoute } from "@angular/router";
+import { Subject, of } from "rxjs";
+import { takeUntil, timeout, catchError, finalize } from "rxjs/operators";
+import { API_CONFIG } from "../core/api.config";
+import { PassStateService } from "../services/pass-state.service";
+import { AuthService } from "../core/auth.service";
 
 const HTTP_TIMEOUT_MS = 12000;
 
@@ -82,17 +82,17 @@ export interface PassRegistryResponseDTO {
 
 // Pass Status Constants
 export const PassStatus = {
-  SAVED: 'SAVED',
-  SUBMITTED: 'SUBMITTED',
-  CONFIRMED: 'CONFIRMED',
-  APPROVED: 'APPROVED',
-  REJECT: 'REJECT',
-  REGRET: 'REJECT',
-  MODIFY: 'MODIFY',
-  NEEDS_MODIFICATION: 'NEEDS_MODIFICATION'
+  SAVED: "SAVED",
+  SUBMITTED: "SUBMITTED",
+  CONFIRMED: "CONFIRMED",
+  APPROVED: "APPROVED",
+  REJECT: "REJECT",
+  REGRET: "REJECT",
+  MODIFY: "MODIFY",
+  NEEDS_MODIFICATION: "NEEDS_MODIFICATION",
 } as const;
 
-const ALLOWED_DOC_TYPES = ['RC', 'INSURANCE', 'LICENSE'];
+const ALLOWED_DOC_TYPES = ["RC", "INSURANCE", "LICENSE"];
 
 // ✅ NEW — All 3 types are mandatory before a pass can be Submitted.
 // Save/Draft is unaffected — validateDraftForm() never calls validateDocuments().
@@ -104,32 +104,24 @@ const REQUIRED_DOC_TYPES_FOR_SUBMIT = ALLOWED_DOC_TYPES;
 function emptyDocument(): PassDocument {
   return {
     documentId: null,
-    documentType: '',
-    documentNo: '',
-    expiryDate: '',
-    fileKey: '',
-    fileName: '',
+    documentType: "",
+    documentNo: "",
+    expiryDate: "",
+    fileKey: "",
+    fileName: "",
     file: null,
-    existingFile: ''
+    existingFile: "",
   };
 }
 
-type EmployeeType =
-  | ''
-  | 'HEG'
-  | 'TACC'
-  | 'CONTRACT'
-  | 'CRE-PRM';
+type EmployeeType = "" | "HEG" | "TACC" | "CONTRACT" | "CRE-PRM";
 
 @Component({
-  selector: 'app-pass-entry',
+  selector: "app-pass-entry",
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule
-  ],
-  templateUrl: './pass-entry.html',
-  styleUrl: './pass-entry.css'
+  imports: [CommonModule, FormsModule],
+  templateUrl: "./pass-entry.html",
+  styleUrl: "./pass-entry.css",
 })
 export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
@@ -143,63 +135,63 @@ export class PassEntry implements OnInit, OnDestroy {
   // HTTP Headers
   //=====================================================
   private readonly HEADERS = new HttpHeaders({
-    'x-api-key': API_CONFIG.API_KEY,
+    "x-api-key": API_CONFIG.API_KEY,
   });
 
   //=====================================================
   // Vehicle Details
   //=====================================================
-  vehicleNo: string = '';
-  vehicleType: string = '';
-  brandModel: string = '';
+  vehicleNo: string = "";
+  vehicleType: string = "";
+  brandModel: string = "";
 
   //=====================================================
   // Employee Details
   //=====================================================
-  employeeNo: string = '';
-  ecNo: string = '';
-  empType = signal<EmployeeType>('');
+  employeeNo: string = "";
+  ecNo: string = "";
+  empType = signal<EmployeeType>("");
   contractorCode: string | null = null;
 
   //=====================================================
   // Gate & Parking
   //=====================================================
-  gateNo: string = '';
-  parkingToBeUsed: string = '';
+  gateNo: string = "";
+  parkingToBeUsed: string = "";
 
   //=====================================================
   // Workflow
   //=====================================================
   status: string = PassStatus.SAVED;
   remark: string | null = null;
-  enterBy: string = '';
+  enterBy: string = "";
 
   get currentStatus(): string {
-    return (this.status ?? '').toUpperCase();
+    return (this.status ?? "").toUpperCase();
   }
 
   //=====================================================
   // Auto Filled Employee Details
   //=====================================================
-  empName = signal<string>('');
-  empDept = signal<string>('');
-  empDeptCode = signal<string>('');
-  empType_display = signal<string>('');
-  empAadhar = signal<string>('');
-  empMobile = signal<string>('');
-  empContractorCode = '';
-  empContractorName = '';
-  contractorName = '';
-  contractorEmail = '';
-  empEmail = '';
-  empSalary = '';
-  empContractorEmail = '';
+  empName = signal<string>("");
+  empDept = signal<string>("");
+  empDeptCode = signal<string>("");
+  empType_display = signal<string>("");
+  empAadhar = signal<string>("");
+  empMobile = signal<string>("");
+  empContractorCode = "";
+  empContractorName = "";
+  contractorName = "";
+  contractorEmail = "";
+  empEmail = "";
+  empSalary = "";
+  empContractorEmail = "";
 
   //=====================================================
   // Document Details
   //=====================================================
   documents = signal<PassDocument[]>(
-    ALLOWED_DOC_TYPES.map(() => emptyDocument())
+    ALLOWED_DOC_TYPES.map(() => emptyDocument()),
   );
 
   //=====================================================
@@ -209,11 +201,11 @@ export class PassEntry implements OnInit, OnDestroy {
   passNo: number | null = null;
   private existingPasses = signal<PassRegistryResponseDTO[]>([]);
   fetchingEmployee = signal<boolean>(false);
-  empFetchError = signal<string>('');
+  empFetchError = signal<string>("");
   isSaving = signal<boolean>(false);
   saved = signal<boolean>(false);
-  saveSuccess = signal<string>('');
-  saveError = signal<string>('');
+  saveSuccess = signal<string>("");
+  saveError = signal<string>("");
 
   //=====================================================
   // Screen Mode
@@ -226,8 +218,8 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // Workflow Signals
   //=====================================================
-  modificationRemark = signal<string>('');
-  reviewRemark = signal<string>('');
+  modificationRemark = signal<string>("");
+  reviewRemark = signal<string>("");
   isWorkflowSubmitting = signal<boolean>(false);
 
   //=====================================================
@@ -235,7 +227,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   showPassHistory = signal<boolean>(false);
   isLoadingPassHistory = signal<boolean>(false);
-  passHistoryError = signal<string>('');
+  passHistoryError = signal<string>("");
   passHistory = signal<HistoryRecord[]>([]);
 
   //=====================================================
@@ -251,11 +243,11 @@ export class PassEntry implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private passState: PassStateService,
-    private auth: AuthService
-  ) { }
+    private auth: AuthService,
+  ) {}
 
   get todayDate(): string {
-    return new Date().toISOString().split('T')[0];
+    return new Date().toISOString().split("T")[0];
   }
 
   // UPDATED: Now respects view mode completely
@@ -282,30 +274,26 @@ export class PassEntry implements OnInit, OnDestroy {
     // Initialize Documents
     //=====================================================
     if (this.documents().length === 0) {
-      this.documents.set(
-        ALLOWED_DOC_TYPES.map(() => emptyDocument())
-      );
+      this.documents.set(ALLOWED_DOC_TYPES.map(() => emptyDocument()));
     }
 
     //=====================================================
     // Route Handling
     //=====================================================
     this.route.queryParams
-      .pipe(
-        takeUntil(this.destroy$)
-      )
-      .subscribe(params => {
-        const mode = params['mode'];
-        const id = params['id'];
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((params) => {
+        const mode = params["mode"];
+        const id = params["id"];
 
         console.log("Mode : ", mode);
         console.log("ID : ", id);
 
         // 1. Properly set UI modes based on query params
-        if (mode === 'view') {
+        if (mode === "view") {
           this.isViewMode.set(true);
           this.isApproverMode.set(false);
-        } else if (mode === 'approver') {
+        } else if (mode === "approver") {
           this.isViewMode.set(false);
           this.isApproverMode.set(true);
         } else {
@@ -331,22 +319,23 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
 
   private loadExistingPasses(): void {
-    this.http.get<PassRegistryResponseDTO[]>(
-      API_CONFIG.PASS_LIST,
-      { headers: this.HEADERS }
-    )
+    this.http
+      .get<PassRegistryResponseDTO[]>(API_CONFIG.PASS_LIST, {
+        headers: this.HEADERS,
+      })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(err => {
-          console.warn('Could not load existing passes for Pass No validation.', err);
+        catchError((err) => {
+          console.warn(
+            "Could not load existing passes for Pass No validation.",
+            err,
+          );
           return of([]);
-        })
+        }),
       )
-      .subscribe(passes => {
-        this.existingPasses.set(
-          Array.isArray(passes) ? passes : []
-        );
+      .subscribe((passes) => {
+        this.existingPasses.set(Array.isArray(passes) ? passes : []);
       });
   }
 
@@ -355,7 +344,7 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
 
   private isDuplicatePassNo(): boolean {
-    const enteredPassNo = String(this.passNo ?? '')
+    const enteredPassNo = String(this.passNo ?? "")
       .trim()
       .toUpperCase();
 
@@ -363,11 +352,12 @@ export class PassEntry implements OnInit, OnDestroy {
       return false;
     }
 
-    return this.existingPasses().some(pass =>
-      String(pass.passNo ?? '')
-        .trim()
-        .toUpperCase() === enteredPassNo &&
-      pass.id !== Number(this.registryId ?? 0)
+    return this.existingPasses().some(
+      (pass) =>
+        String(pass.passNo ?? "")
+          .trim()
+          .toUpperCase() === enteredPassNo &&
+        pass.id !== Number(this.registryId ?? 0),
     );
   }
 
@@ -375,47 +365,49 @@ export class PassEntry implements OnInit, OnDestroy {
   // Load Logged-in User Details
   //=====================================================
   private loadLoggedInUser(): void {
-    const session = sessionStorage.getItem('vpsm_session');
-    console.log('vpsm_session = ', session);
+    const session = sessionStorage.getItem("vpsm_session");
+    console.log("vpsm_session = ", session);
 
     if (!session) {
-      console.log('No session found');
+      console.log("No session found");
       return;
     }
 
     try {
       const user = JSON.parse(session);
-      console.log('Logged User = ', user);
+      console.log("Logged User = ", user);
 
       this.enterBy = String(
         user.empCode ??
-        user.employeeNo ??
-        user.employee_code ??
-        user.employeeCode ??
-        user.username ??
-        user.userName ??
-        ''
+          user.employeeNo ??
+          user.employee_code ??
+          user.employeeCode ??
+          user.username ??
+          user.userName ??
+          "",
       ).trim();
 
-      const role = String(user.primaryRole ?? user.roles?.[0] ?? '').toUpperCase();
-      console.log('Login Role = ', role);
+      const role = String(
+        user.primaryRole ?? user.roles?.[0] ?? "",
+      ).toUpperCase();
+      console.log("Login Role = ", role);
 
-      if (role === 'APPROVER') {
+      if (role === "APPROVER") {
         this.isApproverMode.set(true);
       } else {
         this.isApproverMode.set(false);
       }
     } catch (error) {
-      console.error('Unable to parse session.', error);
+      console.error("Unable to parse session.", error);
     }
   }
 
   private resolveApproverCode(): string {
     try {
-      const user = JSON.parse(sessionStorage.getItem('vpsm_session') || 'null');
-      return String(user?.empCode ?? user?.employeeNo ?? '').trim();
+      const user = JSON.parse(sessionStorage.getItem("vpsm_session") || "null");
+      return String(user?.empCode ?? user?.employeeNo ?? "").trim();
     } catch {
-      return '';
+      return "";
     }
   }
 
@@ -430,7 +422,7 @@ export class PassEntry implements OnInit, OnDestroy {
   onUpperInput(event: Event, field: keyof PassEntry): void {
     if (this.isReadOnlyMode) return;
     const input = event.target as HTMLInputElement;
-    const val = input.value.toUpperCase().replace(/\s+/g, '');
+    const val = input.value.toUpperCase().replace(/\s+/g, "");
     (this as any)[field] = val;
     input.value = val;
   }
@@ -454,101 +446,108 @@ export class PassEntry implements OnInit, OnDestroy {
   }
 
   shortName(name: string): string {
-    return name.length > 18 ? name.substring(0, 15) + '...' : name;
+    return name.length > 18 ? name.substring(0, 15) + "..." : name;
   }
 
   formatDateDDMMYYYY(isoDate: string): string {
-    if (!isoDate || isoDate.length < 10) return isoDate ?? '';
-    const [y, m, d] = isoDate.split('-');
+    if (!isoDate || isoDate.length < 10) return isoDate ?? "";
+    const [y, m, d] = isoDate.split("-");
     return `${d}/${m}/${y}`;
   }
 
   formatDateTime(d: string): string {
-    if (!d) return '—';
+    if (!d) return "—";
     const dt = new Date(d);
     if (isNaN(dt.getTime())) return d;
 
-    const date = dt.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
+    const date = dt.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
 
-    const time = dt.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
+    const time = dt.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
 
     return `${date}, ${time}`;
   }
 
   openDatePicker(input: HTMLInputElement): void {
-    try { (input as any).showPicker(); } catch { input.click(); }
+    try {
+      (input as any).showPicker();
+    } catch {
+      input.click();
+    }
   }
 
   //=====================================================
   // SECTION 7 : Employee Methods
   //=====================================================
   loadEmployee(): void {
-    this.empFetchError.set('');
+    this.empFetchError.set("");
     this.clearEmployeeData();
     this.fetchingEmployee.set(true);
 
     const url = `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(this.employeeNo)}`;
 
-    this.http.get<any>(url, { headers: this.HEADERS })
+    this.http
+      .get<any>(url, { headers: this.HEADERS })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        catchError(err => {
+        catchError((err) => {
           this.empFetchError.set(
-            `Could not fetch employee details (${err?.status ?? 'Network Error'})`
+            `Could not fetch employee details (${err?.status ?? "Network Error"})`,
           );
           return of(null);
         }),
-        finalize(() => this.fetchingEmployee.set(false))
+        finalize(() => this.fetchingEmployee.set(false)),
       )
-      .subscribe(res => {
+      .subscribe((res) => {
         if (!res) return;
 
         const selectedType = this.empType().trim().toUpperCase();
-        const apiType = String(res.empType || '').trim().toUpperCase();
+        const apiType = String(res.empType || "")
+          .trim()
+          .toUpperCase();
 
         if (selectedType !== apiType) {
           this.clearEmployeeData();
           this.empFetchError.set(
-            `Employee Type mismatch. Selected: ${selectedType}, Found: ${apiType}`
+            `Employee Type mismatch. Selected: ${selectedType}, Found: ${apiType}`,
           );
           return;
         }
 
         this.empData = res;
-        this.empName.set(String(res.name || ''));
-        this.empDept.set(String(res.deptName || '').toUpperCase());
-        this.empDeptCode.set(String(res.deptCode || ''));
-        this.empAadhar.set(String(res.aadhaarNo || res.aadharNo || ''));
-        this.empMobile.set(String(res.mobileNo || res.mobile || ''));
+        this.empName.set(String(res.name || ""));
+        this.empDept.set(String(res.deptName || "").toUpperCase());
+        this.empDeptCode.set(String(res.deptCode || ""));
+        this.empAadhar.set(String(res.aadhaarNo || res.aadharNo || ""));
+        this.empMobile.set(String(res.mobileNo || res.mobile || ""));
         this.empType_display.set(apiType);
-        this.empContractorCode = String(res.contractorCode || '');
-        this.contractorCode = String(res.contractorCode || '');
-        this.empContractorName = String(res.contractorName || '');
-        this.empFetchError.set('');
+        this.empContractorCode = String(res.contractorCode || "");
+        this.contractorCode = String(res.contractorCode || "");
+        this.empContractorName = String(res.contractorName || "");
+        this.empFetchError.set("");
       });
   }
 
   private clearEmployeeData(): void {
     this.empData = null;
-    this.empName.set('');
-    this.empDept.set('');
-    this.empDeptCode.set('');
-    this.empAadhar.set('');
-    this.empMobile.set('');
-    this.empType_display.set('');
-    this.empContractorCode = '';
-    this.empContractorName = '';
-    this.contractorName = '';
-    this.contractorEmail = '';
+    this.empName.set("");
+    this.empDept.set("");
+    this.empDeptCode.set("");
+    this.empAadhar.set("");
+    this.empMobile.set("");
+    this.empType_display.set("");
+    this.empContractorCode = "";
+    this.empContractorName = "";
+    this.contractorName = "";
+    this.contractorEmail = "";
   }
 
   //=====================================================
@@ -570,12 +569,7 @@ export class PassEntry implements OnInit, OnDestroy {
   removeDocument(index: number): void {
     if (this.isReadOnlyMode) return;
 
-    this.documents.update(docs => {
-      if (docs.length === 1) {
-        return docs;
-      }
-      return docs.filter((_, i) => i !== index);
-    });
+    this.documents.update((docs) => docs.filter((_, i) => i !== index));
   }
 
   removeDoc(index: number): void {
@@ -586,29 +580,29 @@ export class PassEntry implements OnInit, OnDestroy {
     const docs = this.documents();
     const selectedTypes = docs
       .filter((_, i) => i !== index)
-      .map(doc => doc.documentType)
-      .filter(type => !!type);
+      .map((doc) => doc.documentType)
+      .filter((type) => !!type);
 
-    return ALLOWED_DOC_TYPES.filter(type =>
-      !selectedTypes.includes(type) || docs[index].documentType === type
+    return ALLOWED_DOC_TYPES.filter(
+      (type) =>
+        !selectedTypes.includes(type) || docs[index].documentType === type,
     );
   }
-
 
   onDocumentTypeChange(index: number, documentType: string): void {
     if (this.isReadOnlyMode) return;
 
-    this.documents.update(docs => {
+    this.documents.update((docs) => {
       const updatedDocs = [...docs];
       updatedDocs[index] = {
         ...updatedDocs[index],
         documentType,
-        documentNo: '',
-        expiryDate: '',
+        documentNo: "",
+        expiryDate: "",
         file: null,
-        fileName: '',
-        fileKey: '',
-        existingFile: ''
+        fileName: "",
+        fileKey: "",
+        existingFile: "",
       };
       return updatedDocs;
     });
@@ -627,45 +621,41 @@ export class PassEntry implements OnInit, OnDestroy {
     const maxSize = 5 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      alert('File size must be less than 5 MB.');
-      input.value = '';
+      alert("File size must be less than 5 MB.");
+      input.value = "";
       return;
     }
 
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png'
-    ];
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
 
     if (!allowedTypes.includes(file.type)) {
-      alert('Only PDF, JPG and PNG files are allowed.');
-      input.value = '';
+      alert("Only PDF, JPG and PNG files are allowed.");
+      input.value = "";
       return;
     }
 
-    this.documents.update(docs => {
+    this.documents.update((docs) => {
       const updated = [...docs];
       updated[index] = {
         ...updated[index],
         file: file,
         fileName: file.name,
-        fileKey: `document_${index}`
+        fileKey: `document_${index}`,
       };
-      console.log('Updated Document List:', updated);
+      console.log("Updated Document List:", updated);
       return updated;
     });
 
-    input.value = '';
+    input.value = "";
   }
 
   /**
- * Clears native file input before opening the file chooser.
- * It allows a user to select the same file again.
- */
+   * Clears native file input before opening the file chooser.
+   * It allows a user to select the same file again.
+   */
   clearFileInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    input.value = '';
+    input.value = "";
   }
 
   /**
@@ -679,7 +669,7 @@ export class PassEntry implements OnInit, OnDestroy {
     }
 
     const objectUrl = URL.createObjectURL(doc.file);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
 
     link.href = objectUrl;
     link.download = doc.fileName || doc.file.name;
@@ -701,7 +691,7 @@ export class PassEntry implements OnInit, OnDestroy {
     }
 
     const objectUrl = URL.createObjectURL(file);
-    window.open(objectUrl, '_blank', 'noopener');
+    window.open(objectUrl, "_blank", "noopener");
 
     window.setTimeout(() => {
       URL.revokeObjectURL(objectUrl);
@@ -715,27 +705,24 @@ export class PassEntry implements OnInit, OnDestroy {
    * as described in Step 2 below.
    */
   downloadDocument(fileName: string): void {
-    const resolvedFileName = String(fileName || '').trim();
+    const resolvedFileName = String(fileName || "").trim();
 
     if (!resolvedFileName) {
       return;
     }
 
-    const url =
-      `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${encodeURIComponent(resolvedFileName)}`;
+    const url = `${API_CONFIG.DOCUMENTS_DOWNLOAD}/${encodeURIComponent(resolvedFileName)}`;
 
-    this.http.get(url, {
-      headers: this.HEADERS,
-      responseType: 'blob'
-    })
-      .pipe(
-        timeout(HTTP_TIMEOUT_MS),
-        takeUntil(this.destroy$)
-      )
+    this.http
+      .get(url, {
+        headers: this.HEADERS,
+        responseType: "blob",
+      })
+      .pipe(timeout(HTTP_TIMEOUT_MS), takeUntil(this.destroy$))
       .subscribe({
         next: (blob: Blob) => {
           const objectUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
+          const link = document.createElement("a");
 
           link.href = objectUrl;
           link.download = resolvedFileName;
@@ -747,75 +734,86 @@ export class PassEntry implements OnInit, OnDestroy {
           URL.revokeObjectURL(objectUrl);
         },
         error: (error) => {
-          console.error('Document download failed:', error);
-          this.saveError.set('Unable to download document.');
-        }
+          console.error("Document download failed:", error);
+          this.saveError.set("Unable to download document.");
+        },
       });
   }
   //=====================================================
   // SECTION 9 : Validation
   //=====================================================
   /**
- * Draft save validation:
- * Vehicle, employee, gate, and parking are required.
- * Documents are optional while saving a draft.
- */
+   * Draft save validation:
+   * Vehicle, employee, gate, and parking are required.
+   * Documents are optional while saving a draft.
+   */
   private validateDraftForm(): boolean {
-    console.log('DRAFT VALIDATION START');
-    this.saveError.set('');
+    console.log("DRAFT VALIDATION START");
+    this.saveError.set("");
 
     if (!this.validateVehicle()) {
-      console.log('Draft vehicle validation failed');
+      console.log("Draft vehicle validation failed");
       return false;
     }
 
     if (!this.validateEmployee()) {
-      console.log('Draft employee validation failed');
+      console.log("Draft employee validation failed");
       return false;
     }
 
     if (!this.validateGateAndParking()) {
-      console.log('Draft gate/parking validation failed');
+      console.log("Draft gate/parking validation failed");
       return false;
     }
 
     // Intentionally do not call validateDocuments() for Save.
-    console.log('DRAFT VALIDATION SUCCESS');
+    console.log("DRAFT VALIDATION SUCCESS");
     return true;
   }
   private validateVehicle(): boolean {
-
-    if (this.passNo === null || this.passNo === undefined || String(this.passNo).trim() === '') {
-      this.saveError.set('Pass No is required.');
+    if (
+      this.passNo === null ||
+      this.passNo === undefined ||
+      String(this.passNo).trim() === ""
+    ) {
+      this.saveError.set("Pass No is required.");
       return false;
     }
 
     if (this.isDuplicatePassNo()) {
-      this.saveError.set('Pass No already exists. Please enter a unique Pass No.');
+      this.saveError.set(
+        "Pass No already exists. Please enter a unique Pass No.",
+      );
       return false;
     }
-    if (this.passNo === null || this.passNo === undefined || String(this.passNo).trim() === '') {
-      this.saveError.set('Pass No is required.');
+    if (
+      this.passNo === null ||
+      this.passNo === undefined ||
+      String(this.passNo).trim() === ""
+    ) {
+      this.saveError.set("Pass No is required.");
       return false;
     }
 
     if (this.isDuplicatePassNo()) {
-      this.saveError.set(`Pass No ${this.passNo} already exists. Please enter a unique Pass No.`);
+      this.saveError.set(
+        `Pass No ${this.passNo} already exists. Please enter a unique Pass No.`,
+      );
       return false;
     }
 
     if (!this.vehicleNo.trim()) {
-      this.saveError.set('Vehicle Number is required.');
+      this.saveError.set("Vehicle Number is required.");
       return false;
     }
 
     if (!this.vehicleType.trim()) {
-      this.saveError.set('Vehicle Type is required.');
+      this.saveError.set("Vehicle Type is required.");
       return false;
     }
 
     if (!this.brandModel.trim()) {
-      this.saveError.set('Brand / Model is required.');
+      this.saveError.set("Brand / Model is required.");
       return false;
     }
 
@@ -825,7 +823,7 @@ export class PassEntry implements OnInit, OnDestroy {
   private validateDocuments(): boolean {
     const docs = this.documents();
     if (docs.length === 0) {
-      this.saveError.set('Please add at least one document.');
+      this.saveError.set("Please add at least one document.");
       return false;
     }
     for (let i = 0; i < docs.length; i++) {
@@ -852,21 +850,22 @@ export class PassEntry implements OnInit, OnDestroy {
     // and fully completed (type + number + expiry + file/existingFile).
     // Having 1 or 2 of the 3 is NOT enough — Submit must be blocked.
     const completedTypes = docs
-      .filter(doc =>
-        !!doc.documentType &&
-        !!doc.documentNo.trim() &&
-        !!doc.expiryDate &&
-        (!!doc.file || !!doc.existingFile)
+      .filter(
+        (doc) =>
+          !!doc.documentType &&
+          !!doc.documentNo.trim() &&
+          !!doc.expiryDate &&
+          (!!doc.file || !!doc.existingFile),
       )
-      .map(doc => doc.documentType.trim().toUpperCase());
+      .map((doc) => doc.documentType.trim().toUpperCase());
 
     const missingTypes = REQUIRED_DOC_TYPES_FOR_SUBMIT.filter(
-      type => !completedTypes.includes(type)
+      (type) => !completedTypes.includes(type),
     );
 
     if (missingTypes.length > 0) {
       this.saveError.set(
-        `All 3 required documents (RC, Insurance, License) must be completed before submitting. Missing: ${missingTypes.join(', ')}.`
+        `All 3 required documents (RC, Insurance, License) must be completed before submitting. Missing: ${missingTypes.join(", ")}.`,
       );
       return false;
     }
@@ -876,15 +875,15 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private validateEmployee(): boolean {
     if (!this.empType()) {
-      this.saveError.set('Please select Employee Type.');
+      this.saveError.set("Please select Employee Type.");
       return false;
     }
     if (!this.employeeNo.trim()) {
-      this.saveError.set('Employee Code is required.');
+      this.saveError.set("Employee Code is required.");
       return false;
     }
     if (!this.empName()) {
-      this.saveError.set('Please verify Employee Code.');
+      this.saveError.set("Please verify Employee Code.");
       return false;
     }
     return true;
@@ -892,16 +891,15 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private validateGateAndParking(): boolean {
     if (!this.gateNo.trim()) {
-      this.saveError.set('Gate No is required.');
+      this.saveError.set("Gate No is required.");
       return false;
     }
     if (!this.parkingToBeUsed.trim()) {
-      this.saveError.set('Parking To Be Used is required.');
+      this.saveError.set("Parking To Be Used is required.");
       return false;
     }
     return true;
   }
-
 
   //=====================================================
   // SECTION 10 : Build Request
@@ -910,27 +908,28 @@ export class PassEntry implements OnInit, OnDestroy {
     const payload: PassRequest = {
       id: this.registryId,
       passNo: this.passNo,
-      vehicleNo: this.vehicleNo?.trim() ?? '',
-      vehicleType: this.vehicleType?.trim() ?? '',
-      brandModel: this.brandModel?.trim() ?? '',
-      employeeNo: this.employeeNo?.trim() ?? '',
+      vehicleNo: this.vehicleNo?.trim() ?? "",
+      vehicleType: this.vehicleType?.trim() ?? "",
+      brandModel: this.brandModel?.trim() ?? "",
+      employeeNo: this.employeeNo?.trim() ?? "",
       empType: this.empType(),
       contractorCode: this.contractorCode,
-      gateNo: this.gateNo?.trim() ?? '',
-      parkingToBeUsed: this.parkingToBeUsed?.trim() ?? '',
+      gateNo: this.gateNo?.trim() ?? "",
+      parkingToBeUsed: this.parkingToBeUsed?.trim() ?? "",
       status: this.status,
       remark: this.remark,
       enterBy: this.enterBy,
-      documents: this.documents().filter(doc =>
-        !!doc.documentType?.trim() ||
-        !!doc.documentNo?.trim() ||
-        !!doc.expiryDate ||
-        !!doc.file ||
-        !!doc.existingFile
-      )
+      documents: this.documents().filter(
+        (doc) =>
+          !!doc.documentType?.trim() ||
+          !!doc.documentNo?.trim() ||
+          !!doc.expiryDate ||
+          !!doc.file ||
+          !!doc.existingFile,
+      ),
     };
 
-    console.log('========= PASS FORM PAYLOAD =========');
+    console.log("========= PASS FORM PAYLOAD =========");
     console.log(JSON.stringify(payload, null, 2));
     console.log("CONTRACTOR CODE FROM FORM ===>", this.contractorCode);
 
@@ -940,14 +939,13 @@ export class PassEntry implements OnInit, OnDestroy {
   private buildFormData(): FormData {
     const formData = new FormData();
     formData.append(
-      'request',
-      new Blob(
-        [JSON.stringify(this.buildRequest())],
-        { type: 'application/json' }
-      )
+      "request",
+      new Blob([JSON.stringify(this.buildRequest())], {
+        type: "application/json",
+      }),
     );
 
-    this.documents().forEach(doc => {
+    this.documents().forEach((doc) => {
       if (doc.file) {
         formData.append(doc.fileKey, doc.file, doc.file.name);
         for (const pair of (formData as any).entries()) {
@@ -967,19 +965,19 @@ export class PassEntry implements OnInit, OnDestroy {
       return;
     }
 
-    this.saveError.set('');
-    this.saveSuccess.set('');
+    this.saveError.set("");
+    this.saveSuccess.set("");
 
     if (!this.validateDraftForm()) {
       return;
     }
 
     // CASE 1: If pass was in modification state and user clicks SAVE, update status to DRAFT
-    const currentUpperStatus = (this.status || '').toUpperCase();
+    const currentUpperStatus = (this.status || "").toUpperCase();
     if (
       currentUpperStatus === PassStatus.MODIFY ||
       currentUpperStatus === PassStatus.NEEDS_MODIFICATION ||
-      currentUpperStatus === 'NEEDSMODIFICATION'
+      currentUpperStatus === "NEEDSMODIFICATION"
     ) {
       this.status = PassStatus.SAVED;
     }
@@ -989,57 +987,57 @@ export class PassEntry implements OnInit, OnDestroy {
 
     // EDIT MODE
     if (this.registryId != null) {
-      this.http.put<PassRegistryResponseDTO>(
-        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
-        formData,
-        { headers: this.HEADERS }
-      )
+      this.http
+        .put<PassRegistryResponseDTO>(
+          `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+          formData,
+          { headers: this.HEADERS },
+        )
         .pipe(
           timeout(HTTP_TIMEOUT_MS),
           takeUntil(this.destroy$),
-          finalize(() => this.isSaving.set(false))
+          finalize(() => this.isSaving.set(false)),
         )
         .subscribe({
           next: (response) => {
             this.saved.set(true);
-            this.saveSuccess.set('Vehicle pass updated successfully.');
+            this.saveSuccess.set("Vehicle pass updated successfully.");
             this.registryId = response.id;
             this.passNo = response.passNo;
             this.status = response.reqStatus ?? PassStatus.SAVED;
           },
           error: (err) => {
             this.saveError.set(
-              err?.error?.message ?? 'Unable to update vehicle pass.'
+              err?.error?.message ?? "Unable to update vehicle pass.",
             );
-          }
+          },
         });
       return;
     }
 
     // ADD MODE
-    this.http.post<PassRegistryResponseDTO>(
-      API_CONFIG.PASS_SAVE,
-      formData,
-      { headers: this.HEADERS }
-    )
+    this.http
+      .post<PassRegistryResponseDTO>(API_CONFIG.PASS_SAVE, formData, {
+        headers: this.HEADERS,
+      })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
+        finalize(() => this.isSaving.set(false)),
       )
       .subscribe({
         next: (response) => {
           this.saved.set(true);
-          this.saveSuccess.set('Vehicle pass saved successfully.');
+          this.saveSuccess.set("Vehicle pass saved successfully.");
           this.registryId = response.id;
           this.passNo = response.passNo;
           this.status = response.reqStatus ?? PassStatus.SAVED;
         },
         error: (err) => {
           this.saveError.set(
-            err?.error?.message ?? 'Unable to save vehicle pass.'
+            err?.error?.message ?? "Unable to save vehicle pass.",
           );
-        }
+        },
       });
   }
 
@@ -1049,12 +1047,12 @@ export class PassEntry implements OnInit, OnDestroy {
     }
 
     if (!this.registryId) {
-      this.saveError.set('Invalid Pass ID.');
+      this.saveError.set("Invalid Pass ID.");
       return;
     }
 
-    this.saveError.set('');
-    this.saveSuccess.set('');
+    this.saveError.set("");
+    this.saveSuccess.set("");
 
     if (!this.validateForm()) {
       return;
@@ -1063,15 +1061,16 @@ export class PassEntry implements OnInit, OnDestroy {
     this.isSaving.set(true);
     const formData = this.buildFormData();
 
-    this.http.put<PassRegistryResponseDTO>(
-      `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
-      formData,
-      { headers: this.HEADERS }
-    )
+    this.http
+      .put<PassRegistryResponseDTO>(
+        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+        formData,
+        { headers: this.HEADERS },
+      )
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
+        finalize(() => this.isSaving.set(false)),
       )
       .subscribe({
         next: (response) => {
@@ -1079,92 +1078,89 @@ export class PassEntry implements OnInit, OnDestroy {
           this.passNo = response.passNo;
           this.status = response.reqStatus;
           this.saved.set(true);
-          this.saveSuccess.set('Vehicle pass updated successfully.');
+          this.saveSuccess.set("Vehicle pass updated successfully.");
         },
         error: (err) => {
           this.saveError.set(
-            err?.error?.message ?? 'Unable to update vehicle pass.'
+            err?.error?.message ?? "Unable to update vehicle pass.",
           );
-        }
+        },
       });
   }
 
   private loadPass(id: number): void {
     this.isSaving.set(true);
-    this.saveError.set('');
+    this.saveError.set("");
 
-    this.http.get<PassRegistryResponseDTO>(
-      `${API_CONFIG.PASS_LIST}/${id}`,
-      { headers: this.HEADERS }
-    )
+    this.http
+      .get<PassRegistryResponseDTO>(`${API_CONFIG.PASS_LIST}/${id}`, {
+        headers: this.HEADERS,
+      })
       .pipe(
         timeout(HTTP_TIMEOUT_MS),
         takeUntil(this.destroy$),
-        finalize(() => this.isSaving.set(false))
+        finalize(() => this.isSaving.set(false)),
       )
       .subscribe({
         next: (response) => {
           this.registryId = response.id;
           this.passNo = response.passNo;
-          this.vehicleNo = response.vehicleNo ?? '';
-          this.vehicleType = response.vehicleType ?? '';
-          this.brandModel = response.brandModel ?? '';
-          this.employeeNo = String(response.employeeNo ?? '');
-          this.ecNo = String(response.employeeNo ?? '');
+          this.vehicleNo = response.vehicleNo ?? "";
+          this.vehicleType = response.vehicleType ?? "";
+          this.brandModel = response.brandModel ?? "";
+          this.employeeNo = String(response.employeeNo ?? "");
+          this.ecNo = String(response.employeeNo ?? "");
 
           this.setEmployeeType(response.empType);
           this.contractorCode = response.contractorCode ?? null;
-          this.gateNo = response.gateNo ?? '';
-          this.parkingToBeUsed = response.parkingToBeUsed ?? '';
+          this.gateNo = response.gateNo ?? "";
+          this.parkingToBeUsed = response.parkingToBeUsed ?? "";
           this.status = response.reqStatus ?? PassStatus.SAVED;
-
 
           if (response.documents && response.documents.length > 0) {
             this.documents.set(
-              response.documents.map(doc => ({
+              response.documents.map((doc) => ({
                 documentId: doc.documentId ?? null,
-                documentType: doc.documentType ?? '',
-                documentNo: doc.documentNo ?? '',
-                expiryDate: doc.expiryDate ?? '',
-                fileKey: doc.fileKey ?? '',
-                fileName: doc.fileName ?? '',
-                existingFile: doc.fileName ?? '',
-                file: null
-              }))
+                documentType: doc.documentType ?? "",
+                documentNo: doc.documentNo ?? "",
+                expiryDate: doc.expiryDate ?? "",
+                fileKey: doc.fileKey ?? "",
+                fileName: doc.fileName ?? "",
+                existingFile: doc.fileName ?? "",
+                file: null,
+              })),
             );
           } else {
-            this.documents.set(
-              ALLOWED_DOC_TYPES.map(() => emptyDocument())
-            );
+            this.documents.set(ALLOWED_DOC_TYPES.map(() => emptyDocument()));
           }
 
           this.saved.set(true);
-          this.saveSuccess.set('Pass details loaded successfully.');
+          this.saveSuccess.set("Pass details loaded successfully.");
 
           if (this.employeeNo) {
             this.loadEmployee();
           }
         },
         error: (error) => {
-          console.error('Load Pass Error:', error);
+          console.error("Load Pass Error:", error);
           this.saveError.set(
-            error?.error?.message ?? 'Unable to load pass details.'
+            error?.error?.message ?? "Unable to load pass details.",
           );
-        }
+        },
       });
   }
 
   private setEmployeeType(type: string | null | undefined): void {
-    const value = (type ?? '').toUpperCase();
+    const value = (type ?? "").toUpperCase();
     if (
-      value === 'HEG' ||
-      value === 'TACC' ||
-      value === 'CONTRACT' ||
-      value === 'CRE-PRM'
+      value === "HEG" ||
+      value === "TACC" ||
+      value === "CONTRACT" ||
+      value === "CRE-PRM"
     ) {
       this.empType.set(value);
     } else {
-      this.empType.set('');
+      this.empType.set("");
     }
   }
 
@@ -1183,39 +1179,41 @@ export class PassEntry implements OnInit, OnDestroy {
     const code = this.resolveApproverCode();
     if (!code) {
       this.isSaving.set(false);
-      this.showMessage('Session expired or employee code missing. Please re-login.');
+      this.showMessage(
+        "Session expired or employee code missing. Please re-login.",
+      );
       return;
     }
 
     const payload = {
       status: status,
       remark: this.reviewRemark() || this.remark || `${status} requested`,
-      enterBy: code
+      enterBy: code,
     };
 
-    this.http.put<any>(
-      `${API_CONFIG.PASS_STATUS_UPDATE}/${id}`,
-      payload,
-      { headers: this.HEADERS }
-    ).subscribe({
-      next: (response) => {
-        this.isSaving.set(false);
-        console.log("Status Updated Successfully", response);
+    this.http
+      .put<any>(`${API_CONFIG.PASS_STATUS_UPDATE}/${id}`, payload, {
+        headers: this.HEADERS,
+      })
+      .subscribe({
+        next: (response) => {
+          this.isSaving.set(false);
+          console.log("Status Updated Successfully", response);
 
-        this.loadPass(id);
+          this.loadPass(id);
 
-        if (this.showPassHistory()) {
-          this.loadPassHistory(id);
-        }
+          if (this.showPassHistory()) {
+            this.loadPassHistory(id);
+          }
 
-        this.showMessage(`${status} completed successfully`);
-      },
-      error: (error) => {
-        this.isSaving.set(false);
-        console.error("Status update failed", error);
-        this.showMessage(error?.error?.message ?? "Status update failed");
-      }
-    });
+          this.showMessage(`${status} completed successfully`);
+        },
+        error: (error) => {
+          this.isSaving.set(false);
+          console.error("Status update failed", error);
+          this.showMessage(error?.error?.message ?? "Status update failed");
+        },
+      });
   }
 
   confirmPass(): void {
@@ -1226,16 +1224,16 @@ export class PassEntry implements OnInit, OnDestroy {
   approvePass(): void {
     if (!this.registryId) return;
     if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
-      alert('Remark is required before approving.');
+      alert("Remark is required before approving.");
       return;
     }
-    this.updatePassStatus(this.registryId, 'ACTIVE');
+    this.updatePassStatus(this.registryId, "ACTIVE");
   }
 
   rejectPass(): void {
     if (!this.registryId) return;
     if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
-      alert('Remark is required before rejecting.');
+      alert("Remark is required before rejecting.");
       return;
     }
     this.updatePassStatus(this.registryId, PassStatus.REJECT);
@@ -1249,7 +1247,7 @@ export class PassEntry implements OnInit, OnDestroy {
   sendForModify(): void {
     if (!this.registryId) return;
     if (!this.reviewRemark()?.trim() && !this.remark?.trim()) {
-      alert('Remark is required before requesting modification.');
+      alert("Remark is required before requesting modification.");
       return;
     }
     this.updatePassStatus(this.registryId, PassStatus.MODIFY);
@@ -1267,13 +1265,16 @@ export class PassEntry implements OnInit, OnDestroy {
   onEmpTypeChange(value: EmployeeType): void {
     this.empType.set(value);
     this.clearEmployeeData();
-    this.employeeNo = '';
-    this.empFetchError.set('');
+    this.employeeNo = "";
+    this.empFetchError.set("");
   }
 
   // Helper property checking if mode is approver
   get isApproverView(): boolean {
-    return this.isApproverMode() || (this.route.snapshot.queryParams['mode'] === 'approver');
+    return (
+      this.isApproverMode() ||
+      this.route.snapshot.queryParams["mode"] === "approver"
+    );
   }
 
   // Edit guard for creator form
@@ -1282,19 +1283,19 @@ export class PassEntry implements OnInit, OnDestroy {
     if (this.isViewMode() || this.isApproverView) {
       return false;
     }
-    const s = (this.status || '').toUpperCase();
+    const s = (this.status || "").toUpperCase();
     return (
       s === PassStatus.SAVED ||
       s === PassStatus.MODIFY ||
       s === PassStatus.NEEDS_MODIFICATION ||
-      s === 'NEEDSMODIFICATION'
+      s === "NEEDSMODIFICATION"
     );
   }
 
   // Guards for Approver action buttons
   canApprove(): boolean {
-    const s = (this.status || '').toUpperCase();
-    return this.isApproverView && (s === 'SUBMITTED' || s === 'CONFIRMED');
+    const s = (this.status || "").toUpperCase();
+    return this.isApproverView && (s === "SUBMITTED" || s === "CONFIRMED");
   }
 
   canReject(): boolean {
@@ -1307,10 +1308,10 @@ export class PassEntry implements OnInit, OnDestroy {
 
   onEcNoBlur(): void {
     if (!this.empType()) {
-      this.empFetchError.set('Please select Employee Type first');
+      this.empFetchError.set("Please select Employee Type first");
       return;
     }
-    if (!this.ecNo || this.ecNo.trim() === '') {
+    if (!this.ecNo || this.ecNo.trim() === "") {
       return;
     }
     this.employeeNo = this.ecNo.trim().toUpperCase();
@@ -1319,8 +1320,8 @@ export class PassEntry implements OnInit, OnDestroy {
 
   onSubmit(): void {
     console.log("===== SUBMIT CLICKED =====");
-    this.saveError.set('');
-    this.saveSuccess.set('');
+    this.saveError.set("");
+    this.saveSuccess.set("");
 
     // 1. Validate form fields before submitting
     if (!this.validateForm()) {
@@ -1329,13 +1330,13 @@ export class PassEntry implements OnInit, OnDestroy {
 
     // 2. Fallback check for enterBy
     if (!this.enterBy) {
-      const session = sessionStorage.getItem('vpsm_session');
+      const session = sessionStorage.getItem("vpsm_session");
       if (session) {
         try {
           const user = JSON.parse(session);
-          this.enterBy = user.empCode ?? user.employeeNo ?? 'SYSTEM';
+          this.enterBy = user.empCode ?? user.employeeNo ?? "SYSTEM";
         } catch (e) {
-          this.enterBy = 'SYSTEM';
+          this.enterBy = "SYSTEM";
         }
       }
     }
@@ -1349,30 +1350,28 @@ export class PassEntry implements OnInit, OnDestroy {
 
     // Workaround: ensure request blob inside formData has SUBMITTED status
     formData.set(
-      'request',
-      new Blob(
-        [JSON.stringify(payload)],
-        { type: 'application/json' }
-      )
+      "request",
+      new Blob([JSON.stringify(payload)], { type: "application/json" }),
     );
 
     // 4. Send request based on mode
     if (this.registryId) {
       console.log("UPDATE MODE SUBMIT ID = ", this.registryId);
-      this.http.put<PassRegistryResponseDTO>(
-        `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
-        formData,
-        { headers: this.HEADERS }
-      )
+      this.http
+        .put<PassRegistryResponseDTO>(
+          `${API_CONFIG.PASS_UPDATE}/${this.registryId}`,
+          formData,
+          { headers: this.HEADERS },
+        )
         .pipe(
           timeout(HTTP_TIMEOUT_MS),
           takeUntil(this.destroy$),
-          finalize(() => this.isSaving.set(false))
+          finalize(() => this.isSaving.set(false)),
         )
         .subscribe({
           next: (response) => {
             this.saved.set(true);
-            this.saveSuccess.set('Pass submitted successfully.');
+            this.saveSuccess.set("Pass submitted successfully.");
             this.registryId = response.id;
             this.passNo = response.passNo;
             this.status = response.reqStatus ?? PassStatus.SUBMITTED;
@@ -1385,26 +1384,25 @@ export class PassEntry implements OnInit, OnDestroy {
           error: (err) => {
             console.error("Submit Error:", err);
             this.saveError.set(
-              err?.error?.message ?? 'Unable to submit vehicle pass.'
+              err?.error?.message ?? "Unable to submit vehicle pass.",
             );
-          }
+          },
         });
     } else {
       console.log("SAVE MODE SUBMIT");
-      this.http.post<PassRegistryResponseDTO>(
-        API_CONFIG.PASS_SAVE,
-        formData,
-        { headers: this.HEADERS }
-      )
+      this.http
+        .post<PassRegistryResponseDTO>(API_CONFIG.PASS_SAVE, formData, {
+          headers: this.HEADERS,
+        })
         .pipe(
           timeout(HTTP_TIMEOUT_MS),
           takeUntil(this.destroy$),
-          finalize(() => this.isSaving.set(false))
+          finalize(() => this.isSaving.set(false)),
         )
         .subscribe({
           next: (response) => {
             this.saved.set(true);
-            this.saveSuccess.set('Pass submitted successfully.');
+            this.saveSuccess.set("Pass submitted successfully.");
             this.registryId = response.id;
             this.passNo = response.passNo;
             this.status = response.reqStatus ?? PassStatus.SUBMITTED;
@@ -1416,16 +1414,16 @@ export class PassEntry implements OnInit, OnDestroy {
           error: (err) => {
             console.error("Submit Error:", err);
             this.saveError.set(
-              err?.error?.message ?? 'Unable to submit vehicle pass.'
+              err?.error?.message ?? "Unable to submit vehicle pass.",
             );
-          }
+          },
         });
     }
   }
 
   private validateForm(): boolean {
     console.log("VALIDATION START");
-    this.saveError.set('');
+    this.saveError.set("");
 
     if (!this.validateVehicle()) {
       console.log("Vehicle validation failed");
@@ -1488,15 +1486,15 @@ export class PassEntry implements OnInit, OnDestroy {
 
   private loadPassHistory(id: number): void {
     this.isLoadingPassHistory.set(true);
-    this.passHistoryError.set('');
+    this.passHistoryError.set("");
 
-    this.http.get<HistoryRecord[]>(
-      `${API_CONFIG.PASS_HISTORY}/${id}`,
-      { headers: this.HEADERS }
-    )
+    this.http
+      .get<HistoryRecord[]>(`${API_CONFIG.PASS_HISTORY}/${id}`, {
+        headers: this.HEADERS,
+      })
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => this.isLoadingPassHistory.set(false))
+        finalize(() => this.isLoadingPassHistory.set(false)),
       )
       .subscribe({
         next: (response) => {
@@ -1504,8 +1502,8 @@ export class PassEntry implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error(err);
-          this.passHistoryError.set('Unable to load pass history.');
-        }
+          this.passHistoryError.set("Unable to load pass history.");
+        },
       });
   }
 
@@ -1514,9 +1512,9 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   goBackToPasses(): void {
     if (window.history.length > 1) {
-      this.router.navigate(['/pass-list']);
+      this.router.navigate(["/pass-list"]);
     } else {
-      this.router.navigate(['/']);
+      this.router.navigate(["/"]);
     }
   }
 }
