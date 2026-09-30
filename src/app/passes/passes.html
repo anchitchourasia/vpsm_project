@@ -35,8 +35,13 @@
       <div class="search-box">
         <i class="bi bi-search search-icon"></i>
 
-        <input type="text" class="search-input" placeholder="Search pass id, employee, contractor, vehicle..."
-          [value]="searchText()" (input)="onSearch($any($event.target).value)" />
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Search pass id, employee, contractor, vehicle..."
+          [value]="searchText()"
+          (input)="onSearch($any($event.target).value)"
+        />
       </div>
 
       <div class="filter-group">
@@ -71,30 +76,111 @@
               <!-- PASS NO HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>PASS NO</span>
+                  <div class="th-title-row">
+                    <span>PASS NO</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('passNo')"
+                      [attr.aria-label]="'Sort Pass No ' +
+      (sortColumn() === 'passNo' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'passNo'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'passNo'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <input type="text" class="th-filter-input" placeholder="Search Pass No" [value]="filterPassNo()"
-                    (input)="onPassNoChange($any($event.target).value)" maxlength="20" />
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search Pass No"
+                    [value]="filterPassNo()"
+                    (input)="onPassNoChange($any($event.target).value)"
+                    maxlength="20"
+                  />
                 </div>
               </th>
 
               <!-- VEHICLE NO HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>VEHICLE NO</span>
+                  <div class="th-title-row">
+                    <span>VEHICLE NO</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('vehicleNo')"
+                      [attr.aria-label]="'Sort Vehicle No ' +
+      (sortColumn() === 'vehicleNo' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'vehicleNo'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'vehicleNo'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <input type="text" class="th-filter-input" placeholder="Search Vehicle No"
-                    [value]="filterVehicleNo()" (input)="onVehicleNoChange($any($event.target).value)" maxlength="20" />
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search Vehicle No"
+                    [value]="filterVehicleNo()"
+                    (input)="onVehicleNoChange($any($event.target).value)"
+                    maxlength="20"
+                  />
                 </div>
               </th>
 
               <!-- VEHICLE TYPE HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>VEHICLE TYPE</span>
+                  <div class="th-title-row">
+                    <span>VEHICLE TYPE</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('vehicleType')"
+                      [attr.aria-label]="'Sort Vehicle Type ' +
+      (sortColumn() === 'vehicleType' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'vehicleType'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'vehicleType'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <select class="th-filter-select" [ngModel]="filterVehicleType()"
-                    (ngModelChange)="onVehicleTypeChange($event)">
+                  <select
+                    class="th-filter-select"
+                    [ngModel]="filterVehicleType()"
+                    (ngModelChange)="onVehicleTypeChange($event)"
+                  >
                     <option value="ALL">All</option>
                     <option value="TWO-WHEELER">Two-Wheeler</option>
                     <option value="FOUR-WHEELER">Four-Wheeler</option>
@@ -105,10 +191,35 @@
               <!-- EMP TYPE HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>EMP TYPE</span>
+                  <div class="th-title-row">
+                    <span>EMP TYPE</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('empType')"
+                      [attr.aria-label]="'Sort Emp Type ' +
+      (sortColumn() === 'empType' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'empType'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'empType'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <select class="th-filter-select" [ngModel]="filterEmpType()"
-                    (ngModelChange)="onEmpTypeChange($event)">
+                  <select
+                    class="th-filter-select"
+                    [ngModel]="filterEmpType()"
+                    (ngModelChange)="onEmpTypeChange($event)"
+                  >
                     <option value="ALL">All</option>
                     <option value="HEG">HEG</option>
                     <option value="TACC">TACC</option>
@@ -121,36 +232,219 @@
               <!-- NAME HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>NAME</span>
+                  <div class="th-title-row">
+                    <span>NAME</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('name')"
+                      [attr.aria-label]="'Sort Name ' +
+      (sortColumn() === 'name' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'name'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'name'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <input type="text" class="th-filter-input" placeholder="Search Name" [value]="filterName()"
-                    (input)="onNameChange($any($event.target).value)" maxlength="50" />
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search Name"
+                    [value]="filterName()"
+                    (input)="onNameChange($any($event.target).value)"
+                    maxlength="50"
+                  />
                 </div>
               </th>
 
               <!-- ECNO HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>ECNO</span>
+                  <div class="th-title-row">
+                    <span>EC NO</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('employeeNo')"
+                      [attr.aria-label]="'Sort Employee No ' +
+      (sortColumn() === 'employeeNo' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'employeeNo'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'employeeNo'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <input type="text" class="th-filter-input" placeholder="Search EC No" [value]="filterEmployeeNo()"
-                    (input)="onEmpNoChange($any($event.target).value)" maxlength="20" />
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search EC No"
+                    [value]="filterEmployeeNo()"
+                    (input)="onEmpNoChange($any($event.target).value)"
+                    maxlength="20"
+                  />
                 </div>
               </th>
 
               <!-- DEPARTMENT HEADER FILTER -->
               <th class="th-filter">
                 <div class="th-filter-wrap">
-                  <span>DEPARTMENT</span>
+                  <div class="th-title-row">
+                    <span>DEPARTMENT</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('deptName')"
+                      [attr.aria-label]="'Sort Department ' +
+      (sortColumn() === 'deptName' && sortDirection() === 'asc'
+        ? 'descending'
+        : 'ascending')"
+                      [attr.aria-pressed]="sortColumn() === 'deptName'"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'deptName'
+        ? 'bi-arrow-down-up'
+        : sortDirection() === 'asc'
+          ? 'bi-arrow-up'
+          : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
 
-                  <input type="text" class="th-filter-input" placeholder="Search Department" [value]="filterDept()"
-                    (input)="onDeptChange($any($event.target).value)" maxlength="50" />
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search Department"
+                    [value]="filterDept()"
+                    (input)="onDeptChange($any($event.target).value)"
+                    maxlength="50"
+                  />
                 </div>
               </th>
 
-              <th>MOBILE NO</th>
-              <th>CONTRACTOR NAME</th>
-              <th>STATUS</th>
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <div class="th-title-row">
+                    <span>MOBILE NO</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('mobileNo')"
+                      title="Sort Mobile No"
+                      aria-label="Sort Mobile No"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'mobileNo'
+            ? 'bi-arrow-down-up'
+            : sortDirection() === 'asc'
+              ? 'bi-arrow-up'
+              : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search Mobile No"
+                    [value]="filterMobileNo()"
+                    (input)="onMobileNoChange($any($event.target).value)"
+                    maxlength="20"
+                  />
+                </div>
+              </th>
+
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <div class="th-title-row">
+                    <span>CONTRACTOR NAME</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('contractorName')"
+                      title="Sort Contractor Name"
+                      aria-label="Sort Contractor Name"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'contractorName'
+            ? 'bi-arrow-down-up'
+            : sortDirection() === 'asc'
+              ? 'bi-arrow-up'
+              : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    class="th-filter-input"
+                    placeholder="Search Contractor"
+                    [value]="filterContractorName()"
+                    (input)="onContractorNameChange($any($event.target).value)"
+                    maxlength="50"
+                  />
+                </div>
+              </th>
+
+              <th class="th-filter">
+                <div class="th-filter-wrap">
+                  <div class="th-title-row">
+                    <span>STATUS</span>
+                    <button
+                      type="button"
+                      class="th-sort-btn"
+                      (click)="toggleSort('status')"
+                      title="Sort Status"
+                      aria-label="Sort Status"
+                    >
+                      <i
+                        class="bi"
+                        [ngClass]="sortColumn() !== 'status'
+            ? 'bi-arrow-down-up'
+            : sortDirection() === 'asc'
+              ? 'bi-arrow-up'
+              : 'bi-arrow-down'"
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                  </div>
+                  <select
+                    class="th-filter-select"
+                    [ngModel]="filterStatus()"
+                    (ngModelChange)="onStatusChange($event)"
+                  >
+                    <option value="ALL">All</option>
+                    <option value="SAVED">Saved</option>
+                    <option value="SUBMITTED">Submitted</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="NEEDS_MODIFICATION">Needs Modification</option>
+                    <option value="REJECT">Rejected</option>
+                  </select>
+                </div>
+              </th>
               <th>ACTION</th>
             </tr>
           </thead>
@@ -184,10 +478,14 @@
                   View
                 </button>
 
-                <button *ngIf="
+                <button
+                  *ngIf="
                     (p.status || '').toUpperCase() === 'ACTIVE' ||
                     (p.status || '').toUpperCase() === 'APPROVED'
-                  " class="btn-sticker" (click)="printSticker(p)">
+                  "
+                  class="btn-sticker"
+                  (click)="printSticker(p)"
+                >
                   <i class="bi bi-printer-fill"></i>
                   Print Sticker
                 </button>
@@ -229,8 +527,12 @@
             ...
           </span>
 
-          <button *ngFor="let p of visiblePages()" class="page-btn" [class.active]="p === currentPage()"
-            (click)="changePage(p)">
+          <button
+            *ngFor="let p of visiblePages()"
+            class="page-btn"
+            [class.active]="p === currentPage()"
+            (click)="changePage(p)"
+          >
             {{ p }}
           </button>
 
@@ -238,13 +540,20 @@
             ...
           </span>
 
-          <button class="page-btn nav-btn" [disabled]="currentPage() === totalPages"
-            (click)="changePage(currentPage() + 1)">
+          <button
+            class="page-btn nav-btn"
+            [disabled]="currentPage() === totalPages"
+            (click)="changePage(currentPage() + 1)"
+          >
             Next
           </button>
 
-          <button class="page-btn nav-btn" [disabled]="currentPage() === totalPages" (click)="changePage(totalPages)"
-            title="Last Page">
+          <button
+            class="page-btn nav-btn"
+            [disabled]="currentPage() === totalPages"
+            (click)="changePage(totalPages)"
+            title="Last Page"
+          >
             &raquo;
           </button>
         </div>

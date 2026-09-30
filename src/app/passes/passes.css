@@ -1333,3 +1333,39 @@ textarea.form-input {
   font-size: 13px;
   user-select: none;
 }
+/* Registry heading labels and sort controls */
+.dtable .th-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 18px;
+}
+
+.dtable .th-title-row span {
+  white-space: nowrap;
+}
+
+.dtable .th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+
+.dtable .th-sort-btn:hover,
+.dtable .th-sort-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  outline: none;
+}
