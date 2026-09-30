@@ -56,6 +56,7 @@ interface PassListRow {
   validityDate: string;
 
   gateNo: string;
+  entryDate: string;
 }
 type SortColumn =
   | "passNo"
@@ -67,7 +68,8 @@ type SortColumn =
   | "deptName"
   | "mobileNo"
   | "contractorName"
-  | "status";
+  | "status"
+  | "entryDate";
 
 @Component({
   selector: "app-passes",
@@ -115,6 +117,7 @@ export class Passes implements OnInit, OnDestroy {
   filterName = signal("");
   filterMobileNo = signal("");
   filterContractorName = signal("");
+  filterEntryDate = signal("");
 
   currentPage = signal(1);
 
@@ -151,6 +154,8 @@ export class Passes implements OnInit, OnDestroy {
 
     const contractorName = this.filterContractorName().trim().toLowerCase();
 
+    const entryDate = this.filterEntryDate().trim();
+
     return this.allPasses().filter((row) => {
       /*
        * Normalize fields because native-query / Oracle values may
@@ -160,6 +165,12 @@ export class Passes implements OnInit, OnDestroy {
       const rowPassNo = String(row.passNo ?? "")
         .trim()
         .toLowerCase();
+
+      const rowEntryDate = String(row.entryDate ?? "").trim();
+
+      const matchEntryDate =
+        entryDate === "" ||
+        rowEntryDate.slice(0, 10).startsWith(entryDate);
 
       const rowEmployeeNo = String(row.employeeNo ?? "")
         .trim()
@@ -313,6 +324,7 @@ export class Passes implements OnInit, OnDestroy {
         matchEmpType &&
         matchVehicleType &&
         matchPassNo &&
+        matchEntryDate &&
         matchEmployeeNo &&
         matchDept &&
         matchVehicleNo &&
@@ -577,6 +589,7 @@ export class Passes implements OnInit, OnDestroy {
       passId: row.id,
 
       passNo: String(row.passNo ?? "").trim(),
+      entryDate: String(row.entryDate ?? "").trim(),
 
       vehicleNo: String(row.vehicleNo ?? "").trim(),
       vehicleType: String(row.vehicleType ?? "").trim(),
@@ -672,6 +685,11 @@ export class Passes implements OnInit, OnDestroy {
 
   onContractorNameChange(value: string): void {
     this.filterContractorName.set(value);
+    this.currentPage.set(1);
+  }
+
+  onEntryDateChange(value: string): void {
+    this.filterEntryDate.set(value);
     this.currentPage.set(1);
   }
 
