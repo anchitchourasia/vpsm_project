@@ -118,7 +118,8 @@ export class Passes implements OnInit, OnDestroy {
   filterMobileNo = signal("");
   filterContractorName = signal("");
   filterEntryDate = signal("");
-
+  filterFromDate = signal("");
+  filterToDate = signal("");
   currentPage = signal(1);
 
   pageSize = signal(25);
@@ -155,6 +156,8 @@ export class Passes implements OnInit, OnDestroy {
     const contractorName = this.filterContractorName().trim().toLowerCase();
 
     const entryDate = this.filterEntryDate().trim();
+    const fromDate = this.filterFromDate();
+    const toDate = this.filterToDate();
 
     return this.allPasses().filter((row) => {
       /*
@@ -171,6 +174,12 @@ export class Passes implements OnInit, OnDestroy {
       const matchEntryDate =
         entryDate === "" ||
         rowEntryDate.slice(0, 10).startsWith(entryDate);
+
+      const rowDate = String(row.entryDate ?? "").slice(0, 10);
+
+      const matchDateRange =
+        (!fromDate || (rowDate !== "" && rowDate >= fromDate)) &&
+        (!toDate || (rowDate !== "" && rowDate <= toDate));
 
       const rowEmployeeNo = String(row.employeeNo ?? "")
         .trim()
@@ -322,6 +331,7 @@ export class Passes implements OnInit, OnDestroy {
         matchSearch &&
         matchStatus &&
         matchEmpType &&
+        matchDateRange &&
         matchVehicleType &&
         matchPassNo &&
         matchEntryDate &&
@@ -690,6 +700,16 @@ export class Passes implements OnInit, OnDestroy {
 
   onEntryDateChange(value: string): void {
     this.filterEntryDate.set(value);
+    this.currentPage.set(1);
+  }
+
+  onFromDateChange(value: string): void {
+    this.filterFromDate.set(value);
+    this.currentPage.set(1);
+  }
+
+  onToDateChange(value: string): void {
+    this.filterToDate.set(value);
     this.currentPage.set(1);
   }
 

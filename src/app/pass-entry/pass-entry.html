@@ -366,17 +366,7 @@
                 <span>Download</span>
               </button>
 
-              <!-- Change / Replace file -->
-              @if (!isReadOnlyMode) {
-              <label class="pe-file-btn pe-change-btn">
 
-                <i class="bi bi-arrow-repeat"></i>
-                Change
-
-                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onDocumentFileSelected($event, i)" />
-
-              </label>
-              }
 
             </div>
 
@@ -400,17 +390,6 @@
 
               </button>
 
-              <!-- Change selected file -->
-              @if (!isReadOnlyMode) {
-              <label class="pe-file-btn pe-change-btn">
-
-                <i class="bi bi-arrow-repeat"></i>
-                Change
-
-                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onDocumentFileSelected($event, i)" />
-
-              </label>
-              }
 
             </div>
 

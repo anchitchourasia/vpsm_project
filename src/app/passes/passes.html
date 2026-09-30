@@ -45,14 +45,17 @@
           Download Excel
         </button>
 
-        <select class="filter-select" [ngModel]="filterStatus()" (ngModelChange)="onStatusChange($event)">
-          <option value="ALL">All Status</option>
-          <option value="SAVED">Saved</option>
-          <option value="SUBMITTED">Submitted</option>
-          <option value="ACTIVE">Active</option>
-          <option value="NEEDS_MODIFICATION">Needs Modification</option>
-          <option value="REJECT">Rejected</option>
-        </select>
+        <label class="date-range-control">
+          <span>From</span>
+          <input type="date" class="filter-select" aria-label="From Entry Date" [value]="filterFromDate()"
+            [max]="filterToDate() || null" (change)="onFromDateChange($any($event.target).value)" />
+        </label>
+
+        <label class="date-range-control">
+          <span>To</span>
+          <input type="date" class="filter-select" aria-label="To Entry Date" [value]="filterToDate()"
+            [min]="filterFromDate() || null" (change)="onToDateChange($any($event.target).value)" />
+        </label>
 
         <select class="filter-select" [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
           <option value="10">10 / page</option>
