@@ -95,7 +95,7 @@
       <div class="pe-field">
         <label> Brand / Model <span class="req">*</span> </label>
         <input type="text" class="pe-input" placeholder="Honda City / Tata Truck" [(ngModel)]="brandModel"
-          [readonly]="isReadOnlyMode" (input)="onUpperInput($event,'brandModel')" maxlength="60" />
+          [readonly]="isReadOnlyMode" (input)="onUpperInput($event,'brandModel', true)" maxlength="60" />
       </div>
 
 
@@ -299,6 +299,7 @@
             <option value="BhilwaraParking">Bhilwara Parking</option>
             <option value="RKDFParking">RKDF Parking</option>
             <option value="AdminParking">Admin Parking</option>
+            <option value="GATE_07">GATE 07</option>
           </select>
         </div>
       </div>

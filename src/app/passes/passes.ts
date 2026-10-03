@@ -849,7 +849,7 @@ export class Passes implements OnInit, OnDestroy {
   =====================================================
   */
   downloadExcel(): void {
-    const rows = this.filteredPasses();
+    const rows = this.sortedPasses();
 
     if (!rows || rows.length === 0) {
       alert("No pass data available to export.");
@@ -858,8 +858,8 @@ export class Passes implements OnInit, OnDestroy {
 
     const exportData = rows.map((p, index) => ({
       "Sr No": index + 1,
-      ID: p.id ?? "",
       "Pass No": p.passNo ?? "",
+      "Entry Date": p.entryDate ? p.entryDate.slice(0, 10) : "",
       "Vehicle No": p.vehicleNo ?? "",
       "Vehicle Type": p.vehicleType ?? "",
       "Employee Type": p.empType ?? "",

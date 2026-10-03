@@ -419,10 +419,12 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 6 : Utility Methods
   //=====================================================
-  onUpperInput(event: Event, field: keyof PassEntry): void {
+  onUpperInput(event: Event, field: keyof PassEntry, allowSpace: boolean = false): void {
     if (this.isReadOnlyMode) return;
     const input = event.target as HTMLInputElement;
-    const val = input.value.toUpperCase().replace(/\s+/g, "");
+    const val = allowSpace
+      ? input.value.toUpperCase()
+      : input.value.toUpperCase().replace(/\s+/g, "");
     (this as any)[field] = val;
     input.value = val;
   }
