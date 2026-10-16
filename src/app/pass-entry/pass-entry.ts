@@ -60,6 +60,7 @@ export interface PassRequest {
   status: string;
   remark: string | null;
   enterBy: string;
+  mobileNo?: string;
   documents: PassDocument[];
 }
 
@@ -77,6 +78,7 @@ export interface PassRegistryResponseDTO {
   enterDate: string;
   reqStatus: string;
   passNo: number;
+  mobileNo?: string;
   documents: PassDocument[];
 }
 
@@ -99,13 +101,20 @@ const ALLOWED_DOC_TYPES = ["RC", "INSURANCE", "LICENSE"];
 const REQUIRED_DOC_TYPES_FOR_SUBMIT = ALLOWED_DOC_TYPES;
 
 /**
+ * Generates a random numeric document number.
+ */
+function generateRandomDocNo(): string {
+  return String(Math.floor(10000000 + Math.random() * 90000000));
+}
+
+/**
  * Creates an empty document object.
  */
 function emptyDocument(): PassDocument {
   return {
     documentId: null,
     documentType: "",
-    documentNo: "",
+    documentNo: generateRandomDocNo(),
     expiryDate: "",
     fileKey: "",
     fileName: "",
@@ -244,7 +253,7 @@ export class PassEntry implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private passState: PassStateService,
     private auth: AuthService,
-  ) {}
+  ) { }
 
   get todayDate(): string {
     return new Date().toISOString().split("T")[0];
@@ -381,12 +390,12 @@ export class PassEntry implements OnInit, OnDestroy {
 
       this.enterBy = String(
         user.empCode ??
-          user.employeeNo ??
-          user.employee_code ??
-          user.employeeCode ??
-          user.username ??
-          user.userName ??
-          "",
+        user.employeeNo ??
+        user.employee_code ??
+        user.employeeCode ??
+        user.username ??
+        user.userName ??
+        "",
       ).trim();
 
       const role = String(
@@ -490,9 +499,9 @@ export class PassEntry implements OnInit, OnDestroy {
   //=====================================================
   // SECTION 7 : Employee Methods
   //=====================================================
-  loadEmployee(): void {
+  loadEmployee(preserveMobile: boolean = false): void {
     this.empFetchError.set("");
-    this.clearEmployeeData();
+    this.clearEmployeeData(preserveMobile);
     this.fetchingEmployee.set(true);
 
     const url = `${API_CONFIG.EMPLOYEE_REPORT}/${encodeURIComponent(this.employeeNo)}`;
@@ -527,26 +536,30 @@ export class PassEntry implements OnInit, OnDestroy {
         }
 
         this.empData = res;
-        this.empName.set(String(res.name || ""));
-        this.empDept.set(String(res.deptName || "").toUpperCase());
-        this.empDeptCode.set(String(res.deptCode || ""));
-        this.empAadhar.set(String(res.aadhaarNo || res.aadharNo || ""));
-        this.empMobile.set(String(res.mobileNo || res.mobile || ""));
+        this.empName.set(String(res.name || "").trim());
+        this.empDept.set(String(res.deptName || "").toUpperCase().trim());
+        this.empDeptCode.set(String(res.deptCode || "").trim());
+        this.empAadhar.set(String(res.aadhaarNo || res.aadharNo || "").trim());
+        if (!preserveMobile) {
+          this.empMobile.set(String(res.mobileNo || res.mobile || "").trim());
+        }
         this.empType_display.set(apiType);
-        this.empContractorCode = String(res.contractorCode || "");
-        this.contractorCode = String(res.contractorCode || "");
-        this.empContractorName = String(res.contractorName || "");
+        this.empContractorCode = String(res.contractorCode || "").trim();
+        this.contractorCode = String(res.contractorCode || "").trim();
+        this.empContractorName = String(res.contractorName || "").trim();
         this.empFetchError.set("");
       });
   }
 
-  private clearEmployeeData(): void {
+  private clearEmployeeData(preserveMobile: boolean = false): void {
     this.empData = null;
     this.empName.set("");
     this.empDept.set("");
     this.empDeptCode.set("");
     this.empAadhar.set("");
-    this.empMobile.set("");
+    if (!preserveMobile) {
+      this.empMobile.set("");
+    }
     this.empType_display.set("");
     this.empContractorCode = "";
     this.empContractorName = "";
@@ -601,7 +614,7 @@ export class PassEntry implements OnInit, OnDestroy {
       updatedDocs[index] = {
         ...updatedDocs[index],
         documentType,
-        documentNo: "",
+        documentNo: updatedDocs[index]?.documentNo || generateRandomDocNo(),
         expiryDate: "",
         file: null,
         fileName: "",
@@ -836,9 +849,8 @@ export class PassEntry implements OnInit, OnDestroy {
         this.saveError.set(`Please select Document Type for row ${i + 1}.`);
         return false;
       }
-      if (!doc.documentNo.trim()) {
-        this.saveError.set(`Please enter Document Number for row ${i + 1}.`);
-        return false;
+      if (!doc.documentNo?.trim()) {
+        doc.documentNo = generateRandomDocNo();
       }
       if (!doc.expiryDate) {
         this.saveError.set(`Please select Expiry Date for row ${i + 1}.`);
@@ -923,14 +935,19 @@ export class PassEntry implements OnInit, OnDestroy {
       status: this.status,
       remark: this.remark,
       enterBy: this.enterBy,
-      documents: this.documents().filter(
-        (doc) =>
-          !!doc.documentType?.trim() ||
-          !!doc.documentNo?.trim() ||
-          !!doc.expiryDate ||
-          !!doc.file ||
-          !!doc.existingFile,
-      ),
+      mobileNo: this.empMobile()?.trim() ?? "",
+      documents: this.documents()
+        .filter(
+          (doc) =>
+            !!doc.documentType?.trim() ||
+            !!doc.expiryDate ||
+            !!doc.file ||
+            !!doc.existingFile,
+        )
+        .map((doc) => ({
+          ...doc,
+          documentNo: doc.documentNo?.trim() || generateRandomDocNo(),
+        })),
     };
 
     console.log("========= PASS FORM PAYLOAD =========");
@@ -1120,13 +1137,14 @@ export class PassEntry implements OnInit, OnDestroy {
           this.gateNo = response.gateNo ?? "";
           this.parkingToBeUsed = response.parkingToBeUsed ?? "";
           this.status = response.reqStatus ?? PassStatus.SAVED;
+          this.empMobile.set(String(response.mobileNo ?? "").trim());
 
           if (response.documents && response.documents.length > 0) {
             this.documents.set(
               response.documents.map((doc) => ({
                 documentId: doc.documentId ?? null,
                 documentType: doc.documentType ?? "",
-                documentNo: doc.documentNo ?? "",
+                documentNo: doc.documentNo || generateRandomDocNo(),
                 expiryDate: doc.expiryDate ?? "",
                 fileKey: doc.fileKey ?? "",
                 fileName: doc.fileName ?? "",
@@ -1142,7 +1160,7 @@ export class PassEntry implements OnInit, OnDestroy {
           this.saveSuccess.set("Pass details loaded successfully.");
 
           if (this.employeeNo) {
-            this.loadEmployee();
+            this.loadEmployee(true);
           }
         },
         error: (error) => {

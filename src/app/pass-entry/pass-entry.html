@@ -196,7 +196,7 @@
         <!-- MOBILE NUMBER -->
         <div class="pe-field">
           <label>Mobile Number</label>
-          <input type="text" class="pe-input pe-readonly" [value]="empMobile()" readonly placeholder="Auto Filled" />
+          <input type="text" class="pe-input" [value]="empMobile()" (input)="empMobile.set($any($event.target).value)" placeholder="Auto Filled/Editable" maxlength="15" />
         </div>
       </div>
 
@@ -316,7 +316,6 @@
       <div class="pe-doc-table">
         <div class="pe-doc-header-row">
           <span> Document Type </span>
-          <span> Document No</span>
           <span> Expiry Date </span>
           <span> File </span>
           <span> Action </span>
@@ -335,11 +334,6 @@
               </option>
               }
             </select>
-          </div>
-          <div class="pe-doc-cell">
-
-            <input type="text" class="pe-input pe-input-sm" placeholder="Document Number" [(ngModel)]="doc.documentNo"
-              [readonly]="isReadOnlyMode" (input)="onDocNoInput($event,doc)" maxlength="60" />
           </div>
           <div class="pe-doc-cell">
             <input type="date" class="pe-input pe-input-sm" [(ngModel)]="doc.expiryDate" [min]="todayDate"

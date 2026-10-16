@@ -485,7 +485,7 @@ textarea.pe-input {
 .pe-doc-header-row,
 .pe-doc-row {
   display: grid;
-  grid-template-columns: 20% 20% 20% 30% 10%;
+  grid-template-columns: 25% 25% 40% 10%;
   width: 100%;
   box-sizing: border-box;
 }
