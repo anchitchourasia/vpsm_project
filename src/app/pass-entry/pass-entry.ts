@@ -635,10 +635,10 @@ export class PassEntry implements OnInit, OnDestroy {
     }
 
     const file = input.files[0];
-    const maxSize = 5 * 1024 * 1024;
+    const maxSize = 10 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      alert("File size must be less than 5 MB.");
+      alert("File size must be less than 10 MB.");
       input.value = "";
       return;
     }
